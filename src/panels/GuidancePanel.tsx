@@ -284,78 +284,94 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
                 data-spread={spread.toFixed(2)}
               >
                 <div className="settings-section__title">
-                  <span>{t(VARIABLE_KEYS[reading.variable])}</span>
+                  <span id={`guidance-name-${reading.variable}`}>
+                    {t(VARIABLE_KEYS[reading.variable])}
+                  </span>
                   <small>
                     {spread > 0.35
                       ? t("guidance.disagree", { unit: reading.unit })
                       : t("guidance.agree", { unit: reading.unit })}
                   </small>
                 </div>
-                <table className="guidance-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">{t("guidance.model")}</th>
-                      {reading.hours.slice(0, 8).map((hour) => (
-                        <th scope="col" key={hour.time}>
-                          {hourLabel(new Date(hour.time))}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {guidance.models.map((model, index) => {
-                      const named = GUIDANCE_MODELS.find(
-                        (entry) => entry.id === model,
-                      );
-                      if (!named || !answered.includes(model)) return null;
-                      return (
-                        <tr key={model}>
-                          <th scope="row">{t(named.key)}</th>
-                          {reading.hours.slice(0, 8).map((hour) => {
-                            const now = hour.values[index];
-                            const before = hour.previous?.[index] ?? null;
-                            // The change since the previous run, when both
-                            // ends of it exist. A model that has nothing for
-                            // this hour in one run or the other has no change
-                            // to report, which is not the same as no change.
-                            const moved =
-                              now !== null && before !== null
-                                ? now - before
-                                : null;
-                            return (
-                              <td key={hour.time}>
-                                {now === null
-                                  ? t("guidance.noValue")
-                                  : show(reading.variable, now)}
-                                {guidance.comparedWithPreviousRun ? (
-                                  <small
-                                    className="guidance-change"
-                                    data-direction={
-                                      moved === null
-                                        ? "unknown"
-                                        : moved > 0
-                                          ? "up"
-                                          : moved < 0
-                                            ? "down"
-                                            : "same"
-                                    }
-                                  >
-                                    {moved === null
-                                      ? t("guidance.noPrevious")
-                                      : `${moved > 0 ? "+" : ""}${show(
-                                          reading.variable,
-                                          moved,
-                                        )}`}
-                                  </small>
-                                ) : null}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                {/* The table is wider than the panel when nine columns of
+                    one-line headers need it, so this is what scrolls rather
+                    than the block around it: the heading above stays put, and
+                    a box somebody can scroll has to be somewhere they can put
+                    the keyboard. Named by that heading, because a tab stop
+                    that announces itself as "group" and nothing else is worse
+                    than no tab stop. */}
+                <div
+                  className="guidance-scroll"
+                  role="region"
+                  tabIndex={0}
+                  aria-labelledby={`guidance-name-${reading.variable}`}
+                >
+                  <table className="guidance-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">{t("guidance.model")}</th>
+                        {reading.hours.slice(0, 8).map((hour) => (
+                          <th scope="col" key={hour.time}>
+                            {hourLabel(new Date(hour.time))}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {guidance.models.map((model, index) => {
+                        const named = GUIDANCE_MODELS.find(
+                          (entry) => entry.id === model,
+                        );
+                        if (!named || !answered.includes(model)) return null;
+                        return (
+                          <tr key={model}>
+                            <th scope="row">{t(named.key)}</th>
+                            {reading.hours.slice(0, 8).map((hour) => {
+                              const now = hour.values[index];
+                              const before = hour.previous?.[index] ?? null;
+                              // The change since the previous run, when both
+                              // ends of it exist. A model that has nothing for
+                              // this hour in one run or the other has no change
+                              // to report, which is not the same as no change.
+                              const moved =
+                                now !== null && before !== null
+                                  ? now - before
+                                  : null;
+                              return (
+                                <td key={hour.time}>
+                                  {now === null
+                                    ? t("guidance.noValue")
+                                    : show(reading.variable, now)}
+                                  {guidance.comparedWithPreviousRun ? (
+                                    <small
+                                      className="guidance-change"
+                                      data-direction={
+                                        moved === null
+                                          ? "unknown"
+                                          : moved > 0
+                                            ? "up"
+                                            : moved < 0
+                                              ? "down"
+                                              : "same"
+                                      }
+                                    >
+                                      {moved === null
+                                        ? t("guidance.noPrevious")
+                                        : `${moved > 0 ? "+" : ""}${show(
+                                            reading.variable,
+                                            moved,
+                                          )}`}
+                                    </small>
+                                  ) : null}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             );
           })
