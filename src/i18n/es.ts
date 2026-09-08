@@ -588,6 +588,8 @@ export const es: Catalogue = {
   "service.tooMany": "ha recibido demasiadas consultas",
   "service.refused": "lo rechazó",
   "service.unexpected": "respondió de una forma que no se pudo leer",
+  "service.unreachable": "No se pudo llegar al servicio.",
+  "service.failed": "La consulta falló.",
   "route.routerRefused": "El servicio de rutas {answer}.",
   "route.straightOffer": "Usar una línea recta",
   "route.straightNote":
@@ -1252,6 +1254,7 @@ export const es: Catalogue = {
     "No hay ningún globo cerca en los últimos dos días. Los lanzamientos son dos veces al día en unos noventa sitios, así que un lugar lejos de uno no tiene nada que mostrar.",
   "sounding.noneForecast": "El modelo no tiene una columna para aquí.",
   "sounding.failedAny": "No se pudo leer el sondeo.",
+  "sounding.failedTitle": "No se pudo leer el sondeo",
   "sounding.chartLabel": "Diagrama oblicuo T log-P de {place}",
   "sounding.chartNote":
     "Temperatura y punto de rocío frente a la presión. Las isotermas se inclinan a la derecha para que las dos curvas se separen; las líneas finas del fondo son adiabáticas secas, adiabáticas saturadas y razón de mezcla.",

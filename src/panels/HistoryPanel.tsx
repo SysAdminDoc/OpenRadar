@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
+import { failureSentence } from "../lib/serviceAnswer";
 import {
   ARCHIVE_FIRST_YEAR,
   canReplay,
@@ -65,9 +66,7 @@ function dateLabel(seconds: number): string {
 }
 
 function failureMessage(failure: unknown): string {
-  return failure instanceof Error
-    ? failure.message
-    : translate("history.failedBody");
+  return failureSentence(failure, translate("history.failedBody"));
 }
 
 export function HistoryPanel({
