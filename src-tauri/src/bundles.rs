@@ -402,11 +402,12 @@ pub fn addresses(request: &CaptureRequest) -> Result<Vec<String>, BundleError> {
             urls.push(url.clone());
         }
     }
-    // Checked here as well as in `validate`, because this builds the list that
-    // is actually fetched and the two are reached by different callers.
-    if urls.len() > MAX_TILES + MAX_EXTRA_URLS {
-        return Err(BundleError::TooManyTiles(urls.len()));
-    }
+    // Not checked again. `validate` above has already refused more than
+    // `MAX_EXTRA_URLS` documents, the loop above refuses the tile past
+    // `MAX_TILES`, and this is the only way in, so a second check on the sum
+    // cannot fire. It was here with a comment saying the two are reached by
+    // different callers, which was not true of either of them.
+    debug_assert!(urls.len() <= MAX_TILES + MAX_EXTRA_URLS);
     Ok(urls)
 }
 
