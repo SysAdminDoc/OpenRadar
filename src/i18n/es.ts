@@ -212,6 +212,7 @@ export const es: Catalogue = {
   "units.mph": "mph",
   "units.feet": "ft",
   "units.inches": "in",
+  "units.inchesLong": "pulgadas",
   "units.mile": "mi",
   "history.trackPoint": "{kind} {knots} kt",
   "storm.status.TD": "Depresión tropical",
@@ -1286,7 +1287,8 @@ export const es: Catalogue = {
     "Líneas de razón de mezcla, en gramos por kilogramo: {values}.",
   "layers.tropicalDetail":
     "Conos, trayectorias y perspectivas de desarrollo del NHC",
-  "layers.satelliteDetail": "GeoColor de GOES-East debajo del radar",
+  "layers.satelliteDetail":
+    "Imágenes de satélite debajo del radar, del GOES-East, GOES-West o Himawari que cubra la vista",
   "layers.rotationDetail":
     "Cizalladura azimutal de MRMS acumulada durante el periodo que elijas",
   "layers.rotationPeriod": "Hasta dónde llega hacia atrás la traza",
@@ -2194,7 +2196,8 @@ export const es: Catalogue = {
   "radar.noFrames": "No se publicó ningún cuadro.",
   "radar.noProvider": "Ninguna fuente de radar respondió.",
   "radar.noTimes": "No se publicó ningún horario de radar.",
-  "radar.rainviewerEmpty": "RainViewer no devolvió cuadros utilizables.",
+  "radar.rainviewerEmpty":
+    "La fuente de radar de reserva respondió sin nada que dibujar.",
   "radar.requestFailedShort": "La consulta falló.",
   "radar.noRun": "El pronóstico aún no ha publicado una corrida nueva.",
   "radar.archive": "Archivo de radar de Iowa State",

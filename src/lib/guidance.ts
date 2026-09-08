@@ -14,7 +14,13 @@ import { cachedUrl } from "./tileCache";
 import { serviceAnswer } from "./serviceAnswer";
 import { translate, type StringKey } from "../i18n";
 import type { GeoPoint } from "./geo";
-import { forecastUnits } from "./units";
+import {
+  forecastUnits,
+  isMetric,
+  precipitationUnit,
+  speedUnit,
+  temperatureUnit,
+} from "./units";
 
 /** The models worth putting beside each other, with what to call them. */
 export const GUIDANCE_MODELS = [
@@ -38,6 +44,32 @@ const VARIABLES = [
 ] as const;
 
 export type GuidanceVariable = (typeof VARIABLES)[number];
+
+/**
+ * How this panel labels a variable's unit.
+ *
+ * Not the token the service sent. Open-Meteo writes its units as `mp/h`,
+ * `inch` and `°F`, and those went on screen unchanged: "they disagree, in
+ * mp/h", in every language, where the rest of the app writes "mph" and a
+ * Spanish reader has never seen either spelling. The numbers are already in
+ * the reader's own system, because the request asks for it, so only the label
+ * was ever wrong.
+ *
+ * Inches are spelled out here and abbreviated everywhere else in the app. The
+ * sentence around this one is "they agree, in {unit}", and "in in" is not
+ * something anybody writes; nothing else in the panel prints the unit, so
+ * there is nothing for the long form to disagree with.
+ */
+export function variableUnit(variable: GuidanceVariable): string {
+  switch (variable) {
+    case "temperature_2m":
+      return temperatureUnit();
+    case "precipitation":
+      return isMetric() ? precipitationUnit() : translate("units.inchesLong");
+    case "wind_speed_10m":
+      return speedUnit();
+  }
+}
 
 export interface GuidanceHour {
   /** Milliseconds, UTC, which is what the whole app times things in. */

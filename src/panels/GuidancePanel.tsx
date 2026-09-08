@@ -10,6 +10,7 @@ import {
   fetchModelRuns,
   modelsThatAnswered,
   runIsStale,
+  variableUnit,
   type Guidance,
   type GuidanceModelId,
   type GuidanceVariable,
@@ -298,8 +299,12 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
                   </span>
                   <small>
                     {spread > 0.35
-                      ? t("guidance.disagree", { unit: reading.unit })
-                      : t("guidance.agree", { unit: reading.unit })}
+                      ? t("guidance.disagree", {
+                          unit: variableUnit(reading.variable),
+                        })
+                      : t("guidance.agree", {
+                          unit: variableUnit(reading.variable),
+                        })}
                   </small>
                 </div>
                 {/* The table is wider than the panel when nine columns of
