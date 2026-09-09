@@ -470,6 +470,7 @@ fn draw_product(
         },
         radar: RADAR,
         range_km: asked.range_km,
+        gate_km: asked.bin_km,
     })
 }
 

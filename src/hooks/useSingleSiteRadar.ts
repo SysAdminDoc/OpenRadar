@@ -137,12 +137,21 @@ export interface SingleSiteState {
   saveVolume: (() => Promise<DataExportReport>) | null;
 }
 
-/** A site's whole reach, in the corners the native side answers with. */
+/**
+ * A site's whole reach, in the corners the native side answers with, and the
+ * two numbers that say how much detail is in it.
+ *
+ * The reach and the gate travel together because they are only useful
+ * together: how far to narrow the box is the question of when a pixel is
+ * finer than a gate, and a reach with no gate beside it cannot answer it.
+ */
 interface Disc {
   west: number;
   south: number;
   east: number;
   north: number;
+  rangeKm: number;
+  gateKm: number;
 }
 
 /** A decoded volume, and when this app took delivery of it. */
@@ -302,20 +311,38 @@ export function useSingleSiteRadar(options: {
    * Records a site's reach, from an answer that covered all of it, and which
    * site a file carries when the answer came from one.
    */
-  const rememberDisc = useCallback((answer: SweepImage) => {
-    setDiscs((now) =>
-      now[answer.station]
-        ? now
-        : {
-            ...now,
-            [answer.station]: {
-              west: answer.west,
-              south: answer.south,
-              east: answer.east,
-              north: answer.north,
-            },
+  const rememberDisc = useCallback((answer: SweepImage, whole: boolean) => {
+    setDiscs((now) => {
+      const held = now[answer.station];
+      // The corners are learned once, from an answer that covered the whole
+      // disc. A boxed answer's corners are the box, and taking those would
+      // measure every later box against a sliver of the site's reach.
+      if (!held) {
+        if (!whole) return now;
+        return {
+          ...now,
+          [answer.station]: {
+            west: answer.west,
+            south: answer.south,
+            east: answer.east,
+            north: answer.north,
+            rangeKm: answer.rangeKm,
+            gateKm: answer.gateKm,
           },
-    );
+        };
+      }
+      // The gate is not learned once, because it is a property of the moment
+      // rather than of the site: an archive volume from before super
+      // resolution carries its reflectivity on kilometre gates and its
+      // velocity on quarter kilometre ones, and how far the box may narrow
+      // follows whichever is being drawn. It arrives on boxed answers too,
+      // which is the only kind there is once a reader has zoomed in.
+      if (held.gateKm === answer.gateKm) return now;
+      return {
+        ...now,
+        [answer.station]: { ...held, gateKm: answer.gateKm },
+      };
+    });
   }, []);
 
   /**
@@ -917,7 +944,7 @@ export function useSingleSiteRadar(options: {
         // A whole-disc answer says what this site's reach is, wherever the
         // site is. That is the only way a file recorded at a station the map
         // has never been near ever gets a box of its own.
-        if (asked === null) rememberDisc(next);
+        rememberDisc(next, asked === null);
         if (source.kind === "local") {
           noteFileSite(source.path, next.station);
           // Everything held for this path goes, because a path is not a
@@ -1184,7 +1211,7 @@ export function useSingleSiteRadar(options: {
     void fetchHistorical(historicalSource)
       .then((next) => {
         if (!reply.current() || request !== requestRef.current) return;
-        if (asked === null) rememberDisc(next);
+        rememberDisc(next, asked === null);
         if (historicalSource.kind === "local") {
           noteFileSite(historicalSource.path, next.station);
         }
@@ -1266,7 +1293,7 @@ export function useSingleSiteRadar(options: {
         // Recorded whether or not this answer is still the one on screen: it
         // is true about the site rather than about this request, and without
         // it there is nothing to measure the next box against.
-        if (within === null) rememberDisc(next);
+        rememberDisc(next, within === null);
         // Whether the volume in progress could be read, which the picture
         // itself cannot say: a site between volumes and a site whose chunks
         // cannot be reached both come back as the last finished volume, and

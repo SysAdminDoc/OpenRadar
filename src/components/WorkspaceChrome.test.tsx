@@ -75,6 +75,7 @@ function sweepOf(live: boolean): SweepImage {
     volume: "v",
     radar: "WSR-88D",
     rangeKm: 230,
+    gateKm: 0.25,
     source: {
       kind: "recent",
       label: "NOAA NEXRAD Level II",
