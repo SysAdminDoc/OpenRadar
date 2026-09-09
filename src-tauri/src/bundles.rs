@@ -730,6 +730,16 @@ fn slug(label: &str) -> String {
 }
 
 /// Fetches every address a request names and writes the bundle.
+/// What a captured replay is called on disk.
+///
+/// Its own function so the test that holds every name this module can build
+/// against the app's allowlist builds them the way the writer does. Written
+/// out in both places, a change to the shape here would leave that test
+/// passing on a name nothing writes any more.
+fn replay_file_name(label: &str, id: &str) -> String {
+    format!("openradar-replay-{}-{}.orb", slug(label), &id[..8])
+}
+
 async fn capture(request: CaptureRequest, folder: PathBuf) -> Result<CaptureReport, BundleError> {
     let urls = addresses(&request)?;
     let created_at = Utc::now();
@@ -830,11 +840,20 @@ async fn capture(request: CaptureRequest, folder: PathBuf) -> Result<CaptureRepo
 
     let bytes = write_bundle(&manifest, &entries)?;
     let sha256 = sha256_hex(&bytes);
-    let name = format!(
-        "openradar-replay-{}-{}.orb",
-        slug(&manifest.label),
-        &id[..8]
-    );
+    let name = replay_file_name(&manifest.label, &id);
+    // The same question `data_export::write_pair` asks, for the same reason:
+    // this writes through `write_atomically`, which checks nothing, so a name
+    // this module builds was held to no list at all. Asked as a comparison
+    // rather than called for its answer, because rewriting here would save a
+    // replay under a name nobody asked for.
+    match exports::sanitize_file_name(&name) {
+        Ok(safe) if safe == name => {}
+        _ => {
+            return Err(BundleError::Write(format!(
+                "{name} is not a name this app writes"
+            )))
+        }
+    }
     let path = folder.join(name);
     let written = bytes.len() as u64;
     tauri::async_runtime::spawn_blocking(move || {
@@ -1336,6 +1355,28 @@ pub(crate) mod tests {
         );
         assert_eq!(slug("!!!"), "replay");
         assert!(slug(&"x".repeat(200)).len() <= 40);
+
+        // And every name it can build is one the app allows, which is the
+        // check the writer runs. This module wrote through `write_atomically`
+        // and asked nothing, so it was safe by an argument about `slug` being
+        // bounded and prefixed rather than by anything holding it. The label
+        // comes from the reader, so the hostile shapes are theirs to give.
+        for label in [
+            "IAN 2022",
+            "!!!",
+            "../../etc/passwd",
+            "CON",
+            "  ..  ",
+            &"x".repeat(200),
+            "\u{202e}gnp.exe",
+        ] {
+            let name = replay_file_name(label, "a1b2c3d4ffffffffffffffff");
+            assert_eq!(
+                exports::sanitize_file_name(&name).ok().as_deref(),
+                Some(name.as_str()),
+                "{label} built a name the app would not write"
+            );
+        }
     }
 
     #[test]
