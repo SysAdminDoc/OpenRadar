@@ -1,98 +1,175 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import postcss, { type Rule } from "postcss";
 import { describe, expect, it } from "vitest";
 
 const ROOT = join(import.meta.dirname, "..");
 
 /**
- * A rule in the stylesheet, with the at-rule it sits inside.
+ * Read with the parser the build itself uses rather than a walk written here.
  *
- * Two rules only compete when their selector and their context are both the
- * same string: identical selectors have identical specificity, so the later
- * one wins outright, and a rule inside a media query is not competing with
- * one outside it at all.
+ * A hand-rolled one was written first and was wrong: this file's comments
+ * quote whole rules back, braces and all, and a walk that steps over a
+ * comment as text loses count. It saw 37 rules carrying a colour where there
+ * are 80, and the gate built on it passed over a colour planted in the middle
+ * of the file. A stylesheet is not a thing to parse by eye.
  */
-interface Rule {
-  context: string;
-  selector: string;
-  body: string;
-  line: number;
-}
-
 function rules(css: string): Rule[] {
   const found: Rule[] = [];
-  const at: string[] = [];
-  let head = "";
-  for (let i = 0; i < css.length; i += 1) {
-    const character = css[i];
-    if (character === "{") {
-      const selector = head.trim();
-      head = "";
-      if (selector.startsWith("@")) {
-        at.push(selector);
-        continue;
-      }
-      let end = i + 1;
-      let depth = 1;
-      while (end < css.length && depth > 0) {
-        if (css[end] === "{") depth += 1;
-        if (css[end] === "}") depth -= 1;
-        end += 1;
-      }
-      found.push({
-        context: at.join(" >> "),
-        selector,
-        body: css.slice(i + 1, end - 1),
-        line: css.slice(0, i).split("\n").length,
-      });
-      i = end - 1;
-      continue;
-    }
-    if (character === "}") {
-      at.pop();
-      head = "";
-      continue;
-    }
-    head += character;
-  }
+  postcss.parse(css).walkRules((rule) => {
+    found.push(rule);
+  });
   return found;
 }
 
-/** Which properties a rule sets, ignoring the custom ones a theme reaches. */
-function properties(body: string): Map<string, string> {
-  const set = new Map<string, string>();
-  let depth = 0;
-  let start = 0;
-  for (let i = 0; i < body.length; i += 1) {
-    if (body[i] === "(") depth += 1;
-    if (body[i] === ")") depth -= 1;
-    if (body[i] !== ";" || depth > 0) continue;
-    const text = body.slice(start, i);
-    start = i + 1;
-    const match = /^\s*([a-z][a-z0-9-]*)\s*:\s*([\s\S]+)$/.exec(text);
-    if (match) set.set(match[1], match[2]);
+/** The at-rule a rule sits inside, as one string, or "" at the top level. */
+function context(rule: Rule): string {
+  const parts: string[] = [];
+  for (
+    let at: Rule["parent"] = rule.parent;
+    at && at.type !== "root";
+    at = at.parent
+  ) {
+    if (at.type === "atrule") parts.unshift(`@${at.name} ${at.params}`);
   }
+  return parts.join(" >> ");
+}
+
+/** Which properties a rule sets, ignoring the custom ones a theme reaches. */
+function properties(rule: Rule): Map<string, string> {
+  const set = new Map<string, string>();
+  rule.walkDecls((declaration) => {
+    if (declaration.parent !== rule) return;
+    if (declaration.prop.startsWith("--")) return;
+    set.set(
+      declaration.prop,
+      declaration.value + (declaration.important ? " !important" : ""),
+    );
+  });
   return set;
 }
+
+/**
+ * Where the stylesheet writes a colour rather than reading a token, and why.
+ *
+ * Matched on the front of a rule's first selector, so a family shares one
+ * reason. A colour anywhere else fails the test below, which is the point:
+ * the light theme is where a literal shows up, and nobody opens the light
+ * theme to add a shadow.
+ */
+const LITERALS_WITH_A_REASON: Array<{ selector: string; reason: string }> = [
+  {
+    selector: ":root",
+    reason: "The palettes themselves, and the ambient washes over the rail.",
+  },
+  {
+    selector: ".legend-ramp",
+    reason: "A ramp is the reading's own colours, which no theme may reach.",
+  },
+  {
+    selector: ".skewt-",
+    reason:
+      "The diagram's own ink: the adiabats, the mixing lines, the two traces.",
+  },
+  { selector: ".hodograph", reason: "The same, for the hodograph." },
+  {
+    selector: ".sounding",
+    reason: "The diagram's ground, and what says a sounding is a model's.",
+  },
+  { selector: ".alert-tag", reason: "The office's own severity colours." },
+  {
+    selector: ".track-swatch",
+    reason: "The colour a track is drawn in on the map, beside the map.",
+  },
+  {
+    selector: ".status-dot",
+    reason: "Answering or quiet, which is a reading of a source.",
+  },
+  {
+    selector: ".capture-bar",
+    reason:
+      "A recording surface, fixed dark on purpose: it is burned into a picture that goes somewhere else, where the reader's theme means nothing.",
+  },
+  {
+    selector: ".ambient-readout",
+    reason:
+      "Drawn straight onto the map, so what it stays legible against is the basemap rather than the chrome; its variant is keyed on that.",
+  },
+  {
+    selector: ".map-popup",
+    reason: "Over the map rather than in the chrome, with its own surface.",
+  },
+  {
+    selector: ".maplibregl-popup",
+    reason:
+      "The library's own markup, styled to match the popup it is part of.",
+  },
+  {
+    selector: ".command-bar",
+    reason:
+      "The rail defines its own ink tokens, which everything in it then reads; the ambient washes over it are the same family.",
+  },
+  {
+    selector: ".command-scroll-region",
+    reason: "A fade to nothing at the ends of a scrolling list.",
+  },
+  {
+    selector: ".surface-panel",
+    reason: "The shadow a panel casts, which is not a colour anybody reads.",
+  },
+  {
+    selector: ".fatal-error__mark",
+    reason: "The ink on the danger colour, which has to stay legible on it.",
+  },
+  {
+    selector: ".map-watermark",
+    reason: "Over the map, with a light counterpart beside it.",
+  },
+  {
+    selector: ".map-readout",
+    reason: "The same: over the map, with a light counterpart beside it.",
+  },
+  {
+    selector: ".source-attribution",
+    reason: "The same again, and the same counterpart.",
+  },
+  {
+    selector: ".map-style-card",
+    reason: "A swatch of the basemap it offers, which is a picture of it.",
+  },
+  {
+    selector: ".segmented-control",
+    reason: "The ink on the accent, which follows the accent, not the theme.",
+  },
+  {
+    selector: 'input[type="range"]',
+    reason: "The thumb of a slider, drawn on the accent.",
+  },
+  {
+    selector: ".product-legend",
+    reason: "Sits over the map beside the ramps it labels.",
+  },
+  { selector: ".radar-legend", reason: "The same, and it carries the ramps." },
+];
 
 /**
  * What the file says against what the browser does.
  *
  * This stylesheet grew a second layout at the bottom without the first one
- * being taken out, so eighty declarations across thirty-three rules were
- * being read by everybody who opened the file and by nobody's browser: a
- * radial vignette on the map stage, the whole of the brand mark's colour, the
- * pressed state of a command button. The first thing anybody does with a rule
- * like that is edit it, watch nothing happen, and go looking for the reason
- * somewhere else.
+ * being taken out, so ninety-two declarations were being read by everybody
+ * who opened the file and by nobody's browser: a radial vignette on the map
+ * stage, the whole of the brand mark's colour, the pressed state of a command
+ * button. The first thing anybody does with a rule like that is edit it,
+ * watch nothing happen, and go looking for the reason somewhere else.
  */
 describe("the stylesheet says what the browser does", () => {
   const css = readFileSync(join(ROOT, "index.css"), "utf8");
+  const all = rules(css);
 
   it("has no declaration a later rule with the same selector already sets", () => {
     const groups = new Map<string, Rule[]>();
-    for (const rule of rules(css)) {
-      const key = `${rule.context}||${rule.selector}`;
+    for (const rule of all) {
+      const key = `${context(rule)}||${rule.selector}`;
       groups.set(key, [...(groups.get(key) ?? []), rule]);
     }
     expect(groups.size).toBeGreaterThan(400);
@@ -100,15 +177,44 @@ describe("the stylesheet says what the browser does", () => {
     const beaten: string[] = [];
     for (const list of groups.values()) {
       if (list.length < 2) continue;
-      const later = properties(list.at(-1)!.body);
+      const later = properties(list.at(-1)!);
       for (const earlier of list.slice(0, -1)) {
-        for (const [property, value] of properties(earlier.body)) {
+        for (const [property, value] of properties(earlier)) {
           // An important declaration wins from wherever it is written, which
           // is the one case where the earlier rule is the one being read.
           if (value.includes("!important")) continue;
           if (!later.has(property)) continue;
           beaten.push(
-            `${earlier.selector} line ${earlier.line}: ${property} is set again at line ${list.at(-1)!.line}`,
+            `${earlier.selector} line ${earlier.source?.start?.line}: ${property} is set again at line ${list.at(-1)!.source?.start?.line}`,
+          );
+        }
+      }
+    }
+    expect(beaten).toEqual([]);
+  });
+
+  it("keeps a rule inside a media query from losing to a later plain one", () => {
+    // A media query adds no specificity. The forced-colours block asks the
+    // system for its own background and its own colour for "this one is
+    // chosen", and both were being lost to plain rules written later in the
+    // file: a reader who asked for high contrast got the app's dark bar and
+    // an active button whose border was gone, with the rule that said
+    // otherwise sitting right there in the file.
+    const plain = all.filter((rule) => !context(rule));
+    const beaten: string[] = [];
+    for (const [at, rule] of all.entries()) {
+      const inside = context(rule);
+      if (!/@media|@supports/.test(inside)) continue;
+      const mine = properties(rule);
+      for (const later of plain) {
+        if (later.selector !== rule.selector) continue;
+        if (all.indexOf(later) < at) continue;
+        const wins = properties(later);
+        for (const [property, value] of mine) {
+          if (value.includes("!important")) continue;
+          if (!wins.has(property)) continue;
+          beaten.push(
+            `${inside} ${rule.selector} line ${rule.source?.start?.line}: ${property} is taken by line ${later.source?.start?.line}`,
           );
         }
       }
@@ -141,12 +247,41 @@ describe("the stylesheet says what the browser does", () => {
     expect(appearance).toContain(`light: "${light}"`);
   });
 
+  it("writes a colour of its own only where somebody said why", () => {
+    // A literal is not wrong. A reading's own ramp, a recording surface and a
+    // halo over a map are all colours that do not belong to a theme. What is
+    // wrong is a new one arriving in the chrome without anybody saying which
+    // of those it is, because the light theme is where that shows up and
+    // nobody opens the light theme to add a shadow.
+    const literal = /#[0-9a-fA-F]{3,8}|rgba?\(/;
+    const light = /data-theme="light"|prefers-color-scheme/;
+    const unexplained: string[] = [];
+    for (const rule of all) {
+      const colours = [...properties(rule).values()].some((value) =>
+        literal.test(value),
+      );
+      if (!colours) continue;
+      // A light rule is the counterpart rather than a thing needing one, and
+      // a keyframe stop is a step in an animation rather than a surface.
+      if (light.test(rule.selector) || light.test(context(rule))) continue;
+      if (context(rule).includes("@keyframes")) continue;
+      const first = rule.selector.split(",")[0].trim();
+      if (
+        LITERALS_WITH_A_REASON.some((one) => first.startsWith(one.selector))
+      ) {
+        continue;
+      }
+      unexplained.push(`${first} line ${rule.source?.start?.line}`);
+    }
+    expect(unexplained).toEqual([]);
+  });
+
   it("has no rule with nothing in it", () => {
     // What is left when the last live declaration goes. It reads as a place
     // something belongs rather than as nothing at all.
-    const empty = rules(css)
-      .filter((rule) => rule.body.trim() === "")
-      .map((rule) => `${rule.selector} line ${rule.line}`);
+    const empty = all
+      .filter((rule) => rule.nodes.length === 0)
+      .map((rule) => `${rule.selector} line ${rule.source?.start?.line}`);
     expect(empty).toEqual([]);
   });
 });
