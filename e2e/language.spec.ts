@@ -6,6 +6,7 @@ import {
   test,
 } from "./support/fixtures";
 import { clipped } from "./support/layout";
+import { openSurface, SURFACES, type OpenSurface } from "./support/surfaces";
 import { pseudoize } from "../src/i18n/pseudo";
 import { en, type StringKey } from "../src/i18n/en";
 import { fr } from "../src/i18n/fr";
@@ -361,23 +362,29 @@ test.describe("a section heading and the line describing it @ownViewport", () =>
       // in the pseudolocale. The shape is the thing, so the sweep finds it
       // rather than being told where to look.
       const tight: string[] = [];
-      let rows = 0;
+      const rows: string[] = [];
       for (const key of PANELS) {
         const button = page.locator(
           `.command-bar button[aria-label="${words(key)}"]`,
         );
         if (!(await button.count())) continue;
         await button.first().click();
-        await expect(page.locator(".surface-panel")).toBeVisible();
         // A panel's contents are a lazy chunk, so the surface is on screen
-        // and empty for a frame or two after the click.
-        await page
-          .waitForFunction(
-            () => document.querySelectorAll(".surface-panel *").length > 20,
-            undefined,
-            { timeout: 4000 },
-          )
-          .catch(() => {});
+        // and empty for a frame or two after the click. Waited on by the
+        // dialog it puts up rather than by counting elements: a threshold of
+        // twenty is a guess, and it was one two panels can never reach, so
+        // for Upload at nineteen elements and Search at sixteen the wait was
+        // a four second sleep that then measured anyway. The role is the same
+        // in every language, which the panel's name is not.
+        const panel = page.getByRole("dialog").first();
+        await expect(panel).toBeVisible();
+        await panel.evaluate(async (node) => {
+          await Promise.all(
+            node
+              .getAnimations({ subtree: true })
+              .map((one) => one.finished.catch(() => undefined)),
+          );
+        });
         const found = await page.evaluate(() => {
           const bad: string[] = [];
           let looked = 0;
@@ -412,13 +419,19 @@ test.describe("a section heading and the line describing it @ownViewport", () =>
           return { bad, looked };
         });
         tight.push(...found.bad.map((one) => `${key}: ${one}`));
-        rows += found.looked;
+        rows.push(`${key}:${found.looked}`);
         await button.first().click();
       }
-      // What stops a clean sweep over nothing. Every panel is a lazy chunk,
-      // and a version of this that measured before they loaded reported zero
-      // rows in all eleven and passed.
-      expect(rows, "no row was measured in any panel").toBeGreaterThan(20);
+      // What stops this reading as a clean sweep over nothing. Every panel is
+      // a lazy chunk, and a version of this that measured before they loaded
+      // reported zero rows in all eleven and passed. Counted per panel rather
+      // than in total, because a total is carried by whichever two panels are
+      // richest and nine panels contributing nothing looks exactly like nine
+      // panels that never opened.
+      expect(
+        rows.filter((one) => Number(one.split(":")[1]) > 0).length,
+        `only these panels had a row on one line: ${rows.join(" ")}`,
+      ).toBeGreaterThan(2);
       expect(tight, "two runs of text meeting on one line").toEqual([]);
     });
   }
@@ -506,66 +519,91 @@ test.describe("a section heading and the line describing it @ownViewport", () =>
     );
   });
 
-  test("names every control in every panel it can open", async ({ page }) => {
-    // The same question over the rest of the app. A heading names the one
-    // control under it and stops naming anything the moment there are two,
-    // and a control with no name at all is one a reader works out from the
-    // words on its buttons.
+  test("names its controls and keeps one edge, on every surface", async ({
+    page,
+  }) => {
+    // Over every surface the workspace can open, from the registry rather
+    // than from the eleven-name list beside it. That list is the command bar
+    // and the app has nineteen surfaces; the registry exists because the
+    // accessibility gate made this exact mistake first, and its own comment
+    // says so. Eight surfaces were never looked at.
     await startIn(page, "en");
-    const seen: string[] = [];
-    let controls = 0;
-    for (const key of PANELS) {
-      const button = page.locator(
-        `.command-bar button[aria-label="${en[key]}"]`,
-      );
-      if (!(await button.count())) continue;
-      await button.first().click();
-      await expect(page.locator(".surface-panel")).toBeVisible();
-      // A panel's contents are a lazy chunk, so the surface is on screen and
-      // empty for a frame or two after the click. Without this wait every
-      // panel counted zero controls and the sweep read as clean over nothing.
-      await page
-        .waitForFunction(
-          () => document.querySelectorAll(".surface-panel *").length > 20,
-          undefined,
-          { timeout: 4000 },
-        )
-        .catch(() => {});
-      controls += await page
-        .locator(".surface-panel .settings-section .segmented-control")
-        .count();
-      seen.push(
-        ...(await page.evaluate(() =>
-          [
-            ...document.querySelectorAll<HTMLElement>(
-              ".surface-panel .settings-section .segmented-control",
-            ),
-          ]
-            .filter((one) => {
-              const section = one.closest<HTMLElement>(".settings-section");
-              const row = one.closest<HTMLElement>(".settings-section > *");
-              if (row?.querySelector("strong")) return false;
-              // One control under a heading is named by the heading. Two are
-              // named by neither.
-              return (
-                (section?.querySelectorAll(".segmented-control").length ?? 0) >
-                1
-              );
-            })
-            .map((one) => one.getAttribute("aria-label") ?? "unnamed"),
-        )),
-      );
-      await button.first().click();
+    const nameless: string[] = [];
+    const ragged: string[] = [];
+    const looked: string[] = [];
+    for (const id of Object.keys(SURFACES) as OpenSurface[]) {
+      await openSurface(page, id);
+      const found = await page.evaluate(() => {
+        const bare: string[] = [];
+        const uneven: string[] = [];
+        let sections = 0;
+        for (const section of document.querySelectorAll<HTMLElement>(
+          ".surface-panel .settings-section",
+        )) {
+          sections += 1;
+          // A control with no name of its own. The heading names the one
+          // control under it and stops naming anything the moment there are
+          // two, and a wrapper around the control is not a name.
+          const controls = section.querySelectorAll(".segmented-control");
+          for (const control of controls) {
+            const row = control.closest<HTMLElement>(".settings-section > *");
+            if (row?.querySelector("strong")) continue;
+            if (controls.length < 2) continue;
+            bare.push(control.getAttribute("aria-label") ?? "unnamed");
+          }
+          // And one left edge per section. Per section rather than per
+          // panel, which is the invariant a reader's eye actually follows
+          // and the one the app really keeps: a switch row with an icon
+          // starts its words after the icon, so the layer list sits forty
+          // pixels right of the switches under it, and both are even within
+          // themselves. A whole-panel rule would have to call that ragged or
+          // be told to ignore it, and neither is true.
+          const edges = new Map<number, string>();
+          for (const label of section.querySelectorAll<HTMLElement>("strong")) {
+            const row = label.closest<HTMLElement>(".settings-section > *");
+            if (!row || row.classList.contains("settings-section__title")) {
+              continue;
+            }
+            // Not rounded: at 130 per cent text the real edges came out at
+            // 5.2, 6.2 and 12.4, and rounding tidies a ragged column for
+            // exactly the reader whose text is largest.
+            const at = label.getBoundingClientRect().left;
+            if (!edges.has(at)) edges.set(at, label.textContent ?? "");
+          }
+          if (edges.size > 1) {
+            uneven.push(
+              [...edges]
+                .map(([at, text]) => `${at}: ${text.slice(0, 20)}`)
+                .join(" / "),
+            );
+          }
+        }
+        return { bare, uneven, sections };
+      });
+      nameless.push(...found.bare.map((one) => `${id}: ${one}`));
+      ragged.push(...found.uneven.map((one) => `${id}: ${one}`));
+      looked.push(`${id}:${found.sections}`);
+      await page.keyboard.press("Escape");
     }
-    // What stops this reading as a clean sweep over nothing. A panel whose
-    // section never renders is a panel this walks past in silence, and the
-    // first version of this passed on the very tree whose defect it was
-    // written for because the section holding it was not on screen.
-    // More than the Settings panel's own five, so this has to have reached a
-    // second panel to pass. The first version of it counted zero everywhere
-    // and reported a clean sweep over nothing.
-    expect(controls, "only one panel was measured").toBeGreaterThan(5);
-    expect(seen, "a control sharing a heading with another").toEqual([]);
+    // Two controls rather than one. Every surface really opened, because
+    // `openSurface` waits for each panel's own dialog by name and fails if it
+    // never arrives, so a silent skip is not available here the way it was
+    // when this clicked a command-bar button and hoped. What is left to say
+    // is that the walk found something to measure: `.settings-section` is the
+    // Settings and Layers idiom rather than a universal one, so most surfaces
+    // contribute nothing and a per-surface floor would be a false one.
+    expect(looked, "a surface was skipped").toHaveLength(
+      Object.keys(SURFACES).length,
+    );
+    const sections = looked.reduce(
+      (sum, one) => sum + Number(one.split(":")[1]),
+      0,
+    );
+    expect(sections, "no section was measured on any surface").toBeGreaterThan(
+      20,
+    );
+    expect(nameless, "a control sharing a heading with another").toEqual([]);
+    expect(ragged, "a section whose labels start at two edges").toEqual([]);
   });
 });
 
