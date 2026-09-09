@@ -1494,6 +1494,14 @@ test("the map style cards do not wrap into ragged rows", async ({ page }) => {
 test("the workspace never grows wider than the window it is drawn in", async ({
   page,
 }) => {
+  // Sixteen full loads of the workspace, each with a panel opened, against a
+  // default budget written for a case that loads it once. It finished in
+  // about 28 seconds of the 30 and then did not, which is not a signal about
+  // the layout: no assertion here is relaxed by the longer budget, and the
+  // run that exposed it had every one of the sixteen passing before the
+  // clock ran out.
+  test.setTimeout(90_000);
+
   // Once anything can scroll the shell sideways, every absolutely positioned
   // piece of map chrome moves with it and some of it goes off the left edge:
   // the toast host was measured at an x of minus 34 at 681 pixels and 130 per
