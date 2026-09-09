@@ -1,3 +1,5 @@
+import { translate } from "../i18n";
+import { log } from "./log";
 import { encodeGifPictures } from "./gif";
 
 interface GifWorkerReply {
@@ -38,14 +40,21 @@ export function encodeGifOffThread(
     worker.onmessage = (event: MessageEvent<GifWorkerReply>) => {
       worker.terminate();
       if (!event.data.ok || !event.data.bytes) {
-        reject(new Error(event.data.error ?? "The GIF worker failed."));
+        // The worker's own line goes to the log and the reader gets this
+        // app's sentence. What comes back over that channel is the encoder's
+        // message, in English whatever the workspace is set to, and it used
+        // to be built into a plain `Error`: `failureSentence` passes a plain
+        // `Error`'s message through by design, so it landed in the toast.
+        log.warn("export", event.data.error ?? "the GIF worker sent no reason");
+        reject(new Error(translate("export.gifFailed")));
         return;
       }
       resolve(new Blob([event.data.bytes], { type: "image/gif" }));
     };
     worker.onerror = (event) => {
       worker.terminate();
-      reject(new Error(event.message || "The GIF worker failed."));
+      log.warn("export", event.message || "the GIF worker would not start");
+      reject(new Error(translate("export.gifFailed")));
     };
     worker.postMessage({ pictures: buffers, width, height, delayMs }, buffers);
   });

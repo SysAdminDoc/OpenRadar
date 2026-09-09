@@ -1860,6 +1860,7 @@ export const es: Catalogue = {
     "El mapa sigue en pantalla. Inténtalo de nuevo cuando haya terminado de dibujarse.",
   "export.loopFailed": "No se pudo exportar la animación",
   "export.nothingWritten": "No se escribió nada.",
+  "export.gifFailed": "No se pudo escribir el GIF en esta máquina.",
   "export.noCanvas": "Esta pantalla no puede dibujar una exportación.",
   "export.notEncoded": "No se pudo codificar la imagen.",
   "export.noVideo": "Esta versión no puede grabar video.",

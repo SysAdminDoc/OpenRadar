@@ -1881,6 +1881,7 @@ export const fr: Catalogue = {
     "La carte est toujours à l'écran. Réessayez une fois qu'elle a fini de se dessiner.",
   "export.loopFailed": "La boucle n'a pas pu être exportée",
   "export.nothingWritten": "Rien n'a été écrit.",
+  "export.gifFailed": "Le GIF n'a pas pu être écrit sur cette machine.",
   "export.noCanvas": "Cet affichage ne peut pas produire une exportation.",
   "export.notEncoded": "L'image n'a pas pu être encodée.",
   "export.noVideo": "Cette version ne peut pas enregistrer de vidéo.",
