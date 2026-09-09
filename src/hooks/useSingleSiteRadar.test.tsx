@@ -633,6 +633,93 @@ describe("historical volumes", () => {
     );
   });
 
+  it("boxes a file it has opened before without asking for the disc again", () => {
+    // Keyed on the file currently open, going back to one seen a moment ago
+    // was asked for unboxed all over again: a whole ten megabyte volume on
+    // every switch back and forth, for a site whose reach was already known.
+    // Nothing about the first file teaches anything the second time.
+    return (async () => {
+      pickArchiveFile.mockResolvedValue("C:/volumes/A_KTLX");
+      fetchLocalSweep.mockImplementation(async (path, product, tilt) => ({
+        ...sweepFor(path.includes("A_") ? "KTLX" : "KVNX", product, tilt),
+        collected: "2013-05-20T20:56:00.000Z",
+        source: { kind: "local", label: String(path), url: null },
+      }));
+      const { result } = renderHook(() =>
+        useSingleSiteRadar(options({ zoom: 13 })),
+      );
+      await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+
+      await act(async () => {
+        await result.current.openLocal();
+      });
+      await waitFor(() => expect(result.current.sweep?.station).toBe("KTLX"));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      pickArchiveFile.mockResolvedValue("C:/volumes/B_KVNX");
+      await act(async () => {
+        await result.current.openLocal();
+      });
+      await waitFor(() => expect(result.current.sweep?.station).toBe("KVNX"));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      // Back to the first file, whose site and reach are both known by now.
+      const before = fetchLocalSweep.mock.calls.length;
+      pickArchiveFile.mockResolvedValue("C:/volumes/A_KTLX");
+      await act(async () => {
+        await result.current.openLocal();
+      });
+      await waitFor(() => expect(result.current.sweep?.station).toBe("KTLX"));
+
+      expect(
+        fetchLocalSweep.mock.calls[before][3],
+        "a file already seen was asked for over its whole disc again",
+      ).toEqual(sweepDetailBox(DISCS.KTLX, [-93.7, 41.7], 13, 1440));
+    })();
+  });
+
+  it("learns a file's site again when the file at that path has changed", () => {
+    // The note was written once and never revisited, so a path whose file had
+    // been replaced on disk with a volume from another station kept the old
+    // station's disc for the life of the window: every ask measured on ground
+    // it does not cover, with nothing to correct it.
+    return (async () => {
+      pickArchiveFile.mockResolvedValue("C:/volumes/same-name");
+      fetchLocalSweep.mockImplementation(async (_path, product, tilt) => ({
+        ...sweepFor("KTLX", product, tilt),
+        collected: "2013-05-20T20:56:00.000Z",
+        source: { kind: "local", label: "same-name", url: null },
+      }));
+      const { result } = renderHook(() =>
+        useSingleSiteRadar(options({ zoom: 13 })),
+      );
+      await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+      await act(async () => {
+        await result.current.openLocal();
+      });
+      await waitFor(() => expect(result.current.sweep?.station).toBe("KTLX"));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      // The same path, a different volume behind it.
+      fetchLocalSweep.mockImplementation(async (_path, product, tilt) => ({
+        ...sweepFor("KVNX", product, tilt),
+        collected: "2013-05-20T20:56:00.000Z",
+        source: { kind: "local", label: "same-name", url: null },
+      }));
+      await act(async () => {
+        await result.current.openLocal();
+      });
+      await waitFor(() => expect(result.current.sweep?.station).toBe("KVNX"));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      // It settles on the new site's own disc rather than the old one's.
+      expect(
+        fetchLocalSweep.mock.calls.at(-1)![3],
+        "the file kept the disc of the volume that used to be at that path",
+      ).toEqual(sweepDetailBox(DISCS.KVNX, [-93.7, 41.7], 13, 1440));
+    })();
+  });
+
   it("does not send one site's box to a file recorded at another", async () => {
     // The box is measured on the live station's disc. A file from disk carries
     // whatever site it was recorded at, and the native side clips the box to
