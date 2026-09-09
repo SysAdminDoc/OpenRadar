@@ -270,6 +270,17 @@ fn stamp(at: DateTime<Utc>) -> String {
     at.to_rfc3339_opts(SecondsFormat::Secs, true)
 }
 
+/// What goes on the end of a data file's name to make its sidecar's.
+///
+/// A constant because two places have to agree about it: the writer, and the
+/// test that holds every name this module writes. The sidecar is the one
+/// write here that does not go through `sanitize_file_name`, and it cannot:
+/// it carries two dots on purpose and that guard turns the inner one into a
+/// dash. What makes it safe is that it is a name already checked plus a
+/// suffix with nothing in it a path could use, and that is what the test
+/// checks rather than an argument in a comment.
+const SIDECAR_SUFFIX: &str = ".provenance.json";
+
 fn sha256_hex(bytes: &[u8]) -> String {
     crate::hex::lower(&Sha256::digest(bytes))
 }
@@ -508,7 +519,7 @@ fn write_pair(
     let checksum = sha256_hex(data);
     provenance.data_file = name.clone();
     provenance.sha256 = checksum.clone();
-    let sidecar_name = format!("{name}.provenance.json");
+    let sidecar_name = format!("{name}{SIDECAR_SUFFIX}");
     let sidecar = serde_json::to_vec_pretty(&provenance)
         .map_err(|error| DataExportError::Write(error.to_string()))?;
 
@@ -1553,6 +1564,24 @@ mod tests {
         }
         assert!(refused("openradar-kdmx.exe"));
         assert!(refused("openradar-kdmx"));
+        // The sidecar beside each of them, which is the one write in this
+        // module that no allowlist can hold: `sanitize_file_name` would turn
+        // its inner dot into a dash and rename it. What makes it safe is
+        // checkable even so, so it is checked: a name that has already passed
+        // plus a suffix carrying nothing a path could use.
+        for name in [
+            file_name(&["KDMX", "reflectivity", "20260901-173211"], "csv"),
+            file_name(&["KDMX", "reflectivity", "20260901-173211"], "tif"),
+            volume_file_name("2026/08/30/KDMX/KDMX20260830_092159_V06", VOLUME_EXTENSION),
+            volume_file_name("ATL_TZ0_2026_08_30_23_40_12", LEVEL3_EXTENSION),
+        ] {
+            assert!(!refused(&name), "{name}");
+            let sidecar = format!("{name}{SIDECAR_SUFFIX}");
+            assert_eq!(sidecar.strip_suffix(SIDECAR_SUFFIX), Some(name.as_str()));
+            assert!(!sidecar.contains(['/', '\\']), "{sidecar}");
+            assert!(!sidecar.contains(".."), "{sidecar}");
+            assert!(sidecar.ends_with(".json"), "{sidecar}");
+        }
         // The one the extension check could not see. Both bucket key segments
         // are non-empty and alphanumeric, so `readable_key` accepts it, and
         // `volume_file_name` takes the last segment unaltered because the
