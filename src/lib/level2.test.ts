@@ -350,7 +350,7 @@ describe("how much ground the sweep is drawn over", () => {
     // the single-site view and still get the whole disc, because a box that
     // reached them would be narrower than the window: see the threshold's
     // own docstring, and `AUD-453`.
-    for (const zoom of [4, 7, 9, 9.9]) {
+    for (const zoom of [4, 7, 8, 9, 9.9]) {
       expect(sweepDetailBox(disc, centre, zoom), String(zoom)).toBeNull();
     }
   });
@@ -370,16 +370,53 @@ describe("how much ground the sweep is drawn over", () => {
     // and this disc covers about 2,016. Without this case a change that
     // narrowed the box to about 504 pixels of coverage passed every gate in
     // the repository and shipped.
+    //
+    // Measured by walking the reader across a whole cell of the snap grid
+    // rather than by dividing the box by four. The quarter is the conclusion
+    // this is supposed to be testing, so asserting it asserts the arithmetic
+    // against itself: widening the snap grid to the box's full width halves
+    // what every reader is guaranteed and left the divided version green.
+    // It is also wrong rather than merely loose once a box is clipped to the
+    // disc, where a quarter of the width bears no relation to the ground
+    // either side of the reader. The nearest edge is the thing itself.
     const windowPx = 1920;
     for (const zoom of [10, 11, 12, 13, 14, 18]) {
-      const box = sweepDetailBox(disc, centre, zoom);
-      expect(box, String(zoom)).not.toBeNull();
-      const guaranteed = (box![2] - box![0]) / 4;
+      const first = sweepDetailBox(disc, centre, zoom);
+      expect(first, String(zoom)).not.toBeNull();
+      // The grid is half the box, so a reader anywhere within a quarter of a
+      // box either side of a grid point gets that point's box. Walking that
+      // span is what puts the snap between the reader and their box, which is
+      // the whole reason the guarantee is a quarter and not a half.
+      //
+      // Positions whose box the disc clips are skipped and counted, the same
+      // way the browser spec does it: there the radar's own reach has run out
+      // and less ground is the honest answer rather than a narrower box.
+      const reach = (first![2] - first![0]) / 4;
+      let worst = Infinity;
+      let worstAt = centre[0];
+      let measured = 0;
+      for (let step = -12; step <= 12; step += 1) {
+        const lon = centre[0] + (reach * step) / 12;
+        const box = sweepDetailBox(disc, [lon, centre[1]], zoom);
+        expect(box, `${zoom} at ${lon}`).not.toBeNull();
+        if (box![0] <= disc.west + 1e-9 || box![2] >= disc.east - 1e-9)
+          continue;
+        measured += 1;
+        const nearest = Math.min(lon - box![0], box![2] - lon);
+        if (nearest < worst) {
+          worst = nearest;
+          worstAt = lon;
+        }
+      }
+      expect(
+        measured,
+        `every box at zoom ${zoom} was clipped, so nothing was measured`,
+      ).toBeGreaterThan(0);
       const halfWindow = (windowPx / 2) * (360 / (512 * 2 ** zoom));
       expect(
-        guaranteed,
-        `zoom ${zoom} leaves ${Math.round(
-          (halfWindow - guaranteed) * 2 * ((512 * 2 ** zoom) / 360),
+        worst,
+        `zoom ${zoom} at ${worstAt.toFixed(4)} leaves ${Math.round(
+          (halfWindow - worst) * 2 * ((512 * 2 ** zoom) / 360),
         )}px of the window uncovered`,
       ).toBeGreaterThanOrEqual(halfWindow);
     }

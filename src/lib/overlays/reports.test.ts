@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { en } from "../../i18n/en";
+import { es } from "../../i18n/es";
+import { fr } from "../../i18n/fr";
+import { ensureLanguage, setLanguage } from "../../i18n";
 import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import {
   REPLAY_RADIUS_DEGREES,
@@ -820,8 +823,25 @@ describe("what a reader is told when neither source answers", () => {
       // told which service as well as what happened.
       const [frame] = en["reports.serviceStatus"].split("{answer}");
       expect(said).toContain(frame);
+
+      // In every language the app ships, because the whole point of the
+      // sentence is that a French reader is not handed an English one.
+      for (const which of ["es", "fr"] as const) {
+        await ensureLanguage(which);
+        setLanguage(which);
+        const abroad = await stormReportsOverlay
+          .fetchData(bounds, undefined, DEFAULT_OVERLAY_CHOICES)
+          .then(
+            () => null,
+            (error: unknown) => (error as Error).message,
+          );
+        const words = which === "es" ? es : fr;
+        expect(abroad, which).not.toContain("Failed to fetch");
+        expect(abroad, which).toContain(words["service.unreachable"]);
+      }
     } finally {
       fetched.mockRestore();
+      setLanguage("en");
     }
   });
 });
