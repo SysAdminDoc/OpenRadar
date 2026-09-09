@@ -163,6 +163,12 @@ function selectors(selector: string): string[] {
  */
 function weight(selector: string): [number, number, number] {
   const root = selectorParser().astSync(selector);
+  // One selector, not a list. A list has no single weight, each of its
+  // selectors carries its own, and reading `first` and stopping would answer
+  // for `.a, #b` with the weight of `.a`. The gate's callers split with
+  // `selectors` before they get here, so this is a refusal rather than a
+  // rule: the next caller that forgets is told rather than answered.
+  expect(root.nodes, `${selector} is a list, not a selector`).toHaveLength(1);
   const found = selectorSpecificity(root.first);
   return [found.a, found.b, found.c];
 }
@@ -485,6 +491,9 @@ describe("the stylesheet says what the browser does", () => {
     // per comma: `:is()` carries its own, and splitting on every one of them
     // made three rules out of this and then weighed `.c) .d` as a selector.
     expect(selectors(".a, :is(.b, .c) .d")).toEqual([".a", ":is(.b, .c) .d"]);
+    // And a list handed straight to `weight` is refused rather than answered
+    // for by whichever selector happens to come first.
+    expect(() => weight(".a, #b")).toThrow();
     // And the subject is the last compound, where a space inside parentheses
     // is not a combinator any more than one inside brackets is.
     expect(subject(":not(.a .b) .c")).toBe(".c");
