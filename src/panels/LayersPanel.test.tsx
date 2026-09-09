@@ -21,6 +21,13 @@ import type {
   LightningWindow,
 } from "../lib/lightningGrids";
 import { DEFAULT_SETTINGS } from "../lib/settings";
+import {
+  IDLE_OVERLAY,
+  type OverlayState,
+  type OverlayStates,
+} from "../hooks/useOverlays";
+import { OVERLAY_ADAPTERS } from "../lib/overlays";
+import type { OverlayId } from "../lib/overlays";
 import { en } from "../i18n/en";
 import type { WorkspaceOverlayFile } from "../lib/workspaceOverlays";
 import type { GaugeQpePeriod } from "../lib/gaugeQpe";
@@ -62,11 +69,15 @@ function panel(overrides: {
   overlayOrder?: string[];
   onOverlayOrder?: (order: string[]) => void;
   onOrderSaid?: (said: string) => void;
+  overlayStates?: OverlayStates;
+  now?: number;
 }) {
   return (
     <LayersPanel
       layers={{ ...DEFAULT_SETTINGS.layers, ...overrides.layers }}
       layerNotes={overrides.layerNotes}
+      overlayStates={overrides.overlayStates}
+      now={overrides.now}
       spcDay={DEFAULT_SETTINGS.spcDay}
       spcHazard={DEFAULT_SETTINGS.spcHazard}
       onSpcDay={() => {}}
@@ -449,5 +460,76 @@ describe("what an opacity slider is called", () => {
     expect(moved.getAttribute("aria-label")).toBe(
       slider.getAttribute("aria-label"),
     );
+  });
+});
+
+describe("what a layer's own source is doing", () => {
+  const NOW = Date.parse("2026-09-09T18:00:00Z");
+
+  /** Every layer idle, with one of them saying something else. */
+  function states(id: OverlayId, state: Partial<OverlayState>): OverlayStates {
+    const all = Object.fromEntries(
+      OVERLAY_ADAPTERS.map((adapter) => [adapter.id, IDLE_OVERLAY]),
+    ) as OverlayStates;
+    return { ...all, [id]: { ...IDLE_OVERLAY, ...state } };
+  }
+
+  it("says a source is not answering, on the row that switches it", () => {
+    // Diagnostics knows and the legend knows. Neither is where somebody is
+    // looking a second after they pressed the switch and nothing happened.
+    render(
+      panel({
+        layers: { earthquakes: true },
+        now: NOW,
+        overlayStates: states("earthquakes", {
+          fetchedAt: NOW - 120_000,
+          error: "The request failed.",
+        }),
+      }),
+    );
+    const said = screen.getByText(
+      (_text, node) =>
+        node?.getAttribute("data-layer-state") === "earthquakes:failed",
+    );
+    expect(said.textContent).toContain(en["layers.stateFailed"]);
+    // With the age of what is still on the map, because the older picture is
+    // the reason the layer is still showing something.
+    expect(said.textContent).toContain("2");
+  });
+
+  it("says nothing at all about a layer that is switched off", () => {
+    // Scoped to what this case rendered rather than to the document: the
+    // renders in this file share one, so a whole-document query answers for
+    // the case before it.
+    const { container } = render(
+      panel({
+        layers: { earthquakes: false },
+        now: NOW,
+        overlayStates: states("earthquakes", {
+          fetchedAt: NOW - 120_000,
+          error: "The request failed.",
+        }),
+      }),
+    );
+    expect(
+      container.querySelector('[data-layer-state^="earthquakes:"]'),
+    ).toBeNull();
+    // The layers that ARE on still say what they are doing, so this is the
+    // switch being off rather than the whole panel having gone quiet.
+    expect(container.querySelector("[data-layer-state]")).not.toBeNull();
+  });
+
+  it("says nothing about a layer with no source of its own", () => {
+    // The national grids, the sweep and the reader's own files all answer
+    // somewhere else, and a state read from an overlay they do not have would
+    // be a sentence about the wrong thing.
+    const { container } = render(
+      panel({
+        layers: { hail: true },
+        now: NOW,
+        overlayStates: states("earthquakes", {}),
+      }),
+    );
+    expect(container.querySelector('[data-layer-state^="hail:"]')).toBeNull();
   });
 });

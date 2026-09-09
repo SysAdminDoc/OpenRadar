@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
-import { shouldRefetch, useOverlays, variantOf } from "./useOverlays";
+import {
+  IDLE_OVERLAY,
+  overlayStatus,
+  shouldRefetch,
+  useOverlays,
+  variantOf,
+} from "./useOverlays";
 import { DEFAULT_OVERLAY_CHOICES } from "../lib/overlays/registry";
 import { OVERLAY_ADAPTERS } from "../lib/overlays";
 import { stormReportsOverlay } from "../lib/overlays/reports";
@@ -317,5 +323,59 @@ describe("a snapshot that outlived the coverage record beside it", () => {
     // The error is what the reader is told, and Day 1's polygons are not
     // drawn under Day 2's heading beside it.
     expect(view.result.current.spcOutlooks.data.features).toHaveLength(0);
+  });
+});
+
+describe("what a switched-on layer has to say for itself", () => {
+  const REFRESH = 5 * 60_000;
+  const NOW = Date.parse("2026-09-09T18:00:00Z");
+
+  it("tells a quiet afternoon from a source that is down", () => {
+    // The whole point of the row. A reader switches a layer on, sees nothing,
+    // and has no way to tell an afternoon with no earthquakes in it from a
+    // service that is not answering. Both draw nothing.
+    const quiet = {
+      ...IDLE_OVERLAY,
+      fetchedAt: NOW - 60_000,
+    };
+    const down = {
+      ...IDLE_OVERLAY,
+      fetchedAt: NOW - 60_000,
+      error: "The request failed.",
+    };
+    expect(overlayStatus(quiet, REFRESH, NOW).health).toBe("fresh");
+    const failed = overlayStatus(down, REFRESH, NOW);
+    expect(failed.health).toBe("failed");
+    expect(failed.error).toBe("The request failed.");
+    // The age of what is still drawn, not of the failure: the older picture
+    // is the reason the layer is still showing something.
+    expect(failed.ageSeconds).toBe(60);
+  });
+
+  it("measures old against the layer's own cadence", () => {
+    // These run from half a minute to six hours apart, so one number for all
+    // of them is either always old or never. A snapshot that has outlived two
+    // of its own refreshes has missed at least one.
+    const at = (agoMs: number) => ({ ...IDLE_OVERLAY, fetchedAt: NOW - agoMs });
+    expect(overlayStatus(at(REFRESH), REFRESH, NOW).health).toBe("fresh");
+    expect(overlayStatus(at(REFRESH * 2 + 1), REFRESH, NOW).health).toBe(
+      "stale",
+    );
+    // And a slower layer at the same age is not old at all.
+    expect(overlayStatus(at(REFRESH * 2 + 1), REFRESH * 4, NOW).health).toBe(
+      "fresh",
+    );
+  });
+
+  it("separates waiting from asking", () => {
+    // A layer just switched on and a layer whose request is out look the same
+    // from the snapshot alone, and they are different news: one of them is
+    // about to answer.
+    expect(overlayStatus(IDLE_OVERLAY, REFRESH, NOW).health).toBe("waiting");
+    expect(
+      overlayStatus({ ...IDLE_OVERLAY, fetching: true }, REFRESH, NOW).health,
+    ).toBe("fetching");
+    // Nothing has ever arrived, so there is no age to give.
+    expect(overlayStatus(IDLE_OVERLAY, REFRESH, NOW).ageSeconds).toBeNull();
   });
 });

@@ -2893,6 +2893,7 @@ export default function App() {
           }}
         >
           <PanelSurfaces
+            now={clock}
             layerNotes={{
               // During a replay this switch is drawing that day's polygons out
               // of the archive rather than today's, so what it has to say

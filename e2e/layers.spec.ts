@@ -1473,3 +1473,44 @@ test("draws the radius each watched place is judged inside, when asked", async (
     stack.indexOf("openradar-overlay-alerts-fill"),
   );
 });
+
+test("says what each switched-on source is doing, on its own row", async ({
+  page,
+}) => {
+  // A reader who switches a layer on and sees nothing has no way to tell an
+  // afternoon with no earthquakes in it from a service that is not answering.
+  // Both draw nothing. Diagnostics knows and the legend knows, and neither is
+  // where somebody is looking a second after they pressed the switch.
+  await page.route("https://earthquake.usgs.gov/**", async (route) => {
+    await route.fulfill({ status: 503, body: "maintenance" });
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  const failing = page
+    .locator(".toggle-row")
+    .filter({ hasText: "Earthquakes" });
+  await failing.getByRole("checkbox").check();
+  await expect(failing.locator("[data-layer-state]")).toHaveAttribute(
+    "data-layer-state",
+    "earthquakes:failed",
+  );
+  await expect(failing.locator("[data-layer-state]")).toContainText(
+    "not answering",
+  );
+
+  // The positive control beside it, through the same panel: a layer whose
+  // source did answer says so, or the case above passes against a build that
+  // reports a failure for everything.
+  const answering = page
+    .locator(".toggle-row")
+    .filter({ hasText: "Weather Alerts" })
+    .first();
+  await expect(answering.locator("[data-layer-state]")).toHaveAttribute(
+    "data-layer-state",
+    "weatherAlerts:fresh",
+  );
+});
