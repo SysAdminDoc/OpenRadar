@@ -101,9 +101,16 @@ describe("asking whether the drawn basemap is a light one", () => {
     expect(drawnOverLight("pro-dark", "light", false)).toBe(false);
   });
 
-  it("is asked that way by both things that draw over the map", () => {
+  it("is asked that way by every thing that draws over the map", () => {
     // A test that calls the helper directly leaves the call sites free to go
     // back to the setting, which is exactly what was wrong. Read the callers.
+    //
+    // Three of them now. The map's own lanes were the third, and they were
+    // added asking `isLightBasemap` alone, so a pack open over the dark
+    // basemap drew the storm cell rings and the placefile points near-white
+    // on a pale sheet. They hold a style that is already resolved, so they
+    // ask `paleGround`, which is the half of this that is left once the
+    // theme has been applied.
     const read = (...where: string[]) =>
       readFileSync(join(import.meta.dirname, "..", ...where), "utf8");
 
@@ -120,5 +127,11 @@ describe("asking whether the drawn basemap is a light one", () => {
     const asked = appearance.slice(Math.max(0, flag - 300), flag);
     expect(asked).toContain("drawnOverLight(");
     expect(asked).toContain("selectedId");
+
+    const viewport = read("components", "MapViewport.tsx");
+    const writes = viewport.match(/overLightRef\.current = [^;]+;/g) ?? [];
+    expect(writes).toEqual([
+      "overLightRef.current = paleGround(mapStyle, incidentPack !== null);",
+    ]);
   });
 });

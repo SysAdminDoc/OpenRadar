@@ -224,8 +224,21 @@ export function drawnOverLight(
   theme: ThemeMode,
   packSelected: boolean,
 ): boolean {
+  return paleGround(resolvedMapStyle(id, theme), packSelected);
+}
+
+/**
+ * The same question, for a caller that already holds the resolved style.
+ *
+ * The map's own lanes do: `MapStage` resolves the style before it reaches
+ * `MapViewport`, so there is no theme left to consult and asking for one
+ * would mean handing over a value nothing reads. What they still need is
+ * the pack, because a pack replaces the basemap outright and the style
+ * says nothing about the ground while one is open.
+ */
+export function paleGround(id: MapStyleId, packSelected: boolean): boolean {
   if (packSelected) return true;
-  return isLightBasemap(resolvedMapStyle(id, theme));
+  return isLightBasemap(id);
 }
 
 export function resolvedMapStyle(id: MapStyleId, theme: ThemeMode): MapStyleId {

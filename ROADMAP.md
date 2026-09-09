@@ -415,11 +415,11 @@ Eleventh research pass, at `8c19165`, an hour after the tenth. It ran the headle
 
 
 
-- [ ] AUD-470 (P3): An incident pack replaces the basemap, and the lanes that choose a colour from it are not told
-      Why: Five lanes pick their ink from `isLightBasemap(mapStyle)`, which answers for the style the reader chose. An incident pack replaces the basemap outright with USGS Topo, which is a pale sheet whatever they had chosen, so over a pack the county lines, the watched ring, the storm cells, a tropical track and a placefile point are all drawn for a basemap that is not on screen. `drawnOverLight` exists for exactly this question and the chrome sitting on the map already uses it; the lanes do not.
-      Evidence: `src/components/MapViewport.tsx` (`overLightRef`, written from `isLightBasemap(mapStyle)`); `src/lib/mapStyles.ts:210-228` (`drawnOverLight`, whose own comment names the pack case); found on 2026-09-09 while draining `AUD-333`.
-      Touches: `src/components/MapViewport.tsx` (one line, where the ref is written), `src/components/MapViewportInk.test.ts` (the gate that says the prop is read once).
-      Acceptance: With a pack open, the storm cell ring is drawn in the light ink; closing the pack puts it back. The e2e pixel read in `e2e/layers.spec.ts` is the shape, with a pack in place of the theme switch.
+- [ ] AUD-471 (P3): A probability ramp over a pale basemap has no casing under it
+      Why: `MAP_INK` gave the small unbacked marks a lightness the ground is not, and a ramp cannot take that fix: the colour is the value. Measured against `MAP_GROUND_LIGHT` with the same formula the ink table is gated on, the ProbSevere outline and fill at the low end of their ramp (`#fde68a`) read 1.06 to one, the route line at thirty per cent (`#facc15`) reads 1.30 and its "no reading" grey (`#94a3b8`) reads 2.18. All three are lines and outlines rather than fills, so the cartographic answer is the one the county lines already use: a wider stroke of the opposite lightness underneath. `casingFor` in `src/lib/lineOnMap.ts` returns exactly that and nothing on the map calls it yet.
+      Evidence: found 2026-09-09 by the refutation pass on `AUD-333`; `src/components/MapViewport.tsx` (the ProbSevere fill and line ramps, the route line ramp), `src/lib/lineOnMap.ts` (`casingFor`, `lightness`), `src/lib/mapStyles.ts` (`MAP_GROUND_LIGHT`).
+      Touches: `src/components/MapViewport.tsx` (a casing layer under each of the two ramped lanes, drawn only over a pale ground), `src/lib/lineOnMap.test.ts` (the ramp stops measured against both grounds, the way `MAP_INK` is).
+      Acceptance: Over `pro-light` with a pack open and without one, every stop of the ProbSevere and route ramps reads at three to one or better against what is behind it; the ramp's own colours are unchanged, because the colour is what the value means.
       Complexity: S
 
 ### Notes on existing items

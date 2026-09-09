@@ -32,21 +32,23 @@ const source = readFileSync(
 const HEX = /#[0-9a-f]{3,8}/i;
 
 describe("which basemap a lane thinks it is drawing over", () => {
-  it("is asked of the prop once, where the ref is written", () => {
+  it("is asked of the props once, where the ref is written", () => {
     // Twice, and neither is a lane: the ref's initial value, read during
     // the render that makes the map and right by construction, and the
     // assignment that keeps it so. Anything else is a lane reading a prop
     // through a closure that will not see it change.
-    const calls = source.match(/isLightBasemap\([^)]*\)/g) ?? [];
-    expect(calls).toEqual([
-      "isLightBasemap(mapStyle)",
-      "isLightBasemap(mapStyle)",
-    ]);
+    //
+    // Through `paleGround` rather than `isLightBasemap`, because the style
+    // is only half the question: a pack replaces the basemap outright and
+    // the style says nothing about the ground while one is open. The same
+    // answer the credits and the chrome already use, asked the way a caller
+    // that holds a resolved style has to ask it.
+    const asked = "paleGround(mapStyle, incidentPack !== null)";
+    expect(source.match(/paleGround\([^)]*\)/g) ?? []).toEqual([asked, asked]);
+    expect(source.match(/isLightBasemap\(/g) ?? []).toEqual([]);
     const writes = source.match(/overLightRef\.current = [^;]+;/g) ?? [];
-    expect(writes).toEqual([
-      "overLightRef.current = isLightBasemap(mapStyle);",
-    ]);
-    expect(source).toContain("useRef(isLightBasemap(mapStyle))");
+    expect(writes).toEqual([`overLightRef.current = ${asked};`]);
+    expect(source).toContain(`useRef(${asked})`);
   });
 
   it("names no colour of its own inside the storm cell lane", () => {
@@ -69,5 +71,11 @@ describe("which basemap a lane thinks it is drawing over", () => {
     // And nothing in it spells a colour out. A hex here is a mark that has
     // gone back to being right on one basemap.
     expect(lane).not.toMatch(HEX);
+    // The ink has to come from the ground rather than from a constant. A
+    // refutation pass got past everything above with `const overLight =
+    // false`, which is the defect this item is about, spelled differently:
+    // the lane still reads `ink` and still names no colour, and every mark
+    // in it is dressed for the dark basemap for good.
+    expect(lane).toContain("const overLight = overLightRef.current;");
   });
 });
