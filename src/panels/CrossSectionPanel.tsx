@@ -81,7 +81,11 @@ export function CrossSectionPanel({
               controls are in the radar product panel and on the map, and a
               reader who came here to cut a volume was left to find them. */}
           {onHoldSite ? (
-            <button type="button" onClick={onHoldSite}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={onHoldSite}
+            >
               {t("section.holdSite")}
             </button>
           ) : null}
