@@ -242,7 +242,20 @@ export function useOverlays(
             }));
           })
           .catch((error: unknown) => {
-            if (controller.signal.aborted) return;
+            // An abort is not a source that is down, whoever started it. The
+            // signal covers the workspace changing its mind; the failure
+            // covers the rest, which is a navigation or a connection reset,
+            // and neither is worth a sentence on the layer. A `DOMException`
+            // is not one of this app's own errors, so `failureSentence` had
+            // no wording for it and the reader was told "The request failed."
+            // about a request that was cancelled. The coverage is dropped
+            // below either way, so the next poll asks again.
+            if (
+              controller.signal.aborted ||
+              (error instanceof DOMException && error.name === "AbortError")
+            ) {
+              return;
+            }
             const message = failureSentence(error);
             log.warn("overlay", `${adapter.label} failed: ${message}`);
             // The last good snapshot stays on the map; only the label changes.

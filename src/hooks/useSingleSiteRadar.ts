@@ -413,6 +413,16 @@ export function useSingleSiteRadar(options: {
   // site's coverage, and zooming out must not silently replace history with now.
   const historicalWanted = available && historicalSource !== null;
 
+  // The held pictures go whenever historical mode does, not only when the
+  // reader presses the way out of it. `resumeRecent` is one exit and turning
+  // the radar off or leaving single site is another: both drop
+  // `historicalWanted` without it running, and eight decoded sweeps stayed
+  // pinned for the life of the window through that door.
+  useEffect(() => {
+    if (historicalWanted) return;
+    historicalHeldRef.current = new Map();
+  }, [historicalWanted]);
+
   // Panning within a site's coverage must not restart the fetch, so the site
   // is resolved from a coarse position rather than the exact centre.
   const near = `${center[0].toFixed(1)},${center[1].toFixed(1)}`;
@@ -880,6 +890,11 @@ export function useSingleSiteRadar(options: {
         // reader opens is the one box that is never kept: they zoom away, the
         // effect fetches and holds the new one, and coming back to where they
         // started is the only move that still costs a round trip.
+        // Deleted first, because `Map.set` on a key already present keeps its
+        // position: re-holding a box the map already carries left that entry
+        // at its oldest place and shed it first despite having just been
+        // used, which is the defect the cache hit above exists to fix.
+        historicalHeldRef.current.delete(key);
         historicalHeldRef.current.set(key, {
           image: next,
           arrivedAt: Date.now(),
@@ -1110,6 +1125,11 @@ export function useSingleSiteRadar(options: {
           noteFileSite(historicalSource.path, next.station);
         }
         historicalRequestRef.current = key;
+        // Deleted first, because `Map.set` on a key already present keeps its
+        // position: re-holding a box the map already carries left that entry
+        // at its oldest place and shed it first despite having just been
+        // used, which is the defect the cache hit above exists to fix.
+        historicalHeldRef.current.delete(key);
         historicalHeldRef.current.set(key, {
           image: next,
           arrivedAt: Date.now(),
