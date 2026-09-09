@@ -2,8 +2,6 @@
 
 ## OpenRadar v0.12.0
 
-- A single radar is drawn at the detail your screen can actually show, from the moment you zoom in far enough to see one. The sweep is one picture over the site's whole 460 kilometre reach, so at a wide zoom it is coarser than your monitor, and the app has been spending the same pixels on less ground as you go in. It only started doing that two zoom levels late, which happened to be the two levels a single site opens at. Those now get it too.
-
 - The credit on an exported picture stays inside the picture. It is drawn small, at the bottom left, and it names every source that went into the frame, which on a busy day is a dozen of them. The box it sits in was allowed to be as wide as the picture and as tall as it liked, so on a small export it climbed past the top edge. It now fits, and it shrinks its own type rather than dropping a source, because a credit with names missing is worse than a credit you have to look closely at.
 
 - A panel that will not download no longer takes the window with it. Ten panels are fetched at the moment you open them, which keeps the app small, and until now a failed fetch threw all the way out to the recovery screen. You lost the map, the timeline and the command bar because a panel you may never open again did not arrive. The failure now stays inside that panel's own frame and says what happened, and everything behind it keeps working. The frame also holds its place while the panel is on the way, so the map no longer shifts aside and then waits on an empty gap.

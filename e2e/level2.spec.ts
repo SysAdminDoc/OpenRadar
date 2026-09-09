@@ -616,21 +616,23 @@ test("spends the sweep's pixels on less ground as the reader goes in", async ({
         .map((call) => call.args.within as number[] | null),
     );
 
-  // The first ask is the whole disc, because nothing yet knows what the site
-  // reaches and the box has to be measured against it.
-  expect((await boxes())[0] ?? null).toBeNull();
+  // At this zoom the whole disc is asked for. Narrowing here would spend the
+  // raster on less ground than the window shows: the box a reader is
+  // guaranteed is a quarter of what is asked for, and the mosaic is off under
+  // a single-site sweep, so the picture would come with bare basemap around
+  // it. See `DISC_IS_ENOUGH_BELOW_ZOOM`.
+  expect((await boxes()).at(-1) ?? null).toBeNull();
 
-  // And the zoom the single-site view opens at gets a box of its own. It used
-  // to be left on the disc, which is 449 metres a pixel against a screen
-  // pixel of 117 at this level: the reader was looking at the app own
-  // sampling and not at the radar, at the one zoom every session passes
-  // through.
+  // Two zooms in, and the app asks for a box instead.
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
   await expect.poll(async () => (await boxes()).at(-1) ?? null).not.toBeNull();
+
   const opened = (await boxes()).at(-1)!;
 
-  // One zoom in, and the app asks for less ground still, which is the whole
-  // claim: the picture gets finer as the reader goes in rather than staying
-  // the grid it was drawn on.
+  // And in again asks for less ground still, which is the whole claim: the
+  // picture gets finer as the reader goes in rather than staying the grid it
+  // was drawn on.
   await page.getByRole("button", { name: "Zoom in", exact: true }).click();
   await expect
     .poll(async () => {
@@ -666,10 +668,24 @@ test("spends the sweep's pixels on less ground as the reader goes in", async ({
   // and how many levels a click covers are both properties of the window.
   await expect.poll(narrowest).toBeLessThan(floor * 1.001);
   // And nothing ever went past it.
+  //
+  // A box the disc clipped is skipped rather than counted against the floor.
+  // `sweepDetailBox` clamps its corners to the disc, so a camera near the
+  // coverage edge is handed less ground than the rule asks for, and that is
+  // the radar's reach running out rather than the box narrowing. Counted, so
+  // that a run where every box happened to be clipped fails here instead of
+  // passing on an assertion it never made.
+  let checked = 0;
   for (const box of await boxes()) {
     if (!box) continue;
+    if (box[0] <= -96.5 + 1e-9 || box[2] >= -91.0 - 1e-9) continue;
     expect(box[2] - box[0]).toBeGreaterThan(floor * 0.999);
+    checked += 1;
   }
+  expect(
+    checked,
+    "every box was clipped, so the floor went untested",
+  ).toBeGreaterThan(0);
 
   // The map is given the ground that came back, not the disc: the picture is
   // placed where it was drawn.

@@ -465,16 +465,31 @@ export function sweepCorners(
  * 512 times two to the zoom, which makes a screen pixel 14 metres at zoom 12
  * and forty degrees north, not the 29 the 256 pixel tile convention gives.
  *
- * Eight rather than seven because eight is where the single-site view opens,
- * so below it there is no sweep to narrow. It was ten, with the exponent
- * below written to start doubling there, and a reader at zoom 8 or 9 was left
- * on a raster four times coarser than their own screen: 234 metres a pixel
- * against 449 at zoom 8, and 117 against 449 at zoom 9. Lowering the
- * threshold alone would not have reached them, because the old exponent gives
- * one step at zoom 9 and half a step at zoom 8, and both spell the whole
- * disc. The two moved together.
+ * Ten, and it cannot be eight, because narrowing the box trades resolution
+ * against coverage and only the first of those is obvious. Outside the box
+ * there is nothing: `MapViewport` drives the mosaic to zero opacity the
+ * moment a single-site sweep is set, so ground the box does not reach is
+ * bare basemap. The centre also snaps to a grid of half the box's width, so
+ * what a reader is guaranteed either side of where they are looking is a
+ * quarter of the box, `wide / (4 * steps)`, not a half.
+ *
+ * A window of W pixels spans `W * 180 / (512 * 2^z)` degrees either side of
+ * its centre, so coverage holds while `W <= wide * 2^z / (1.40625 * steps)`.
+ * With the progression below that is about 2,016 pixels at KDMX, flat from
+ * zoom 10 to 13 and doubling past the ceiling. It was moved to eight on
+ * 2026-09-08 so the raster would match the screen pixel for pixel, which it
+ * did: a 1,024 pixel raster at one raster pixel per screen pixel covers
+ * 1,024 pixels of map, and after the snap about 504. Every window is wider
+ * than that, so the reader got a rectangle of radar in bare basemap from the
+ * level the single-site view opens at.
+ *
+ * Ten is also the most narrowing this raster allows. At zoom 8 a 1,920 pixel
+ * window already spans 5.27 degrees against a disc of 5.54, so there is no
+ * room to narrow at all; at zoom 9 the only step that still covers it is the
+ * whole disc. Reaching zooms 8 and 9 needs a bigger raster or more than one
+ * of them, which is `AUD-453`, not a smaller threshold.
  */
-export const DISC_IS_ENOUGH_BELOW_ZOOM = 8;
+export const DISC_IS_ENOUGH_BELOW_ZOOM = 10;
 
 /**
  * How far the box may be narrowed, as a fraction of the disc.
@@ -522,11 +537,12 @@ export function sweepDetailBox(
   // one made a different box for every hundredth of a level: a held loop
   // frame was orphaned by any zoom change at all, and each miss is another
   // ten megabyte volume off the archive.
-  // Doubling from two at the threshold, which puts the raster within a few
-  // per cent of the reader's own screen at every level it reaches: 225 metres
-  // a pixel against 234 at zoom 8, 112 against 117 at 9, 56 against 58 at 10
-  // and 28 against 29 at 11. Past that the ceiling holds, because a quarter
-  // kilometre gate has nothing finer in it to draw.
+  // Doubling from two at the threshold. That is a quarter of the resolution
+  // the screen could show, deliberately: the same pixels have to cover the
+  // window as well as resolve it, and the box the reader is guaranteed is a
+  // quarter of what is asked for. See the threshold above for the arithmetic
+  // and for what it would take to go finer. Past a sixteenth the ceiling
+  // holds, because a quarter kilometre gate has nothing finer in it to draw.
   const steps = Math.min(
     FINEST_DETAIL_STEPS,
     2 ** (Math.floor(zoom) - DISC_IS_ENOUGH_BELOW_ZOOM + 1),

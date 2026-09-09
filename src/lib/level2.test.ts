@@ -330,19 +330,58 @@ describe("a station the reader is holding", () => {
 });
 
 describe("how much ground the sweep is drawn over", () => {
-  // A real disc: KDMX reaches 230 km, which is about 4.1 degrees of longitude
-  // at 41.7 north and 4.14 of latitude.
-  const disc = { west: -96.06, south: 39.63, east: -91.5, north: 43.77 };
+  // A real disc: KDMX reaches 230 km, which is 2.77 degrees of longitude
+  // either side at 41.7 north and 2.07 of latitude, so 5.54 by 4.14.
+  //
+  // The longitude was 4.56 wide here until 2026-09-08, under a comment
+  // claiming 4.1, and neither was the disc the app draws. It is the four
+  // cardinal points at 230 km, which is what `sweep_extent` returns: due
+  // east of 41.7 north the great circle lands 2.7696 degrees along. A
+  // fixture narrower than the real disc makes the coverage case below
+  // stricter than the app has to be.
+  const disc = { west: -96.55, south: 39.63, east: -91.01, north: 43.77 };
   const centre: [number, number] = [-93.78, 41.7];
   const wide = disc.east - disc.west;
 
   it("draws the whole disc while a screen pixel is coarser than the raster", () => {
-    // 1,024 pixels over 460 kilometres is 449 metres a pixel. Below zoom 8
-    // there is no single-site view to narrow at all, and by zoom 7 a screen
-    // pixel covers more ground than the raster does, so narrowing the box
-    // buys a reader nothing and costs a render.
-    for (const zoom of [4, 7, 7.9]) {
+    // 1,024 pixels over 460 kilometres is 449 metres a pixel. Below about
+    // zoom 10 a screen pixel covers more ground than that, so narrowing the
+    // box buys a reader nothing and costs a render. Zooms 8 and 9 are inside
+    // the single-site view and still get the whole disc, because a box that
+    // reached them would be narrower than the window: see the threshold's
+    // own docstring, and `AUD-453`.
+    for (const zoom of [4, 7, 9, 9.9]) {
       expect(sweepDetailBox(disc, centre, zoom), String(zoom)).toBeNull();
+    }
+  });
+
+  it("covers the window it is drawn in, at every zoom it narrows at", () => {
+    // The other half of the trade, and the half nothing asserted until
+    // 2026-09-08. Outside the box there is nothing at all: `MapViewport`
+    // drives the mosaic to zero opacity the moment a single-site sweep is
+    // set, so ground the box does not reach is bare basemap. The centre also
+    // snaps to a grid of half the box's width, so what a reader is
+    // guaranteed either side of where they are looking is a quarter of the
+    // box, not a half.
+    //
+    // MapLibre's world is 512 times two to the zoom over 360 degrees, and
+    // longitude is linear in x, so a window's half width in degrees is the
+    // same at every latitude. 1,920 is the widest the browser suite runs at,
+    // and this disc covers about 2,016. Without this case a change that
+    // narrowed the box to about 504 pixels of coverage passed every gate in
+    // the repository and shipped.
+    const windowPx = 1920;
+    for (const zoom of [10, 11, 12, 13, 14, 18]) {
+      const box = sweepDetailBox(disc, centre, zoom);
+      expect(box, String(zoom)).not.toBeNull();
+      const guaranteed = (box![2] - box![0]) / 4;
+      const halfWindow = (windowPx / 2) * (360 / (512 * 2 ** zoom));
+      expect(
+        guaranteed,
+        `zoom ${zoom} leaves ${Math.round(
+          (halfWindow - guaranteed) * 2 * ((512 * 2 ** zoom) / 360),
+        )}px of the window uncovered`,
+      ).toBeGreaterThanOrEqual(halfWindow);
     }
   });
 
@@ -350,7 +389,7 @@ describe("how much ground the sweep is drawn over", () => {
     // The whole point: the same 1,024 pixels over less ground is more metres
     // of radar per metre of screen. Pinned as the halving rather than as "it
     // got smaller", which any monotone shrink would satisfy.
-    const spans = [8, 9, 10, 11].map((zoom) => {
+    const spans = [10, 11, 12, 13].map((zoom) => {
       const box = sweepDetailBox(disc, centre, zoom);
       expect(box, String(zoom)).not.toBeNull();
       return box![2] - box![0];
@@ -358,15 +397,13 @@ describe("how much ground the sweep is drawn over", () => {
     expect(spans[0]).toBeCloseTo(wide / 2, 9);
     for (const [at, span] of spans.entries()) {
       if (at > 0)
-        expect(span, `zoom ${8 + at}`).toBeCloseTo(spans[at - 1] / 2, 9);
+        expect(span, `zoom ${10 + at}`).toBeCloseTo(spans[at - 1] / 2, 9);
     }
-    // Zoom 8 is where the single-site view opens, and it used to be left on
-    // the whole disc: 449 metres a pixel against a screen pixel of 234.
     // And a floor, because 28 metres a pixel is already nine times finer than
     // a gate and there is nothing left to resolve. A sixteenth exactly, named
     // rather than compared to whatever the last span happened to be: the
-    // ceiling is the promise, and the level it is first reached at moved when
-    // the exponent did.
+    // ceiling is the promise, and the level it is first reached at moves if
+    // the exponent ever does.
     expect(spans.at(-1)!).toBeCloseTo(wide / 16, 9);
     const deepest = sweepDetailBox(disc, centre, 18);
     expect(deepest![2] - deepest![0]).toBeCloseTo(wide / 16, 9);
@@ -377,13 +414,13 @@ describe("how much ground the sweep is drawn over", () => {
     // fly-tos and a wheel that moves in fractions. Unfloored, every hundredth
     // of a level was its own box, so a held loop frame was orphaned by any
     // zoom change and the next scrub re-fetched the volume behind it.
-    const level = sweepDetailBox(disc, centre, 9)!;
-    for (const zoom of [9, 9.0000001, 9.05, 9.5, 9.9999]) {
+    const level = sweepDetailBox(disc, centre, 12)!;
+    for (const zoom of [12, 12.0000001, 12.05, 12.5, 12.9999]) {
       expect(sweepDetailBox(disc, centre, zoom), String(zoom)).toEqual(level);
     }
     // And the next level really is a different box, so this is quantising
     // rather than ignoring the zoom.
-    expect(sweepDetailBox(disc, centre, 10)).not.toEqual(level);
+    expect(sweepDetailBox(disc, centre, 13)).not.toEqual(level);
   });
 
   it("holds one box across a whole grid cell, wherever the reader started", () => {
