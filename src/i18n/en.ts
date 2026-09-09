@@ -1826,6 +1826,7 @@ export const en = {
     "The map is still on screen. Try again once it has finished drawing.",
   "export.loopFailed": "The loop could not be exported",
   "export.nothingWritten": "Nothing was written.",
+  "export.gifFailed": "The GIF could not be written on this machine.",
   "export.noCanvas": "This display cannot render an export.",
   "export.notEncoded": "The picture could not be written.",
   "export.noVideo": "This build cannot record a video.",

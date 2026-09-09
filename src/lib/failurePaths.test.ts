@@ -90,6 +90,14 @@ const SINKS = [
   // `log.warn` and never a reader. Making it a sink convicts a developer log
   // this file's own docblock exempts.
   "throw new Error",
+  // And the same sentence handed to a promise instead of thrown, which is
+  // how the GIF export leaked "The GIF worker failed." and the encoder's own
+  // English into a toast: whoever catches it runs it through
+  // `failureSentence`, which passes a plain `Error`'s own message through by
+  // design. `new Error` is part of the name on purpose. A bare `reject`
+  // convicts `alerts.ts`, which rejects with a `DOMException` that
+  // `failureSentence` translates, and that is correct code.
+  "reject(new Error",
 ];
 
 /** A failure's own message, which is the engine's words and never translated. */
@@ -138,7 +146,13 @@ function callsTo(
   sink: string,
 ): Array<{ at: number; call: string }> {
   const found: Array<{ at: number; call: string }> = [];
-  const opener = new RegExp(`\\b${sink}\\s*\\(`, "g");
+  // Escaped, because a sink may name more than a bare identifier:
+  // `reject(new Error` carries a bracket, which is a regex of its own
+  // otherwise and threw "Unterminated group" the first time it was added.
+  const opener = new RegExp(
+    `\\b${sink.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\(`,
+    "g",
+  );
   for (const match of text.matchAll(opener)) {
     const from = match.index + match[0].length - 1;
     found.push({ at: from, call: balanced(text, from, "(", ")") });
