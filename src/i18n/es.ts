@@ -1680,6 +1680,7 @@ export const es: Catalogue = {
   "fatal.copyRefused": "El portapapeles lo rechazó",
   "fatal.copy": "Copiar diagnóstico",
   "panelChunk.loading": "Abriendo",
+  "panelChunk.loadingPanel": "Abriendo {title}",
   "panelChunk.eyebrow": "OpenRadar conservó el mapa",
   "panelChunk.failed":
     "Este panel se descarga al abrirlo y no se pudo obtener. El mapa y todo lo demás siguen funcionando. Al recargar OpenRadar se intentará de nuevo.",

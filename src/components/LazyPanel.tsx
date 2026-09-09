@@ -95,6 +95,15 @@ function PanelPlaceholder({
     <section
       className={`surface-panel ${className}`}
       aria-busy="true"
+      // Announced once, as a status rather than as the panel. A reader using
+      // a screen reader pressed a surface button and heard nothing at all
+      // until the chunk landed, measured at about 1,100 ms cold: the press
+      // took, and the only thing on screen saying so was visual. `status` is
+      // polite, so it waits for a gap rather than cutting in, and it carries
+      // its own name because the two words inside it are laid out as a panel
+      // heading and would otherwise be read as one.
+      role="status"
+      aria-label={t("panelChunk.loadingPanel", { title })}
       // A panel of its own can be busy too, through `PanelShell`, so the
       // e2e case needs something only this renders. Without it the selector
       // matches the arrived panel and the placeholder could stop existing

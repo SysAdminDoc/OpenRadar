@@ -154,6 +154,41 @@ describe("a panel that arrives over the network", () => {
     expect(screen.getByText("Wind Profile")).toBeTruthy();
   });
 
+  it("tells a screen reader the press took, and stops once it has", () => {
+    // Pressing a surface button announced nothing at all until the chunk
+    // landed, measured at about 1,100 ms cold: the press took and the only
+    // thing saying so was visual. `status` is polite, so it waits for a gap
+    // rather than cutting in, and it carries its own name because the two
+    // words inside it are laid out as a panel heading and would otherwise be
+    // read as one.
+    const { rerender } = render(
+      <LazyPanel
+        title="Route"
+        className="surface-panel--right"
+        onClose={() => {}}
+      >
+        <Pending />
+      </LazyPanel>,
+    );
+    const waiting = screen.getByRole("status");
+    expect(waiting.getAttribute("aria-label")).toContain("Route");
+    expect(waiting.getAttribute("aria-busy")).toBe("true");
+
+    // And it is gone the moment the panel is there, rather than sitting under
+    // it announcing an arrival that already happened.
+    rerender(
+      <LazyPanel
+        title="Route"
+        className="surface-panel--right"
+        onClose={() => {}}
+      >
+        <p>the panel</p>
+      </LazyPanel>,
+    );
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByText("the panel")).toBeTruthy();
+  });
+
   it("can be closed while the chunk is still coming", () => {
     // A chunk that never arrives must not be a box with no way out of it.
     const closed = vi.fn();

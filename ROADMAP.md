@@ -610,13 +610,6 @@ Tenth research pass, at `beae469`. Everything below came from the third refutati
   Acceptance: the new case fails on the current slice and passes after; the three caption cases from `AUD-444` stay green.
   Complexity: S
 
-- [ ] AUD-458 (P3): The stand-in for an arriving panel has no accessible name
-  Why: while a panel's chunk downloads, the frame on screen is a section with `aria-busy` and, since `77c8240`, a heading with `role="presentation"`. A screen reader user who presses a surface button hears nothing until the panel arrives, which was measured at about 1,100 ms for a cold chunk, and nothing tells them the press took. Before `AUD-443` there was nothing on screen at all, so this is not a regression, but a stand-in that holds the room visually and says nothing aurally is half a stand-in.
-  Evidence: `src/components/LazyPanel.tsx` (`PanelPlaceholder`: no `aria-label`, no role, no live region), `e2e/panel-chunks.spec.ts` (the 1,100 ms figure in the comment).
-  Touches: `src/components/LazyPanel.tsx` (`role="status"` with an `aria-label` of `panelChunk.loading` plus the title, so the press is announced once), `src/components/LazyPanel.test.tsx` (the placeholder has an accessible name containing the title), `e2e/accessibility.spec.ts` (axe over the stand-in with the chunk held).
-  Acceptance: a status role named for the panel resolves while the chunk is held and is gone when the panel lands; axe is clean over the held state.
-  Complexity: S
-
 - [ ] AUD-459 (P3): Browser cases that set their own viewport run identically in both projects
   Why: the `chromium` and `compact` projects differ only by viewport. A case that calls `page.setViewportSize` or sits under `test.use` with a viewport overrides that, so it does the same work twice and proves nothing the second time. The sixteen-load overflow case is 35 seconds in each project; the full suite is 25 minutes at two workers, and `AUD-334` made a full run the acceptance for any change to a spec.
   Evidence: `e2e/workspace.spec.ts` (two `setViewportSize` loops, one of them at `:1495`, the sixteen-load case), `e2e/capture.spec.ts`, `e2e/language.spec.ts` (viewport overrides at `:109`, `:276` and `:474` and one `setViewportSize`), `e2e/mrms.spec.ts`, `e2e/screenshot.spec.ts:38`; `playwright.config.ts:19-35` (the two projects); the full run of 2026-09-08 evening (794 passed, 2 skipped, 25.1 minutes).
