@@ -119,7 +119,7 @@ describe("nobody rolls their own again", () => {
   /** Why each of these is not a reply to be dropped. */
   const allowed = new Map([
     [
-      "src/App.tsx",
+      "src/hooks/useGlanceWindow.ts",
       "holds the glance listener's own unlisten handle, which the cleanup has to release rather than ignore",
     ],
     [
@@ -139,6 +139,10 @@ describe("nobody rolls their own again", () => {
       "an AbortController beside it again, and the flag gates a second variable the effect carries as well",
     ],
   ]);
+  // `App.tsx` was here too, for a reason that named the glance listener; the
+  // listener moved to `useGlanceWindow.ts` on 2026-09-09 and what was left
+  // behind under that reason was the workspace-drawn mark, which is an
+  // ordinary late reply and is one now.
   // `useArchiveWarnings.ts` and `useRadarTimeline.ts` were both here and are
   // converted. The second one's reason was wrong: it said a generation per
   // request was finer than this hook offers, when asking the factory once per
