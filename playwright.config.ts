@@ -29,6 +29,12 @@ export default defineConfig({
       // The narrowest window the app allows, where the command bar collapses.
       name: "compact",
       testIgnore: /wide\.spec\.ts/,
+      // A case that sets its own viewport overrides this project's, so it does
+      // the same work it did under `chromium` and proves nothing the second
+      // time. The sixteen-load overflow case alone was 35 seconds of that.
+      // Tagged in the title rather than listed here, so a case that starts
+      // choosing its own size carries the reason with it.
+      grepInvert: /@ownViewport/,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1024, height: 720 },

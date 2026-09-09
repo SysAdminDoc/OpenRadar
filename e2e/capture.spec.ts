@@ -31,7 +31,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const size of SIZES) {
-  test(`hides what the streamer operates and keeps what a viewer needs at ${size.name}`, async ({
+  test(`hides what the streamer operates and keeps what a viewer needs at ${size.name} @ownViewport`, async ({
     page,
   }) => {
     await page.setViewportSize({ width: size.width, height: size.height });

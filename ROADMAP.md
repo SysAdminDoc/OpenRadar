@@ -603,12 +603,6 @@ Tenth research pass, at `beae469`. Everything below came from the third refutati
   Acceptance: the new case fails on the current slice and passes after; the three caption cases from `AUD-444` stay green.
   Complexity: S
 
-- [ ] AUD-459 (P3): Browser cases that set their own viewport run identically in both projects
-  Why: the `chromium` and `compact` projects differ only by viewport. A case that calls `page.setViewportSize` or sits under `test.use` with a viewport overrides that, so it does the same work twice and proves nothing the second time. The sixteen-load overflow case is 35 seconds in each project; the full suite is 25 minutes at two workers, and `AUD-334` made a full run the acceptance for any change to a spec.
-  Evidence: `e2e/workspace.spec.ts` (two `setViewportSize` loops, one of them at `:1495`, the sixteen-load case), `e2e/capture.spec.ts`, `e2e/language.spec.ts` (viewport overrides at `:109`, `:276` and `:474` and one `setViewportSize`), `e2e/mrms.spec.ts`, `e2e/screenshot.spec.ts:38`; `playwright.config.ts:19-35` (the two projects); the full run of 2026-09-08 evening (794 passed, 2 skipped, 25.1 minutes).
-  Touches: `playwright.config.ts` (a `grepInvert` on the `compact` project for a tag), the cases above (an `@ownViewport` tag in the title), `README.md`'s testing section if it lists the projects.
-  Acceptance: the tagged cases run once per suite run; every other case still runs in both; the suite's wall time drops by at least the duplicated sixteen-load case's 35 seconds.
-  Complexity: S
 
 - [ ] AUD-460 (P3): A live scan that keeps failing is logged at debug and reaches nothing a reader can open
   Why: when the chunk bucket cannot be listed or a live volume cannot be assembled, the command logs the reason at debug and hands back the finished volume, which is the right picture to show. The age beside the sweep climbs, so a reader can see it is behind; what nobody can see is why, or that it has been failing for hours rather than once. Omastorm's first live-polling report had a poller sit silent for four hours, and the incidental finding there was that the failure left no trace to read afterwards. Diagnostics here lists source health per adapter and says nothing about the live Level II path.

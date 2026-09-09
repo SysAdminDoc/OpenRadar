@@ -105,7 +105,7 @@ async function startIn(page: Page, language: string) {
  * elements that are meant to scroll.
  */
 
-test.describe("a workspace in another language", () => {
+test.describe("a workspace in another language @ownViewport", () => {
   test.use({ viewport: { width: 1024, height: 720 } });
 
   test("shows Spanish copy the moment the language is switched", async ({
@@ -272,7 +272,7 @@ for (const language of ["pseudo", "fr"] as const) {
   });
 }
 
-test.describe("the Start with Windows row in a long language", () => {
+test.describe("the Start with Windows row in a long language @ownViewport", () => {
   test.use({ viewport: { width: 1024, height: 720 } });
 
   test("keeps its label and its reason readable at their full width", async ({
@@ -356,7 +356,7 @@ test("says a service failure in the reader's own language", async ({
   await expect(row).not.toContainText("503");
 });
 
-test.describe("the rail's own words, in every language it ships", () => {
+test.describe("the rail's own words, in every language it ships @ownViewport", () => {
   // The clipping sweep skips anything inside a scroller, and the rail
   // scrolls, so it can never see these. The direct measurement in
   // `workspace.spec.ts` runs in English at one width. Two captions were cut
@@ -470,7 +470,7 @@ test("the map's own controls follow a language change, not only a launch", async
   );
 });
 
-test.describe("the workspace at the size the screenshots are taken at", () => {
+test.describe("the workspace at the size the screenshots are taken at @ownViewport", () => {
   test.use({ viewport: { width: 1487, height: 1058 } });
 
   // A wider window is not automatically a safer one: the panels keep their

@@ -241,7 +241,7 @@ test("draws rotation tracks and hail with their own scales", async ({
   await expect(pane).toHaveAttribute("data-layer-stack", /mrms-mesh/);
 });
 
-test("keeps a full stack of product legends inside the scaled viewport", async ({
+test("keeps a full stack of product legends inside the scaled viewport @ownViewport", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1024, height: 720 });

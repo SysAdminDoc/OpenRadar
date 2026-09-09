@@ -1326,7 +1326,7 @@ test("a toast does not land on a right-hand panel's own title", async ({
   expect(over!.width).toBeGreaterThanOrEqual(240);
 });
 
-test("a toast stays readable when the whole workspace is drawn larger", async ({
+test("a toast stays readable when the whole workspace is drawn larger @ownViewport", async ({
   page,
 }) => {
   // The band the first version of this got wrong. `data-narrow` is set from
@@ -1492,7 +1492,7 @@ test("the map style cards do not wrap into ragged rows", async ({ page }) => {
   }
 });
 
-test("the workspace never grows wider than the window it is drawn in", async ({
+test("the workspace never grows wider than the window it is drawn in @ownViewport", async ({
   page,
 }) => {
   // Sixteen full loads of the workspace, each with a panel opened, against a

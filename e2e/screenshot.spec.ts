@@ -31,7 +31,7 @@ const SHOT = "assets/screenshots/openradar-main.png";
 /** How long the live basemap and the mosaic are given to arrive. */
 const TILES_MS = 8_000;
 
-test.describe("the README's picture", () => {
+test.describe("the README's picture @ownViewport", () => {
   test.skip(!WANTED, "set OPENRADAR_SHOOT=1 to re-take it");
   // The width the layout questions are asked at, and the shape the listing
   // and the README were written around.
