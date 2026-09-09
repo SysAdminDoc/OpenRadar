@@ -1514,3 +1514,74 @@ test("says what each switched-on source is doing, on its own row", async ({
     "weatherAlerts:fresh",
   );
 });
+
+/** How many pixels the map is drawing of one exact colour, near enough. */
+async function inkPixels(page: Page, want: [number, number, number]) {
+  return page.evaluate((rgb) => {
+    const canvas = document.querySelector("canvas");
+    if (!canvas) return 0;
+    const target = document.createElement("canvas");
+    target.width = canvas.width;
+    target.height = canvas.height;
+    const context = target.getContext("2d");
+    if (!context) return 0;
+    context.drawImage(canvas, 0, 0);
+    const pixels = context.getImageData(0, 0, target.width, target.height).data;
+    let found = 0;
+    for (let at = 0; at < pixels.length; at += 4) {
+      if (
+        Math.abs(pixels[at] - rgb[0]) <= 5 &&
+        Math.abs(pixels[at + 1] - rgb[1]) <= 5 &&
+        Math.abs(pixels[at + 2] - rgb[2]) <= 5
+      ) {
+        found += 1;
+      }
+    }
+    return found;
+  }, want);
+}
+
+test("rings a placefile point in the lightness the basemap is not", async ({
+  page,
+}) => {
+  // A near-white ring over the light basemap is not a ring. The county lines
+  // have chosen their colour from the basemap since they were written; the
+  // marks drawn straight onto it did not, and this is the one of them that
+  // can be put on screen from a file.
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await page.setInputFiles('.drop-zone input[type="file"]', {
+    name: "reports.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from(
+      [
+        "Title: Ring test",
+        // The workspace opens centred here, so the dot is on screen.
+        'Place: 25.5, -85.5, "Report"',
+      ].join(String.fromCharCode(10)),
+    ),
+  });
+  await expect(page.getByText(/reports.txt added/)).toBeVisible();
+  await expect(pane).toHaveAttribute("data-layer-stack", /custom-points/);
+
+  const PALE: [number, number, number] = [239, 246, 255];
+  const DARK: [number, number, number] = [30, 41, 59];
+
+  await expect(pane).toHaveAttribute("data-map-style", "pro-dark");
+  await expect.poll(() => inkPixels(page, PALE)).toBeGreaterThan(0);
+  expect(await inkPixels(page, DARK)).toBe(0);
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Light", exact: true }).click();
+  await expect(pane).toHaveAttribute("data-map-style", "pro-light");
+  await page.getByRole("button", { name: "Close Settings" }).click();
+
+  await expect(pane).toHaveAttribute("data-layer-stack", /custom-points/);
+  // Swapped, and not merely present: the pale ring has to be gone, or the
+  // check would pass with both drawn.
+  await expect.poll(() => inkPixels(page, DARK)).toBeGreaterThan(0);
+  expect(await inkPixels(page, PALE)).toBe(0);
+});

@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { casingFor, lightness, parseColor } from "./lineOnMap";
+import {
+  casingFor,
+  inkFor,
+  lightness,
+  MAP_INK,
+  MAP_INK_HALO,
+  parseColor,
+} from "./lineOnMap";
 import { isLightBasemap } from "./mapStyles";
-import { MAP_STYLE_OPTIONS } from "./mapStyles";
+import {
+  MAP_GROUND_DARK,
+  MAP_GROUND_LIGHT,
+  MAP_STYLE_OPTIONS,
+} from "./mapStyles";
 
 describe("reading a colour the browser handed back", () => {
   it("takes the forms a stylesheet resolves to", () => {
@@ -76,5 +87,69 @@ describe("which basemaps draw the ground light", () => {
     // Photographs of land are mid-toned, and a light line reads on them where
     // a dark one disappears into shadow.
     expect(isLightBasemap("aerial")).toBe(false);
+  });
+});
+
+describe("a mark drawn straight onto the basemap", () => {
+  /**
+   * The ratio between two colours, as the contrast guidelines define it.
+   *
+   * Three to one is the line for something that is not text: a cell ring, a
+   * dashed track, a dot. Below it the mark is there and cannot be found.
+   */
+  const contrast = (one: string, other: string) => {
+    const first = lightness(one);
+    const second = lightness(other);
+    if (first === null || second === null) {
+      throw new Error(`${one} or ${other} is not a colour`);
+    }
+    const high = Math.max(first, second);
+    const low = Math.min(first, second);
+    return (high + 0.05) / (low + 0.05);
+  };
+
+  it("reads on the ground it is drawn over, in both lightnesses", () => {
+    // Every role, rather than the one the defect was found in: they are all
+    // marks on the same two grounds, and a table is only worth having if
+    // adding a row to it is covered the day it is added.
+    for (const [role, pair] of Object.entries(MAP_INK)) {
+      expect(
+        contrast(pair.light, MAP_GROUND_LIGHT),
+        `${role} over the light ground`,
+      ).toBeGreaterThanOrEqual(3);
+      expect(
+        contrast(pair.dark, MAP_GROUND_DARK),
+        `${role} over the dark ground`,
+      ).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it("measures the near-whites that shipped as unreadable over the light one", () => {
+    // The defect, in the colours it was written in, so the measurement above
+    // is known to be able to say no. Written out rather than read from the
+    // table: what the app should use next is not this test's business, only
+    // that it can tell the two apart.
+    for (const was of ["#f8fafc", "#e2e8f0", "#eff6ff", "#f87171"]) {
+      expect(contrast(was, MAP_GROUND_LIGHT), was).toBeLessThan(3);
+    }
+  });
+
+  it("puts a cell's name against the opposite of its own ink", () => {
+    // The label is text and takes the higher line. Its halo is what it is
+    // read against, because the ground under a name is whatever the weather
+    // put there.
+    expect(
+      contrast(MAP_INK.cell.light, MAP_INK_HALO.light),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrast(MAP_INK.cell.dark, MAP_INK_HALO.dark),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("hands the light ink to a light basemap and the dark one otherwise", () => {
+    for (const role of Object.keys(MAP_INK) as Array<keyof typeof MAP_INK>) {
+      expect(inkFor(role, true), role).toBe(MAP_INK[role].light);
+      expect(inkFor(role, false), role).toBe(MAP_INK[role].dark);
+    }
   });
 });

@@ -79,3 +79,42 @@ export function casingFor(line: string): string {
     ? "rgba(255, 255, 255, 0.75)"
     : "rgba(9, 12, 18, 0.75)";
 }
+
+/**
+ * The marks drawn straight onto the basemap, in the two lightnesses.
+ *
+ * A casing is the answer for a line long enough to carry one. These are not
+ * that: a storm's dashed track, its forecast dots, the ring round the cell,
+ * a tropical fix with no colour of its own and the point a placefile drops
+ * are all small marks, and a second stroke under a three pixel dot is a
+ * bigger dot. So each is given the lightness the ground is not, the same way
+ * the county lines choose theirs.
+ *
+ * Each of these shipped as one near-white apiece, chosen against the dark
+ * basemap. Over Roads, Daylight or the light workspace they composited to
+ * about one to one, and the cell ring is the mark that says which storm to
+ * look at first.
+ */
+export const MAP_INK = {
+  /** A storm cell: its ring, its track and its forecast positions. */
+  cell: { light: "#0f172a", dark: "#f8fafc" },
+  /** The same, for a cell the algorithm found rotation in. */
+  rotation: { light: "#b91c1c", dark: "#f87171" },
+  /** A tropical track whose fix carries no colour of its own. */
+  track: { light: "#334155", dark: "#e2e8f0" },
+  /** The ring round a point a placefile drops. */
+  placefilePoint: { light: "#1e293b", dark: "#eff6ff" },
+  /** The line and the ends of a measurement the reader is drawing. */
+  tool: { light: "#0369a1", dark: "#7dd3fc" },
+} as const;
+
+/** What goes behind a cell's name, which is the opposite of its ink. */
+export const MAP_INK_HALO = {
+  light: "rgba(248, 250, 252, 0.9)",
+  dark: "rgba(9, 11, 16, 0.85)",
+} as const;
+
+/** The ink for a mark over the basemap that is on screen now. */
+export function inkFor(role: keyof typeof MAP_INK, overLight: boolean): string {
+  return MAP_INK[role][overLight ? "light" : "dark"];
+}
