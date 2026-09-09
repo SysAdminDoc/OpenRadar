@@ -150,8 +150,36 @@ describe("the order Settings is read in", () => {
       "settings.units",
       "settings.clock",
       "settings.textSize",
+      // Not one that had a heading: the Dark and Light buttons had no visible
+      // name at all, because "Appearance" was over them and nothing else. Once
+      // the heading covered four rows it stopped naming any of them, and the
+      // pair was the only control in the panel a reader had to guess at. It
+      // was also the only one sitting flush with the panel edge while every
+      // labelled row and every switch is inset, which is the same fact seen
+      // from the side: it had no row around it.
+      "settings.theme",
     ] as const) {
       expect(labels, key).toContain(en[key]);
     }
+  });
+
+  it("reads the Reading rows in the order they were put in", () => {
+    // The heading sequence is pinned above and the rows inside a section were
+    // not, so swapping Language and Units passed the whole suite. Language
+    // first is the one that changes the words of every row under it.
+    render(panel());
+    const reading = [...document.querySelectorAll(".settings-section")]
+      .find(
+        (one) =>
+          one.querySelector(".settings-section__title span")?.textContent ===
+          en["settings.reading"],
+      )
+      ?.querySelectorAll(".settings-field > span strong");
+    expect([...(reading ?? [])].map((one) => one.textContent)).toEqual([
+      en["settings.language"],
+      en["settings.units"],
+      en["settings.clock"],
+      en["settings.textSize"],
+    ]);
   });
 });

@@ -381,6 +381,65 @@ test.describe("a section heading and the line describing it @ownViewport", () =>
       expect(tight, "a heading running into its own description").toEqual([]);
     });
   }
+
+  test("leaves every control in the panel starting at one edge", async ({
+    page,
+  }) => {
+    // The Dark and Light buttons sat directly in their section while every
+    // labelled row and every switch is inside a row that insets it by five
+    // pixels, so they began five pixels to the left of everything else and
+    // ran ten pixels wider. Invisible until the section above them held four
+    // labelled rows and the eye had a column to follow.
+    await startIn(page, "en");
+    await page
+      .locator(`.command-bar button[aria-label="${en["panel.settings"]}"]`)
+      .first()
+      .click();
+    await expect(page.locator(".settings-section").first()).toBeVisible();
+
+    // Where the words and the controls begin, not where their rows begin: a
+    // row's own box carries the padding that puts its contents where they
+    // are, so comparing rows would compare the wrong edges and pass.
+    const edges = await page.evaluate(() => {
+      const left = new Map<number, string[]>();
+      for (const row of document.querySelectorAll<HTMLElement>(
+        ".surface-panel--settings .settings-section > .settings-field, " +
+          ".surface-panel--settings .settings-section > .toggle-row",
+      )) {
+        // Where the words begin, not where the row does: a row's own box
+        // carries the padding that puts its contents where they are, so
+        // comparing rows would compare the wrong edges and pass.
+        const inside = row.querySelector(":scope > span");
+        if (!inside) continue;
+        const at = Math.round(inside.getBoundingClientRect().left);
+        left.set(at, [
+          ...(left.get(at) ?? []),
+          inside.textContent?.slice(0, 20) ?? "",
+        ]);
+      }
+      return [...left].map(([at, what]) => `${at}: ${what.join(" / ")}`);
+    });
+
+    // Asked first, because the check below cannot see this one: a control
+    // with no row around it is not a row, so a sweep over rows walks straight
+    // past the thing that went wrong. It is also the same question said
+    // plainly. A control sitting in a section rather than in a row has no
+    // label of its own, only the heading above it, which stops naming it the
+    // moment the section holds a second control.
+    const nameless = await page.evaluate(() =>
+      [
+        ...document.querySelectorAll(
+          ".surface-panel--settings .settings-section > .segmented-control",
+        ),
+      ].map((one) => one.getAttribute("aria-label") ?? "unnamed"),
+    );
+    expect(nameless, "a control with no row and so no visible name").toEqual(
+      [],
+    );
+    expect(edges, "controls starting at more than one left edge").toHaveLength(
+      1,
+    );
+  });
 });
 
 test("says a service failure in the reader's own language", async ({
