@@ -442,13 +442,16 @@ const SOURCE_DOWN = new Set([
   "httpTooLarge",
   "badListing",
   "decode",
-  // The listing swallows a failed day and moves on, so an archive nobody can
-  // reach comes back as a site with no volumes rather than as a refused
-  // connection. Left out, a total outage read as a quiet radar and the
-  // Diagnostics row stayed green through it.
-  "noVolume",
-  "noLongerListed",
 ]);
+// `noVolume` and `noLongerListed` were in this set for one commit, on the
+// reasoning that a listing which swallows a failed day turns an outage into a
+// site with no volumes. That reasoning was about the wrong function: the one
+// that swallows is the loop-times command, which records nothing, and the one
+// behind this path propagates its failures, so a real outage already arrives
+// as a refused connection. What `noVolume` does mean here is a radar that has
+// published nothing for a day, which is a site off air for maintenance and
+// the source answering perfectly. `noLongerListed` is a renamed or
+// decommissioned terminal radar, and this path never sees one.
 
 /**
  * Whether a failure says the radar feed could not be reached or read.

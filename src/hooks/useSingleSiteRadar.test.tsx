@@ -365,18 +365,20 @@ describe("choosing a site", () => {
         ).toBe(1),
       );
 
-      // And an archive nobody can reach, which is the one that does not look
-      // like a transport failure from here: the listing swallows a failed day
-      // and moves on, so a total outage arrives as a site with no volumes.
-      // Read as the ask being impossible, it left the row green through it.
+      // And a site that has published nothing for a day, which is a radar off
+      // air for maintenance rather than a feed that cannot be reached. It was
+      // read as the feed for one commit, on reasoning about a listing that
+      // swallows failed days; that listing is the loop-times command and
+      // records nothing, while this path propagates its failures and so meets
+      // a real outage as a refused connection. A three-day upgrade would have
+      // turned the Level II row red with the feed answering perfectly.
       fetchSweep.mockRejectedValue({ code: "noVolume", args: ["KDMX"] });
       rerender({ tilt: 2 });
-      await waitFor(() =>
-        expect(
-          providerHealth().find((one) => one.id === "level2")
-            ?.consecutiveFailures,
-        ).toBe(2),
-      );
+      await waitFor(() => expect(result.current.error).toContain("KDMX"));
+      expect(
+        providerHealth().find((one) => one.id === "level2")
+          ?.consecutiveFailures,
+      ).toBe(1);
     } finally {
       warn.mockRestore();
       resetHealth();

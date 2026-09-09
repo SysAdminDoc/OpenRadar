@@ -2260,6 +2260,9 @@ export const es: Catalogue = {
   "app.settingsRestored": "Se recuperaron tus ajustes",
   "app.settingsRestoredBody":
     "No se pudo leer el archivo de ajustes, así que se recuperó la última copia buena. Lo que hayas cambiado desde entonces se perdió.",
+  "app.settingsLocked": "El archivo de ajustes está en uso",
+  "app.settingsLockedBody":
+    "No se pudo leer el archivo de ajustes ni apartarlo, así que esta ventana se abrió sin nada y la siguiente hará lo mismo. Cierra lo que tenga el archivo abierto y vuelve a iniciar OpenRadar.",
   "app.settingsUnreadable": "No se pudieron leer tus ajustes",
   "app.settingsUnreadableBody":
     "El archivo de ajustes estaba dañado y no había ninguna copia, así que esta ventana se abrió sin nada. El archivo ilegible se ha conservado.",

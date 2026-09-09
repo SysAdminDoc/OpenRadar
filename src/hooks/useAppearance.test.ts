@@ -1,7 +1,13 @@
 import { renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { useAppearance } from "./useAppearance";
-import { DEFAULT_SETTINGS, type AppSettings } from "../lib/settings";
+import {
+  DEFAULT_SETTINGS,
+  plainStart,
+  resetSettingsRecovery,
+  standDownArrangement,
+  type AppSettings,
+} from "../lib/settings";
 import { applyTheme, THEME_STYLE_ID, THEME_TOKENS } from "../lib/theme";
 import { occasionTheme } from "../lib/occasions";
 
@@ -156,5 +162,40 @@ describe("what the workspace is wearing", () => {
       useAppearance(looking, IN_AUTUMN, false),
     );
     expect(result.current.occasion).toBe("spring");
+  });
+});
+
+describe("a window that opened plain after two starts that never reached one", () => {
+  afterEach(() => resetSettingsRecovery());
+
+  /** A workspace wearing a theme the reader imported. */
+  const mine: Partial<AppSettings> = {
+    workspaceTheme: {
+      name: "mine",
+      base: "dark",
+      tokens: { Accent: "#00ff00" },
+    },
+  };
+
+  it("wears the reader's theme on an ordinary launch", () => {
+    // The control. Without it the case below passes against a build that
+    // never applies an imported theme at all.
+    const { css } = look(mine, PLAIN);
+    expect(css).toContain(`${ACCENT}: #00ff00;`);
+  });
+
+  it("stands the theme down without taking it out of the settings", () => {
+    // A theme file given tokens by hand is one of the three things that can
+    // take the window down before there is a window. It has to stop being
+    // applied, and it must not stop being in the file: it is a document the
+    // reader imported, and the first setting they changed would have written
+    // it away for good.
+    const settings: AppSettings = { ...DEFAULT_SETTINGS, ...mine };
+    const plain = plainStart(settings);
+    expect(plain.workspaceTheme).toEqual(settings.workspaceTheme);
+
+    standDownArrangement(settings);
+    const { css } = look(plain, PLAIN);
+    expect(css).toBe("");
   });
 });

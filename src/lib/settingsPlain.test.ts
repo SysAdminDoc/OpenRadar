@@ -53,6 +53,7 @@ const {
   DEFAULT_SETTINGS,
   loadSettings,
   normalizeSettings,
+  resetSettingsRecovery,
   restoreArrangement,
   saveSettings,
   startedPlain,
@@ -63,6 +64,8 @@ function arranged() {
   return normalizeSettings({
     ...DEFAULT_SETTINGS,
     camera: { center: [-93.6, 41.6], zoom: 9, bearing: 30, pitch: 45 },
+    // Keyed by the directive a theme file writes, which is how the parser
+    // takes it.
     workspaceTheme: {
       name: "mine",
       base: "dark",
@@ -80,6 +83,9 @@ describe("a desktop launch after two starts that did not reach a window", () => 
     written.length = 0;
     answers.unclean_starts = 2;
     held.settings = arranged();
+    // The restore deliberately leaves the flag alone, since the page is going
+    // away in the app. Nothing goes away between cases here.
+    resetSettingsRecovery();
     Object.defineProperty(window, "location", {
       configurable: true,
       value: { search: "", reload: vi.fn() },
@@ -101,43 +107,46 @@ describe("a desktop launch after two starts that did not reach a window", () => 
     const opened = await loadSettings();
     expect(opened.occasions.enabled).toBe(false);
     expect(opened.ambient).toBe(false);
-    expect(opened.workspaceTheme).toBeNull();
     expect(opened.camera).toEqual(DEFAULT_SETTINGS.camera);
     expect(written, "a plain start wrote itself to the file").toEqual([]);
     expect(startedPlain()).not.toBeNull();
+    // The theme is NOT taken out. It is the whole document the reader
+    // imported, and this value is what goes into the file the moment they
+    // change anything at all; it is stood down for the session by the one
+    // place that applies it instead. Asserted the other way round for a day,
+    // which is the defect: a reader who panned the map lost the file.
+    expect(opened.workspaceTheme?.tokens).toEqual({ Accent: "#00ff00" });
   });
 
-  it("keeps the reader's arrangement in the file when they change something", async () => {
-    // The moment they touch anything, the plain version would go into the
-    // file. A theme is not a switch: it is the whole document they imported,
-    // and one pan of the map would have written it away for good, with the
-    // toast that offers to put it back already gone.
+  it("keeps the reader's imported theme in the file whatever they change", async () => {
+    // The one thing in the arrangement that cannot be set up again from
+    // inside the app. The switch positions go into the file with whatever
+    // else the reader changes, and the press puts those back; a document they
+    // imported has to survive without being asked for.
     const opened = await loadSettings();
     await saveSettings({ ...opened, clock: "utc" });
 
     expect(written).toHaveLength(1);
     const document = written[0] as unknown as typeof opened;
-    // What they changed is written.
     expect(document.clock).toBe("utc");
-    // What they never asked to change is theirs.
-    expect(document.workspaceTheme).not.toBeNull();
     expect(document.workspaceTheme?.tokens).toEqual({ Accent: "#00ff00" });
-    expect(document.occasions.enabled).toBe(true);
-    expect(document.ambient).toBe(true);
   });
 
-  it("puts it back by opening the window again on the file, and writes nothing", async () => {
-    // The file still holds the arrangement, so opening on it is the whole of
-    // putting it back. Writing it first discarded the state needed to try
-    // again if the write failed, which is exactly the case the settings copy
-    // beside it exists for.
-    await loadSettings();
+  it("puts the arrangement back, then opens the window again on it", async () => {
+    // The count first, or the window that comes back is stood down all over
+    // again. Then the arrangement, because a plain session that saved
+    // anything wrote its own switch positions over the reader's.
+    const opened = await loadSettings();
+    await saveSettings({ ...opened, clock: "utc" });
+    written.length = 0;
     await restoreArrangement();
 
-    expect(asked).toContain("clear_unclean_starts");
-    expect(written, "the restore wrote the file it was reading").toEqual([]);
+    expect(asked.indexOf("clear_unclean_starts")).toBeGreaterThan(-1);
+    expect(written).toHaveLength(1);
+    const document = written[0] as unknown as typeof opened;
+    expect(document.occasions.enabled).toBe(true);
+    expect(document.ambient).toBe(true);
     expect(window.location.reload).toHaveBeenCalled();
-    expect(startedPlain()).toBeNull();
   });
 
   it("leaves a workspace alone after one start that did not reach a window", async () => {
@@ -145,7 +154,7 @@ describe("a desktop launch after two starts that did not reach a window", () => 
     answers.unclean_starts = 1;
     const opened = await loadSettings();
     expect(opened.occasions.enabled).toBe(true);
-    expect(opened.workspaceTheme).not.toBeNull();
+    expect(opened.camera.zoom).toBe(9);
     expect(startedPlain()).toBeNull();
   });
 });

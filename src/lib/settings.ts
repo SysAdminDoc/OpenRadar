@@ -854,6 +854,12 @@ export interface SettingsRecovery {
   keptAt: string;
   /** Whether the last good copy went back in its place. */
   restored: boolean;
+  /**
+   * Whether the unreadable document is still where it was, because nothing
+   * could move it. Every launch from here on ends the same way until the
+   * reader closes whatever has it open.
+   */
+  stuck: boolean;
 }
 
 let recovery: SettingsRecovery | null = null;
@@ -884,13 +890,21 @@ let plainFrom: AppSettings | null = null;
  * The arrangement this launch is not using, for the one press that puts it
  * back.
  *
- * Held rather than re-read, because the workspace has already begun writing
- * the plain one over it: the switches are off in the file as soon as anything
- * else is saved, and that is the trade for not having to read a file that may
- * be what is wedging the window.
+ * Held rather than re-read, because reading it again would mean opening a file
+ * that may be what wedged the window. Nothing is written on a plain start, but
+ * the moment the reader changes any setting the plain switch positions go into
+ * the file with it, which is what the press writes back.
  */
 export function startedPlain(): AppSettings | null {
   return plainFrom;
+}
+
+/**
+ * Says this window is running plain, for a test that has to drive the state
+ * the load reaches only through the native side.
+ */
+export function standDownArrangement(stored: AppSettings): void {
+  plainFrom = stored;
 }
 
 /**
@@ -917,16 +931,18 @@ export async function noteWorkspaceDrawn(): Promise<void> {
  * count is cleared first, or the reload stands the workspace down again.
  */
 export async function restoreArrangement(): Promise<void> {
-  // Nothing is written. The stored file still holds the reader's own
-  // arrangement, because a save while it was stood down kept every part of
-  // it, so opening the window again on that file is the whole of putting it
-  // back. Writing it first was worse than useless: it discarded the state
-  // needed to try again if the write failed, which is exactly the case the
-  // settings copy exists for.
-  plainFrom = null;
+  const stored = plainFrom;
+  // The count first, or the window that comes back is stood down again.
   if (isDesktopRuntime()) {
     await invoke("clear_unclean_starts").catch(() => undefined);
   }
+  // Then the arrangement, because a plain session that saved anything wrote
+  // its own switch positions over the reader's. The theme is not among them:
+  // it is never taken out of the file, only stood down for the session.
+  if (stored) await saveSettings(stored).catch(() => undefined);
+  // `plainFrom` is deliberately left where it is. The page is going away, and
+  // a debounced write that fires between here and the navigation should carry
+  // the arrangement rather than the plain session's version of it.
   window.location.reload();
 }
 
@@ -2164,13 +2180,36 @@ async function getStore(): Promise<Store> {
 function readableSettings(text: string): boolean {
   try {
     const parsed: unknown = JSON.parse(text);
-    return (
-      Boolean(parsed) && typeof parsed === "object" && !Array.isArray(parsed)
-    );
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return false;
+    }
+    // And it has to hold something a settings file holds. An object on its
+    // own is too weak: `{}` and a GeoJSON collection both pass that, both
+    // load as a workspace with nothing in it, and the next save would copy
+    // either of them forward as the last good one, destroying the real copy.
+    return SETTINGS_KEYS.some((key) => key in parsed);
   } catch {
     return false;
   }
 }
+
+/**
+ * Keys that say a document is a settings file rather than something else.
+ *
+ * Any one of them is enough. A file from an older build has fewer of these
+ * than a file from this one, and refusing it for a key it never carried would
+ * be the same loss by a different name.
+ */
+const SETTINGS_KEYS = [
+  "schemaVersion",
+  "layers",
+  "radar",
+  "camera",
+  "watch",
+  "watchPlaces",
+  "theme",
+  "language",
+] as const;
 
 /**
  * Whether a dropped file is a settings export rather than something to draw.
@@ -2229,12 +2268,17 @@ export const PLAIN_AFTER_UNCLEAN_STARTS = 2;
 export function plainStart(settings: AppSettings): AppSettings {
   return {
     ...resetLayout(settings),
+    // The theme goes back in. `resetLayout` drops it, and a theme is not a
+    // switch: it is the whole document the reader imported, and this value is
+    // what the workspace writes to the file the moment anything else is
+    // saved. It is stood down for the session instead, by the one place that
+    // applies it, which leaves nothing to put back and nothing to lose.
+    workspaceTheme: settings.workspaceTheme,
     // The look, which is where a file the reader was given reaches the chrome.
     occasions: { ...settings.occasions, enabled: false },
     ambient: false,
     // An imported colour table applied to a product. The tables themselves
-    // stay: this is which product each is drawn with, and it is the one
-    // imported thing the settings file restores at boot.
+    // stay: this is which product each is drawn with.
     paletteAssignments: {},
   };
 }
@@ -2265,13 +2309,6 @@ export async function loadSettings(): Promise<AppSettings> {
     // the page has drawn. Two starts that did not reach a window is the app
     // deciding for itself that it cannot be the one to ask.
     //
-    // The store falls back to its own defaults when the file has been taken
-    // away, and those defaults are the first-run marker: without this a
-    // reader whose file rotted and had no copy was asked to pick their units
-    // again, and picking a language would then have moved them.
-    if (recovery && !recovery.restored) {
-      settings = normalizeSettings({ ...settings, unitsChosen: true });
-    }
     const unclean = await invoke<number>("unclean_starts").catch(() => 0);
     if (unclean >= PLAIN_AFTER_UNCLEAN_STARTS) {
       plainFrom = settings;
@@ -2308,7 +2345,16 @@ export async function readSettings(): Promise<AppSettings> {
       .then((answer) => answer ?? null)
       .catch(() => null);
     const value = await (await getStore()).get<unknown>("settings");
-    return normalizeSettings(value ?? DEFAULT_SETTINGS);
+    const read = normalizeSettings(value ?? DEFAULT_SETTINGS);
+    // The store falls back to its own defaults when the file has been taken
+    // away, and those defaults are the first-run marker. Without this a reader
+    // whose file rotted with no copy behind it was asked to pick their units
+    // again, and picking a language would then have moved them. Here rather
+    // than in `loadSettings`, because the crash screen reads through this one
+    // and writes back what it read.
+    return recovery && !recovery.restored
+      ? normalizeSettings({ ...read, unitsChosen: true })
+      : read;
   }
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (raw === null) return normalizeSettings(DEFAULT_SETTINGS);
@@ -2343,44 +2389,14 @@ function recoverStored(raw: string): string | null {
   // Removed rather than left, or every load from here on reads the same
   // unreadable document and the reader is stuck on the defaults for good.
   else window.localStorage.removeItem(STORAGE_KEY);
-  recovery = { keptAt: KEPT_KEY, restored };
+  // Nothing holds a key open in a browser, so a stored document is never the
+  // stuck case; that one belongs to the desktop's file.
+  recovery = { keptAt: KEPT_KEY, restored, stuck: false };
   return restored ? previous : null;
 }
 
-/**
- * What a save keeps of the arrangement a plain start stood down.
- *
- * A plain start changes what this window is running on, and nothing is
- * written until the reader does something. The moment they do, the plain
- * version would go into the file: a theme is not a switch but the whole
- * document a reader imported, and one pan of the map would have written it
- * away for good. So a write while the arrangement is stood down keeps their
- * version of everything that was turned off. They can still change anything
- * else; what they cannot do is lose an imported file to a remedy they did not
- * ask for.
- *
- * The camera is deliberately not among them. It is what the reader is looking
- * at rather than something they set up, and every other window writes the one
- * it ends on.
- */
-function keepingArrangement(settings: AppSettings): AppSettings {
-  if (!plainFrom) return settings;
-  return {
-    ...settings,
-    workspaceTheme: plainFrom.workspaceTheme,
-    paletteAssignments: plainFrom.paletteAssignments,
-    occasions: plainFrom.occasions,
-    ambient: plainFrom.ambient,
-    overlayOrder: plainFrom.overlayOrder,
-    overlayOpacity: plainFrom.overlayOpacity,
-    textScale: plainFrom.textScale,
-    projection: plainFrom.projection,
-    mapStyle: plainFrom.mapStyle,
-  };
-}
-
 export async function saveSettings(settings: AppSettings): Promise<void> {
-  const normalized = normalizeSettings(keepingArrangement(settings));
+  const normalized = normalizeSettings(settings);
   if (isDesktopRuntime()) {
     const write = storeWriteQueue
       .catch(() => {})

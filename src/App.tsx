@@ -385,7 +385,19 @@ export default function App() {
   // down for.
   useEffect(() => {
     if (!hydrated) return;
-    void noteWorkspaceDrawn();
+    // After the map has drawn, not when the settings parsed. Everything this
+    // is protecting against is applied on the render AFTER hydration: the map
+    // itself, the theme, the colour table a product is drawn with, the camera
+    // the projection has to show. Reported at hydration, the mark was gone
+    // before any of them existed, and a workspace that died on its first
+    // frame every time was never once counted.
+    let live = true;
+    void mapRef.current?.onceIdle().then(() => {
+      if (live) void noteWorkspaceDrawn();
+    });
+    return () => {
+      live = false;
+    };
   }, [hydrated]);
 
   // Two starts that did not finish, and the arrangement stood down for this
@@ -418,15 +430,23 @@ export default function App() {
     const recovered = settingsRecovery();
     if (!recovered) return;
     pushToast(
-      recovered.restored
+      recovered.stuck
         ? {
-            title: translate("app.settingsRestored"),
-            detail: translate("app.settingsRestoredBody"),
+            // The one that will happen again on every launch until the reader
+            // does something about it, and the one where a good copy is
+            // sitting beside the file unused.
+            title: translate("app.settingsLocked"),
+            detail: translate("app.settingsLockedBody"),
           }
-        : {
-            title: translate("app.settingsUnreadable"),
-            detail: translate("app.settingsUnreadableBody"),
-          },
+        : recovered.restored
+          ? {
+              title: translate("app.settingsRestored"),
+              detail: translate("app.settingsRestoredBody"),
+            }
+          : {
+              title: translate("app.settingsUnreadable"),
+              detail: translate("app.settingsUnreadableBody"),
+            },
     );
   }, [hydrated, pushToast]);
 
