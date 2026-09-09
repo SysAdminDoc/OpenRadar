@@ -333,10 +333,19 @@ export function createWindLayer(
 
       // The draw shader is built the first time, because its prelude comes
       // from MapLibre and depends on the projection in force.
+      //
+      // Guarded like the two in `onAdd`, and for a stronger reason: this one
+      // is concatenated with MapLibre's own prelude, so it is the program
+      // whose source varies by engine version and by projection, which is
+      // exactly the "builds on one card and not the next" case. Unguarded it
+      // threw into MapLibre's frame, which calls `render` bare and has no
+      // catch of its own, so the cleanup after it was skipped and the GL
+      // state was left dirty for every other layer on the map.
       if (!drawProgram) {
-        drawProgram = link(
-          context,
-          `#version 300 es
+        try {
+          drawProgram = link(
+            context,
+            `#version 300 es
 ${args.shaderData.vertexShaderPrelude}
 ${args.shaderData.define}
 in float a_index;
@@ -374,8 +383,16 @@ void main() {
   v_age = end;
   gl_Position = projectTile(at);
 }`,
-          DRAW_FRAGMENT,
-        );
+            DRAW_FRAGMENT,
+          );
+        } catch (failure) {
+          options.onError?.(
+            failure instanceof Error
+              ? failure.message
+              : translate("wind.noDraw"),
+          );
+          return;
+        }
       }
 
       if (fieldDirty) {

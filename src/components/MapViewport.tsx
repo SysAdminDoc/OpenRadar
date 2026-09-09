@@ -1089,31 +1089,40 @@ function MapViewportInner(
       return;
     }
 
-    // The programs are built inside `onAdd`, which `addLayer` calls before it
-    // returns, so this is set by the time the check below reads it.
+    // A shader that will not build on this card left the layer sitting in the
+    // style drawing nothing, with its switch still on and nothing said. A map
+    // that reads as a calm afternoon because a program did not compile is the
+    // worst failure a hazard display has, so the layer comes out and the
+    // workspace is told to put the switch back where the picture is.
+    const takeItOut = () => {
+      if (map.getLayer(WIND_LAYER_ID)) map.removeLayer(WIND_LAYER_ID);
+      windLayerRef.current = null;
+      onWindUndrawableRef.current?.();
+      publishLayers();
+    };
+    // Two of the three programs are built inside `onAdd`, which `addLayer`
+    // calls before it returns, so the flag is set by the time it is read
+    // below. The third is built on the first frame, because its prelude comes
+    // from MapLibre and depends on the projection: by then nobody is going to
+    // look at a flag again, so that one drives the removal itself. Off the
+    // frame, because MapLibre is part way through drawing when it calls us
+    // and taking a layer out of the style underneath it is not its contract.
     let undrawable = false;
+    let added = false;
     const layer = createWindLayer({
       id: WIND_LAYER_ID,
       field,
       onError: (message) => {
         undrawable = true;
         log.warn("wind", message);
+        if (added) queueMicrotask(takeItOut);
       },
     });
-    windLayerRef.current = layer;
     map.addLayer(layer, firstExisting(map, layersAbove(WIND_LAYER_ID)));
-    if (undrawable) {
-      // A shader that will not build on this card left the layer sitting in
-      // the style drawing nothing, with its switch still on and nothing said.
-      // A map that reads as a calm afternoon because a program did not
-      // compile is the worst failure a hazard display has, so the layer comes
-      // out and the workspace is told to put the switch back where the
-      // picture is.
-      if (map.getLayer(WIND_LAYER_ID)) map.removeLayer(WIND_LAYER_ID);
-      windLayerRef.current = null;
-      onWindUndrawableRef.current?.();
-    }
-    publishLayers();
+    added = true;
+    windLayerRef.current = layer;
+    if (undrawable) takeItOut();
+    else publishLayers();
   };
 
   const flashColor = () =>

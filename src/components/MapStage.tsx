@@ -271,6 +271,10 @@ export function MapStage({
           onToolResult={onToolResult}
           onSection={onSection}
           onOverlayAction={onOverlayAction}
+          // The two panes have their own GL contexts, so one can lose a shader
+          // the other built. Wired here as well, or a failure on the compare
+          // pane took the layer out of that pane and left the switch on.
+          onWindUndrawable={onWindUndrawable}
           {...shared}
           // Never the first pane's. Falling back to it drew that pane's
           // volume under this pane's timestamp, which is the whole defect
