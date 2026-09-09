@@ -603,13 +603,6 @@ Tenth research pass, at `beae469`. Everything below came from the third refutati
   Acceptance: both new cases fail on the current code and pass after; the existing hold cases stay green.
   Complexity: S
 
-- [ ] AUD-455 (P3): An advisory allowance's `needs <crate> <version>` accepts a release candidate of the version it names
-  Why: `holds` treats a version that starts with the wanted one and continues with `.`, `-` or `+` as a match, so `needs nexrad-model 1.0.0` holds against `1.0.0-rc.2`, `1.0.0-rc.9` and `1.0.0` alike, and a crate moving from a release candidate onto the real release never re-opens the allowance that was written for the candidate. Only `+` (build metadata) needed the prefix rule; `-` is the prerelease boundary the rule exists to respect. Writing the allowance as `needs nexrad-model 1.0.0-rc.2` matches by equality today, so the tree is not wrong, but the gate accepts a spelling that is.
-  Evidence: refutation report of 2026-09-08 (LOW 8); `scripts/advisories-lib.mjs` (`holds`), `src-tauri/.cargo/advisories.txt` (the allowances as written).
-  Touches: `scripts/advisories-lib.mjs` (drop `-` from the set; a `needs` on a bare version does not hold against a prerelease of it), `scripts/advisories-lib.test.mjs` (`needs x 1.0.0` against `1.0.0-rc.2` is unmet; `needs x 1.0.0` against `1.0.0+build.3` holds; `needs x 1.0.0-rc.2` against `1.0.0-rc.2` holds).
-  Acceptance: the three cases pass; `npm run check:advisories` still passes on the tree as written.
-  Complexity: S
-
 - [ ] AUD-456 (P3): `isChunkFailure` does not match Vite's own CSS preload rejection
   Why: the detector covers the three engines' wordings for a dynamic import that did not arrive. Vite's preload helper rejects a lazy import whose CSS did not arrive with "Unable to preload CSS for" and the path, which matches none of them, so that failure is rethrown past the panel boundary to the whole-window recovery screen, which is the outcome `AUD-443` exists to prevent. Not reachable today, because no lazily imported module in the tree imports CSS; it is exactly the "generous direction" the docblock argues for and the first panel that gains a stylesheet of its own reaches it.
   Evidence: refutation report of 2026-09-08 (LOW 9); `src/components/LazyPanel.tsx` (`isChunkFailure`, the regex), `node_modules/vite/dist/node/chunks/node.js:28912` (the rejection).
