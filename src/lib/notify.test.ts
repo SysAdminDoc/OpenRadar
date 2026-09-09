@@ -123,11 +123,12 @@ describe("what the workspace can say about notifications", () => {
  * A stand-in for the engine Windows provides, which remembers what it was
  * asked to say and hands back the utterance so a test can end it.
  */
-function withSpeech(voices: number) {
+function withSpeech(voices: number, options: { throws?: boolean } = {}) {
   let installed = voices;
   const said: Array<{ text: string; lang: string }> = [];
   const live: Array<{ onend?: () => void; onerror?: () => void }> = [];
   const listeners: Array<() => void> = [];
+  let cancelled = 0;
   class Utterance {
     lang = "";
     onend?: () => void;
@@ -137,7 +138,12 @@ function withSpeech(voices: number) {
   const engine = {
     getVoices: () => Array.from({ length: installed }, () => ({})),
     addEventListener: (_name: string, run: () => void) => listeners.push(run),
+    cancel: () => {
+      cancelled += 1;
+      live.length = 0;
+    },
     speak: (one: Utterance) => {
+      if (options.throws) throw new Error("the voice service is not running");
       said.push({ text: one.text, lang: one.lang });
       live.push(one);
     },
@@ -161,12 +167,18 @@ function withSpeech(voices: number) {
   });
   return {
     said,
+    words: () => said.map((one) => one.text),
+    cancelled: () => cancelled,
     /** Ends the sentence being read, the way the engine does. */
     finish: () => live.shift()?.onend?.(),
     /** The voice list arriving, which on Windows takes a moment. */
     voicesArrive: () => {
       installed = 2;
       listeners.splice(0).forEach((run) => run());
+    },
+    /** Stops throwing, for the sentence after the one that failed. */
+    recover: () => {
+      options.throws = false;
     },
     undo: () => {
       for (const [name, held] of [
@@ -193,33 +205,37 @@ describe("reading an alert aloud", () => {
     const engine = withSpeech(2);
     try {
       const { speak } = await freshSpeech();
-      speak("A tornado warning, two miles away", "home");
-      speak("A flood warning, at the school", "school");
-      expect(engine.said.map((one) => one.text)).toEqual([
-        "A tornado warning, two miles away",
-      ]);
+      speak("A tornado warning, two miles away");
+      speak("A flood warning, at the school");
+      expect(engine.words()).toEqual(["A tornado warning, two miles away"]);
       engine.finish();
-      expect(engine.said).toHaveLength(2);
-      expect(engine.said[1].text).toBe("A flood warning, at the school");
+      expect(engine.words()).toEqual([
+        "A tornado warning, two miles away",
+        "A flood warning, at the school",
+      ]);
     } finally {
       engine.undo();
     }
   });
 
-  it("replaces a sentence still waiting for the same place", async () => {
-    // Somebody whose watch has been upgraded to a warning wants the
-    // warning, not both in the order they arrived.
+  it("keeps every warning of a batch, the ones in the middle included", async () => {
+    // The first shape of this replaced a waiting sentence with a newer one
+    // for the same place. Three warnings for one place in one poll meant the
+    // first and the third were read and the middle one was silently lost,
+    // and the feed order makes which one that is arbitrary: in the case that
+    // found it, the tornado warning was the one nobody heard.
     const engine = withSpeech(2);
     try {
       const { speak } = await freshSpeech();
-      speak("Reading the first", "home");
-      speak("A severe thunderstorm watch", "school");
-      speak("A tornado warning", "school");
+      speak("A flash flood warning, at home");
+      speak("A tornado warning, at home");
+      speak("A severe thunderstorm warning, at home");
       engine.finish();
       engine.finish();
-      expect(engine.said.map((one) => one.text)).toEqual([
-        "Reading the first",
-        "A tornado warning",
+      expect(engine.words()).toEqual([
+        "A flash flood warning, at home",
+        "A tornado warning, at home",
+        "A severe thunderstorm warning, at home",
       ]);
     } finally {
       engine.undo();
@@ -232,12 +248,73 @@ describe("reading an alert aloud", () => {
     const engine = withSpeech(0);
     try {
       const { speak } = await freshSpeech();
-      speak("A tornado warning", "home");
+      speak("A tornado warning");
       expect(engine.said).toHaveLength(0);
       engine.voicesArrive();
       expect(engine.said).toHaveLength(1);
     } finally {
       engine.undo();
+    }
+  });
+
+  it("carries on after an engine that refuses", async () => {
+    // This is called from the watch's own loop, between the tone and the
+    // notification. A throw from here took the announcement, the record and
+    // the rest of the batch with it, and left the alert unannounced so the
+    // next poll threw in the same place: an addition that suppressed the
+    // thing it was added to.
+    const engine = withSpeech(2, { throws: true });
+    try {
+      const { speak } = await freshSpeech();
+      expect(() => speak("A tornado warning")).not.toThrow();
+      engine.recover();
+      speak("A flood warning");
+      expect(engine.words()).toEqual(["A flood warning"]);
+    } finally {
+      engine.undo();
+    }
+  });
+
+  it("gives up on a sentence the engine never finishes", async () => {
+    // `speechSynthesis` promises an `end` event and Chromium drops it on an
+    // utterance it cut off. Without a ceiling the first sentence that goes
+    // quiet stops every warning after it for the life of the run.
+    vi.useFakeTimers();
+    const engine = withSpeech(2);
+    try {
+      const { speak } = await freshSpeech();
+      speak("A tornado warning");
+      speak("A flood warning");
+      expect(engine.words()).toEqual(["A tornado warning"]);
+      // Nothing ends it. The second sentence waits, and then stops waiting.
+      await vi.advanceTimersByTimeAsync(21_000);
+      expect(engine.cancelled()).toBe(1);
+      expect(engine.words()).toEqual(["A tornado warning", "A flood warning"]);
+    } finally {
+      engine.undo();
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not read a warning out four minutes late", async () => {
+    // Worse than not reading it at all: it is about a storm that has moved.
+    // The case is a machine with no voices at all until one is installed:
+    // the queue waits for `voiceschanged`, which may never come, and what it
+    // is holding when it does is warnings from whenever the app started.
+    vi.useFakeTimers();
+    const engine = withSpeech(0);
+    try {
+      const { speak } = await freshSpeech();
+      speak("A flood warning from four minutes ago");
+      await vi.advanceTimersByTimeAsync(4 * 60_000);
+      engine.voicesArrive();
+      expect(engine.words()).toEqual([]);
+      // And the queue is not stuck: something said now is said now.
+      speak("A tornado warning, still in force");
+      expect(engine.words()).toEqual(["A tornado warning, still in force"]);
+    } finally {
+      engine.undo();
+      vi.useRealTimers();
     }
   });
 
@@ -248,11 +325,11 @@ describe("reading an alert aloud", () => {
     const engine = withSpeech(2);
     engine.undo();
     const { speak } = await freshSpeech();
-    expect(() => speak("A tornado warning", "home")).not.toThrow();
+    expect(() => speak("A tornado warning")).not.toThrow();
     const again = withSpeech(2);
     try {
-      speak("A flood warning", "home");
-      expect(again.said.map((one) => one.text)).toEqual(["A flood warning"]);
+      speak("A flood warning");
+      expect(again.words()).toEqual(["A flood warning"]);
     } finally {
       again.undo();
     }
@@ -264,7 +341,7 @@ describe("reading an alert aloud", () => {
       const { setLanguage } = await import("../i18n");
       const { speak } = await freshSpeech();
       setLanguage("fr");
-      speak("Une alerte", "home");
+      speak("Une alerte");
       // `fr-CA` rather than `fr`: the app writes French for a reader in
       // Quebec, and a voice should read it that way too.
       expect(engine.said[0].lang).toBe("fr-CA");
