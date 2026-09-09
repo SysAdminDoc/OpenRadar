@@ -661,6 +661,9 @@ export const en = {
   "diagnostics.openLogs": "Open log folder",
   "diagnostics.forget": "Forget source history",
   "diagnostics.forgot": "Forgotten. New reports start from here.",
+  "diagnostics.forgotten": "The source history is forgotten",
+  "diagnostics.forgottenBody":
+    "What every source did on this machine today is gone. Nothing rebuilds it.",
   "diagnostics.report": "Copy and open a report",
   "diagnostics.reportFailed": "The report page could not be opened",
   "diagnostics.reportFailedDetail":

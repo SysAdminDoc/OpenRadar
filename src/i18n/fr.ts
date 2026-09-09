@@ -682,6 +682,9 @@ export const fr: Catalogue = {
   "diagnostics.openLogs": "Ouvrir le dossier des journaux",
   "diagnostics.forget": "Oublier l'historique des sources",
   "diagnostics.forgot": "Oublié. Les prochains rapports partent d'ici.",
+  "diagnostics.forgotten": "L'historique des sources est oublié",
+  "diagnostics.forgottenBody":
+    "Ce que chaque source a fait aujourd'hui sur cette machine a disparu. Rien ne le reconstruit.",
   "diagnostics.report": "Copier et ouvrir un rapport",
   "diagnostics.reportFailed": "La page du rapport n'a pas pu être ouverte",
   "diagnostics.reportFailedDetail":

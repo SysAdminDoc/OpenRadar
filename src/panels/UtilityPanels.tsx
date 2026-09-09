@@ -12,12 +12,14 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { PanelShell } from "../components/PanelShell";
+import type { UndoableRemoval } from "../components/ToastHost";
 import { MAX_PALETTES, paletteUnit, type Palette } from "../lib/palette";
 import type { UpdateState } from "../lib/updates";
 import type { LogEntry } from "../lib/log";
 import {
   DIAGNOSTIC_SOURCES,
   clearIncidents,
+  restoreIncidents,
   type ProviderHealth,
 } from "../lib/providers";
 import { APP_VERSION } from "../lib/settings";
@@ -179,6 +181,8 @@ interface MorePanelProps extends CloseOnlyProps {
   health: ProviderHealth[];
   log: LogEntry[];
   onOpenLogFolder: () => void;
+  /** Offers the forgotten source history back, the way every removal does. */
+  onRemoved: (removal: UndoableRemoval) => void;
   /**
    * Copies the report. The argument is whether the reader asked for their
    * watched place to be in it, which is off until they say so.
@@ -220,6 +224,7 @@ export function MorePanel({
   health,
   log,
   onOpenLogFolder,
+  onRemoved,
   onCopyDiagnostics,
   onReportIssue,
   hasWatchedPlace,
@@ -328,8 +333,20 @@ export function MorePanel({
             type="button"
             data-clear-incidents
             onClick={() => {
-              clearIncidents();
+              const held = clearIncidents();
               setForgotten(true);
+              // The one removal in the workspace that had no way back, against
+              // the rule everything else here is written under. What it takes
+              // is a record of what every source did on this machine today,
+              // which nothing rebuilds.
+              onRemoved({
+                title: t("diagnostics.forgotten"),
+                detail: t("diagnostics.forgottenBody"),
+                undo: () => {
+                  restoreIncidents(held);
+                  setForgotten(false);
+                },
+              });
             }}
           >
             <Trash2 size={14} /> {t("diagnostics.forget")}

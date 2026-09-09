@@ -1,10 +1,19 @@
+import type { UndoableRemoval } from "../components/ToastHost";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MorePanel, UploadPanel } from "./UtilityPanels";
 import { en } from "../i18n/en";
-import type { ProviderHealth } from "../lib/providers";
+import {
+  clearIncidents,
+  providerIncidents,
+  recordFailure,
+  recordSuccess,
+  type ProviderHealth,
+} from "../lib/providers";
 
 afterEach(cleanup);
+// The incident ring is module state shared by every case in this file.
+afterEach(() => clearIncidents());
 
 function diagnostics(
   overrides: {
@@ -13,11 +22,13 @@ function diagnostics(
     hasWatchedPlace?: boolean;
     onCopyDiagnostics?: (withPlace: boolean) => void;
     onReportIssue?: (withPlace: boolean) => void;
+    onRemoved?: (removal: UndoableRemoval) => void;
   } = {},
 ) {
   return (
     <MorePanel
       onReportIssue={overrides.onReportIssue ?? vi.fn()}
+      onRemoved={overrides.onRemoved ?? vi.fn()}
       onClose={vi.fn()}
       update={{ status: "idle" } as never}
       onUpdate={null}
@@ -250,5 +261,51 @@ describe("opening a report from the diagnostics panel", () => {
       screen.getByRole("button", { name: en["diagnostics.report"] }),
     );
     expect(onReportIssue).toHaveBeenCalledWith(true);
+  });
+});
+
+describe("forgetting what the sources did", () => {
+  it("offers the record back, and puts it back in order", () => {
+    // The one removal in the workspace with no way back, against the rule the
+    // character section is written under. What it takes is a record of what
+    // every source did on this machine today, which nothing rebuilds: a
+    // reader who pressed it to tidy the report before sending it had thrown
+    // away the thing the report is about.
+    recordFailure("ridge", "The service could not be reached.");
+    recordSuccess("ridge", 3);
+    const before = providerIncidents().map((one) => ({ ...one }));
+    expect(before.length).toBeGreaterThan(1);
+
+    let offered: UndoableRemoval | null = null;
+    render(diagnostics({ onRemoved: (removal) => (offered = removal) }));
+    fireEvent.click(screen.getByText(en["diagnostics.forget"]));
+
+    expect(providerIncidents()).toEqual([]);
+    expect(offered, "forgetting offered no way back").not.toBeNull();
+    offered!.undo();
+    // Every one of them, in the order they happened, which is what the report
+    // is read in.
+    expect(providerIncidents()).toEqual(before);
+  });
+
+  it("keeps what happened while the toast was on screen", () => {
+    // A source that failed after the button was pressed is real and is newer
+    // than everything being restored, so the undo merges rather than
+    // replacing: putting the old list back over it would lose the failure the
+    // reader is most likely to be looking for.
+    recordFailure("ridge", "The service could not be reached.");
+    const before = providerIncidents().map((one) => ({ ...one }));
+
+    let offered: UndoableRemoval | null = null;
+    render(diagnostics({ onRemoved: (removal) => (offered = removal) }));
+    fireEvent.click(screen.getByText(en["diagnostics.forget"]));
+    recordFailure("mrms", "Nothing answered.");
+    const since = providerIncidents().map((one) => ({ ...one }));
+    expect(since).toHaveLength(1);
+
+    offered!.undo();
+    const after = providerIncidents();
+    expect(after).toHaveLength(before.length + 1);
+    expect(after.at(-1)).toEqual(since[0]);
   });
 });

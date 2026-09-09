@@ -237,6 +237,7 @@ export function resetRadarBudgets() {
 export { BLANK_TILE_URL } from "./budget";
 export {
   clearIncidents,
+  restoreIncidents,
   loadProviderIncidents,
   providerHealth,
   providerIncidents,
