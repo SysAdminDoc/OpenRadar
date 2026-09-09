@@ -2242,6 +2242,12 @@ export const es: Catalogue = {
   "app.settingsNotSaved": "Los ajustes no se guardaron",
   "app.preparing": "Preparando el mapa",
   "app.settingsNotSavedBody": "Esta ventana sigue usando tus cambios.",
+  "app.settingsRestored": "Se recuperaron tus ajustes",
+  "app.settingsRestoredBody":
+    "No se pudo leer el archivo de ajustes, así que se recuperó la última copia buena. Lo que hayas cambiado desde entonces se perdió.",
+  "app.settingsUnreadable": "No se pudieron leer tus ajustes",
+  "app.settingsUnreadableBody":
+    "El archivo de ajustes estaba dañado y no había ninguna copia, así que esta ventana se abrió sin nada. El archivo ilegible se ha conservado.",
   "app.savedView": "Vista guardada",
   "popup.importedShape": "Forma importada",
   "popup.openProduct": "Abrir el producto oficial",

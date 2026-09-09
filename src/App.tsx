@@ -178,6 +178,7 @@ import type {
 import { isDesktopRuntime } from "./lib/runtime";
 import {
   APP_VERSION,
+  settingsRecovery,
   watchedPlaces,
   withPalette,
   withPaletteAssigned,
@@ -374,6 +375,27 @@ export default function App() {
     updateCamera,
     viewportPx,
   } = useSettings({ onPersistError });
+
+  // A settings file that would not parse used to be silent: the workspace
+  // opened on the defaults and the reader was left wondering where their
+  // places went. Said once, after the load, whether the copy went back or
+  // there was none to go back to. The two are different news.
+  useEffect(() => {
+    if (!hydrated) return;
+    const recovered = settingsRecovery();
+    if (!recovered) return;
+    pushToast(
+      recovered.restored
+        ? {
+            title: translate("app.settingsRestored"),
+            detail: translate("app.settingsRestoredBody"),
+          }
+        : {
+            title: translate("app.settingsUnreadable"),
+            detail: translate("app.settingsUnreadableBody"),
+          },
+    );
+  }, [hydrated, pushToast]);
 
   // Everything the workspace can do is behind Commands and Layers, and nothing
   // on screen says either exists. One toast, once.

@@ -217,3 +217,94 @@ test("says there is nothing on disk in a browser", async ({ page }) => {
   await expect(row).toContainText("Nothing is kept on disk in a browser");
   await expect(row.getByRole("button", { name: "Clear" })).toHaveCount(0);
 });
+
+/**
+ * A settings document the app cannot read, and the reader's places surviving
+ * it.
+ *
+ * The browser preview, deliberately: this is the one runtime where the whole
+ * chain can be driven for real, from a damaged document through the recovery
+ * to what the workspace draws. The desktop build does the same thing to three
+ * files in app data, where a spec can only fake the answer.
+ */
+const RESTORED_CAMERA = {
+  center: [-93.62, 41.59],
+  zoom: 8,
+  bearing: 0,
+  pitch: 0,
+};
+
+async function plant(page: Page, live: string, previous: string | null) {
+  await page.addInitScript(
+    (held: { live: string; previous: string | null }) => {
+      window.localStorage.setItem("openradar.settings", held.live);
+      if (held.previous !== null) {
+        window.localStorage.setItem(
+          "openradar.settings.previous",
+          held.previous,
+        );
+      }
+    },
+    { live, previous },
+  );
+  await routeWorkspace(page);
+  await page.goto("/?testMode=1");
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+}
+
+const GOOD = JSON.stringify({
+  schemaVersion: 3,
+  camera: RESTORED_CAMERA,
+  watch: { enabled: true, center: [-93.62, 41.59], radiusMiles: 30 },
+});
+
+test("puts the reader's workspace back when the stored one will not parse", async ({
+  page,
+}) => {
+  // A write torn in half by a power cut. Before this, the app opened on the
+  // defaults, said nothing, and wrote those defaults back over the file at
+  // the first settings change: the reader's places, colour tables and packs
+  // were gone with no way back and no notice.
+  await plant(page, GOOD.slice(0, 40), GOOD);
+
+  await expect(page.locator(".toast-host")).toContainText(
+    "Your settings were put back",
+  );
+  await expect
+    .poll(() =>
+      page.getByRole("application").first().getAttribute("data-camera"),
+    )
+    .toContain("-93.62");
+  // The document it could not read is kept rather than dropped, because a
+  // reader who edited it by hand wants to see what they wrote.
+  expect(
+    await page.evaluate(() =>
+      window.localStorage.getItem("openradar.settings.unreadable"),
+    ),
+  ).toBe(GOOD.slice(0, 40));
+});
+
+test("opens on a stored workspace it can read without saying anything", async ({
+  page,
+}) => {
+  // The positive control. Without it the case above passes against a build
+  // that recovers on every launch, and a toast about damaged settings on an
+  // ordinary morning is its own wrong answer.
+  await plant(page, GOOD, null);
+
+  await expect
+    .poll(() =>
+      page.getByRole("application").first().getAttribute("data-camera"),
+    )
+    .toContain("-93.62");
+  await expect(page.locator(".toast-host")).not.toContainText(
+    "Your settings were put back",
+  );
+  expect(
+    await page.evaluate(() =>
+      window.localStorage.getItem("openradar.settings.unreadable"),
+    ),
+  ).toBeNull();
+});
