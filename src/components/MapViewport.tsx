@@ -290,6 +290,14 @@ interface MapViewportProps {
    */
   onOverlayAction?: (id: string) => void;
   onMapStatus?: (status: "loading" | "ready" | "error" | "nogpu") => void;
+  /**
+   * The wind layer's programs would not build on this graphics card.
+   *
+   * The viewport takes the layer back out; the workspace owns the switch that
+   * asked for it and the words the reader gets, the same division
+   * `onOverlayAction` runs on.
+   */
+  onWindUndrawable?: () => void;
 }
 
 /**
@@ -407,6 +415,7 @@ function MapViewportInner(
     onSection,
     onOverlayAction,
     onMapStatus,
+    onWindUndrawable,
   }: MapViewportProps,
   ref: ForwardedRef<MapViewportHandle>,
 ) {
@@ -482,6 +491,7 @@ function MapViewportInner(
   // Read when the button is pressed rather than when the popup was built,
   // which can be many renders earlier.
   const onOverlayActionRef = useRef(onOverlayAction);
+  const onWindUndrawableRef = useRef(onWindUndrawable);
   const satelliteTimeRef = useRef(satelliteTime);
   const satelliteMissingRef = useRef(onSatelliteMissing);
   useEffect(() => {
@@ -1079,13 +1089,30 @@ function MapViewportInner(
       return;
     }
 
+    // The programs are built inside `onAdd`, which `addLayer` calls before it
+    // returns, so this is set by the time the check below reads it.
+    let undrawable = false;
     const layer = createWindLayer({
       id: WIND_LAYER_ID,
       field,
-      onError: (message) => log.warn("wind", message),
+      onError: (message) => {
+        undrawable = true;
+        log.warn("wind", message);
+      },
     });
     windLayerRef.current = layer;
     map.addLayer(layer, firstExisting(map, layersAbove(WIND_LAYER_ID)));
+    if (undrawable) {
+      // A shader that will not build on this card left the layer sitting in
+      // the style drawing nothing, with its switch still on and nothing said.
+      // A map that reads as a calm afternoon because a program did not
+      // compile is the worst failure a hazard display has, so the layer comes
+      // out and the workspace is told to put the switch back where the
+      // picture is.
+      if (map.getLayer(WIND_LAYER_ID)) map.removeLayer(WIND_LAYER_ID);
+      windLayerRef.current = null;
+      onWindUndrawableRef.current?.();
+    }
     publishLayers();
   };
 
@@ -1739,6 +1766,9 @@ function MapViewportInner(
   useEffect(() => {
     onOverlayActionRef.current = onOverlayAction;
   }, [onOverlayAction]);
+  useEffect(() => {
+    onWindUndrawableRef.current = onWindUndrawable;
+  }, [onWindUndrawable]);
   useMapSync(satelliteProductId, (next) => {
     satelliteProductRef.current = next;
     syncSatellite();

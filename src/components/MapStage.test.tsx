@@ -86,6 +86,7 @@ function mount(
       onSection={noop}
       onOverlayAction={noop}
       onMapStatus={noop}
+      onWindUndrawable={noop}
       {...overrides}
     />,
   );

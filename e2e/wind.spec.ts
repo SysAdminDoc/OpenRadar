@@ -92,3 +92,77 @@ test("holds the particles back when the device asks for less movement", async ({
 
   await context.close();
 });
+
+test("takes the layer back out when its shaders will not build", async ({
+  page,
+}) => {
+  // A program that compiles on one driver and not the next is the ordinary
+  // way a WebGL layer fails, and it fails silently: the layer is added, the
+  // switch says it is on, and nothing is drawn. The map then reads as a calm
+  // afternoon, which on a hazard display is the worst thing it can do. Two
+  // readers of another radar app hit exactly this in a week, on GLSL ES 100
+  // and on GLSL 120, and in both the layer stayed in the style.
+  //
+  // The compile check is refused rather than the shader source being broken,
+  // because what is under test is what the app does about a card that says
+  // no, not any particular card's reason for saying it.
+  //
+  // Only this layer's shaders. The map's own programs go through the same
+  // call, and refusing all of them takes the basemap down instead, which
+  // tests nothing about the wind layer and everything about MapLibre. The
+  // sources are recorded as they are handed over and matched on `u_wind`,
+  // which no other program in the style declares.
+  await page.addInitScript(() => {
+    const gl = WebGL2RenderingContext.prototype;
+    const sources = new WeakMap<WebGLShader, string>();
+    const handOver = gl.shaderSource;
+    gl.shaderSource = function (
+      this: WebGL2RenderingContext,
+      shader: WebGLShader,
+      source: string,
+    ) {
+      sources.set(shader, source);
+      return handOver.call(this, shader, source);
+    };
+    const ask = gl.getShaderParameter;
+    gl.getShaderParameter = function (
+      this: WebGL2RenderingContext,
+      shader: WebGLShader,
+      name: number,
+    ) {
+      if (
+        name === this.COMPILE_STATUS &&
+        sources.get(shader)?.includes("u_wind")
+      ) {
+        return false;
+      }
+      return ask.call(this, shader, name) as unknown;
+    } as typeof ask;
+  });
+  await routeWorkspace(page);
+  await fakeNativeSide(page);
+  await page.goto("/?testMode=1");
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await expect(pane).toBeVisible();
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /^Wind/ }).check();
+
+  // Said in the app's own words, in the reader's own language.
+  await expect(
+    page.getByText("The wind layer could not be drawn on this graphics card."),
+  ).toBeVisible();
+  // The switch follows the picture rather than describing a layer that is not
+  // there, and the layer is out of the style.
+  await expect(page.getByRole("checkbox", { name: /^Wind/ })).not.toBeChecked();
+  await expect(pane).not.toHaveAttribute("data-layer-stack", /openradar-wind/);
+
+  // And the rest of the map is untouched: one layer failing is not the
+  // workspace failing, which is what the whole-window recovery screen means.
+  await expect(
+    page.getByText("The interface could not finish drawing."),
+  ).toHaveCount(0);
+  await expect(pane).toHaveAttribute("data-layer-stack", /radar/);
+});

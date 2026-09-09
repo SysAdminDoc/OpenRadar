@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.12.0
 
+- The wind layer takes itself off the map when your graphics card will not build it, and says so. Its two small programs are compiled by the driver when the layer is switched on, and a driver that refuses one used to leave the layer sitting there drawing nothing, with the switch still saying it was on. A map with the wind switched on and no wind on it looks exactly like a calm afternoon, which is the one thing a weather display must never do. The switch now goes back off and a message names the reason.
+
 - The credit on an exported picture stays inside the picture. It is drawn small, at the bottom left, and it names every source that went into the frame, which on a busy day is a dozen of them. The box it sits in was allowed to be as wide as the picture and as tall as it liked, so on a small export it climbed past the top edge. It now fits, and it shrinks its own type rather than dropping a source, because a credit with names missing is worse than a credit you have to look closely at.
 
 - A panel that will not download no longer takes the window with it. Ten panels are fetched at the moment you open them, which keeps the app small, and until now a failed fetch threw all the way out to the recovery screen. You lost the map, the timeline and the command bar because a panel you may never open again did not arrive. The failure now stays inside that panel's own frame and says what happened, and everything behind it keeps working. The frame also holds its place while the panel is on the way, so the map no longer shifts aside and then waits on an empty gap.

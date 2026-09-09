@@ -96,6 +96,8 @@ interface MapStageProps {
   /** The one action a popup offered about what it describes. */
   onOverlayAction: (id: string) => void;
   onMapStatus: (status: "loading" | "ready" | "error" | "nogpu") => void;
+  /** The wind layer would not build on this card; the workspace owns the switch. */
+  onWindUndrawable: () => void;
 }
 
 /** How far back a missing slot may walk the lane: one hour. */
@@ -145,6 +147,7 @@ export function MapStage({
   onSection,
   onOverlayAction,
   onMapStatus,
+  onWindUndrawable,
   clock,
 }: MapStageProps) {
   const t = useT();
@@ -249,6 +252,7 @@ export function MapStage({
         onSection={onSection}
         onOverlayAction={onOverlayAction}
         onMapStatus={onMapStatus}
+        onWindUndrawable={onWindUndrawable}
         {...shared}
         overlays={primaryOverlays}
         // Stated per pane rather than shared, because the two panes are

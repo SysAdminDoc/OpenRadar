@@ -1041,6 +1041,25 @@ export default function App() {
     [applySettings, pushToast, settingsRef],
   );
 
+  // The wind layer's shaders would not build on this card, so the viewport has
+  // taken the layer back out and the switch has to follow it. Left on, it
+  // described a layer that was not being drawn, and the map read as a calm
+  // afternoon: the reader would have had no way to tell that from the real
+  // thing. No undo, because pressing it would only fail again on the same
+  // card; the switch is there to try again with.
+  const handleWindUndrawable = useCallback(() => {
+    const current = settingsRef.current;
+    if (!current.layers.wind) return;
+    applySettings({
+      ...current,
+      layers: { ...current.layers, wind: false },
+    });
+    pushToast({
+      title: translate("wind.noDraw"),
+      detail: translate("wind.noDrawBody"),
+    });
+  }, [applySettings, pushToast, settingsRef]);
+
   // A test the reader asked for is answered on the desktop path only. When the
   // notification does not go out, the watch has already put the same alert in
   // front of them as a toast, and a second message saying it worked would be
@@ -2783,6 +2802,7 @@ export default function App() {
         onSection={handleSection}
         onOverlayAction={applyPairing}
         onMapStatus={handleMapStatus}
+        onWindUndrawable={handleWindUndrawable}
       />
 
       {activeSurface || productOpen ? (

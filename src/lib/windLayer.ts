@@ -302,10 +302,12 @@ export function createWindLayer(
         );
         framebuffer = context.createFramebuffer();
       } catch (failure) {
+        // The driver's own line where there is one: this reaches a log, and
+        // what the reader is told is `wind.noDraw`, said by whoever asked
+        // for the layer. A shader that will not build on one card builds on
+        // the next, so the text that names the card is the useful half.
         options.onError?.(
-          failure instanceof Error
-            ? failure.message
-            : "The wind layer could not start.",
+          failure instanceof Error ? failure.message : translate("wind.noDraw"),
         );
       }
     },
