@@ -155,12 +155,18 @@ function options(overrides: {
   showingTime?: number | null;
   compareTime?: number | null;
   zoom?: number;
+  windowPx?: number;
 }) {
   return {
     ready: true,
     radar: { ...radar, ...overrides.radar },
     center: overrides.center ?? ([-93.7, 41.7] as [number, number]),
     zoom: overrides.zoom ?? 9,
+    // The width the chromium project runs at, so the box a case gets is the
+    // one that project would draw. Coverage depends on the window as well as
+    // the zoom, so a case that left this to chance would answer differently
+    // under a different harness.
+    windowPx: overrides.windowPx ?? 1440,
     pageVisible: true,
     paletteGeneration: 0,
     showingTime: overrides.showingTime ?? null,
@@ -521,7 +527,7 @@ describe("historical volumes", () => {
     const second: [number, number] = [-93.4, 41.7];
     const fresh: [number, number] = [-93.1, 41.7];
     const boxes = [first, second, fresh].map((at) =>
-      String(sweepDetailBox(DISCS.KDMX, at, 13)),
+      String(sweepDetailBox(DISCS.KDMX, at, 13, 1440)),
     );
     // Three cells of the snap grid, or there is nothing to overtake.
     expect(new Set(boxes).size, "the three cameras share a box").toBe(3);
@@ -597,7 +603,7 @@ describe("historical volumes", () => {
     // proves nothing about which disc the second one used.
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(fetchLocalSweep.mock.calls.at(-1)![3]).toEqual(
-      sweepDetailBox(DISCS.KTLX, [-93.7, 41.7], 13),
+      sweepDetailBox(DISCS.KTLX, [-93.7, 41.7], 13, 1440),
     );
 
     const before = fetchLocalSweep.mock.calls.length;
@@ -621,8 +627,10 @@ describe("historical volumes", () => {
       expect(fetchLocalSweep.mock.calls.length).toBeGreaterThan(before + 1),
     );
     const second = fetchLocalSweep.mock.calls.at(-1)![3];
-    expect(second).toEqual(sweepDetailBox(DISCS.KVNX, [-93.7, 41.7], 13));
-    expect(second).not.toEqual(sweepDetailBox(DISCS.KTLX, [-93.7, 41.7], 13));
+    expect(second).toEqual(sweepDetailBox(DISCS.KVNX, [-93.7, 41.7], 13, 1440));
+    expect(second).not.toEqual(
+      sweepDetailBox(DISCS.KTLX, [-93.7, 41.7], 13, 1440),
+    );
   });
 
   it("does not send one site's box to a file recorded at another", async () => {
@@ -677,8 +685,10 @@ describe("historical volumes", () => {
     // both contain the centre, so "inside KTLX" was true of the KDMX box as
     // well: the assertion that used to be here passed on the sliver it was
     // written to catch.
-    expect(boxed).toEqual(sweepDetailBox(DISCS.KTLX, [-93.7, 41.7], 13));
-    expect(boxed).not.toEqual(sweepDetailBox(DISCS.KDMX, [-93.7, 41.7], 13));
+    expect(boxed).toEqual(sweepDetailBox(DISCS.KTLX, [-93.7, 41.7], 13, 1440));
+    expect(boxed).not.toEqual(
+      sweepDetailBox(DISCS.KDMX, [-93.7, 41.7], 13, 1440),
+    );
 
     // And it settles: the boxed answer's corners are the box rather than the
     // disc, so recording them would walk the picture inwards a step at a time.

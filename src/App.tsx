@@ -366,8 +366,14 @@ export default function App() {
       }),
     [pushToast],
   );
-  const { settings, hydrated, settingsRef, applySettings, updateCamera } =
-    useSettings({ onPersistError });
+  const {
+    settings,
+    hydrated,
+    settingsRef,
+    applySettings,
+    updateCamera,
+    viewportPx,
+  } = useSettings({ onPersistError });
 
   // Everything the workspace can do is behind Commands and Layers, and nothing
   // on screen says either exists. One toast, once.
@@ -438,6 +444,7 @@ export default function App() {
     radar: settings.radar,
     center: settings.camera.center,
     zoom: settings.camera.zoom,
+    windowPx: viewportPx,
     pageVisible,
     paletteGeneration,
     // The moment the scrubber is stopped on, and nothing while it is running.

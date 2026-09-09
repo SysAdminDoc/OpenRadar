@@ -342,6 +342,10 @@ describe("how much ground the sweep is drawn over", () => {
   const disc = { west: -96.55, south: 39.63, east: -91.01, north: 43.77 };
   const centre: [number, number] = [-93.78, 41.7];
   const wide = disc.east - disc.west;
+  // The widest window the browser suite runs at. Whether a box covers what a
+  // reader can see depends on this as much as on the zoom, so every case here
+  // names it rather than leaving it to whatever the harness happens to be.
+  const windowPx = 1920;
 
   it("draws the whole disc while a screen pixel is coarser than the raster", () => {
     // 1,024 pixels over 460 kilometres is 449 metres a pixel. Below about
@@ -351,7 +355,10 @@ describe("how much ground the sweep is drawn over", () => {
     // reached them would be narrower than the window: see the threshold's
     // own docstring, and `AUD-453`.
     for (const zoom of [4, 7, 8, 9, 9.9]) {
-      expect(sweepDetailBox(disc, centre, zoom), String(zoom)).toBeNull();
+      expect(
+        sweepDetailBox(disc, centre, zoom, windowPx),
+        String(zoom),
+      ).toBeNull();
     }
   });
 
@@ -379,9 +386,8 @@ describe("how much ground the sweep is drawn over", () => {
     // It is also wrong rather than merely loose once a box is clipped to the
     // disc, where a quarter of the width bears no relation to the ground
     // either side of the reader. The nearest edge is the thing itself.
-    const windowPx = 1920;
     for (const zoom of [10, 11, 12, 13, 14, 18]) {
-      const first = sweepDetailBox(disc, centre, zoom);
+      const first = sweepDetailBox(disc, centre, zoom, windowPx);
       expect(first, String(zoom)).not.toBeNull();
       // The grid is half the box, so a reader anywhere within a quarter of a
       // box either side of a grid point gets that point's box. Walking that
@@ -397,7 +403,7 @@ describe("how much ground the sweep is drawn over", () => {
       let measured = 0;
       for (let step = -12; step <= 12; step += 1) {
         const lon = centre[0] + (reach * step) / 12;
-        const box = sweepDetailBox(disc, [lon, centre[1]], zoom);
+        const box = sweepDetailBox(disc, [lon, centre[1]], zoom, windowPx);
         expect(box, `${zoom} at ${lon}`).not.toBeNull();
         if (box![0] <= disc.west + 1e-9 || box![2] >= disc.east - 1e-9)
           continue;
@@ -422,12 +428,86 @@ describe("how much ground the sweep is drawn over", () => {
     }
   });
 
+  it("covers the window on every disc the network has, not just a wide one", () => {
+    // The case above pins one disc. This is the reason a single zoom
+    // threshold could never be the whole rule: substituting the progression
+    // into the bound cancels the zoom, so whether a box covers the window
+    // depends on the disc's width in degrees alone, and a 460 kilometre disc
+    // is 5.54 degrees at Des Moines and 4.59 at Miami because the width goes
+    // as one over the cosine of the latitude.
+    //
+    // Measured on 2026-09-08 against the 159-site table: with a threshold of
+    // ten and no rule beside it, 85 of them drew bare basemap at a 1,920
+    // pixel window and 152 at 2,560. A terminal radar reaches 89 kilometres
+    // rather than 230 and was uncovered at every common window size.
+    const widths = [
+      // A WSR-88D at the top of the country, in the middle, and at Key West,
+      // and a terminal radar's 89 kilometres, which is the narrowest disc the
+      // app ever draws.
+      {
+        name: "KMBX at 48.4 N",
+        wide: 4.136 / Math.cos((48.4 * Math.PI) / 180),
+      },
+      {
+        name: "KDMX at 41.7 N",
+        wide: 4.136 / Math.cos((41.7 * Math.PI) / 180),
+      },
+      {
+        name: "KAMX at 25.6 N",
+        wide: 4.136 / Math.cos((25.6 * Math.PI) / 180),
+      },
+      {
+        name: "KBYX at 24.6 N",
+        wide: 4.136 / Math.cos((24.6 * Math.PI) / 180),
+      },
+      {
+        name: "a terminal radar",
+        wide: 1.598 / Math.cos((41.7 * Math.PI) / 180),
+      },
+    ];
+    for (const window of [1024, 1440, 1920, 2560, 3840]) {
+      for (const { name, wide } of widths) {
+        const site = {
+          west: -93.75 - wide / 2,
+          south: 39.6,
+          east: -93.75 + wide / 2,
+          north: 43.8,
+        };
+        for (const zoom of [10, 11, 12, 13, 14, 18]) {
+          const box = sweepDetailBox(site, [-93.75, 41.7], zoom, window);
+          // No box at all is a fine answer: the whole disc is drawn, which
+          // covers everything the radar has.
+          if (box === null) continue;
+          const reach = (box[2] - box[0]) / 4;
+          let worst = Infinity;
+          for (let step = -8; step <= 8; step += 1) {
+            const lon = -93.75 + (reach * step) / 8;
+            const at = sweepDetailBox(site, [lon, 41.7], zoom, window);
+            expect(at, `${name} at ${zoom}`).not.toBeNull();
+            if (at![0] <= site.west + 1e-9 || at![2] >= site.east - 1e-9) {
+              continue;
+            }
+            worst = Math.min(worst, lon - at![0], at![2] - lon);
+          }
+          if (!Number.isFinite(worst)) continue;
+          const halfWindow = (window / 2) * (360 / (512 * 2 ** zoom));
+          expect(
+            worst,
+            `${name} at zoom ${zoom} in a ${window}px window leaves ${Math.round(
+              (halfWindow - worst) * 2 * ((512 * 2 ** zoom) / 360),
+            )}px bare`,
+          ).toBeGreaterThanOrEqual(halfWindow);
+        }
+      }
+    }
+  });
+
   it("halves the ground again for every whole zoom past that", () => {
     // The whole point: the same 1,024 pixels over less ground is more metres
     // of radar per metre of screen. Pinned as the halving rather than as "it
     // got smaller", which any monotone shrink would satisfy.
     const spans = [10, 11, 12, 13].map((zoom) => {
-      const box = sweepDetailBox(disc, centre, zoom);
+      const box = sweepDetailBox(disc, centre, zoom, windowPx);
       expect(box, String(zoom)).not.toBeNull();
       return box![2] - box![0];
     });
@@ -442,7 +522,7 @@ describe("how much ground the sweep is drawn over", () => {
     // ceiling is the promise, and the level it is first reached at moves if
     // the exponent ever does.
     expect(spans.at(-1)!).toBeCloseTo(wide / 16, 9);
-    const deepest = sweepDetailBox(disc, centre, 18);
+    const deepest = sweepDetailBox(disc, centre, 18, windowPx);
     expect(deepest![2] - deepest![0]).toBeCloseTo(wide / 16, 9);
   });
 
@@ -451,13 +531,16 @@ describe("how much ground the sweep is drawn over", () => {
     // fly-tos and a wheel that moves in fractions. Unfloored, every hundredth
     // of a level was its own box, so a held loop frame was orphaned by any
     // zoom change and the next scrub re-fetched the volume behind it.
-    const level = sweepDetailBox(disc, centre, 12)!;
+    const level = sweepDetailBox(disc, centre, 12, windowPx)!;
     for (const zoom of [12, 12.0000001, 12.05, 12.5, 12.9999]) {
-      expect(sweepDetailBox(disc, centre, zoom), String(zoom)).toEqual(level);
+      expect(
+        sweepDetailBox(disc, centre, zoom, windowPx),
+        String(zoom),
+      ).toEqual(level);
     }
     // And the next level really is a different box, so this is quantising
     // rather than ignoring the zoom.
-    expect(sweepDetailBox(disc, centre, 13)).not.toEqual(level);
+    expect(sweepDetailBox(disc, centre, 13, windowPx)).not.toEqual(level);
   });
 
   it("holds one box across a whole grid cell, wherever the reader started", () => {
@@ -467,7 +550,7 @@ describe("how much ground the sweep is drawn over", () => {
     // cell shares a box, and that is what a held loop frame depends on. An
     // earlier version of this nudged one hand-picked centre by an eighth of
     // the box and passed on the centre it chose.
-    const held = sweepDetailBox(disc, centre, 12)!;
+    const held = sweepDetailBox(disc, centre, 12, windowPx)!;
     // The grid is half the box's own width, and the two axes are not the same
     // size: a disc is wider in longitude than it is tall in latitude.
     const acrossCell = (held[2] - held[0]) / 2;
@@ -476,13 +559,16 @@ describe("how much ground the sweep is drawn over", () => {
       disc,
       [held[0] + acrossCell, held[1] + upCell],
       12,
+      windowPx,
     )!;
     for (const away of [-0.49, -0.25, 0, 0.25, 0.49]) {
       const inside: [number, number] = [
         settled[0] + acrossCell * (1 + away),
         settled[1] + upCell * (1 + away),
       ];
-      expect(sweepDetailBox(disc, inside, 12), String(away)).toEqual(settled);
+      expect(sweepDetailBox(disc, inside, 12, windowPx), String(away)).toEqual(
+        settled,
+      );
     }
     // A whole cell over is a different box, which is what makes the cell a
     // cell rather than the box never moving.
@@ -491,14 +577,20 @@ describe("how much ground the sweep is drawn over", () => {
         disc,
         [settled[0] + 2 * acrossCell, settled[1] + upCell],
         12,
+        windowPx,
       ),
     ).not.toEqual(settled);
   });
 
   it("moves it for a pan that would leave the picture", () => {
-    const held = sweepDetailBox(disc, centre, 12)!;
+    const held = sweepDetailBox(disc, centre, 12, windowPx)!;
     const span = held[2] - held[0];
-    const moved = sweepDetailBox(disc, [centre[0] + span, centre[1]], 12)!;
+    const moved = sweepDetailBox(
+      disc,
+      [centre[0] + span, centre[1]],
+      12,
+      windowPx,
+    )!;
     expect(moved[0]).toBeGreaterThan(held[0]);
   });
 
@@ -516,7 +608,7 @@ describe("how much ground the sweep is drawn over", () => {
         [disc.west, disc.north],
         centre,
       ] as [number, number][]) {
-        const box = sweepDetailBox(disc, at, zoom);
+        const box = sweepDetailBox(disc, at, zoom, windowPx);
         expect(box, `${at} at ${zoom}`).not.toBeNull();
         expect(box![0]).toBeGreaterThanOrEqual(disc.west);
         expect(box![1]).toBeGreaterThanOrEqual(disc.south);
@@ -529,8 +621,13 @@ describe("how much ground the sweep is drawn over", () => {
     }
     // A disc with no size at all is not a box to draw over.
     expect(
-      sweepDetailBox({ west: 1, south: 1, east: 1, north: 1 }, centre, 12),
+      sweepDetailBox(
+        { west: 1, south: 1, east: 1, north: 1 },
+        centre,
+        12,
+        windowPx,
+      ),
     ).toBeNull();
-    expect(sweepDetailBox(disc, centre, Number.NaN)).toBeNull();
+    expect(sweepDetailBox(disc, centre, Number.NaN, windowPx)).toBeNull();
   });
 });

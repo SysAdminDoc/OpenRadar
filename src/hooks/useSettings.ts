@@ -37,6 +37,8 @@ export interface SettingsState {
     next: AppSettings | ((now: AppSettings) => AppSettings),
   ) => void;
   updateCamera: (camera: CameraState) => void;
+  /** How wide the window is, in CSS pixels, kept current on resize. */
+  viewportPx: number;
 }
 
 /**
@@ -55,6 +57,9 @@ export function useSettings(options: {
     normalizeSettings(DEFAULT_SETTINGS),
   );
   const [hydrated, setHydrated] = useState(false);
+  const [viewportPx, setViewportPx] = useState(() =>
+    typeof window === "undefined" ? 1440 : window.innerWidth,
+  );
   const settingsRef = useRef(settings);
   const saveTimerRef = useRef<number | null>(null);
   const persistErrorRef = useRef(onPersistError);
@@ -207,6 +212,12 @@ export function useSettings(options: {
       const root = document.documentElement;
       if (under.length) root.dataset.narrow = under.join(" ");
       else delete root.dataset.narrow;
+      // The map's own width, undivided: the text scale grows the chrome and
+      // leaves the canvas in real pixels. `sweepDetailBox` needs it to decide
+      // whether a narrowed sweep still covers what the reader can see. Read
+      // off the same listener rather than a second one, because two listeners
+      // measuring one window is how they come to disagree.
+      setViewportPx(window.innerWidth);
     };
     measure();
     window.addEventListener("resize", measure);
@@ -222,5 +233,12 @@ export function useSettings(options: {
     [],
   );
 
-  return { settings, hydrated, settingsRef, applySettings, updateCamera };
+  return {
+    settings,
+    hydrated,
+    settingsRef,
+    applySettings,
+    updateCamera,
+    viewportPx,
+  };
 }

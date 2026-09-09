@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.12.0
 
+- A single radar is drawn over as much ground as your window can show, on every radar in the network. The sweep is one picture over the site's whole reach, so as you zoom in the app spends those same pixels on less ground to keep the detail up. How far it can go depends on the window and on the radar: a 460 kilometre circle is wider in degrees at the Canadian border than it is over Florida, and a terminal radar at an airport covers a fifth of the area. That was one fixed rule for every site, tuned against a radar in Iowa, so on more than half the network it narrowed further than the window could show and left bare map around the picture. Each site now narrows as far as its own circle and your own window allow, and no further.
+
 - The loop speed reads as a speed. The radar panel and the settings both showed the slider's own internal position, so a fresh install said "-0.1" under the word Speed, and a screen reader announced the same thing with no unit at all. All three now say how many frames a second the loop is playing, which is one at the default and rises as you push the slider forward.
 
 - The wind layer takes itself off the map when your graphics card will not build it, and says so. Its two small programs are compiled by the driver when the layer is switched on, and a driver that refuses one used to leave the layer sitting there drawing nothing, with the switch still saying it was on. A map with the wind switched on and no wind on it looks exactly like a calm afternoon, which is the one thing a weather display must never do. The switch now goes back off and a message names the reason.
