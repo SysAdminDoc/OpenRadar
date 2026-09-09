@@ -176,6 +176,11 @@ import type {
   MapStyleId,
   RadarSettings,
 } from "./lib/settings";
+import {
+  withPalette,
+  withPaletteAssigned,
+  withoutPalette,
+} from "./lib/palette";
 import { isDesktopRuntime } from "./lib/runtime";
 import {
   APP_VERSION,
@@ -183,11 +188,8 @@ import {
   restoreArrangement,
   settingsRecovery,
   startedPlain,
-  watchedPlaces,
-  withPalette,
-  withPaletteAssigned,
-  withoutPalette,
 } from "./lib/settings";
+import { watchedPlaces } from "./lib/watch";
 import {
   mergedOverlayShapes,
   overlayGates,

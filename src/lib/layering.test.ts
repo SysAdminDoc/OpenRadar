@@ -333,16 +333,24 @@ describe("what may import what", () => {
   });
 
   it("keeps settings underneath the modules that read it", () => {
-    const settings = join(ROOT, "lib", "settings.ts");
+    // Every file of it, not the name at the front. `settings.ts` became a
+    // barrel over `lib/settings/` on 2026-09-09, and a rule that read only
+    // the barrel would have gone on passing over a composer that reached
+    // straight into an overlay adapter: the file it was reading has three
+    // imports in it and none of them is the one this is about.
+    const settings = [
+      join(ROOT, "lib", "settings.ts"),
+      ...filesUnder(join(ROOT, "lib", "settings")),
+    ];
+    expect(settings.length).toBeGreaterThan(5);
     const reaching: string[] = [];
-    for (const where of valueImports(
-      readFileSync(settings, "utf8"),
-      settings,
-    )) {
-      const landed = resolveImport(settings, where);
-      if (!landed) continue;
-      if (/^lib\/(providers|overlays)\//.test(named(landed))) {
-        reaching.push(`${where} -> ${named(landed)}`);
+    for (const path of settings) {
+      for (const where of valueImports(readFileSync(path, "utf8"), path)) {
+        const landed = resolveImport(path, where);
+        if (!landed) continue;
+        if (/^lib\/(providers|overlays)\//.test(named(landed))) {
+          reaching.push(`${named(path)}: ${where} -> ${named(landed)}`);
+        }
       }
     }
     expect(

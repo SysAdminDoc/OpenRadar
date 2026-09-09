@@ -152,3 +152,25 @@ export function alertType(prodType: string): AlertType {
 
   return "other";
 }
+
+/* Which kinds a settings file leaves switched on. */
+
+/**
+ * Which kinds of alert are switched off, with anything unrecognised dropped.
+ *
+ * Only the false entries are worth keeping: a kind nobody has touched is on,
+ * and storing every kind as true would mean a kind added later arrived
+ * switched off for everyone who had saved settings before it existed.
+ */
+export function normalizeAlertTypes(
+  value: unknown,
+): Partial<Record<AlertType, boolean>> {
+  if (!value || typeof value !== "object") return {};
+  const out: Partial<Record<AlertType, boolean>> = {};
+  const known = new Set(ALERT_TYPES.map((kind) => kind.id));
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (!known.has(key as AlertType)) continue;
+    if (entry === false) out[key as AlertType] = false;
+  }
+  return out;
+}

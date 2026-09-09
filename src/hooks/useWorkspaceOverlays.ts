@@ -8,7 +8,8 @@ import {
   type OverlayId,
   type OverlayLegend,
 } from "../lib/overlays";
-import { watchedPlaces, type AppSettings } from "../lib/settings";
+import type { AppSettings } from "../lib/settings";
+import { watchedPlaces } from "../lib/watch";
 import { watchAlertBody, type WatchAlert } from "../lib/watch";
 import { useAlertWatch } from "./useAlertWatch";
 import { useOverlays, type OverlayStates } from "./useOverlays";

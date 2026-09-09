@@ -10,7 +10,7 @@ import {
   milesFromDistance,
 } from "../lib/units";
 import type { AppSettings, WatchState } from "../lib/settings";
-import { watchedPlaces, watchesAnything } from "../lib/settings";
+import { watchedPlaces, watchesAnything } from "../lib/watch";
 import { useOfflineSince } from "../hooks/useOffline";
 import type { UndoableRemoval } from "../components/ToastHost";
 import { formatNumber, useT } from "../i18n";

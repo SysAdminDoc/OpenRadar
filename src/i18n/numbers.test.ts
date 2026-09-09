@@ -57,8 +57,10 @@ const MACHINE_VALUES: Record<string, number> = {
   "lib/route.ts": 6,
   "lib/sounding.ts": 2,
   "lib/weather.ts": 2,
-  // What gets written to settings.json and compared on the way back.
-  "lib/settings.ts": 5,
+  // The camera key that gets written to settings.json and compared on the
+  // way back. It moved out of `settings.ts` with the rest of the readers on
+  // 2026-09-09, when that file became a directory.
+  "lib/settings/camera.ts": 5,
   "lib/watch.ts": 1,
   // Coordinates in an SVG path.
   "lib/skewt.ts": 2,

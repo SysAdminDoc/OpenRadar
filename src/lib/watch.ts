@@ -12,6 +12,12 @@ import {
   type OverlayBounds,
   type OverlayData,
 } from "./overlays";
+import { bool, finiteInRange } from "./settings/read";
+import type {
+  AppSettings,
+  WatchPlaceState,
+  WatchState,
+} from "./settings/types";
 import { translate } from "../i18n";
 import { distanceUnit, distanceValue } from "./units";
 
@@ -566,5 +572,165 @@ export function afterWatchPoll(
     health: { ...health, failing, failingSince: health.failingSince ?? now },
     // The moment it crosses, and not again while it stays there.
     say: failing === WATCH_FAILURES_BEFORE_SAYING ? "failing" : null,
+  };
+}
+
+/*
+ * Reading a watch out of a settings file.
+ *
+ * Beside the vocabulary rather than in the store, so the store does not have
+ * to know what a severity or a quiet window is to put one back together, and
+ * so this module has somewhere to get the shape from that is not the store.
+ * The app's own answer arrives as an argument for the same reason.
+ */
+
+export function normalizeWatch(
+  value: unknown,
+  fallback: WatchState,
+): WatchState {
+  const raw =
+    value && typeof value === "object" ? (value as Partial<WatchState>) : {};
+  const center = Array.isArray(raw.center) ? raw.center : fallback.center;
+  const severity = String(raw.minSeverity);
+  return {
+    enabled: bool(raw.enabled, fallback.enabled),
+    sound: bool(raw.sound, fallback.sound),
+    voice: bool(raw.voice, fallback.voice),
+    center: [
+      finiteInRange(center[0], fallback.center[0], -180, 180),
+      finiteInRange(center[1], fallback.center[1], -85, 85),
+    ],
+    radiusMiles: finiteInRange(raw.radiusMiles, fallback.radiusMiles, 5, 200),
+    minSeverity: ["extreme", "severe", "moderate", "minor"].includes(severity)
+      ? (severity as WatchState["minSeverity"])
+      : fallback.minSeverity,
+    quietHours: normalizeQuietHours(raw.quietHours),
+    ...(typeof raw.name === "string" && raw.name.trim()
+      ? { name: raw.name.trim().slice(0, 60) }
+      : {}),
+  };
+}
+
+/**
+ * The places beside home, out of a settings file.
+ *
+ * Anything that is not a place is dropped rather than repaired into one: a
+ * watch with no position is a notification that never fires, which is worse
+ * than a place that is simply not there. The list is capped at nine, because
+ * home is the tenth.
+ */
+/**
+ * Every place being watched, home first.
+ *
+ * Home is the `watch` the settings file has always held; the rest are the
+ * list beside it. Everything that acts on a watch reads this rather than
+ * either key, so there is one answer to "what is being watched" and the
+ * storage shape is nobody else's problem.
+ */
+/**
+ * Whether anything at all would raise a notification.
+ *
+ * `watch.enabled` is home's own flag, and asking it was wrong: a reader with
+ * home off and a school watched has every notice going to the same place.
+ *
+ * The approach and lightning rules are deliberately not asked about on their
+ * own. Both are per-place rules: each hook filters to the enabled places
+ * before it decides anything, so with none enabled neither can announce
+ * whatever its own switch says, and saying a notification was blocked would
+ * be warning somebody about a thing that was never going to happen.
+ */
+export function watchesAnything(settings: AppSettings): boolean {
+  return watchedPlaces(settings).some((place) => place.enabled);
+}
+
+export function watchedPlaces(settings: AppSettings): WatchPlace[] {
+  const home: WatchPlace = {
+    ...settings.watch,
+    id: "home",
+    // The reader's own word for it if they have one, and the built-in word if
+    // they have not. `named` is what tells an announcement apart: a place
+    // somebody called Casa is worth saying, and the default "Home" said back
+    // to somebody who watches one place is noise.
+    name: settings.watch.name?.trim() || translate("watch.home"),
+    named: Boolean(settings.watch.name?.trim()),
+  };
+  return [home, ...settings.watchPlaces].slice(0, MAX_WATCH_PLACES);
+}
+
+export function normalizeWatchPlaces(
+  value: unknown,
+  fallback: WatchState,
+): WatchPlaceState[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const places: WatchPlaceState[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const raw = entry as Partial<WatchPlaceState>;
+    const center = Array.isArray(raw.center) ? raw.center : null;
+    if (
+      !center ||
+      !Number.isFinite(Number(center[0])) ||
+      !Number.isFinite(Number(center[1]))
+    ) {
+      continue;
+    }
+    const id =
+      typeof raw.id === "string" && raw.id.trim() && !seen.has(raw.id)
+        ? raw.id
+        : `place-${places.length + 1}-${Math.abs(
+            Math.round(Number(center[0]) * 1000),
+          )}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const watch = normalizeWatch(raw, fallback);
+    places.push({
+      ...watch,
+      id,
+      name:
+        typeof raw.name === "string" && raw.name.trim()
+          ? raw.name.trim().slice(0, 60)
+          : `Place ${places.length + 1}`,
+      ...(raw.kinds && typeof raw.kinds === "object"
+        ? {
+            kinds: Object.fromEntries(
+              Object.entries(raw.kinds).filter(
+                ([, on]) => typeof on === "boolean",
+              ),
+            ),
+          }
+        : {}),
+    });
+    if (places.length >= MAX_WATCH_PLACES - 1) break;
+  }
+  return places;
+}
+
+/**
+ * Quiet hours out of a settings file, which may be older than this build or
+ * may have been edited by hand.
+ *
+ * The bounds matter more here than in most of these. A start or end outside a
+ * day would make the window unreadable, and an override severity that is not
+ * one silences everything, which is the one outcome a weather app must not
+ * arrive at by accident.
+ */
+export function normalizeQuietHours(value: unknown): QuietHours {
+  const raw =
+    value && typeof value === "object" ? (value as Partial<QuietHours>) : {};
+  const override = String(raw.overrideSeverity);
+  return {
+    enabled: bool(raw.enabled, DEFAULT_QUIET_HOURS.enabled),
+    startMinute: Math.round(
+      finiteInRange(raw.startMinute, DEFAULT_QUIET_HOURS.startMinute, 0, 1439),
+    ),
+    endMinute: Math.round(
+      finiteInRange(raw.endMinute, DEFAULT_QUIET_HOURS.endMinute, 0, 1439),
+    ),
+    overrideSeverity: ["extreme", "severe", "moderate", "minor"].includes(
+      override,
+    )
+      ? (override as QuietHours["overrideSeverity"])
+      : DEFAULT_QUIET_HOURS.overrideSeverity,
   };
 }

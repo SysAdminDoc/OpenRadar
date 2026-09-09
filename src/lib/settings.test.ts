@@ -12,13 +12,11 @@ import {
   saveSettings,
   settingsRecovery,
   restoreSettings,
-  watchedPlaces,
   sameCamera,
-  withPalette,
-  withPaletteAssigned,
-  withoutPalette,
   SCHEMA_VERSION,
 } from "./settings";
+import { withPalette, withPaletteAssigned, withoutPalette } from "./palette";
+import { watchedPlaces } from "./watch";
 import {
   MAX_PALETTES,
   activePalettes,
