@@ -32,8 +32,14 @@ const MAX_BYTES: usize = 64 * 1024 * 1024;
 /// `ar2v` is an Archive II volume and `nids` a Level III product, both saved
 /// as the bucket published them. Neither is a name this app invents: they are
 /// what every other tool that reads these files expects to be handed.
+/// `orb` is a replay bundle, the third writer through `write_atomically`. It
+/// was missing here, so the name that module builds could not have satisfied
+/// the guard even if it had run one, and it ran none: it was safe only by an
+/// argument about `slug` being bounded and prefixed, which is the kind of
+/// argument `data_export` stopped accepting when one of its own two builders
+/// turned out not to prefix.
 const ALLOWED_EXTENSIONS: &[&str] = &[
-    "png", "webm", "mp4", "gif", "json", "jsonl", "md", "pal", "csv", "tif", "ar2v", "nids",
+    "png", "webm", "mp4", "gif", "json", "jsonl", "md", "pal", "csv", "tif", "ar2v", "nids", "orb",
 ];
 /// Windows addresses these as devices no matter the extension or folder.
 const RESERVED_NAMES: &[&str] = &[
@@ -280,6 +286,10 @@ mod tests {
             "openradar-journal-a1b2c3.png",
             "openradar-year-2026-09-02.png",
             "reflectivity.pal",
+            // The replay bundle, which this list did not carry. Its module
+            // ran no guard at all, so the omission cost nothing and hid the
+            // fact that nothing was holding it to anything.
+            "openradar-replay-a-severe-afternoon-a1b2c3d4.orb",
         ] {
             assert!(
                 sanitize_file_name(name).is_ok(),
@@ -302,8 +312,8 @@ mod tests {
         let said = ExportError::BadExtension.to_string();
         assert_eq!(
             said,
-            "only png, webm, mp4, gif, json, jsonl, md, pal, csv, tif, ar2v \
-             and nids files can be exported"
+            "only png, webm, mp4, gif, json, jsonl, md, pal, csv, tif, ar2v, \
+             nids and orb files can be exported"
         );
     }
 
