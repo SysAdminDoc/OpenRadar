@@ -40,20 +40,47 @@ function between(from: string, to: string): string {
 describe("what the app volunteers while a warning stands", () => {
   const QUIET = "!overlays.alertActive";
 
+  /**
+   * The clause is there and nothing lets the condition past it.
+   *
+   * Presence alone is not the promise. Every one of these conditions is a
+   * chain of `&&`, so the way to disable the clause while leaving it on
+   * screen is to put it in a disjunction: `(!overlays.alertActive ||
+   * settings.calm)` reads as a gate and is not one, and a check that asks
+   * whether the words are there cannot tell the two apart. No `||` appears
+   * in any of these four spans today, so refusing one is refusing the shape
+   * rather than a spelling.
+   */
+  const gated = (span: string, what: string) => {
+    expect(span, `${what} no longer mentions the warning`).toContain(QUIET);
+    expect(span, `${what} lets something past the warning`).not.toContain("||");
+  };
+
   it("stands the curiosities down, where they are found and where they are drawn", () => {
-    expect(between("useCuriosities({", "onFound:")).toContain(QUIET);
-    expect(between("{curiosity", "<CuriosityCard")).toContain(QUIET);
+    // Also held for real, on a rendered warning, by `e2e/curiosities.spec.ts`
+    // in "stays quiet while a warning is in force where you watch".
+    gated(between("useCuriosities({", "onFound:"), "the curiosity search");
+    gated(between("{curiosity", "<CuriosityCard"), "the curiosity card");
   });
 
   it("stands the catch-up card down", () => {
-    // A card about last Tuesday over a live warning.
-    expect(between("{catchUp &&", "<CatchUpCard")).toContain(QUIET);
+    // A card about last Tuesday over a live warning. Held for real too, by
+    // `e2e/catch-up.spec.ts` in "stands down while a warning is in force
+    // where you watch", which lands a warning and asserts the card is gone.
+    gated(between("{catchUp &&", "<CatchUpCard"), "the catch-up card");
   });
 
   it("stands the on this date card down", () => {
     // A card about the weather in other years, in the panel a reader opens
     // during a warning to find out what to do.
-    expect(between("almanac={", "onFlyTo=")).toContain(QUIET);
+    //
+    // The only one of the three with no rendered case behind it, and the
+    // reason is that the card draws only when the almanac has an entry for
+    // today's date, so "it is not on screen" is true on most days whatever
+    // the warning is doing. A rendered case needs a stubbed almanac with an
+    // entry for today and a storm list to hang it on, which is a fixture
+    // worth building and is not built here.
+    gated(between("almanac={", "onFlyTo="), "the on this date card");
   });
 
   it("is a promise about the settings a reader actually meets", () => {
