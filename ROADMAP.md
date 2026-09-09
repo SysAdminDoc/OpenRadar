@@ -485,13 +485,6 @@ Raised by the adversarial reviews of this session's own commits, instructed to r
 
 ### P3
 
-- [ ] AUD-471 (P3): The settings recovery runs after the webview has started loading
-  Why: `settings_backup::init` recovers an unreadable settings file in the setup hook, and the module says it does so before the webview asks the store for anything. Tauri creates the configured windows first and calls the setup closure after (`tauri-2.11.5/src/app.rs`, `setup` driven from `RuntimeRunEvent::Ready`), so what actually keeps the recovery ahead of the store's `load` is that the frontend's IPC is dispatched on a later turn of the event loop. That is true today and nothing enforces it. If it ever stops being true the store reads the damaged file, `loadSettings` falls to the defaults, and the recovery repairs a file nobody is reading this session.
-  Evidence: found by the refutation of `c72a70c` on 2026-09-09; `src-tauri/src/lib.rs` (the setup hook), `src-tauri/src/settings_backup.rs` (the module docstring's claim).
-  Touches: `src-tauri/src/settings_backup.rs`, `src-tauri/src/lib.rs`, or the store's own path: recovering from the Rust side of the `plugin:store|load` call would make the ordering a fact rather than a habit.
-  Acceptance: A test or a structural change that makes the ordering hold by construction, or the docstring corrected to say what is actually relied on.
-  Complexity: S
-
 ## Verification Findings, 2026-09-08
 
 Raised by a second adversarial review, of `ca36e7a..ddebfd1`, instructed to refute rather than confirm. Every one is a defect in this session's own work or in a claim it made.

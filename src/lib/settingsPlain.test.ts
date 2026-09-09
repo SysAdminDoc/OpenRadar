@@ -35,15 +35,17 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 vi.mock("@tauri-apps/plugin-store", () => ({
   Store: {
-    load: () =>
-      Promise.resolve({
+    load: () => {
+      asked.push("store opened");
+      return Promise.resolve({
         get: () => Promise.resolve(held.settings),
         set: (_key: string, value: Record<string, unknown>) => {
           written.push(value);
           return Promise.resolve();
         },
         save: () => Promise.resolve(),
-      }),
+      });
+    },
   },
 }));
 
@@ -82,6 +84,17 @@ describe("a desktop launch after two starts that did not reach a window", () => 
       configurable: true,
       value: { search: "", reload: vi.fn() },
     });
+  });
+
+  it("asks what it will find before it opens the store", async () => {
+    // First in the file on purpose: the store is opened once for the life of
+    // the module, so a later case would see nothing and pass on an empty
+    // list. Asking is what runs the recovery, and this order is the whole of
+    // what keeps it ahead of the store's own read. Left to the setup hook it
+    // was ahead only because the frontend's first message happens to arrive
+    // on a later turn of the event loop.
+    await loadSettings();
+    expect(asked.slice(0, 2)).toEqual(["settings_recovered", "store opened"]);
   });
 
   it("opens plain without writing anything", async () => {

@@ -382,9 +382,9 @@ pub fn run() {
                     // anywhere a cache clear can reach.
                     journal::init(&dir);
                     // The settings file lives here too, written by the store
-                    // plugin. Recovered before the webview loads, so the
-                    // store finds a file it can read rather than falling to
-                    // the defaults and writing them back over the reader's.
+                    // plugin. Only pointed at the directory here: the
+                    // recovery itself runs when the workspace asks, which it
+                    // does before it opens the store.
                     settings_backup::init(&dir);
                     // And the mark that says this run is in progress, read
                     // before it is written: a window that dies before it

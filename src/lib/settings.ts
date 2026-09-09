@@ -2259,17 +2259,12 @@ export async function loadSettings(): Promise<AppSettings> {
   } catch {
     settings = normalizeSettings(undefined);
   }
-  // The desktop recovery happens in the native setup hook, before the store
-  // is ever asked for anything, so by here it has already been done and the
-  // only thing left is to find out whether it happened.
   if (isDesktopRuntime()) {
-    recovery = await invoke<SettingsRecovery | null>("settings_recovered")
-      .then((answer) => answer ?? null)
-      .catch(() => null);
     // Something the reader imported can take the window down before there is
     // a window, and the crash screen's Reset layout is reachable only once
-    // the page has drawn. Two starts that did not finish is the app deciding
-    // for itself that it cannot be the one to ask.
+    // the page has drawn. Two starts that did not reach a window is the app
+    // deciding for itself that it cannot be the one to ask.
+    //
     // The store falls back to its own defaults when the file has been taken
     // away, and those defaults are the first-run marker: without this a
     // reader whose file rotted and had no copy was asked to pick their units
@@ -2305,6 +2300,13 @@ export async function readSettings(): Promise<AppSettings> {
   // launch was marked as already picked, and choosing a language never set
   // the units it is read in for anybody.
   if (isDesktopRuntime()) {
+    // Asked before the store is opened, and this is the whole of what keeps
+    // the recovery ahead of the store's own read: asking is what runs it.
+    // Ordered here, in one place, rather than left to the order two things
+    // happen to start in.
+    recovery = await invoke<SettingsRecovery | null>("settings_recovered")
+      .then((answer) => answer ?? null)
+      .catch(() => null);
     const value = await (await getStore()).get<unknown>("settings");
     return normalizeSettings(value ?? DEFAULT_SETTINGS);
   }

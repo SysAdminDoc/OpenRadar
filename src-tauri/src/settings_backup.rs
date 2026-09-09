@@ -13,11 +13,18 @@
 //! wrong; and the unreadable one kept under a name of its own rather than
 //! deleted, because a reader who hand-edited it wants to see what they did.
 //!
-//! The recovery runs in the setup hook, before the webview asks for anything,
-//! so the store finds a file it can read and never learns any of this
-//! happened. What the workspace does learn is that it happened at all, which
-//! is what the toast is for: a restore nobody is told about is a reader
-//! wondering why one of their places went back to where it was yesterday.
+//! The recovery runs when the workspace asks what happened, which it does
+//! before it opens the store, so the store finds a file it can read and never
+//! learns any of this happened. Asked for rather than done in the setup hook:
+//! Tauri builds the configured windows first and calls the setup closure
+//! after, so a recovery there is ahead of the store's own read only because
+//! the frontend's first message arrives on a later turn of the event loop.
+//! That was true and nothing made it true. Here the order is the order the
+//! caller writes.
+//!
+//! What the workspace does learn is that it happened at all, which is what
+//! the toast is for: a restore nobody is told about is a reader wondering why
+//! one of their places went back to where it was yesterday.
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -50,16 +57,20 @@ pub struct Recovery {
     pub restored: bool,
 }
 
-/// Points the backup at a directory and recovers the live file if it needs
-/// it. Called once, at startup, before the webview loads the store.
+/// Points the backup at a directory. Called once, at startup.
 pub fn init(dir: &Path) {
     if let Err(error) = std::fs::create_dir_all(dir) {
         log::warn!("OpenRadar cannot reach its settings directory: {error}");
         return;
     }
     *DIR.lock().unwrap_or_else(|held| held.into_inner()) = Some(dir.to_path_buf());
-    *RECOVERED.lock().unwrap_or_else(|held| held.into_inner()) = recover(dir);
 }
+
+/// Whether the recovery has been run for this launch.
+///
+/// Once, however many times it is asked for: the second window to open must
+/// not file the file the first one just restored away as unreadable.
+static ASKED: Mutex<bool> = Mutex::new(false);
 
 /// Whether a file holds a settings document rather than rubbish.
 ///
@@ -155,9 +166,20 @@ pub fn settings_keep_previous() -> bool {
     dir().map(|dir| keep(&dir)).unwrap_or(false)
 }
 
-/// The workspace asking whether anything was recovered at startup.
+/// The workspace asking what it will find when it opens the store.
+///
+/// Runs the recovery on the first call, which is what puts it ahead of the
+/// store's own read: the caller asks this and then opens the store, in that
+/// order, in one place.
 #[tauri::command]
 pub fn settings_recovered() -> Option<Recovery> {
+    let mut asked = ASKED.lock().unwrap_or_else(|held| held.into_inner());
+    if !*asked {
+        *asked = true;
+        if let Some(dir) = dir() {
+            *RECOVERED.lock().unwrap_or_else(|held| held.into_inner()) = recover(&dir);
+        }
+    }
     RECOVERED
         .lock()
         .unwrap_or_else(|held| held.into_inner())
@@ -191,6 +213,31 @@ mod tests {
         good(&dir, "Casa");
         assert_eq!(recover(&dir), None);
         assert!(!dir.join(KEPT).exists());
+    }
+
+    #[test]
+    fn the_recovery_runs_once_however_often_it_is_asked() {
+        // A second window asking must not file the file the first one just
+        // put back away as unreadable.
+        let dir = scratch("once");
+        *DIR.lock().unwrap() = Some(dir.clone());
+        *ASKED.lock().unwrap() = false;
+        *RECOVERED.lock().unwrap() = None;
+        good(&dir, "Casa");
+        assert!(keep(&dir));
+        std::fs::write(dir.join(LIVE), "{oh dear").expect("a torn file");
+
+        let first = settings_recovered().expect("a recovery");
+        assert!(first.restored);
+        let again = settings_recovered().expect("the same answer");
+        assert_eq!(again, first);
+        // And the file that was put back is still the one in place.
+        let live = std::fs::read_to_string(dir.join(LIVE)).expect("the settings");
+        assert!(live.contains("Casa"), "{live}");
+        assert!(
+            !dir.join(KEPT).exists()
+                || std::fs::read_to_string(dir.join(KEPT)).unwrap() == "{oh dear"
+        );
     }
 
     #[test]
