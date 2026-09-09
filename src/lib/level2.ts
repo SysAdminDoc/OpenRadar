@@ -371,9 +371,10 @@ export async function fetchLocalSweep(
   motion: [number, number] | null,
   threshold: number | null,
   highContrast: boolean,
-  // The ground to draw over. Always null from the app today: the box is
-  // measured on the disc of the site the map is on, and a file from disk
-  // carries whatever site it was recorded at. See `historicalWithin`.
+  // The ground to draw over. Null on a file the reader has just opened, and a
+  // box on every ask after that: the first answer is what says where the
+  // file's own site reaches, and the box is measured on that rather than on
+  // the site the map happens to be over. See `historicalWithin`.
   within: [number, number, number, number] | null,
 ): Promise<SweepImage> {
   const { invoke } = await import("@tauri-apps/api/core");

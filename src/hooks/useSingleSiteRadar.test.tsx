@@ -1,7 +1,11 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSingleSiteRadar } from "./useSingleSiteRadar";
-import { LIVE_REFRESH_MS, SWEEP_REFRESH_MS } from "../lib/level2";
+import {
+  LIVE_REFRESH_MS,
+  SWEEP_REFRESH_MS,
+  sweepDetailBox,
+} from "../lib/level2";
 import type { Level2ProductId, SweepImage } from "../lib/level2";
 import { DEFAULT_SETTINGS, type RadarSettings } from "../lib/settings";
 
@@ -69,6 +73,30 @@ vi.mock("../lib/level2", async () => {
   };
 });
 
+/**
+ * Where each site in these tests reaches, as its own answer would say.
+ *
+ * Every station shared one set of corners until 2026-09-08, which made every
+ * box legal on every disc: a sweep measured against the wrong station was
+ * indistinguishable from one measured properly, and collapsing the whole
+ * per-site record to a single entry left all twenty-six cases green.
+ *
+ * They overlap and all three contain the map centre these tests use, which is
+ * the shape that made the defect possible: two discs that overlap in both
+ * axes clip to a sliver of the intersection rather than missing outright. The
+ * origins differ, and the box centre snaps to a grid anchored at the disc's
+ * own west edge, so the same camera on two of these produces two different
+ * boxes. That difference is what the assertions read.
+ */
+const DISCS: Record<
+  string,
+  { west: number; south: number; east: number; north: number }
+> = {
+  KDMX: { west: -96.5, south: 39.6, east: -91, north: 43.8 },
+  KTLX: { west: -96.1, south: 39.4, east: -90.6, north: 43.6 },
+  KVNX: { west: -95.7, south: 39.2, east: -90.2, north: 43.4 },
+};
+
 function sweepFor(
   station: string,
   product: Level2ProductId,
@@ -95,12 +123,14 @@ function sweepFor(
     tiltIndex: tilt,
     collected: new Date().toISOString(),
     beneathCollected: null,
-    west: -96.5,
-    south: 39.6,
-    east: -91,
-    north: 43.8,
-    siteLon: -93.75,
-    siteLat: 41.7,
+    // Its own disc, which every station shared until 2026-09-08. A shared one
+    // made every box legal on every site's reach, so a sweep measured against
+    // the wrong station's disc was indistinguishable from one measured
+    // properly: collapsing the whole per-site record to a single entry left
+    // all twenty-six cases green.
+    ...DISCS[station],
+    siteLon: (DISCS[station].west + DISCS[station].east) / 2,
+    siteLat: (DISCS[station].south + DISCS[station].north) / 2,
     image: "data:image/png;base64,AAAA",
     volume: `${station}-${product}-${tilt}`,
     radar: "WSR-88D",
@@ -432,6 +462,159 @@ describe("historical volumes", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("does not let a fetch the held box overtook repaint the map", async () => {
+    // Serving a held box takes the request counter with it. Without that, a
+    // fetch already in flight lands afterwards, still believing it is the
+    // current one, writes the request key to its own box and paints its own
+    // picture: the reader is looking at one box and the map is drawing
+    // another. For an archive source nothing in the effect's dependencies has
+    // changed by then, so it never runs again and the wrong picture stays.
+    //
+    // Three cells, because two cannot reach the held branch: returning to the
+    // box that last landed leaves the request key equal to the new one and
+    // the effect returns before it looks at the hold. What is needed is a
+    // move onto ground nobody has been to, so a fetch is in flight, and then
+    // a move back onto ground that is held.
+    //
+    // Two locks hold this path and either one alone is enough: the request
+    // counter the held branch bumps, and the per-run token `useLatestReply`
+    // hands out, which the re-run invalidates. Removing either leaves this
+    // case green and removing both fails it, which is how it was established
+    // on 2026-09-08 that the bump is a second lock rather than the only one.
+    // An earlier report called it load-bearing on its own; it is not. What is
+    // pinned here is the behaviour, that a fetch the reader moved past cannot
+    // repaint the map, rather than whichever guard happens to deliver it.
+    const pending: Array<() => void> = [];
+    let holdThem = false;
+    fetchArchiveSweep.mockImplementation(
+      async (station, _at, product, tilt, within) => {
+        const answer: SweepImage = {
+          ...sweepFor(station, product, tilt),
+          // Which box this picture was drawn for, so the assertion can name
+          // the one on screen rather than counting calls.
+          volume: `box:${String(within)}`,
+          collected: "2021-12-10T03:15:00.000Z",
+          source: {
+            kind: "archive",
+            label: "NOAA NEXRAD Level II archive",
+            url: null,
+          },
+        };
+        if (!holdThem) return answer;
+        return new Promise<SweepImage>((resolve) => {
+          pending.push(() => resolve(answer));
+        });
+      },
+    );
+
+    const first: [number, number] = [-93.7, 41.7];
+    const second: [number, number] = [-93.4, 41.7];
+    const fresh: [number, number] = [-93.1, 41.7];
+    const boxes = [first, second, fresh].map((at) =>
+      String(sweepDetailBox(DISCS.KDMX, at, 13)),
+    );
+    // Three cells of the snap grid, or there is nothing to overtake.
+    expect(new Set(boxes).size, "the three cameras share a box").toBe(3);
+
+    const { result, rerender } = renderHook(
+      (props: { center: [number, number] }) =>
+        useSingleSiteRadar(options({ center: props.center, zoom: 13 })),
+      { initialProps: { center: first } },
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+    await act(async () => {
+      await result.current.openArchive("kdmx", "2021-12-10T03:15:00.000Z");
+    });
+    await waitFor(() =>
+      expect(result.current.sweep?.volume).toBe(`box:${boxes[0]}`),
+    );
+
+    // A second box, so the first one is held and the request key has moved
+    // off it. Both are needed for the branch below.
+    rerender({ center: second });
+    await waitFor(() =>
+      expect(result.current.sweep?.volume).toBe(`box:${boxes[1]}`),
+    );
+
+    // Onto ground nobody has been to, and hold that answer in flight.
+    holdThem = true;
+    rerender({ center: fresh });
+    await waitFor(() => expect(pending.length).toBe(1));
+
+    // Back onto the first box, which is served from the hold without a fetch.
+    rerender({ center: first });
+    await waitFor(() =>
+      expect(result.current.sweep?.volume).toBe(`box:${boxes[0]}`),
+    );
+
+    // Now the overtaken fetch lands. It must not repaint the map.
+    await act(async () => {
+      pending.forEach((release) => release());
+      await Promise.resolve();
+    });
+    expect(
+      result.current.sweep?.volume,
+      "a fetch the reader had already moved past drew over the held box",
+    ).toBe(`box:${boxes[0]}`);
+  });
+
+  it("measures a second file on its own disc, not on the first file's", async () => {
+    // The station used to come off the sweep on screen. Opening a second file
+    // leaves the first one there until the new answer lands, so the new file
+    // was measured on the previous file's disc: the same intersection sliver
+    // the first open avoids, moved to every open after it. It self-corrected
+    // one decode later, which is a wrong picture and a wasted ten megabytes
+    // per switch rather than a stuck state, and nothing could see it.
+    pickArchiveFile.mockResolvedValue("C:/volumes/A_KTLX");
+    fetchLocalSweep.mockImplementation(async (path, product, tilt) => ({
+      ...sweepFor(path.includes("A_") ? "KTLX" : "KVNX", product, tilt),
+      collected: "2013-05-20T20:56:00.000Z",
+      source: { kind: "local", label: String(path), url: null },
+    }));
+    const { result } = renderHook(() =>
+      useSingleSiteRadar(options({ zoom: 13 })),
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+
+    await act(async () => {
+      await result.current.openLocal();
+    });
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KTLX"));
+    await waitFor(() =>
+      expect(fetchLocalSweep.mock.calls.length).toBeGreaterThan(1),
+    );
+    // The first file is settled and boxed on its own disc, or what follows
+    // proves nothing about which disc the second one used.
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(fetchLocalSweep.mock.calls.at(-1)![3]).toEqual(
+      sweepDetailBox(DISCS.KTLX, [-93.7, 41.7], 13),
+    );
+
+    const before = fetchLocalSweep.mock.calls.length;
+    pickArchiveFile.mockResolvedValue("C:/volumes/B_KVNX");
+    await act(async () => {
+      await result.current.openLocal();
+    });
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KVNX"));
+
+    // The ask that opened it carries nothing: this file's site is not known
+    // yet, and the only disc in hand belongs to the file being replaced.
+    expect(
+      fetchLocalSweep.mock.calls[before][3],
+      "the second file was asked for over the first file's box",
+    ).toBeNull();
+
+    // Then its own answer says where it reaches, and the next ask is measured
+    // there. Against the box KVNX's disc gives for this camera, because both
+    // discs contain the centre and a containment check passes on either.
+    await waitFor(() =>
+      expect(fetchLocalSweep.mock.calls.length).toBeGreaterThan(before + 1),
+    );
+    const second = fetchLocalSweep.mock.calls.at(-1)![3];
+    expect(second).toEqual(sweepDetailBox(DISCS.KVNX, [-93.7, 41.7], 13));
+    expect(second).not.toEqual(sweepDetailBox(DISCS.KTLX, [-93.7, 41.7], 13));
+  });
+
   it("does not send one site's box to a file recorded at another", async () => {
     // The box is measured on the live station's disc. A file from disk carries
     // whatever site it was recorded at, and the native side clips the box to
@@ -479,11 +662,13 @@ describe("historical volumes", () => {
       boxed,
       "the second ask should carry the file's own box",
     ).not.toBeNull();
-    // KTLX's disc, not KDMX's. The fixture puts both at the same corners, so
-    // what says this is the right disc is that it is inside them rather than
-    // the intersection of two.
-    expect(boxed![0]).toBeGreaterThanOrEqual(-96.5);
-    expect(boxed![2]).toBeLessThanOrEqual(-91);
+    // KTLX's disc, not KDMX's, and said as the box that disc produces for
+    // this camera rather than as a containment. The two discs overlap and
+    // both contain the centre, so "inside KTLX" was true of the KDMX box as
+    // well: the assertion that used to be here passed on the sliver it was
+    // written to catch.
+    expect(boxed).toEqual(sweepDetailBox(DISCS.KTLX, [-93.7, 41.7], 13));
+    expect(boxed).not.toEqual(sweepDetailBox(DISCS.KDMX, [-93.7, 41.7], 13));
 
     // And it settles: the boxed answer's corners are the box rather than the
     // disc, so recording them would walk the picture inwards a step at a time.
