@@ -1413,13 +1413,13 @@ export const es: Catalogue = {
   "settings.title": "Ajustes",
   "settings.appearance": "Apariencia",
   "settings.reading": "Lectura",
-  "settings.readingDetail": "El idioma, las unidades y el tamaño de todo",
+  "settings.readingDetail": "El idioma, las unidades, la hora y el tamaño",
   "settings.desktop": "Escritorio",
   "settings.desktopDetail":
     "Windows, la bandeja del sistema y la segunda pantalla",
-  "settings.character": "Carácter",
+  "settings.character": "Personalidad",
   "settings.characterDetail":
-    "Todo desactivado hasta que lo actives, y todo en silencio mientras haya un aviso",
+    "Cuánto se adelanta la aplicación, y nada de eso mientras haya un aviso",
   "settings.appliesNow": "Se aplica al instante",
   "settings.systemColours":
     "Tu sistema usa un tema de contraste, así que él elige los colores. Claro y oscuro dependen de él mientras esté activado.",

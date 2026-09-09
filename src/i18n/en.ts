@@ -1387,12 +1387,12 @@ export const en = {
   "settings.title": "Settings",
   "settings.appearance": "Appearance",
   "settings.reading": "Reading",
-  "settings.readingDetail": "The language, the units and how big it all is",
+  "settings.readingDetail": "The language, the units, the clock and the size",
   "settings.desktop": "Desktop",
   "settings.desktopDetail": "Windows, the tray and the second screen",
   "settings.character": "Character",
   "settings.characterDetail":
-    "All off unless you turn it on, and all quiet while a warning stands",
+    "How much the app volunteers, and none of it while a warning stands",
   "settings.appliesNow": "Applies immediately",
   "settings.systemColours":
     "Your system is using a contrast theme, so it is choosing the colours. Light and dark are up to it while that is on.",
