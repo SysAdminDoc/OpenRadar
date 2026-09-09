@@ -484,14 +484,26 @@ fn write_pair(
     readings: usize,
     omitted: usize,
 ) -> Result<DataExportReport, DataExportError> {
-    // Held to the same list a name from the page is held to. This module
-    // writes through `write_atomically`, which checks nothing, so the
-    // allowlist had no effect on anything written here and the test that
-    // reads it was asserting a property nothing enforced.
-    if !exports::extension_allowed(&name) {
-        return Err(DataExportError::Write(format!(
-            "{name} is not a kind of file this app writes"
-        )));
+    // Held to the whole of the guard a name from the page is held to, rather
+    // than to the extension half of it. This module writes through
+    // `write_atomically`, which checks nothing, so nothing was holding these
+    // names to anything at all until the extension check went in; and the
+    // extension check on its own rested on an argument about its callers
+    // instead of on a property of the name. The argument was wrong.
+    // `volume_file_name` keeps the bucket's own object name and puts nothing
+    // in front of it, so a key of `2026/CON` produced `CON.ar2v`, which is a
+    // DOS device on Windows whatever folder it is written in.
+    //
+    // Asked as a comparison rather than by calling it for its answer, because
+    // rewriting a name here would be a file quietly saved under a name nobody
+    // asked for. A name this would have to change is refused instead.
+    match exports::sanitize_file_name(&name) {
+        Ok(safe) if safe == name => {}
+        _ => {
+            return Err(DataExportError::Write(format!(
+                "{name} is not a name this app writes"
+            )))
+        }
     }
     let checksum = sha256_hex(data);
     provenance.data_file = name.clone();
@@ -1528,19 +1540,55 @@ mod tests {
             exports::sanitize_file_name(&sidecar)
                 .unwrap_or_else(|error| panic!("{sidecar} cannot be written: {error:?}"));
         }
-        // And the check `write_pair` really runs, which is the list without
-        // the rewriting: `sanitize_file_name` would turn a sidecar's own dots
-        // into dashes, which is why this module never called it and why the
-        // allowlist had no effect on anything it wrote.
+        // And the check `write_pair` really runs, which is the whole guard
+        // asked as a question: a name it would have to change is not a name
+        // this module may hand over. The sidecar is not asked, because
+        // `write_pair` builds that one itself from a name that has already
+        // passed; `sanitize_file_name` would turn its second dot into a dash.
+        let refused =
+            |name: &str| !matches!(exports::sanitize_file_name(name), Ok(safe) if safe == name);
         for extension in EXTENSIONS {
             let name = file_name(&["KDMX"], extension);
-            assert!(exports::extension_allowed(&name), "{name}");
-            assert!(exports::extension_allowed(&format!(
-                "{name}.provenance.json"
-            )));
+            assert!(!refused(&name), "{name}");
         }
-        assert!(!exports::extension_allowed("openradar-kdmx.exe"));
-        assert!(!exports::extension_allowed("openradar-kdmx"));
+        assert!(refused("openradar-kdmx.exe"));
+        assert!(refused("openradar-kdmx"));
+        // The one the extension check could not see. Both bucket key segments
+        // are non-empty and alphanumeric, so `readable_key` accepts it, and
+        // `volume_file_name` takes the last segment unaltered because the
+        // point of it is to keep the bucket's own name.
+        assert_eq!(volume_file_name("2026/CON", VOLUME_EXTENSION), "CON.ar2v");
+        assert!(refused("CON.ar2v"));
+        assert!(refused("con.nids"));
+        assert!(refused("LPT9.ar2v"));
+
+        // Asked of `write_pair` itself rather than of the guard it calls,
+        // because the guard has always refused these names and the question
+        // is whether the writer asks it. It did not: it asked a check that
+        // reads the extension and nothing else.
+        let folder = std::env::temp_dir().join(format!("openradar-device-{}", std::process::id()));
+        std::fs::create_dir_all(&folder).expect("a folder");
+        let at = DateTime::from_timestamp(1_756_750_000, 0).expect("a time");
+        let provenance = polar_provenance(
+            &values(),
+            at,
+            ProvenanceSource {
+                kind: "archive",
+                label: "NOAA NEXRAD Level II".to_string(),
+                url: None,
+            },
+        );
+        let name = volume_file_name("2026/CON", VOLUME_EXTENSION);
+        let failed = write_pair(&folder, name.clone(), b"AR2V0006", provenance, 0, 0);
+        assert!(
+            matches!(failed, Err(DataExportError::Write(_))),
+            "a DOS device name was accepted: {failed:?}"
+        );
+        assert!(
+            !folder.join(&name).exists(),
+            "a file was written under a device name"
+        );
+        let _ = std::fs::remove_dir_all(&folder);
     }
 
     #[test]
