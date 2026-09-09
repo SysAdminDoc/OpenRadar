@@ -23,8 +23,8 @@ afterEach(() => {
  * row. Somebody looking for "start with Windows" had no heading to find it
  * under.
  */
-function headings(): string[] {
-  const { container } = render(
+function panel() {
+  return (
     <SettingsPanel
       settings={DEFAULT_SETTINGS}
       onSettings={vi.fn()}
@@ -48,8 +48,12 @@ function headings(): string[] {
       onExportSettings={vi.fn()}
       placeLightning={[]}
       onClose={vi.fn()}
-    />,
+    />
   );
+}
+
+function headings(): string[] {
+  const { container } = render(panel());
   return [...container.querySelectorAll(".settings-section__title span")].map(
     (one) => one.textContent ?? "",
   );
@@ -98,6 +102,36 @@ describe("the order Settings is read in", () => {
       expect(headings()).toEqual(ORDER.map((key) => copy[key]));
     });
   }
+
+  it("shows what the Character switches come set to", () => {
+    // The heading over them said "all off unless you turn it on". Three of the
+    // four ship on, so the sentence was the opposite of the section. A line of
+    // prose cannot be held to a default by a test, which is why the sentence
+    // no longer makes a claim about one, but the defaults a reader meets under
+    // that heading can be, and are: change one of these and the description
+    // above them is the next thing to read.
+    const { container } = render(panel());
+    const section = [...container.querySelectorAll(".settings-section")].find(
+      (one) =>
+        one.querySelector(".settings-section__title span")?.textContent ===
+        en["settings.character"],
+    );
+    const rows = [
+      ...(section?.querySelectorAll<HTMLInputElement>(
+        '.toggle-row input[type="checkbox"]',
+      ) ?? []),
+    ];
+    expect(
+      rows.map((one) => one.checked),
+      "calm, curiosities, catch-up, on this date",
+    ).toEqual([
+      DEFAULT_SETTINGS.calm,
+      DEFAULT_SETTINGS.curiosities,
+      DEFAULT_SETTINGS.catchUp,
+      DEFAULT_SETTINGS.almanac,
+    ]);
+    expect(rows.filter((one) => one.checked)).toHaveLength(3);
+  });
 
   it("keeps every control that had a heading of its own", () => {
     // Language, units, the clock and the text size were four sections with
