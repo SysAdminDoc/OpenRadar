@@ -415,43 +415,6 @@ Ninth pass. Evidence in RESEARCH.md of the same date. Numbered on from `AUD-378`
 
 ### P3
 
-- [ ] AUD-381 (P3): A 0.3 degree base tilt where a site has one
-  Why: Build 24.1 gave KBOX a supplemental 0.3 degree base tilt (SCN26-20, effective 2026-03-23) with a Level III set of its own, and says the lower angle is the one SAILS and MRLE repeat when the base tilt is on. The Level II path matches cuts by angle, so the 0.3 degree cut should already draw as the lowest tilt; nothing asserts it, `CLASSIFICATION_PRODUCTS` reads `N0H` where KBOX now publishes `NZH` a cut lower, and the fixture writer has never emitted a cut below 0.5.
-  Evidence: https://www.weather.gov/media/notification/pdf_2026/scn26-20_WSR-88D_BaseTilt_Level-III_KBOX.pdf (`NZQ`, `NZB`, `NZU`, `NZG`, `NZF`, `NZX`, `NZC`, `NZK`, `NZH`, `NZM`; base-tilt state in GSM bit 7 of the VCP supplemental data); `src-tauri/src/level3.rs:1487` (`CLASSIFICATION_PRODUCTS: [("N0H", ...), ("HHC", ...)]`); `src-tauri/src/fixture.rs` (every pattern starts at 0.5).
-  Touches: `src-tauri/src/fixture.rs` (a pattern whose first cut is 0.3 degrees), `src-tauri/src/level2/sweep_tests.rs` (the lowest cut chosen is 0.3 and the tilt list names it), `src-tauri/src/level3.rs` (prefer `NZH` over `N0H` when the day's listing has it, falling back otherwise), `src/i18n/*` if any tilt copy assumes 0.5.
-  Acceptance: A fixture volume whose first cut is 0.3 degrees draws that cut as tilt one with the picker naming 0.3; a listing that holds `NZH` is read for the classification and one without it falls back to `N0H`, both pinned in tests; `cargo test --lib` green.
-  Complexity: S
-
-## Verification Findings, 2026-09-09
-
-Raised by the adversarial reviews of this session's own commits, instructed to refute rather than confirm. Everything they found that was a defect is fixed in `232fe78` and `d81f772`; these two are the ones that are about the tools rather than about a change, and neither belongs inside the item it was found under.
-
-### P3
-
-## Verification Findings, 2026-09-08
-
-Raised by a second adversarial review, of `ca36e7a..ddebfd1`, instructed to refute rather than confirm. Every one is a defect in this session's own work or in a claim it made.
-
-### P1
-
-### P2
-
-### P3
-
-
-
-## Audit Findings, 2026-09-08
-
-Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 tests, 39 skipped, one standing lint warning), `cargo fmt --check` clean, `cargo clippy --all-targets` clean, `cargo test --lib -- --test-threads=4` 484 passed / 34 ignored, `cargo check --lib --features fuzzing` compiles with 914 warnings, Playwright chromium 361 passed / 1 skipped, wide and compact 366 passed with one failure that did not reproduce alone (`AUD-424` below). The tracker is empty: 0 open issues, 0 closed, 0 pull requests, discussions off, not a fork, so there were no reports to disposition.
-
-### P2
-
-### P3
-
-
-
-
-
 - [ ] AUD-420 (P3): Uninstalling with the desktop wallpaper switched on leaves the desktop pointing at OpenRadar's picture
       Category: reliability
       Where: `src-tauri/src/wallpaper.rs:44-54` (the picture is written to `<app data>/wallpaper.png` and the reader's own wallpaper is remembered in `wallpaper-previous.txt` beside it); `src/App.tsx:1552-1563` (the only call to `restoreWallpaper`, when `wallpaperMinutes` goes to 0); `src-tauri/tauri.conf.json` (no `installerHooks`); nothing in `src/` or `src-tauri/src` restores on window close or app exit.

@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.12.0
 
+- Sites with the new supplemental base tilt are read at it. Build 24.1 gave some radars an extra cut at 0.3 degrees, below the 0.5 every site has always started at, and the lower one is what the radar repeats while it is on. The picker now names it and the lowest tilt draws it, and where such a site publishes a hydrometeor classification of its own for that cut, that is the one read. A site without the build is unaffected.
+
 - A reader who asks Windows for high contrast gets it on the command bar. The block that hands the bar over to the system's own colours was written before a later rule that set the bar's background again, and a media query carries no extra weight, so the later one won: the bar stayed the app's dark surface and the active button lost the border that says which one it is. Both are put back.
 
 - The full-screen view sizes its own type from how far away you are. It is meant to be read across a room and its type was drawn for a desk, so there is now one setting under the second-monitor controls: a desk away, a step back, across a small room, across a large room. The rest is geometry. Nothing changes at the default, and the view will not ask for type its window cannot hold.
