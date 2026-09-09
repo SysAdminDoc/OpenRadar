@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import postcss, { type Rule } from "postcss";
+import selectorParser from "postcss-selector-parser";
+import { selectorSpecificity } from "@csstools/selector-specificity";
 import { describe, expect, it } from "vitest";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -125,57 +127,44 @@ function taken(property: string, wins: Map<string, string>): boolean {
 }
 
 /**
+ * A rule's selectors, one per element it is about.
+ *
+ * Not a split on commas: `:is(.a, .b)` carries one selector and splitting on
+ * every comma made three out of it, then measured each half of an argument as
+ * though it were a rule of its own.
+ */
+function selectors(selector: string): string[] {
+  return selectorParser()
+    .astSync(selector)
+    .nodes.map((one) => String(one).replace(/\s+/g, " ").trim());
+}
+
+/**
  * How hard a selector is to beat, as the three counts the cascade uses.
  *
  * The first version of this was never reached: it was only ever asked whether
  * a selector beat a prefix extension of itself, where the answer is yes
  * whatever the counts say, so it could be wrong in four places and nothing
- * noticed. It decides real questions now, so it is written to the
- * specification and held to it by a case list below.
+ * noticed. It decides real questions now.
  *
- * `:where()` contributes nothing and takes its contents with it. `:not()`,
- * `:is()` and `:has()` contribute their argument, which is exact for one
- * argument and an over-count for a list, where the specification takes the
- * largest. This file writes nine `:not()` across five selectors, each with a
- * single argument, one `:has()` with one, and no `:is` or `:where` at all, so
- * the list case cannot arise here; it is written down rather than left to be
- * found later. A pseudo-element counts as a type selector rather than as
- * nothing, and the argument of a pseudo-class counts as nothing at all.
+ * The second version was hand-rolled against the specification and held to it
+ * by a case list, and it was wrong in nine more ways the list did not reach:
+ * `:is(.a, .b)` summed where the specification takes the largest, a legacy
+ * one-colon pseudo-element counted as a class, `::slotted()` and namespaces
+ * and a comment inside a selector all miscounted, and a repair that moved the
+ * id count away from attribute values took `:host(#a)` and `:nth-child(odd of
+ * #a)` down with it. Nine ways is not a case list short, it is the wrong
+ * shape of answer: selector specificity is a small algorithm with a reference
+ * implementation, and thirty lines of regular expressions is a second one.
+ *
+ * So this is the reference implementation, run over a parse rather than over
+ * a string. `@csstools/selector-specificity` is what stylelint's own rules
+ * use for exactly this question.
  */
 function weight(selector: string): [number, number, number] {
-  const bare = selector
-    // An escaped character is not the thing it looks like.
-    .replace(/\\./g, "")
-    // Pseudo-elements first, or the pseudo-class pass below would take the
-    // second colon and leave the name behind. Each becomes a type selector.
-    .replace(/::[a-z-]+(?:\([^)]*\))?/g, " e")
-    .replace(/:where\([^)]*\)/g, " ")
-    .replace(/:(?:not|is|has)\(([^)]*)\)/g, " $1 ");
-  // What is left inside brackets and inside a pseudo-class's parentheses is
-  // not a selector: `[aria-label="show more"]` was counted as one attribute
-  // and then `more` again as a type, and `:nth-child(odd)` as one class and
-  // then `odd` as a type. Counted first, then taken out of the way.
-  const classes = (
-    bare.match(/\.[\w-]+|\[[^\]]*\]|:[a-z-]+(?:\([^)]*\))?/g) ?? []
-  ).length;
-  const types = bare.replace(/\[[^\]]*\]|:[a-z-]+\([^)]*\)/g, " ");
-  return [
-    // Counted on the same string the types are, not on `bare`. A hash inside
-    // an attribute value is a character in a value rather than an id, and
-    // `[href="#top"]` came back as one id and one attribute where the
-    // specification says one attribute. The previous pass moved the brackets
-    // out of the way for the class and the type counts and left this one
-    // reading the whole selector, which is the same mistake in a third place.
-    //
-    // What it still does not do is read the selector inside `:nth-child(An+B
-    // of S)`, which the specification says contributes on top of the
-    // pseudo-class. Nothing in this file writes one.
-    (types.match(/#[\w-]+/g) ?? []).length,
-    classes,
-    // A type selector may be written in any case; HTML matches them without
-    // regard to it.
-    (types.match(/(^|[\s>+~(,])[a-zA-Z][\w-]*/g) ?? []).length,
-  ];
+  const root = selectorParser().astSync(selector);
+  const found = selectorSpecificity(root.first);
+  return [found.a, found.b, found.c];
 }
 
 /**
@@ -192,17 +181,18 @@ function weight(selector: string): [number, number, number] {
  * No pair in this file is that shape, and the gate is meant to shout.
  */
 function subject(selector: string): string {
-  // A space inside an attribute value is not a combinator, so it is held out
-  // of the way while the compounds are split and put back afterwards. Not a
-  // non-breaking space, which `\s` matches in JavaScript and which would be
-  // split on exactly like the one it replaced.
-  const HELD = String.fromCharCode(1);
-  const compounds = selector
-    .replace(/\[[^\]]*\]/g, (attribute) => attribute.replaceAll(" ", HELD))
-    .replace(/\s*[>+~]\s*/g, " ")
-    .trim()
-    .split(/\s+/);
-  return (compounds[compounds.length - 1] ?? selector).replaceAll(HELD, " ");
+  // Taken off the parse for the same reason the weight is. Held out of the
+  // way by hand, a space inside an attribute value read as a combinator and
+  // split a selector in the middle of a value; the version that fixed that
+  // protected brackets and not parentheses, so `:not(.a .b)` still split. The
+  // parser knows which spaces are combinators.
+  const root = selectorParser().astSync(selector);
+  const compound: string[] = [];
+  for (const node of root.first.nodes) {
+    if (node.type === "combinator") compound.length = 0;
+    else compound.push(String(node).trim());
+  }
+  return compound.join("") || selector;
 }
 
 /** Whether the second selector wins a tie or better against the first. */
@@ -348,8 +338,7 @@ const LITERALS_WITH_A_REASON: Array<{ selector: string; reason: string }> = [
  * and only the pre-repair stylesheet told them apart.
  */
 function beatenInsideAtRules(all: Rule[]): string[] {
-  const parts = (rule: Rule) =>
-    rule.selector.split(",").map((one) => one.replace(/\s+/g, " ").trim());
+  const parts = (rule: Rule) => selectors(rule.selector);
   const plain = all.filter((rule) => !context(rule));
   const beaten: string[] = [];
   for (const [at, rule] of all.entries()) {
@@ -472,10 +461,37 @@ describe("the stylesheet says what the browser does", () => {
       // And two more this file really carries.
       ['.command-button[aria-pressed="true"]', [0, 2, 0]],
       [".status-list span:not(.status-dot)", [0, 2, 1]],
+      // The nine the hand-rolled version got wrong, kept as cases rather than
+      // dropped with it: a list takes its largest argument and not their sum,
+      // a pseudo-class argument that really is a selector counts, a legacy
+      // one-colon pseudo-element is a pseudo-element, and a type selector may
+      // be written in any case.
+      [":is(.a, .b)", [0, 1, 0]],
+      [":is(.a, #b)", [1, 0, 0]],
+      [":not(.a, #b)", [1, 0, 0]],
+      [":host(#a)", [1, 1, 0]],
+      [":host-context(#a)", [1, 1, 0]],
+      [":nth-child(odd of #a)", [1, 1, 0]],
+      [":nth-child(2n+1 of .foo)", [0, 2, 0]],
+      ["a:before", [0, 0, 2]],
+      ["::slotted(.a)", [0, 1, 1]],
+      ["DIV", [0, 0, 1]],
     ];
     for (const [selector, want] of cases) {
       expect(weight(selector), selector).toEqual(want);
     }
+
+    // A rule is about as many elements as the cascade says, which is not one
+    // per comma: `:is()` carries its own, and splitting on every one of them
+    // made three rules out of this and then weighed `.c) .d` as a selector.
+    expect(selectors(".a, :is(.b, .c) .d")).toEqual([".a", ":is(.b, .c) .d"]);
+    // And the subject is the last compound, where a space inside parentheses
+    // is not a combinator any more than one inside brackets is.
+    expect(subject(":not(.a .b) .c")).toBe(".c");
+    expect(subject(".x:not(.a .b)")).toBe(".x:not(.a .b)");
+    expect(subject('.y[aria-label="show more"]')).toBe(
+      '.y[aria-label="show more"]',
+    );
     // What the gate asks of it: a later rule that ties takes the declaration
     // and a weaker one does not.
     expect(beats(".a .b", ".b")).toBe(true);
@@ -598,7 +614,7 @@ describe("the stylesheet says what the browser does", () => {
       // a keyframe stop is a step in an animation rather than a surface.
       if (light.test(rule.selector) || light.test(context(rule))) continue;
       if (context(rule).includes("@keyframes")) continue;
-      const first = rule.selector.split(",")[0].trim();
+      const first = selectors(rule.selector)[0];
       // The named thing, or something belonging to it, rather than anything
       // whose text happens to start the same way. Written as a bare prefix,
       // the `:root` entry let through all fifty-eight rules beginning
@@ -641,36 +657,76 @@ describe("the stylesheet says what the browser does", () => {
     // while the plain spelling of the same rule reddened it. It knew one of
     // the two spellings of the property, and the prefixed one is what Safari
     // and a WKWebView read. And it read one of the app's two stylesheets.
+    // Six things this could not see across two passes, each of which puts a
+    // blur back in front of a reader who asked for contrast. Walking rules
+    // and reading their own declarations misses a query nested inside a rule,
+    // because postcss gives that as an at-rule between the two and neither
+    // half is a rule with the declaration in it. Testing the at-rule text for
+    // a substring counts a clear narrowed by `and (min-width: 4000px)`, and
+    // one negated with `not all and`, as clears: one of those fires almost
+    // never and the other exactly backwards. And a clear only clears if it
+    // wins, which nothing here asked:
+    // re-blurring the toast with `!important` at the end of the file measured
+    // `blur(20px)` under contrast with every case here green, in a file whose
+    // contrast block already needed `!important` to win a specificity war.
     const BLUR = new Set(["backdrop-filter", "-webkit-backdrop-filter"]);
-    /** Every property and selector a sheet blurs, wherever it is written. */
-    const blursIn = (sheet: Rule[]) => {
-      const found = new Set<string>();
-      for (const rule of sheet) {
+    /**
+     * The rule a declaration belongs to, however many at-rules are between.
+     *
+     * `declaration.parent` is the at-rule when a query is nested inside a
+     * rule, which is the shape CSS nesting gives and the mirror image of a
+     * rule nested inside a query. Reading the parent alone saw neither the
+     * selector nor the declaration and let a nested blur through with every
+     * case green.
+     */
+    const owner = (node: Rule["parent"]): Rule | null => {
+      for (let at = node; at && at.type !== "root"; at = at.parent) {
+        if (at.type === "rule") return at as Rule;
+      }
+      return null;
+    };
+    /**
+     * Every blur in a sheet, wherever and however it is written.
+     *
+     * Walks declarations rather than rules, so a query nested inside a rule
+     * is the same question as one wrapped around it, and reports what a
+     * contrast block would have to name: the property, the selector, and the
+     * at-rules it sits under.
+     */
+    const blursIn = (css: string) => {
+      const found = new Map<string, boolean>();
+      postcss.parse(css).walkDecls((declaration) => {
+        if (!BLUR.has(declaration.prop)) return;
+        if (declaration.value.startsWith("none")) return;
+        const rule = owner(declaration.parent);
+        if (!rule) return;
+        const inside = context(rule);
         // A keyframe's selector is a percentage rather than something a
         // contrast block could name, so a blur animated there is a different
         // question from this one.
-        if (context(rule).includes("@keyframes")) continue;
-        for (const [property, value] of properties(rule)) {
-          if (!BLUR.has(property) || value.startsWith("none")) continue;
-          for (const one of rule.selector.split(",")) {
-            found.add(`${property} on ${one.trim()}`);
-          }
+        if (inside.includes("@keyframes")) return;
+        for (const one of selectors(rule.selector)) {
+          found.set(`${declaration.prop} on ${one}`, declaration.important);
         }
-      }
+      });
       return found;
     };
     /** And every one of those a given query turns off, with the weight to. */
-    const clearedIn = (sheet: Rule[], query: string) => {
+    const clearedIn = (css: string, query: string) => {
       const found = new Set<string>();
-      for (const rule of sheet) {
-        if (!context(rule).includes(query)) continue;
-        for (const [property, value] of properties(rule)) {
-          if (!BLUR.has(property) || value !== "none !important") continue;
-          for (const one of rule.selector.split(",")) {
-            found.add(`${property} on ${one.trim()}`);
-          }
+      postcss.parse(css).walkDecls((declaration) => {
+        if (!BLUR.has(declaration.prop)) return;
+        if (declaration.value !== "none" || !declaration.important) return;
+        const rule = owner(declaration.parent);
+        if (!rule) return;
+        // The whole condition and nothing else. A clear narrowed by a second
+        // condition is a clear for some readers, and a `not all and` one is a
+        // clear for the readers who did not ask.
+        if (context(rule) !== `@media (${query})`) return;
+        for (const one of selectors(rule.selector)) {
+          found.add(`${declaration.prop} on ${one}`);
         }
-      }
+      });
       return found;
     };
 
@@ -678,16 +734,25 @@ describe("the stylesheet says what the browser does", () => {
     // blurs have to be turned off by its own blocks. It has none today, which
     // is the point: the gate is here before the first one is.
     const sheets = [
-      ["index.css", all],
-      ["glance.css", rules(readFileSync(join(ROOT, "glance.css"), "utf8"))],
+      ["index.css", css],
+      ["glance.css", readFileSync(join(ROOT, "glance.css"), "utf8")],
     ] as const;
-    expect(blursIn(all).size).toBeGreaterThan(4);
+    expect(blursIn(css).size).toBeGreaterThan(4);
 
     for (const [name, sheet] of sheets) {
       const blurred = blursIn(sheet);
+      // No blur may be `!important`. The clears are, and that is the only
+      // reason they win: an important blur is either a defeat outright or a
+      // race on file order, and neither is a thing to leave to a later edit.
+      expect(
+        [...blurred].filter(([, important]) => important).map(([one]) => one),
+        `${name} blurs a surface with !important`,
+      ).toEqual([]);
       for (const query of ["prefers-contrast: more", "forced-colors: active"]) {
         expect(
-          [...blurred].filter((one) => !clearedIn(sheet, query).has(one)),
+          [...blurred.keys()].filter(
+            (one) => !clearedIn(sheet, query).has(one),
+          ),
           `${name} at ${query}`,
         ).toEqual([]);
       }
