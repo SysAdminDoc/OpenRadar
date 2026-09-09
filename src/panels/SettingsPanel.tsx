@@ -224,6 +224,124 @@ export function SettingsPanel({
     >
       <div className="settings-section">
         <div className="settings-section__title">
+          <span>{t("settings.reading")}</span>
+          <small>{t("settings.readingDetail")}</small>
+        </div>
+        <div className="settings-field">
+          <span>
+            <strong>{t("settings.language")}</strong>
+            <small>{t("settings.languageNote")}</small>
+          </span>
+          <div
+            className="segmented-control segmented-control--full"
+            role="group"
+            aria-label={t("settings.language")}
+          >
+            {LANGUAGES.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={settings.language === option.id ? "is-active" : ""}
+                aria-pressed={settings.language === option.id}
+                onClick={() =>
+                  onSettings({
+                    ...settings,
+                    language: option.id,
+                    // Somebody who picks Français and is then shown Fahrenheit
+                    // has to go and find the Units row to finish the job. Only
+                    // until they pick for themselves, though: after that the
+                    // choice is theirs.
+                    units: settings.unitsChosen
+                      ? settings.units
+                      : unitsForLanguage(option.id),
+                  })
+                }
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="settings-field">
+          <span>
+            <strong>{t("settings.units")}</strong>
+          </span>
+          <div
+            className="segmented-control segmented-control--full"
+            role="group"
+            aria-label={t("settings.units")}
+          >
+            {(["imperial", "metric"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={settings.units === option ? "is-active" : ""}
+                aria-pressed={settings.units === option}
+                onClick={() =>
+                  // Chosen, from here on. A later change of language leaves
+                  // this alone.
+                  onSettings({ ...settings, units: option, unitsChosen: true })
+                }
+              >
+                {option === "imperial"
+                  ? t("settings.unitsImperial")
+                  : t("settings.unitsMetric")}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="settings-field">
+          <span>
+            <strong>{t("settings.clock")}</strong>
+            <small>{t("settings.clockDetail")}</small>
+          </span>
+          <div
+            className="segmented-control segmented-control--full"
+            role="group"
+            aria-label={t("settings.clock")}
+          >
+            {(["local", "utc"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={settings.clock === option ? "is-active" : ""}
+                aria-pressed={settings.clock === option}
+                onClick={() => onSettings({ ...settings, clock: option })}
+              >
+                {option === "local"
+                  ? t("settings.clockLocal")
+                  : t("settings.clockUtc")}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="settings-field">
+          <span>
+            <strong>{t("settings.textSize")}</strong>
+            <small>{t("settings.textSizeDetail")}</small>
+          </span>
+          <div
+            className="segmented-control segmented-control--full"
+            role="group"
+            aria-label={t("settings.textSize")}
+          >
+            {TEXT_SCALES.map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={settings.textScale === option ? "is-active" : ""}
+                aria-pressed={settings.textScale === option}
+                onClick={() => onSettings({ ...settings, textScale: option })}
+              >
+                {option}%
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-section__title">
           <span>{t("settings.appearance")}</span>
           <small>{t("settings.appliesNow")}</small>
         </div>
@@ -282,6 +400,17 @@ export function SettingsPanel({
           />
         </label>
         <ToggleSetting
+          label={t("settings.occasions")}
+          detail={t("settings.occasionsDetail")}
+          checked={settings.occasions.enabled}
+          onChange={(enabled) =>
+            onSettings({
+              ...settings,
+              occasions: { ...settings.occasions, enabled },
+            })
+          }
+        />
+        <ToggleSetting
           label={t("settings.ambient")}
           detail={t("settings.ambientDetail")}
           checked={settings.ambient}
@@ -307,78 +436,44 @@ export function SettingsPanel({
                   : t("settings.ambientQuiet")}
           </p>
         ) : null}
-        <div className="settings-field" data-ambient-screen-setting>
-          <span>
-            <strong>{t("ambientScreen.setting")}</strong>
-            <small>{t("ambientScreen.settingDetail")}</small>
-          </span>
-          <label className="settings-field">
-            <span>{t("ambientScreen.idle")}</span>
-            <select
-              value={String(settings.ambientIdleMinutes)}
-              onChange={(event) =>
-                onSettings({
-                  ...settings,
-                  ambientIdleMinutes: Number(event.target.value),
-                })
-              }
+        {settings.workspaceTheme ? (
+          <>
+            <p className="source-note">
+              {t("settings.themeInForce", {
+                name: settings.workspaceTheme.name,
+              })}
+            </p>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                const removed = settings.workspaceTheme;
+                onSettings({ ...settings, workspaceTheme: null });
+                if (!removed) return;
+                onRemoved({
+                  title: t("settings.themeRemoved", { name: removed.name }),
+                  detail: t("settings.themeRemovedBody"),
+                  // Only the theme, put back over whatever else the reader
+                  // changed while the toast was up. The settings arrive from
+                  // the applier rather than a copy held here, so closing the
+                  // panel while the toast is up cannot freeze them.
+                  undo: () =>
+                    onSettings((now) => ({ ...now, workspaceTheme: removed })),
+                });
+              }}
             >
-              {/* Never, by default. A workspace that takes itself over while
-                  somebody is reading is a workspace they stop leaving open. */}
-              <option value="0">{t("ambientScreen.idleOff")}</option>
-              {[5, 15, 30, 60].map((minutes) => (
-                <option key={minutes} value={String(minutes)}>
-                  {t("ambientScreen.idleMinutes", { minutes })}
-                </option>
-              ))}
-            </select>
-          </label>
-          {/* The view is meant to be read across a room and its type was
-              drawn for a desk. One number, because the rest is geometry. */}
-          <label className="settings-field">
-            <span>{t("ambientScreen.distance")}</span>
-            <select
-              value={String(settings.ambientMetres)}
-              onChange={(event) =>
-                onSettings({
-                  ...settings,
-                  ambientMetres: Number(event.target.value),
-                })
-              }
-            >
-              {AMBIENT_DISTANCES.map((metres) => (
-                <option key={metres} value={String(metres)}>
-                  {t(AMBIENT_DISTANCE_WORDS[String(metres)])}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="toggle-row toggle-row--plain">
-            <span>
-              <strong>{t("ambientScreen.awake")}</strong>
-              {/* The checkbox is drawn as a track and the box itself is
-                  transparent, so a disabled one is indistinguishable from an
-                  enabled one that is off. The line under it is what says
-                  which, the way the watch settings do. */}
-              <small>
-                {awakeOk === false
-                  ? t("ambientScreen.awakeUnavailable")
-                  : t("ambientScreen.awakeDetail")}
-              </small>
-            </span>
-            <input
-              type="checkbox"
-              // Off where it cannot be honoured, rather than drawn on and
-              // doing nothing: a switch that says the screen will stay on
-              // when it will not is worse than no switch.
-              checked={settings.displayAwake && awakeOk !== false}
-              disabled={awakeOk !== true}
-              onChange={(event) =>
-                onSettings({ ...settings, displayAwake: event.target.checked })
-              }
-            />
-            <i className="toggle-track" aria-hidden="true" />
-          </label>
+              {t("settings.themeClear")}
+            </button>
+          </>
+        ) : (
+          <p className="source-note">{t("settings.themeNote")}</p>
+        )}
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-section__title">
+          <span>{t("settings.desktop")}</span>
+          <small>{t("settings.desktopDetail")}</small>
         </div>
         <ToggleSetting
           label={t("tray.setting")}
@@ -475,6 +570,86 @@ export function SettingsPanel({
             </select>
           </label>
         </div>
+        <div className="settings-field" data-ambient-screen-setting>
+          <span>
+            <strong>{t("ambientScreen.setting")}</strong>
+            <small>{t("ambientScreen.settingDetail")}</small>
+          </span>
+          <label className="settings-field">
+            <span>{t("ambientScreen.idle")}</span>
+            <select
+              value={String(settings.ambientIdleMinutes)}
+              onChange={(event) =>
+                onSettings({
+                  ...settings,
+                  ambientIdleMinutes: Number(event.target.value),
+                })
+              }
+            >
+              {/* Never, by default. A workspace that takes itself over while
+                  somebody is reading is a workspace they stop leaving open. */}
+              <option value="0">{t("ambientScreen.idleOff")}</option>
+              {[5, 15, 30, 60].map((minutes) => (
+                <option key={minutes} value={String(minutes)}>
+                  {t("ambientScreen.idleMinutes", { minutes })}
+                </option>
+              ))}
+            </select>
+          </label>
+          {/* The view is meant to be read across a room and its type was
+              drawn for a desk. One number, because the rest is geometry. */}
+          <label className="settings-field">
+            <span>{t("ambientScreen.distance")}</span>
+            <select
+              value={String(settings.ambientMetres)}
+              onChange={(event) =>
+                onSettings({
+                  ...settings,
+                  ambientMetres: Number(event.target.value),
+                })
+              }
+            >
+              {AMBIENT_DISTANCES.map((metres) => (
+                <option key={metres} value={String(metres)}>
+                  {t(AMBIENT_DISTANCE_WORDS[String(metres)])}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="toggle-row toggle-row--plain">
+            <span>
+              <strong>{t("ambientScreen.awake")}</strong>
+              {/* The checkbox is drawn as a track and the box itself is
+                  transparent, so a disabled one is indistinguishable from an
+                  enabled one that is off. The line under it is what says
+                  which, the way the watch settings do. */}
+              <small>
+                {awakeOk === false
+                  ? t("ambientScreen.awakeUnavailable")
+                  : t("ambientScreen.awakeDetail")}
+              </small>
+            </span>
+            <input
+              type="checkbox"
+              // Off where it cannot be honoured, rather than drawn on and
+              // doing nothing: a switch that says the screen will stay on
+              // when it will not is worse than no switch.
+              checked={settings.displayAwake && awakeOk !== false}
+              disabled={awakeOk !== true}
+              onChange={(event) =>
+                onSettings({ ...settings, displayAwake: event.target.checked })
+              }
+            />
+            <i className="toggle-track" aria-hidden="true" />
+          </label>
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-section__title">
+          <span>{t("settings.character")}</span>
+          <small>{t("settings.characterDetail")}</small>
+        </div>
         <ToggleSetting
           label={t("calm.setting")}
           detail={t("calm.settingDetail")}
@@ -505,274 +680,6 @@ export function SettingsPanel({
           checked={settings.almanac}
           onChange={(almanac) => onSettings({ ...settings, almanac })}
         />
-        <ToggleSetting
-          label={t("settings.occasions")}
-          detail={t("settings.occasionsDetail")}
-          checked={settings.occasions.enabled}
-          onChange={(enabled) =>
-            onSettings({
-              ...settings,
-              occasions: { ...settings.occasions, enabled },
-            })
-          }
-        />
-        {settings.workspaceTheme ? (
-          <>
-            <p className="source-note">
-              {t("settings.themeInForce", {
-                name: settings.workspaceTheme.name,
-              })}
-            </p>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => {
-                const removed = settings.workspaceTheme;
-                onSettings({ ...settings, workspaceTheme: null });
-                if (!removed) return;
-                onRemoved({
-                  title: t("settings.themeRemoved", { name: removed.name }),
-                  detail: t("settings.themeRemovedBody"),
-                  // Only the theme, put back over whatever else the reader
-                  // changed while the toast was up. The settings arrive from
-                  // the applier rather than a copy held here, so closing the
-                  // panel while the toast is up cannot freeze them.
-                  undo: () =>
-                    onSettings((now) => ({ ...now, workspaceTheme: removed })),
-                });
-              }}
-            >
-              {t("settings.themeClear")}
-            </button>
-          </>
-        ) : (
-          <p className="source-note">{t("settings.themeNote")}</p>
-        )}
-      </div>
-
-      <JournalSection
-        clock={clock}
-        read={journal}
-        onReload={reloadJournal}
-        writing={settings.journal}
-        onWriting={(journal) => onSettings({ ...settings, journal })}
-        onSaved={(path) => onJournalSaved(path)}
-        onFailed={(why) => onJournalFailed(why)}
-        onCleared={onJournalCleared}
-        onRemoved={onJournalRemoved}
-      />
-
-      {settings.curiosities ? (
-        <CuriositySection
-          found={settings.curiositiesFound}
-          // The one removal in here that had no way back, against a rule
-          // this section is written under: everything is reversible in one
-          // action. What is lost is a list somebody built by going and
-          // looking at places, which is not a list they can rebuild by
-          // pressing anything.
-          onForget={() => {
-            const held = settings.curiositiesFound;
-            onSettings({ ...settings, curiositiesFound: [] });
-            onRemoved({
-              title: t("curiosity.forgotten"),
-              detail: t("curiosity.forgottenBody"),
-              // Into the settings as they stand when the undo is pressed,
-              // rather than the whole of what they were: anything else the
-              // reader changed in between is theirs to keep.
-              undo: () =>
-                onSettings((now) => ({
-                  ...now,
-                  // Put back, not written over. A curiosity is found by the
-                  // camera coming to rest near one, which needs no panel
-                  // interaction at all, so anything discovered while the
-                  // toast was up was being lost by pressing undo.
-                  curiositiesFound: [
-                    ...held,
-                    ...now.curiositiesFound.filter(
-                      (found) => !held.includes(found),
-                    ),
-                  ],
-                })),
-            });
-          }}
-        />
-      ) : null}
-
-      <RecapSection
-        clock={clock}
-        read={journal}
-        onSaved={(path) => onJournalSaved(path)}
-        onFailed={(why) => onJournalFailed(why)}
-      />
-
-      <IncidentPackManager
-        settings={settings}
-        bounds={bounds}
-        onSettings={onSettings}
-        onRemoved={onRemoved}
-      />
-
-      <StorageSection
-        onCleared={(freed) => onStorageCleared(freed)}
-        onFailed={(why) => onStorageFailed(why)}
-      />
-
-      <div className="settings-section">
-        <div className="settings-section__title">
-          <span>{t("settings.language")}</span>
-          <small>{t("settings.languageNote")}</small>
-        </div>
-        <div
-          className="segmented-control segmented-control--full"
-          role="group"
-          aria-label={t("settings.language")}
-        >
-          {LANGUAGES.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              className={settings.language === option.id ? "is-active" : ""}
-              aria-pressed={settings.language === option.id}
-              onClick={() =>
-                onSettings({
-                  ...settings,
-                  language: option.id,
-                  // Somebody who picks Français and is then shown Fahrenheit
-                  // has to go and find the Units row to finish the job. Only
-                  // until they pick for themselves, though: after that the
-                  // choice is theirs.
-                  units: settings.unitsChosen
-                    ? settings.units
-                    : unitsForLanguage(option.id),
-                })
-              }
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="settings-section">
-        <div className="settings-section__title">
-          <span>{t("settings.backup")}</span>
-          <small>{t("settings.backupDetail")}</small>
-        </div>
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={() => void onExportSettings()}
-        >
-          {t("settings.export")}
-        </button>
-        {/* Beside Export, because the pair is the point. Restoring one worked
-            already, by knowing to drop the file on the Upload panel, which
-            nothing here said. The file goes through the very same reader, so
-            a partial restore says so and the undo is the same undo. */}
-        <label className="secondary-button settings-import">
-          <span>{t("settings.import")}</span>
-          <input
-            type="file"
-            accept=".json,application/json"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) onImportSettings(file);
-              // Cleared so choosing the same file twice is two imports.
-              event.target.value = "";
-            }}
-          />
-        </label>
-        {/* Somebody who wants the greeting back can have it. Shown once is a
-            rule about not repeating myself, not a rule about never again. */}
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={() =>
-            onSettings({ ...settings, seenWelcome: false, seenReveal: false })
-          }
-        >
-          {t("opening.showAgain")}
-        </button>
-        <p className="source-note">{t("opening.showAgainDetail")}</p>
-      </div>
-
-      <div className="settings-section">
-        <div className="settings-section__title">
-          <span>{t("settings.units")}</span>
-        </div>
-        <div
-          className="segmented-control segmented-control--full"
-          role="group"
-          aria-label={t("settings.units")}
-        >
-          {(["imperial", "metric"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={settings.units === option ? "is-active" : ""}
-              aria-pressed={settings.units === option}
-              onClick={() =>
-                // Chosen, from here on. A later change of language leaves
-                // this alone.
-                onSettings({ ...settings, units: option, unitsChosen: true })
-              }
-            >
-              {option === "imperial"
-                ? t("settings.unitsImperial")
-                : t("settings.unitsMetric")}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="settings-section">
-        <div className="settings-section__title">
-          <span>{t("settings.clock")}</span>
-          <small>{t("settings.clockDetail")}</small>
-        </div>
-        <div
-          className="segmented-control segmented-control--full"
-          role="group"
-          aria-label={t("settings.clock")}
-        >
-          {(["local", "utc"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={settings.clock === option ? "is-active" : ""}
-              aria-pressed={settings.clock === option}
-              onClick={() => onSettings({ ...settings, clock: option })}
-            >
-              {option === "local"
-                ? t("settings.clockLocal")
-                : t("settings.clockUtc")}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="settings-section">
-        <div className="settings-section__title">
-          <span>{t("settings.textSize")}</span>
-          <small>{t("settings.textSizeDetail")}</small>
-        </div>
-        <div
-          className="segmented-control segmented-control--full"
-          role="group"
-          aria-label={t("settings.textSize")}
-        >
-          {TEXT_SCALES.map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={settings.textScale === option ? "is-active" : ""}
-              aria-pressed={settings.textScale === option}
-              onClick={() => onSettings({ ...settings, textScale: option })}
-            >
-              {option}%
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="settings-section">
@@ -929,6 +836,116 @@ export function SettingsPanel({
             </dd>
           </div>
         </dl>
+      </div>
+
+      <JournalSection
+        clock={clock}
+        read={journal}
+        onReload={reloadJournal}
+        writing={settings.journal}
+        onWriting={(journal) => onSettings({ ...settings, journal })}
+        onSaved={(path) => onJournalSaved(path)}
+        onFailed={(why) => onJournalFailed(why)}
+        onCleared={onJournalCleared}
+        onRemoved={onJournalRemoved}
+      />
+
+      {settings.curiosities ? (
+        <CuriositySection
+          found={settings.curiositiesFound}
+          // The one removal in here that had no way back, against a rule
+          // this section is written under: everything is reversible in one
+          // action. What is lost is a list somebody built by going and
+          // looking at places, which is not a list they can rebuild by
+          // pressing anything.
+          onForget={() => {
+            const held = settings.curiositiesFound;
+            onSettings({ ...settings, curiositiesFound: [] });
+            onRemoved({
+              title: t("curiosity.forgotten"),
+              detail: t("curiosity.forgottenBody"),
+              // Into the settings as they stand when the undo is pressed,
+              // rather than the whole of what they were: anything else the
+              // reader changed in between is theirs to keep.
+              undo: () =>
+                onSettings((now) => ({
+                  ...now,
+                  // Put back, not written over. A curiosity is found by the
+                  // camera coming to rest near one, which needs no panel
+                  // interaction at all, so anything discovered while the
+                  // toast was up was being lost by pressing undo.
+                  curiositiesFound: [
+                    ...held,
+                    ...now.curiositiesFound.filter(
+                      (found) => !held.includes(found),
+                    ),
+                  ],
+                })),
+            });
+          }}
+        />
+      ) : null}
+
+      <RecapSection
+        clock={clock}
+        read={journal}
+        onSaved={(path) => onJournalSaved(path)}
+        onFailed={(why) => onJournalFailed(why)}
+      />
+
+      <IncidentPackManager
+        settings={settings}
+        bounds={bounds}
+        onSettings={onSettings}
+        onRemoved={onRemoved}
+      />
+
+      <StorageSection
+        onCleared={(freed) => onStorageCleared(freed)}
+        onFailed={(why) => onStorageFailed(why)}
+      />
+
+      <div className="settings-section">
+        <div className="settings-section__title">
+          <span>{t("settings.backup")}</span>
+          <small>{t("settings.backupDetail")}</small>
+        </div>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => void onExportSettings()}
+        >
+          {t("settings.export")}
+        </button>
+        {/* Beside Export, because the pair is the point. Restoring one worked
+            already, by knowing to drop the file on the Upload panel, which
+            nothing here said. The file goes through the very same reader, so
+            a partial restore says so and the undo is the same undo. */}
+        <label className="secondary-button settings-import">
+          <span>{t("settings.import")}</span>
+          <input
+            type="file"
+            accept=".json,application/json"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) onImportSettings(file);
+              // Cleared so choosing the same file twice is two imports.
+              event.target.value = "";
+            }}
+          />
+        </label>
+        {/* Somebody who wants the greeting back can have it. Shown once is a
+            rule about not repeating myself, not a rule about never again. */}
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() =>
+            onSettings({ ...settings, seenWelcome: false, seenReveal: false })
+          }
+        >
+          {t("opening.showAgain")}
+        </button>
+        <p className="source-note">{t("opening.showAgainDetail")}</p>
       </div>
 
       <button type="button" className="secondary-button" onClick={onReset}>

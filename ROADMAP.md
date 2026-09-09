@@ -263,16 +263,6 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
 
 ### P3
 
-- [ ] AUD-327 (P3): Settings files desktop and character controls under "Appearance", and puts language, units and clock last
-      Category: ux
-      Where: `src/panels/SettingsPanel.tsx:168` (the Appearance section, which runs to about `:520` and holds theme, accent, weather on the chrome, the full-screen view and its screen hold, the tray icon, Start with Windows, close-to-tray, the glance window, the wallpaper, calm mode, curiosities, catch-up, on-this-date and the seasonal look), `:540` Language, `:576` Backup, `:619` Units, `:648` Clock, `:674` Text size, `:698` Radar, `:819` Camera.
-      Problem: "Appearance · Applies immediately" heads fourteen rows of which four are about looks. Start with Windows, the tray, close-to-tray and the glance window are desktop integration; calm mode, curiosities, catch-up, on-this-date and the seasonal look are the character set the roadmap treats as its own thing. Language, units and clock, the three a new reader wants first, come after the record, the packs and the storage row. A reader scanning headings cannot find "start with Windows".
-      Evidence: The panel's accessibility tree on 2026-09-05 (section titles in that order); line numbers as cited.
-      Fix: Reorder and re-head: a "Reading" section first (language, units, clock, text size), then Appearance (theme, accent, seasonal look, weather on the chrome), Desktop (tray, start with Windows, close-to-tray, glance window, wallpaper, full-screen view and its screen hold), Character (calm, curiosities, catch-up, on this date), then Radar, Camera, the record, packs, storage and backup. New section headings need catalogue keys in en/es/fr; the 2026-09-04 split into panel section files makes this a move rather than a rewrite. Coordinate with `AUD-271` and `AUD-272`.
-      Acceptance: The `settings-section__title` sequence matches the order above in all three languages; `SettingsPanel` tests updated; the pseudolocale clipping run stays green.
-      Confidence: Verified
-      Effort: M
-
 - [ ] AUD-330 (P3): `mrms.rs` is 6,237 lines with three test modules inside it
       Category: maintainability
       Where: `src-tauri/src/mrms.rs` (6,237 lines; `#[cfg(test)]` at `:109`, `:2418` and `:2673`; 85 functions).

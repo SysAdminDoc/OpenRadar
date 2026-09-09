@@ -1425,6 +1425,14 @@ export const fr: Catalogue = {
   "settings.eyebrow": "Préférences d'OpenRadar",
   "settings.title": "Réglages",
   "settings.appearance": "Apparence",
+  "settings.reading": "Lecture",
+  "settings.readingDetail": "La langue, les unités et la taille de tout",
+  "settings.desktop": "Bureau",
+  "settings.desktopDetail":
+    "Windows, la zone de notification et le second écran",
+  "settings.character": "Caractère",
+  "settings.characterDetail":
+    "Tout est désactivé tant que vous ne l'activez pas, et tout se tait tant qu'une alerte est en cours",
   "settings.appliesNow": "S'applique immédiatement",
   "settings.systemColours":
     "Votre système utilise un thème de contraste, c'est donc lui qui choisit les couleurs. Clair et sombre lui appartiennent tant qu'il est actif.",
