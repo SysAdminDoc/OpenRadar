@@ -198,6 +198,9 @@ export const fr: Catalogue = {
   "alerts.sound": "Émettre un son",
   "alerts.soundDetail":
     "Une brève tonalité quand une alerte nouvelle ou rehaussée atteint l'endroit que vous surveillez",
+  "alerts.voice": "Le lire à voix haute",
+  "alerts.voiceDetail":
+    "La même alerte énoncée, après la tonalité, avec les voix installées sur Windows",
   "alerts.impact.considerable": "dommages considérables",
   "alerts.impact.destructive": "destructrice",
   "alerts.impact.catastrophic": "catastrophique",

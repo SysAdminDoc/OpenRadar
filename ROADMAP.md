@@ -226,15 +226,6 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
 
 ### P3
 
-- [ ] AUD-270 (P3): Speak a warning at a watched place with the Windows voice, off by default
-      Note 2026-09-07: HookEcho #302 (2026-09-05) lets an emergency pre-empt the speech queue, and #298 plays the tone before the words; both belong in the queue this item builds.
-      Note 2026-09-07 (evening): WebView2 returns local SAPI voices only: Microsoft disabled its cloud Natural voices in WebView2 by design (WebView2Feedback #2660, "We don't have plans to re-enable"), and `getVoices()` fills asynchronously, so wait for `voiceschanged` and write the sentence for a SAPI voice.
-      Why: HookEcho made spoken warnings the default on 2026-09-03 (#298: county, towns in path, distance and bearing from a saved place, a tone then speech, a queue); Supercell Wx #581 asks for voice lightning alerts. The app's watched places already compose the sentence (which place, which warning, how many minutes); speaking it through the page's own `speechSynthesis` is offline and keyless, and is the one form a reader away from the screen can take in.
-      Evidence: https://github.com/d4vid87/HookEcho/pull/298 ; https://github.com/dpaulat/supercell-wx/issues/581 ; `src/lib/notify.ts`, `src/hooks/useAlertWatch.ts`, `src/hooks/useApproachWatch.ts`.
-      Touches: `src/lib/notify.ts` (a `speak` beside `announceOnDesktop`, queued, cancelled by a newer warning for the same place), the watch settings (per place, off by default, honouring quiet hours and calm mode), `src/i18n/*` (the spoken sentence in the reader's language), tests with a stubbed `speechSynthesis`.
-      Acceptance: With voice on for a place, a warning reaching it is spoken once in the catalogue language after the tone; quiet hours and calm mode silence it exactly as they silence the sound; two warnings queue rather than overlap; nothing is spoken by default.
-      Complexity: S
-
 - [ ] AUD-272 (P3): Split `App.tsx` and `MapOptionsPanels.tsx` along the seams the churn shows
       Why: Since 2026-08-25, `App.tsx` was touched by 143 commits and `MapOptionsPanels.tsx` by 85, and they are 2,814 and 2,847 lines: four of the six largest files are the four hottest, and `level2.rs` was the only one with a split item until it got one. Every layer added this week edited both.
       Evidence: `git log --since=2026-08-25 --format=%H -- src/App.tsx | wc -l` and the same for the panel; `wc -l`; the ten-place list in `CLAUDE.md` for adding a switch group.

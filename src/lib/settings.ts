@@ -287,6 +287,11 @@ export interface WatchState {
    * for: a weather app that makes a noise on its own is one people close.
    */
   sound: boolean;
+  /**
+   * The same alert read aloud, in the language the catalogue is in. Off
+   * until asked for, for the same reason the tone is.
+   */
+  voice: boolean;
   center: [number, number];
   radiusMiles: number;
   minSeverity: "extreme" | "severe" | "moderate" | "minor";
@@ -795,6 +800,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     center: [-96.8, 32.78],
     radiusMiles: 30,
     sound: false,
+    voice: false,
     minSeverity: "severe",
     quietHours: DEFAULT_QUIET_HOURS,
   },
@@ -1073,6 +1079,7 @@ function normalizeWatch(value: unknown): WatchState {
   return {
     enabled: bool(raw.enabled, DEFAULT_SETTINGS.watch.enabled),
     sound: bool(raw.sound, DEFAULT_SETTINGS.watch.sound),
+    voice: bool(raw.voice, DEFAULT_SETTINGS.watch.voice),
     center: [
       finiteInRange(center[0], DEFAULT_SETTINGS.watch.center[0], -180, 180),
       finiteInRange(center[1], DEFAULT_SETTINGS.watch.center[1], -85, 85),

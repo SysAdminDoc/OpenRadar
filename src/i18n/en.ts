@@ -184,6 +184,9 @@ export const en = {
   "alerts.sound": "Play a sound",
   "alerts.soundDetail":
     "One short tone when a new or upgraded alert reaches the place you watch",
+  "alerts.voice": "Read it out",
+  "alerts.voiceDetail":
+    "The same alert spoken aloud, after the tone, in the voices Windows has installed",
   "alerts.impact.considerable": "considerable damage",
   "alerts.impact.destructive": "destructive",
   "alerts.impact.catastrophic": "catastrophic",

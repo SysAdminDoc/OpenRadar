@@ -276,6 +276,14 @@ export function WatchSection({
           </div>
         </>
       ) : null}
+      <ToggleSetting
+        label={t("alerts.voice")}
+        detail={t("alerts.voiceDetail")}
+        checked={settings.watch.voice}
+        onChange={(voice) =>
+          onSettings({ ...settings, watch: { ...settings.watch, voice } })
+        }
+      />
       {/* A different kind of statement from everything above it, and said
             so: the watch repeats a forecaster and this is arithmetic on a
             moving blob. Off until asked for, and silent even then. */}

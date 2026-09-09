@@ -1,4 +1,4 @@
-import { announceOnDesktop } from "../lib/notify";
+import { announceOnDesktop, speak } from "../lib/notify";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isOnline } from "../lib/online";
 import { pollWhileOnline } from "../lib/poll";
@@ -154,6 +154,12 @@ export function useAlertWatch(
     soundRef.current = places.some((place) => place.sound);
   }, [places]);
 
+  // And for the voice, which follows the tone exactly.
+  const voiceRef = useRef(places.some((place) => place.voice));
+  useEffect(() => {
+    voiceRef.current = places.some((place) => place.voice);
+  }, [places]);
+
   // The same, for the kinds. Switching one back on should not replay every
   // alert the watch has already mentioned.
   const kindsRef = useRef(kinds);
@@ -270,6 +276,18 @@ export function useAlertWatch(
           // arriving together should not sound like an alarm going off.
           if (soundRef.current && spoken === 0) {
             void playAlertTone(alert.severity);
+          }
+          // After the tone, which is what a reader hears first and what
+          // tells them a sentence is coming. Every alert rather than the
+          // first of a batch: the tone says something has happened and one
+          // is enough, and this says which warning and where, where one is
+          // not.
+          //
+          // Keyed on the places it reached, so a warning arriving for a
+          // place while an older one for the same place is still waiting
+          // replaces it rather than queueing behind it.
+          if (voiceRef.current) {
+            speak(watchAlertBody(alert), [...reached].sort().join("|"));
           }
           spoken += 1;
           let delivered = false;
@@ -391,6 +409,11 @@ export function useAlertWatch(
     // as their floor: pressing this should sound like the quietest thing
     // they have asked to be told about.
     if (first.sound) void playAlertTone(alert.severity);
+    // And the sentence, for the same reason: a voice nobody has heard work
+    // is one they find out about during a warning, and whether Windows has
+    // a voice for the language they are reading in is not knowable from
+    // here.
+    if (first.voice) speak(watchAlertBody(alert), first.id);
     let delivered = false;
     if (isDesktopRuntime()) {
       try {

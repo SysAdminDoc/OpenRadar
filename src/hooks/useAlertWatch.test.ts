@@ -34,6 +34,14 @@ vi.mock("../lib/sound", () => ({
   resetSound: () => {},
 }));
 
+/** What was read aloud, without a speech engine having to exist here. */
+const spoken = vi.fn();
+vi.mock("../lib/notify", async () => {
+  const actual =
+    await vi.importActual<typeof import("../lib/notify")>("../lib/notify");
+  return { ...actual, speak: (...args: unknown[]) => spoken(...args) };
+});
+
 // The browser path, so the fallback toast is what gets called and no
 // notification plugin has to exist.
 vi.mock("../lib/runtime", () => ({ isDesktopRuntime: () => desktop }));
@@ -102,6 +110,7 @@ beforeEach(() => {
   fetchData.mockReset();
   tone.mockReset();
   tone.mockResolvedValue(true);
+  spoken.mockReset();
   permission.mockReset();
   permission.mockResolvedValue(true);
   notification.mockReset();
@@ -260,6 +269,34 @@ describe("watching a place for alerts", () => {
     expect(tone).toHaveBeenCalledTimes(1);
   });
 
+  it("reads nothing aloud unless the reader asked for it", async () => {
+    // Nothing this app can do is more startling than a machine that starts
+    // talking. The switch ships off and a settings file older than it has no
+    // answer, which must be read as off rather than as unset.
+    const told = vi.fn();
+    fetchData.mockResolvedValue(alerts("Tornado Warning"));
+    renderHook(() => useAlertWatch([{ ...watch, voice: undefined }], {}, told));
+    await vi.waitFor(() => expect(told).toHaveBeenCalledTimes(1));
+    expect(spoken).not.toHaveBeenCalled();
+  });
+
+  it("reads every alert of a batch, where the tone sounds once", async () => {
+    // The tone says something has happened and one is enough. This says
+    // which warning and where, and one of those is not enough for three.
+    const told = vi.fn();
+    fetchData.mockResolvedValue(
+      alerts("Tornado Warning", "Flash Flood Warning"),
+    );
+    renderHook(() =>
+      useAlertWatch([{ ...watch, sound: true, voice: true }], {}, told),
+    );
+    await vi.waitFor(() => expect(told).toHaveBeenCalledTimes(2));
+    expect(tone).toHaveBeenCalledTimes(1);
+    expect(spoken).toHaveBeenCalledTimes(2);
+    // The sentence a reader hears is the one the notification carries.
+    expect(String(spoken.mock.calls[0][0])).toContain("Tornado Warning");
+  });
+
   it("says nothing about a kind the reader switched off", async () => {
     // The panel lists what the map draws, and this notification's own action
     // opens that panel. Announcing a kind the panel will not show sends
@@ -374,6 +411,8 @@ describe("watching a place for alerts", () => {
           [
             {
               ...watch,
+              sound: true,
+              voice: true,
               quietHours: {
                 enabled: true,
                 startMinute: 22 * 60,
@@ -391,6 +430,11 @@ describe("watching a place for alerts", () => {
         await vi.advanceTimersByTimeAsync(200);
       });
       expect(said).not.toHaveBeenCalled();
+      // The tone and the voice are held by the same gate, which is what
+      // makes quiet hours quiet rather than merely unannounced: a sentence
+      // read aloud at half past midnight is the loudest thing here.
+      expect(tone).not.toHaveBeenCalled();
+      expect(spoken).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

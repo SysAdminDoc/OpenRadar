@@ -106,6 +106,7 @@ describe("workspace backups", () => {
           radiusMiles: 15,
           minSeverity: "moderate" as const,
           sound: true,
+          voice: false,
           quietHours: DEFAULT_SETTINGS.watch.quietHours,
         },
       ],
