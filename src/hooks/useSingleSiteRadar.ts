@@ -264,8 +264,23 @@ export function useSingleSiteRadar(options: {
    * measured properly.
    */
   const [discs, setDiscs] = useState<Record<string, Disc>>({});
-  /** Records a site's reach, from an answer that covered all of it. */
-  const rememberDisc = useCallback((answer: SweepImage) => {
+  /**
+   * Which site each file on disk was recorded at, learned from its own answer.
+   *
+   * Keyed on the path being asked for rather than read off the sweep on
+   * screen. Those are the same file most of the time and are not during the
+   * moment that matters: opening a second file leaves the first one on screen
+   * until the new answer lands, so a station taken from the picture is the
+   * previous file's, and the new file was measured on the previous file's
+   * disc. That is the intersection sliver this whole arrangement exists to
+   * avoid, moved from the first open to every open after it.
+   */
+  const [fileSites, setFileSites] = useState<Record<string, string>>({});
+  /**
+   * Records a site's reach, from an answer that covered all of it, and which
+   * site a file carries when the answer came from one.
+   */
+  const rememberDisc = useCallback((answer: SweepImage, path?: string) => {
     setDiscs((now) =>
       now[answer.station]
         ? now
@@ -279,6 +294,11 @@ export function useSingleSiteRadar(options: {
             },
           },
     );
+    if (path) {
+      setFileSites((now) =>
+        now[path] ? now : { ...now, [path]: answer.station },
+      );
+    }
   }, []);
 
   // The site, and the coarse position it was resolved for. A site found for
@@ -444,8 +464,9 @@ export function useSingleSiteRadar(options: {
    * asked twice for the same box: once on the first run, and again before the
    * first answer had come back to write the request key.
    */
-  const fileStation =
-    sweep?.source.kind === "local" ? (sweep.station ?? null) : null;
+  const filePath =
+    historicalSource?.kind === "local" ? historicalSource.path : null;
+  const fileStation = filePath ? (fileSites[filePath] ?? null) : null;
   const fileDisc = fileStation ? discs[fileStation] : undefined;
   const fileAsking = fileDisc ? sweepDetailBox(fileDisc, center, zoom) : null;
   const fileKey = fileAsking ? fileAsking.join(",") : "";
@@ -713,12 +734,18 @@ export function useSingleSiteRadar(options: {
       }
       // A file from disk. Its site is whatever it was recorded at, which its
       // own first answer is what says, so this is null until that answer is
-      // in hand and its disc has been recorded. The station comes off the
-      // sweep on screen rather than off the map, or a file recorded at KTLX
-      // gets a box measured on KDMX's disc, which is the sliver.
-      return fileWithin;
+      // in hand and its disc has been recorded.
+      //
+      // And only for the file `fileWithin` was measured for. Opening a second
+      // file asks with the source before any render has seen it, so the box
+      // in hand still belongs to the file being replaced: handing it over
+      // drew the new one on the old one's disc, which is the same
+      // intersection sliver as before, moved from the first open to every
+      // open after it. Null here costs one whole-disc answer, which is what
+      // teaches this file its own site.
+      return source.path === filePath ? fileWithin : null;
     },
-    [fileWithin, station, within],
+    [fileWithin, filePath, station, within],
   );
 
   const historicalRequestKey = useCallback(
@@ -791,7 +818,9 @@ export function useSingleSiteRadar(options: {
         // A whole-disc answer says what this site's reach is, wherever the
         // site is. That is the only way a file recorded at a station the map
         // has never been near ever gets a box of its own.
-        if (asked === null) rememberDisc(next);
+        if (asked === null) {
+          rememberDisc(next, source.kind === "local" ? source.path : undefined);
+        }
         const key = historicalRequestKey(source);
         historicalRequestRef.current = key;
         // Held here as well as in the effect below, or the very first box a
@@ -1003,7 +1032,14 @@ export function useSingleSiteRadar(options: {
     void fetchHistorical(historicalSource)
       .then((next) => {
         if (!reply.current() || request !== requestRef.current) return;
-        if (asked === null) rememberDisc(next);
+        if (asked === null) {
+          rememberDisc(
+            next,
+            historicalSource.kind === "local"
+              ? historicalSource.path
+              : undefined,
+          );
+        }
         historicalRequestRef.current = key;
         historicalHeldRef.current.set(key, {
           image: next,
