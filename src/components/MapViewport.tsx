@@ -1100,9 +1100,9 @@ function MapViewportInner(
       onWindUndrawableRef.current?.();
       publishLayers();
     };
-    // Two of the three programs are built inside `onAdd`, which `addLayer`
+    // One of the two programs is built inside `onAdd`, which `addLayer`
     // calls before it returns, so the flag is set by the time it is read
-    // below. The third is built on the first frame, because its prelude comes
+    // below. The other is built on the first frame, because its prelude comes
     // from MapLibre and depends on the projection: by then nobody is going to
     // look at a flag again, so that one drives the removal itself. Off the
     // frame, because MapLibre is part way through drawing when it calls us

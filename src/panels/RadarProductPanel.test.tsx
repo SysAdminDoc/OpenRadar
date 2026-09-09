@@ -420,8 +420,11 @@ describe("the numbers the panel puts on its chips", () => {
 
     const label = screen.getByText(en["radar.speed"]);
     const shown = label.parentElement?.querySelector("strong")?.textContent;
-    // The default runs a frame a second, which is what the reader is told.
-    expect(shown).toBe(en["radar.speedValue"].replace("{count}", "1.0"));
+    // The default runs at 1,019 ms a frame, which is 0.98 a second. Two
+    // decimals below one a second because the slider's stops crowd there: at
+    // one decimal three of them read the same, and a reader arrowing the
+    // control heard no change.
+    expect(shown).toBe(en["radar.speedValue"].replace("{count}", "0.98"));
     // And never the slider's own position, whatever it happens to be.
     expect(shown).not.toContain(String(DEFAULT_SETTINGS.radar.animationSpeed));
   });

@@ -6,6 +6,7 @@ import {
   formatFrameTime,
   frameAgeMinutes,
   framesPerSecond,
+  loopSpeedLabel,
 } from "./radar";
 import type { RadarFrame } from "./providers/types";
 
@@ -72,6 +73,28 @@ describe("how fast the loop says it is playing", () => {
 });
 
 describe("where the loop speed reaches a reader", () => {
+  it("reads differently at every stop the slider has", () => {
+    // A control that announces the same thing after it moves has not moved as
+    // far as a screen reader is concerned. At one decimal three of the
+    // fourteen stops read "0.6/s" and two more read "0.7/s", so arrowing the
+    // slow end of the slider was silent: the value changed and the text a
+    // reader hears did not.
+    //
+    // The stops are the input's own: -0.8 to 0.5 in tenths.
+    const said = new Map<string, number[]>();
+    for (let step = 0; step <= 13; step += 1) {
+      const speed = Number((-0.8 + step / 10).toFixed(1));
+      const label = loopSpeedLabel(speed);
+      said.set(label, [...(said.get(label) ?? []), speed]);
+    }
+    const shared = [...said.entries()].filter(([, stops]) => stops.length > 1);
+    expect(
+      shared.map(([label, stops]) => `${label} at ${stops.join(", ")}`),
+      "two stops of the slider read the same",
+    ).toEqual([]);
+    expect(said.size, "the stops were not all measured").toBe(14);
+  });
+
   it("is never the slider's own position on any surface that prints it", () => {
     // Two surfaces show this number, the radar product panel's chip and the
     // settings slider's output, and both printed the raw position until
@@ -91,7 +114,7 @@ describe("where the loop speed reaches a reader", () => {
       // And the shape that is right has to be there, or this passes on a file
       // that stopped showing the speed at all and nobody noticed.
       expect(source, `${name} no longer shows the loop speed`).toContain(
-        "framesPerSecond(",
+        "loopSpeedLabel(",
       );
     }
   });

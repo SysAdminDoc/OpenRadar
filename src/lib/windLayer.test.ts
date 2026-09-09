@@ -126,11 +126,11 @@ describe("the wind layer on a card that will not build it", () => {
   });
 
   it("says so when the draw program fails on the first frame, not on add", () => {
-    // Three programs, and only two are built in `onAdd`. The third is linked
-    // on the first frame because its vertex prelude comes from MapLibre and
+    // Two programs, and only one is built in `onAdd`. The other is linked on
+    // the first frame because its vertex prelude comes from MapLibre and
     // depends on the projection in force, which makes it the one whose source
-    // varies by engine version and by projection: the likeliest of the three
-    // to build on one card and not the next.
+    // varies by engine version and by projection: the likelier of the two to
+    // build on one card and not the next.
     //
     // It was outside every guard. MapLibre calls `render` bare and has no
     // catch of its own, so the throw went into its frame, the cleanup after

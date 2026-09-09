@@ -1,5 +1,5 @@
 import type { RadarFrame } from "./providers/types";
-import { translate } from "../i18n";
+import { formatNumber, translate } from "../i18n";
 import { formatClock } from "./units";
 
 export type { RadarFrame };
@@ -27,6 +27,23 @@ export function animationIntervalMs(speed: number): number {
  */
 export function framesPerSecond(speed: number): number {
   return 1000 / animationIntervalMs(speed);
+}
+
+/**
+ * That rate as the reader sees it, in one place for the three that show it.
+ *
+ * Two decimals below one a second. The slider has fourteen stops and they
+ * crowd at the slow end, where one decimal gave three of them the same
+ * reading: a reader arrowing the slider heard "0.6 per second" three times
+ * and could not tell the control had moved, which for a screen reader is the
+ * control not working. Above one a second the stops are far enough apart that
+ * a second decimal is noise.
+ */
+export function loopSpeedLabel(speed: number): string {
+  const rate = framesPerSecond(speed);
+  return translate("radar.speedValue", {
+    count: formatNumber(rate, rate < 1 ? 2 : 1),
+  });
 }
 
 export function frameAgeMinutes(frame: RadarFrame, now = Date.now()): number {
