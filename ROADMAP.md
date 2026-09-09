@@ -483,15 +483,6 @@ Ninth pass. Evidence in RESEARCH.md of the same date. Numbered on from `AUD-378`
 
 Raised by the adversarial reviews of this session's own commits, instructed to refute rather than confirm. Everything they found that was a defect is fixed in `232fe78` and `d81f772`; these two are the ones that are about the tools rather than about a change, and neither belongs inside the item it was found under.
 
-### P2
-
-- [ ] AUD-470 (P2): The gate's type check let a broken test file through, once
-  Why: `npm run check` runs `tsc -b` inside `npm run build`, and it reported nothing for a test file that does not compile. `src/lib/ring.test.ts` was committed in `f44d7ab` with a `quietHours` literal missing three required fields; the gate was green on that tree, and `npx tsc -b` on the next run reported both errors. Re-introducing the same error afterwards made `npm run build` fail as it should, so the check is not blind: its incremental state went stale and skipped a file it had already seen. A type gate that can silently skip a changed file is worth less than its running time.
-  Evidence: `f44d7ab` (the committed file), the `npm run check` run of that tree reporting 216 files and 2257 tests passing, and the `npx tsc -b` immediately after it reporting `src/lib/ring.test.ts(84,37): error TS2345`. `tsconfig.app.json` has `"include": ["src"]` and `tsBuildInfoFile` under `node_modules/.tmp`, so tests are in the project and the build info is the only state that could have gone stale.
-  Touches: `package.json` (the `build` script, or a `typecheck` step ahead of it), possibly a `--force` on the gate's own run only.
-  Acceptance: Deliberately breaking a type in a test file makes `npm run check` fail on a tree where the previous run was green, ten times out of ten; the added cost of whatever does it is measured and written here.
-  Complexity: S
-
 ### P3
 
 - [ ] AUD-471 (P3): The settings recovery runs after the webview has started loading

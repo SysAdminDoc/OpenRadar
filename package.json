@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b --force && vite build",
     "preview": "vite preview",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
