@@ -1,5 +1,10 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
-import { routeWorkspace, stubHost, transparentPng } from "./support/fixtures";
+import { expect, type Locator, type Page } from "@playwright/test";
+import {
+  routeWorkspace,
+  stubHost,
+  test,
+  transparentPng,
+} from "./support/fixtures";
 import { expectClean } from "./support/axe";
 import { contrast } from "./support/contrast";
 

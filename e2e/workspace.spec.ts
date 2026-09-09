@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./support/fixtures";
 import { en } from "../src/i18n/en";
 import { es } from "../src/i18n/es";
 import { fr } from "../src/i18n/fr";

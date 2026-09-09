@@ -1,5 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-import { routeWorkspace, transparentPng } from "./support/fixtures";
+import { expect, type Page } from "@playwright/test";
+import { routeWorkspace, test, transparentPng } from "./support/fixtures";
 
 const NEWEST = 1788083202;
 

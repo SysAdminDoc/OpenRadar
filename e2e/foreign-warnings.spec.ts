@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
-import { routeWorkspace, stubHost } from "./support/fixtures";
+import { expect } from "@playwright/test";
+import { routeWorkspace, stubHost, test } from "./support/fixtures";
 
 /**
  * Canadian warnings, drawn and watched like American ones.

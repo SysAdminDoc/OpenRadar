@@ -1,5 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-import { routeWorkspace, wearsTheApp } from "./support/fixtures";
+import { expect, type Page } from "@playwright/test";
+import { routeWorkspace, test, wearsTheApp } from "./support/fixtures";
 
 /**
  * A theme restyles the workspace around the map and nothing on it.

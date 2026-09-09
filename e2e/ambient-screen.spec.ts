@@ -1,5 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-import { routeWorkspace, stubHost } from "./support/fixtures";
+import { expect, type Page } from "@playwright/test";
+import { routeWorkspace, stubHost, test } from "./support/fixtures";
 import { contrast } from "./support/contrast";
 
 /**

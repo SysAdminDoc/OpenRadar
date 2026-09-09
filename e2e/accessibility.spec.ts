@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
-import { routeWorkspace } from "./support/fixtures";
+import { expect, type Page } from "@playwright/test";
+import { routeWorkspace, test } from "./support/fixtures";
 import { obscuredWhenFocused, unreachable } from "./support/layout";
 import { SURFACES, declaredSurfaces, openSurface } from "./support/surfaces";
 import type { OpenSurface } from "./support/surfaces";

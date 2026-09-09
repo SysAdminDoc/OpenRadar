@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { expectClean } from "./support/axe";
-import { routeWorkspace } from "./support/fixtures";
+import { routeWorkspace, test } from "./support/fixtures";
 
 test.beforeEach(async ({ page }) => {
   await routeWorkspace(page);

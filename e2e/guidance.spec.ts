@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { expectClean } from "./support/axe";
-import { routeWorkspace } from "./support/fixtures";
+import { routeWorkspace, test } from "./support/fixtures";
 
 /**
  * Three models over the same eight hours, shaped the way Open-Meteo answers.

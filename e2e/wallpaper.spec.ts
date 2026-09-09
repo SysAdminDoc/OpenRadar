@@ -1,5 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-import { fakeDesktop, routeWorkspace } from "./support/fixtures";
+import { expect, type Page } from "@playwright/test";
+import { fakeDesktop, routeWorkspace, test } from "./support/fixtures";
 
 /**
  * The current view on the desktop.

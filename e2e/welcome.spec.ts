@@ -1,6 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { expectClean } from "./support/axe";
-import { routeWorkspace, stubHost } from "./support/fixtures";
+import { routeWorkspace, stubHost, test } from "./support/fixtures";
 
 /**
  * A first launch, which is the one chance to be worth opening again.

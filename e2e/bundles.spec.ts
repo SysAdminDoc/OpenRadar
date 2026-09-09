@@ -1,5 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-import { fakeDesktop, routeWorkspace } from "./support/fixtures";
+import { expect, type Page } from "@playwright/test";
+import { fakeDesktop, routeWorkspace, test } from "./support/fixtures";
 
 // Replay bundles: one file that keeps a replay's bytes. The native side
 // fetches, hashes, writes and later serves them; here it is a fake that

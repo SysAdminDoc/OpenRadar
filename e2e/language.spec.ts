@@ -1,8 +1,9 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import {
   fakeDesktop,
   holdsATerminalRadar,
   routeWorkspace,
+  test,
 } from "./support/fixtures";
 import { clipped } from "./support/layout";
 import { pseudoize } from "../src/i18n/pseudo";
