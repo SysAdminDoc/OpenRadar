@@ -603,7 +603,11 @@ describe("the stylesheet says what the browser does", () => {
   });
 
   it("turns every blur off for a reader who asked for contrast", () => {
-    // The two contrast blocks named five surfaces and the file blurs eight.
+    // The two contrast blocks named five surfaces. Six selectors in the file
+    // declare a blur, and three of the six were not among the five; the other
+    // two names in the blocks are surfaces that only ever write `none`, so
+    // the eight the blocks list now is a list length rather than a count of
+    // anything that ever blurred.
     // Measured in Chromium before this: at `prefers-contrast: more` the tool
     // readout stayed at `blur(18px)`, the product legend at `blur(9px)` and
     // the toast at `blur(20px)`, in both layouts, and two of the three
@@ -612,30 +616,63 @@ describe("the stylesheet says what the browser does", () => {
     //
     // A list against a list, so adding a translucent surface without adding
     // it to both blocks is what fails rather than something a reader finds.
-    const blurred = new Set<string>();
-    for (const rule of all) {
-      if (context(rule)) continue;
-      for (const [property, value] of properties(rule)) {
-        if (property !== "backdrop-filter") continue;
-        if (value === "none") continue;
-        for (const one of rule.selector.split(",")) blurred.add(one.trim());
-      }
-    }
-    expect(blurred.size).toBeGreaterThan(4);
-
-    for (const query of ["prefers-contrast: more", "forced-colors: active"]) {
-      const cleared = new Set<string>();
-      for (const rule of all) {
-        if (!context(rule).includes(query)) continue;
-        if (properties(rule).get("backdrop-filter") !== "none !important") {
-          continue;
+    //
+    // Three things the first version of this could not see, each of which
+    // would have let exactly the defect above back in. It skipped every rule
+    // inside an at-rule, so a blur written under a width query was invisible
+    // while the plain spelling of the same rule reddened it. It knew one of
+    // the two spellings of the property, and the prefixed one is what Safari
+    // and a WKWebView read. And it read one of the app's two stylesheets.
+    const BLUR = new Set(["backdrop-filter", "-webkit-backdrop-filter"]);
+    /** Every property and selector a sheet blurs, wherever it is written. */
+    const blursIn = (sheet: Rule[]) => {
+      const found = new Set<string>();
+      for (const rule of sheet) {
+        // A keyframe's selector is a percentage rather than something a
+        // contrast block could name, so a blur animated there is a different
+        // question from this one.
+        if (context(rule).includes("@keyframes")) continue;
+        for (const [property, value] of properties(rule)) {
+          if (!BLUR.has(property) || value.startsWith("none")) continue;
+          for (const one of rule.selector.split(",")) {
+            found.add(`${property} on ${one.trim()}`);
+          }
         }
-        for (const one of rule.selector.split(",")) cleared.add(one.trim());
       }
-      expect(
-        [...blurred].filter((one) => !cleared.has(one)),
-        query,
-      ).toEqual([]);
+      return found;
+    };
+    /** And every one of those a given query turns off, with the weight to. */
+    const clearedIn = (sheet: Rule[], query: string) => {
+      const found = new Set<string>();
+      for (const rule of sheet) {
+        if (!context(rule).includes(query)) continue;
+        for (const [property, value] of properties(rule)) {
+          if (!BLUR.has(property) || value !== "none !important") continue;
+          for (const one of rule.selector.split(",")) {
+            found.add(`${property} on ${one.trim()}`);
+          }
+        }
+      }
+      return found;
+    };
+
+    // The glance window is its own document with its own stylesheet, so its
+    // blurs have to be turned off by its own blocks. It has none today, which
+    // is the point: the gate is here before the first one is.
+    const sheets = [
+      ["index.css", all],
+      ["glance.css", rules(readFileSync(join(ROOT, "glance.css"), "utf8"))],
+    ] as const;
+    expect(blursIn(all).size).toBeGreaterThan(4);
+
+    for (const [name, sheet] of sheets) {
+      const blurred = blursIn(sheet);
+      for (const query of ["prefers-contrast: more", "forced-colors: active"]) {
+        expect(
+          [...blurred].filter((one) => !clearedIn(sheet, query).has(one)),
+          `${name} at ${query}`,
+        ).toEqual([]);
+      }
     }
   });
 
