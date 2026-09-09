@@ -85,13 +85,13 @@ describe("what stops a monitor keeping a ghost of it", () => {
 
 describe("type for a screen that is looked at rather than worked at", () => {
   const DESK = { width: 1920, height: 1080 };
-  /** What the view draws: the time, the place, and where the picture is from. */
-  const LINES = { clock: "21:00", place: "Casa", source: "NOAA MRMS" };
+  /** What the readout comes to at its design size, as the view measures it. */
+  const NATURAL = { width: 180, height: 90 };
 
   it("changes nothing for a reader at the distance it was drawn for", () => {
     // The default has to be free. A setting that resizes the view the moment
     // it exists is a setting that broke the view for everybody who had one.
-    expect(ambientTypeScale(DEFAULT_AMBIENT_METRES, DESK, LINES)).toBe(1);
+    expect(ambientTypeScale(DEFAULT_AMBIENT_METRES, DESK, NATURAL)).toBe(1);
   });
 
   it("holds the angle, which means the size follows the distance", () => {
@@ -99,8 +99,8 @@ describe("type for a screen that is looked at rather than worked at", () => {
     // a distance is named. Holding it constant over any distance small enough
     // that the tangent is the angle means the size is proportional: at four
     // times as far, four times as big.
-    expect(ambientTypeScale(2.4, DESK, LINES)).toBeCloseTo(4, 6);
-    expect(ambientTypeScale(1.2, DESK, LINES)).toBeCloseTo(2, 6);
+    expect(ambientTypeScale(2.4, DESK, NATURAL)).toBeCloseTo(4, 6);
+    expect(ambientTypeScale(1.2, DESK, NATURAL)).toBeCloseTo(2, 6);
   });
 
   it("is anchored on the smallest line really subtending nineteen minutes", () => {
@@ -111,44 +111,65 @@ describe("type for a screen that is looked at rather than worked at", () => {
     const millimetres = (AMBIENT_SMALLEST_PX * 25.4) / 96;
     const radians = (GLANCE_ARCMINUTES / 60) * (Math.PI / 180);
     const metres = millimetres / 2 / Math.tan(radians / 2) / 1000;
-    expect(metres).toBeCloseTo(DEFAULT_AMBIENT_METRES, 1);
+    expect(metres).toBeCloseTo(0.622, 3);
+    // Rounded to the number the setting offers, which is within four per cent
+    // of it and is a distance a person would say.
+    expect(Math.abs(metres - DEFAULT_AMBIENT_METRES) / metres).toBeLessThan(
+      0.04,
+    );
   });
 
-  it("will not ask for type the window cannot hold", () => {
-    // The geometry does not know how big the screen is. Somebody four metres
-    // from a small window is asking for a clock that would run off the edge,
-    // and a clock running off the edge is less readable than one that is
-    // slightly too small.
-    const small = { width: 640, height: 400 };
-    const asked = 4 / DEFAULT_AMBIENT_METRES;
-    expect(ambientTypeScale(4, small, LINES)).toBeLessThan(asked);
-    // Every line still fits across it, at the advance this face runs to.
-    const scale = ambientTypeScale(4, small, LINES);
-    expect(
-      LINES.clock.length * 0.55 * AMBIENT_CLOCK_PX * scale + 64,
-    ).toBeLessThanOrEqual(small.width);
-    expect(
-      LINES.source.length * 0.5 * AMBIENT_SMALLEST_PX * scale + 64,
-    ).toBeLessThanOrEqual(small.width);
-    // And it never goes below the size it was drawn at.
-    expect(scale).toBeGreaterThanOrEqual(1);
-  });
-
-  it("shrinks for the longest line, which is the quietest one", () => {
-    // The source and the age is a longer string than the clock, at a third of
-    // the size, so past a certain distance it is what runs out of room first.
-    // Bounded on the clock alone, that line wrapped into four and the readout
-    // stood four hundred pixels above the top of a 680 pixel window.
+  it("will not ask for type the room cannot hold", () => {
+    // The geometry does not know how big the screen is, or how wide the
+    // reader's own place name is. What the readout comes to at its design
+    // size is measured and handed in, because a glyph is not half an em and
+    // in some scripts it is nowhere near: a forty-five character place name
+    // ran a hundred pixels off the right edge, and sixteen characters of
+    // Japanese stood a hundred and forty above the top of the window.
     const window = { width: 1024, height: 680 };
-    const short = ambientTypeScale(4, window, { ...LINES, source: "MRMS" });
-    const long = ambientTypeScale(4, window, {
-      ...LINES,
-      source: "NOAA MRMS, 12 minutes ago",
-    });
-    expect(long).toBeLessThan(short);
-    // And the longest line still fits across the window at the size chosen.
-    expect(25 * 0.5 * AMBIENT_SMALLEST_PX * long + 64).toBeLessThanOrEqual(
-      window.width,
+    const long = { width: 420, height: 90 };
+    const asked = 4 / DEFAULT_AMBIENT_METRES;
+    const scale = ambientTypeScale(4, window, long);
+    expect(scale).toBeLessThan(asked);
+    // What it settles on fits, with the insets it has to leave.
+    expect(long.width * scale + 64).toBeLessThanOrEqual(window.width);
+    expect(long.height * scale + 88).toBeLessThanOrEqual(window.height);
+    // And it never goes below the size it was drawn at.
+    expect(ambientTypeScale(4, { width: 200, height: 200 }, long)).toBe(1);
+  });
+
+  it("shrinks for whichever way it runs out of room first", () => {
+    // A tall narrow window and a wide short one bind on different sides, and
+    // the answer has to be the smaller of the two rather than whichever was
+    // worked out last.
+    const wide = ambientTypeScale(
+      4,
+      { width: 1600, height: 400 },
+      {
+        width: 180,
+        height: 90,
+      },
+    );
+    const tall = ambientTypeScale(
+      4,
+      { width: 400, height: 1600 },
+      {
+        width: 180,
+        height: 90,
+      },
+    );
+    expect(wide).toBeLessThan(4 / DEFAULT_AMBIENT_METRES);
+    expect(tall).toBeLessThan(4 / DEFAULT_AMBIENT_METRES);
+    expect(wide).not.toBeCloseTo(tall, 3);
+  });
+
+  it("answers with the size it was drawn at when the numbers are nonsense", () => {
+    // A scale of `NaN` reaches the stylesheet as an invalid `calc` and takes
+    // every line of the readout with it.
+    expect(ambientTypeScale(Number.NaN, DESK, NATURAL)).toBe(1);
+    expect(ambientTypeScale(4, { width: 0, height: 0 }, NATURAL)).toBe(1);
+    expect(ambientTypeScale(4, DESK, { width: 0, height: 0 })).toBeGreaterThan(
+      0,
     );
   });
 });
@@ -163,9 +184,13 @@ describe("the sizes the rule is anchored on", () => {
       join(import.meta.dirname, "..", "index.css"),
       "utf8",
     );
+    // The multiplier is part of what is matched, not just the number. Without
+    // it the pattern read a plain `calc(13px)` as happily as the real thing,
+    // so deleting the scale from all three rules, which switches the whole
+    // feature off, left every gate in the repository green.
     const sized = (selector: string) =>
       new RegExp(
-        `\\.ambient-readout ${selector}\\s*\\{[^}]*font-size:\\s*calc\\((\\d+)px`,
+        `\\.ambient-readout ${selector}\\s*\\{[^}]*font-size:\\s*calc\\(\\s*(\\d+)px\\s*\\*\\s*var\\(--ambient-scale\\)\\s*\\)`,
       ).exec(css)?.[1];
     expect(sized("strong")).toBe(String(AMBIENT_CLOCK_PX));
     expect(sized("span")).toBe(String(AMBIENT_PLACE_PX));

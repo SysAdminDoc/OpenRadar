@@ -118,15 +118,12 @@ function sweepFor(
 ): SweepImage {
   return {
     station,
-    siteName: "Des Moines, IA",
     productId: product,
     paletteApplied: false,
     highContrast: false,
     smoothed: false,
     dealiased: false,
     unplacedShare: 0,
-    live: false,
-    liveTilts: 0,
     liveFailed: null,
     nextChunkAt: null,
     volumeEndsAt: null,
@@ -151,10 +148,29 @@ function sweepFor(
     // What the site is, not what the caller asked for. A terminal radar has
     // no Level II volume and reads from its Level III products, and a fixture
     // that called one a WSR-88D would let a test pass on a picture the app
-    // could never have been given.
+    // could never have been given. Every field the native side writes
+    // differently for one is written differently here: the source it names,
+    // the site's own name, and the live half it does not have.
     ...(isTdwrStation(station)
-      ? { radar: "TDWR" as const, rangeKm: TDWR_RANGE_KM }
-      : { radar: "WSR-88D" as const, rangeKm: 230 }),
+      ? {
+          radar: "TDWR" as const,
+          rangeKm: TDWR_RANGE_KM,
+          siteName: "Atlanta, GA",
+          live: false,
+          liveTilts: 0,
+          source: {
+            kind: "recent" as const,
+            label: "NOAA NEXRAD Level III (TDWR)",
+            url: "https://registry.opendata.aws/noaa-nexrad/",
+          },
+        }
+      : {
+          radar: "WSR-88D" as const,
+          rangeKm: 230,
+          siteName: "Des Moines, IA",
+          live: false,
+          liveTilts: 0,
+        }),
     source: {
       kind: "recent",
       label: "NOAA NEXRAD Level II",
@@ -348,7 +364,7 @@ describe("choosing a site", () => {
     // The harness could hold one and never got a picture for it: the disc
     // table had no entry, the fixture threw on the spread, and every case
     // about a terminal radar was green without the live path ever running its
-    // body. This is what makes the case below able to fail.
+    // body.
     const { result } = renderHook(() =>
       useSingleSiteRadar(options({ radar: { live: true, station: "TATL" } })),
     );
@@ -356,6 +372,36 @@ describe("choosing a site", () => {
     expect(result.current.sweep?.radar).toBe("TDWR");
     // Its own reach, which is what makes it a different instrument.
     expect(result.current.sweep?.rangeKm).toBeLessThan(100);
+  });
+
+  it("offers a terminal radar none of the things it has no volume for", async () => {
+    // Three more places read the same question and none of them was covered:
+    // a terminal radar has no Level II archive to list a loop from, no volume
+    // to cut a cross-section through, and no gates to write out as values.
+    // All three survived having their guard removed against the whole suite,
+    // which is the same hole the case above was filed for wearing a different
+    // hat.
+    const { result, rerender } = renderHook(
+      (props: { station: string }) =>
+        useSingleSiteRadar(
+          options({ radar: { live: true, station: props.station } }),
+        ),
+      { initialProps: { station: "TATL" } },
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("TATL"));
+    expect(result.current.crossSection).toBeNull();
+    // And nothing was asked of the archive listing, which is what the loop
+    // would be built from.
+    expect(recentVolumeTimes).not.toHaveBeenCalled();
+
+    // The control, through the same path: a site that does have a volume is
+    // offered the cut and does have its loop listed. Writing the gates out is
+    // not among them here, because that one is a desktop command and this
+    // harness is a browser.
+    rerender({ station: "KDMX" });
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+    expect(result.current.crossSection).not.toBeNull();
+    await waitFor(() => expect(recentVolumeTimes).toHaveBeenCalled());
   });
 
   it("says nothing about the Level II feed for a radar that has none", async () => {
@@ -373,6 +419,11 @@ describe("choosing a site", () => {
           ),
         { initialProps: { station: "TATL" } },
       );
+      // Waiting for the sweep is what keeps this honest, and it is the whole
+      // of it: without this line the case passes against a build with the
+      // guard taken out, because nothing has reached the block the guard is
+      // on by the time the assertion runs. It is not a step towards the
+      // assertion below; it is the assertion's own precondition.
       await waitFor(() => expect(result.current.sweep?.station).toBe("TATL"));
       expect(
         providerHealth().find((one) => one.id === "level2"),
