@@ -110,22 +110,45 @@ describe("where a description ends", () => {
   // rather than a preference: the translations mirror the original's
   // punctuation everywhere, so the decision only has to be made once.
   /**
+   * The same text with a multi-part abbreviation's periods taken out.
+   *
+   * Spanish writes the United States "EE. UU.", and reading the first of those
+   * periods as a sentence end made one catalogue see two sentences in a
+   * fragment the other two saw one in, which is the one place the three
+   * disagreed about the rule.
+   *
+   * A run of two or more, not one. "One or two capitals then a period" was
+   * the first attempt and it is far too wide: it exempts "5 MB." as well, so
+   * "under 5 MB. Larger files are rejected" reads as one sentence and its
+   * missing stop goes unseen, while "larger than 20 MB. The export stops
+   * there." is called one sentence with a stop on it and fails for being
+   * correct. `MB.` already appears ten times across the three catalogues.
+   * What makes "EE. UU." an abbreviation rather than a sentence end is that
+   * the next token is another one or two capitals with a period of its own,
+   * which "Larger" and "The" are not.
+   *
+   * The one case this cannot separate is a real sentence starting straight
+   * after such a run, where Spanish itself lets the abbreviation's period do
+   * both jobs. No string does that today.
+   *
+   * `À-Ü` spans U+00D7, which is the multiplication sign rather than a
+   * letter, so the class is written around it.
+   */
+  const spelledOut = (value: string) =>
+    value.replace(
+      /(^|\s)([A-ZÀ-ÖØ-Ü]{1,2}\.(?:\s*[A-ZÀ-ÖØ-Ü]{1,2}\.)+)/g,
+      (_whole, before: string, run: string) => before + run.replace(/\./g, ""),
+    );
+
+  /**
    * Whether a description is more than one sentence.
    *
    * A stop, a space, and something a sentence can start with, which is a
    * capital or a digit: "100% means the rain has met it" is a sentence and
    * "0.5 degrees" is not two.
-   *
-   * The stop must not be an abbreviation's. Spanish writes the United States
-   * "EE. UU.", and reading the first of those periods as a sentence end made
-   * one catalogue see two sentences in a fragment the other two saw one in,
-   * which is the one place the three disagreed about the rule. A stop
-   * directly after one or two capitals on their own is an abbreviation.
    */
-  const spelledOut = (value: string) =>
-    value.replace(/(^|\s)([A-ZÀ-Ü]{1,2})\./g, "$1$2");
   const moreThanOne = (value: string) =>
-    /[.!?]\s+[A-ZÀ-Ü0-9]/.test(spelledOut(value));
+    /[.!?]\s+[A-ZÀ-ÖØ-Ü0-9]/.test(spelledOut(value));
 
   /**
    * Whether a description ends in a full stop.
@@ -134,6 +157,51 @@ describe("where a description ends", () => {
    * EE. UU." belongs to a word, not to a sentence.
    */
   const stops = (value: string) => spelledOut(value).trimEnd().endsWith(".");
+
+  it("reads a sentence end and an abbreviation apart", () => {
+    // Driven here rather than only across the catalogues, because the
+    // catalogues cannot tell these rules apart: exactly one live string
+    // changes classification under the abbreviation handling, and it passes
+    // either way. A rule the corpus cannot distinguish is a rule nothing is
+    // holding, so the cases it exists for are written down.
+    //
+    // Each entry is the value, then what the two halves should say about it.
+    const cases: Array<[string, { stops: boolean; many: boolean }]> = [
+      // The abbreviation this was written for. One fragment, no stop of its
+      // own: the period belongs to "UU".
+      ["Imágenes del USGS, solo EE. UU.", { stops: false, many: false }],
+      ["USGS imagery, US only", { stops: false, many: false }],
+      // A unit that is one or two capitals is not an abbreviation of this
+      // kind, and the sentence after it is a sentence. Both directions: a
+      // missing stop has to be seen, and a correct pair has to be left alone.
+      [
+        "The upload must be under 5 MB. Larger files are rejected",
+        { stops: false, many: true },
+      ],
+      [
+        "Nothing larger than 20 MB. The export stops there.",
+        { stops: true, many: true },
+      ],
+      // The ordinary shapes the sweep below is made of.
+      [
+        "Everything in the workspace, drawn larger",
+        { stops: false, many: false },
+      ],
+      [
+        "The block is on your clipboard. Open the issue form and paste it in.",
+        { stops: true, many: true },
+      ],
+      // A decimal is not a sentence boundary, and neither is a period with no
+      // space after it.
+      ["Gates below 0.5 degrees are dropped", { stops: false, many: false }],
+      ["100% means the rain has met it", { stops: false, many: false }],
+    ];
+    for (const [value, want] of cases) {
+      expect({ stops: stops(value), many: moreThanOne(value) }, value).toEqual(
+        want,
+      );
+    }
+  });
 
   for (const [copy, name] of [
     [en, "en"],
