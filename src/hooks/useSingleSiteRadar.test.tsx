@@ -640,6 +640,69 @@ describe("historical volumes", () => {
     ).toBeGreaterThan(beforeAgain);
   });
 
+  it("lets the held pictures go when single site is switched off too", async () => {
+    // `resumeRecent` is one way out of historical mode and not the only one.
+    // Turning the radar off, or leaving single site, drops the mode without
+    // that button ever being pressed, and eight decoded sweeps stayed pinned
+    // for the life of the window through that door.
+    //
+    // Seen through a pan, because the request key survives the round trip and
+    // the picture on screen comes back from React state rather than from the
+    // hold: a box panned to is the only thing that can say whether the hold
+    // itself survived.
+    const { result, rerender } = renderHook(
+      (props: { singleSite: boolean; center: [number, number] }) =>
+        useSingleSiteRadar(
+          options({
+            zoom: 12,
+            center: props.center,
+            radar: { singleSite: props.singleSite },
+          }),
+        ),
+      {
+        initialProps: {
+          singleSite: true,
+          center: [-96.2, 41.7] as [number, number],
+        },
+      },
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+    const visit = async (at: [number, number], singleSite = true) => {
+      rerender({ singleSite, center: at });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+    };
+
+    await act(async () => {
+      await result.current.openArchive("kdmx", "2021-12-10T03:15:00.000Z");
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // A second box, then back, so there is something held worth releasing.
+    const beforePan = fetchArchiveSweep.mock.calls.length;
+    await visit([-95.4, 41.7]);
+    expect(fetchArchiveSweep.mock.calls.length).toBeGreaterThan(beforePan);
+    const beforeBack = fetchArchiveSweep.mock.calls.length;
+    await visit([-96.2, 41.7]);
+    expect(
+      fetchArchiveSweep.mock.calls.length,
+      "the second box was never held, so this proves nothing",
+    ).toBe(beforeBack);
+
+    // Out of single site and back, which never touches `resumeRecent`.
+    await visit([-96.2, 41.7], false);
+    await visit([-96.2, 41.7], true);
+
+    const beforeAgain = fetchArchiveSweep.mock.calls.length;
+    await visit([-95.4, 41.7]);
+    expect(
+      fetchArchiveSweep.mock.calls.length,
+      "the pictures were still held after leaving single site",
+    ).toBeGreaterThan(beforeAgain);
+  });
+
   it("holds an archived box it has already drawn, the way the loop does", async () => {
     // The scrubber has kept its frames since it was written and this path
     // never learned to: it compared one string and kept nothing, so panning

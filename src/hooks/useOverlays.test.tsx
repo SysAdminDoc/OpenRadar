@@ -101,6 +101,37 @@ describe("useOverlays", () => {
     );
   });
 
+  it("says nothing to the reader about a request that was cancelled", async () => {
+    // A navigation or a connection reset aborts a fetch without the
+    // workspace's own signal ever being raised. A `DOMException` is not one of
+    // this app's own errors, so `failureSentence` had no wording for it and
+    // the layer told the reader "The request failed." about a request nobody
+    // failed to answer. The snapshot stays and the next poll asks again.
+    fetchData.mockResolvedValueOnce(collection("Flood Warning"));
+
+    const { result, rerender } = renderHook(
+      ({ bounds }) =>
+        useOverlays(only("alerts"), bounds, DEFAULT_OVERLAY_CHOICES),
+      { initialProps: { bounds: viewport } },
+    );
+
+    await waitFor(() =>
+      expect(result.current.alerts.data.features).toHaveLength(1),
+    );
+
+    fetchData.mockRejectedValueOnce(
+      new DOMException("The user aborted a request.", "AbortError"),
+    );
+    rerender({ bounds: { west: -90, south: 30, east: -80, north: 40 } });
+
+    // Given time to land, and then still silent.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.alerts.error).toBeNull();
+    expect(result.current.alerts.data.features).toHaveLength(1);
+  });
+
   it("reports nothing for a disabled overlay and asks for no data", async () => {
     fetchData.mockResolvedValue(collection("Heat Advisory"));
 
