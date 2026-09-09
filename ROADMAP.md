@@ -247,16 +247,6 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
 
 ### P3
 
-- [ ] AUD-330 (P3): `mrms.rs` is 6,237 lines with three test modules inside it
-      Category: maintainability
-      Where: `src-tauri/src/mrms.rs` (6,237 lines; `#[cfg(test)]` at `:109`, `:2418` and `:2673`; 85 functions).
-      Problem: The largest file in the repository by a factor of two, holding the GRIB reader, the grid cache and its byte budget, the tile renderer and the smoothing, the product table with its ramps, the frame listing, the export window and three test modules. `level2.rs` was split into a directory on 2026-09-05 for the same reason at sixty percent of this size, and every MRMS item since (`AUD-217`, `AUD-218`, the smoothing, the zoom ceiling) edited this one file.
-      Evidence: `wc -l src-tauri/src/mrms.rs` on 2026-09-05; commit `63d33bc` as the pattern (`mod.rs` plus one module per concern, `#[path = "..._tests.rs"]` test modules, `pub(crate) use` re-exports).
-      Fix: The same split: `mrms/mod.rs` (types, constants, the cache), `grib.rs` (decode), `products.rs` (table and ramps), `tiles.rs` (rendering, smoothing, tile cache), `listing.rs`, `window.rs` (the export window), each with a sibling `_tests.rs`. Three frontend gates read this file as text and must be pointed at the new one: `src/lib/providers/mrms.test.ts` reads `zoom > (\d+)`, `src/hooks/useMrmsOverlays.test.ts` reads the `Sampling` verdicts, and `src/test/rustSource.ts` is the helper the level2 split introduced for exactly this.
-      Acceptance: No file under `src-tauri/src/mrms/` above 1,500 lines; the `cargo test` count unchanged at 466; the three frontend gates pass; `docs/architecture.md` names the directory the way it names `level2/`.
-      Confidence: Verified
-      Effort: M
-
 ### Unaudited, needs a pass
 
 ## Research-Driven Additions, 2026-09-07
@@ -434,6 +424,7 @@ Eleventh research pass, at `8c19165`, an hour after the tenth. It ran the headle
 
 ### Notes on existing items
 
+- `src-tauri/src/mrms.rs` became `src-tauri/src/mrms/` on 2026-09-09 when `AUD-330` drained. Every item above that names the file in its Evidence or Touches means the directory: the product table and its ramps are in `products.rs`, the GRIB reader in `decode.rs`, the bucket listing and `DOMAINS` in `listing.rs`, `parse_tile_path`, `serve_tile`, `tile_pixels` and `TileLook` in `tiles.rs`, the grid cache and `grid_for` in `cache.rs`, and `grid_window` in `window.rs`.
 - `AUD-295`: four more for its list, all seen in the headless captures of 2026-09-08. The Guidance footer reads "read 0 min ago" at zero minutes (`guidance.answeredFor`, `en.ts:2124`; a "just now" branch in `formatAge`, or the same handling the timeline's age chip has). A warning card headed EXTREME reads "Issued unknown · expires unknown" when the feed omits both times (`alerts.unknownTime`, `en.ts:91`); on a life-safety card the two unknowns should be one sentence or none. The radar product panel shows Opacity twice, as a chip at the top and as a slider 200 px below, with the chip putting the value above the label and the sliders putting it to the right. The Guidance blocks' right-aligned "they disagree, in °F" and "in inches" read as sentence remnants and could carry their subject ("Models disagree, in °F").
 - `AUD-348`: two 2026 papers for its reading list. Bölz et al. (Ulm and DWD), EGUsphere 2026-992 (2026-03-18), a U-Net for non-meteorological echo removal trained on synthetic composites (clean winter precipitation pasted onto cluttered summer scans) that beats DWD's operational classifier at precipitation edges, which removes the hand-labelling cost; CC-BY, no code link. Frech, Boehm and Tracksdorf (DWD), AMT 19:1711 (2026-03-10), wind-turbine clutter detected dynamically above 80 per cent when rotors exceed 5 rpm, polarimetric moments more sensitive than reflectivity, code on request; the static-mask-plus-dynamic-test shape is the one for a wind-farm filter.
 - `AUD-351`: Tauri's pending 2.12 change files move monitor queries to the main thread and make `primary_monitor`, `monitor_from_point` and `available_monitors` return `Result`; nothing in `src-tauri` calls them today, so this item will be the first caller and should be written against the 2.12 signatures.

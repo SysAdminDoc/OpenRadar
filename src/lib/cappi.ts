@@ -21,8 +21,9 @@
  * The spelling is the folder name and nothing derives it, so these are copied
  * from the CONUS prefix listing rather than generated: a quarter of a
  * kilometre apart through the lowest three, half a kilometre to nine, then
- * whole ones to nineteen. The same list is in `src-tauri/src/mrms.rs`, which
- * is where it is checked against the bucket.
+ * whole ones to nineteen. The same list is in
+ * `src-tauri/src/mrms/products.rs`, which is where it is checked against the
+ * bucket.
  */
 export const CUBE_LEVELS = [
   "00.50",
