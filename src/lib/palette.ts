@@ -17,6 +17,7 @@
  *   RF:      119 0 125
  */
 
+import type { AppSettings } from "./settings/types";
 export interface PaletteStop {
   value: number;
   color: string;
@@ -364,4 +365,197 @@ export function writePalette(palette: Palette): string {
   }
   if (palette.rangeFolded) lines.push(`RF: ${channels(palette.rangeFolded)}`);
   return `${lines.join("\n")}\n`;
+}
+
+/*
+ * Reading a colour table, a library of them and their assignments out of
+ * a settings file.
+ *
+ * Beside the parser rather than in the store, because what makes a stored
+ * table legitimate is that this module would have produced it: a
+ * hand-edited `settings.json` must not put a colour on screen that no
+ * file could.
+ */
+
+/**
+ * The library, read back from a settings file.
+ *
+ * A build before this one held one table under `palette`, so that becomes a
+ * library of one rather than being dropped: the reader loaded it, and an
+ * upgrade is not a reason to throw somebody's colour scale away.
+ */
+/**
+ * The library with one more table on it, in force for what it is for.
+ *
+ * Null when the shelf is full and this is a table that is not already on it,
+ * because silently dropping one of the reader's own tables to make room is
+ * worse than saying the shelf is full.
+ *
+ * A table imported under a name already there replaces that one in place. It
+ * keeps its position and keeps whatever it was assigned to, since re-importing
+ * an edited file is an update to what the reader arranged rather than a new
+ * thing to arrange.
+ */
+export function withPalette(
+  settings: AppSettings,
+  palette: Palette,
+): AppSettings | null {
+  const at = settings.palettes.findIndex((held) => held.name === palette.name);
+  if (at < 0 && settings.palettes.length >= MAX_PALETTES) return null;
+  const palettes =
+    at < 0
+      ? [...settings.palettes, palette]
+      : settings.palettes.map((held, index) => (index === at ? palette : held));
+  return {
+    ...settings,
+    palettes,
+    paletteAssignments: {
+      ...settings.paletteAssignments,
+      [paletteUnit(palette).toLowerCase()]: palette.name,
+    },
+  };
+}
+
+/** The library without a table, and without any assignment that named it. */
+export function withoutPalette(
+  settings: AppSettings,
+  name: string,
+): AppSettings {
+  const paletteAssignments = Object.fromEntries(
+    Object.entries(settings.paletteAssignments).filter(
+      ([, assigned]) => assigned !== name,
+    ),
+  );
+  return {
+    ...settings,
+    palettes: settings.palettes.filter((held) => held.name !== name),
+    paletteAssignments,
+  };
+}
+
+/** One unit's table put in force, or taken out of force when name is null. */
+export function withPaletteAssigned(
+  settings: AppSettings,
+  unit: string,
+  name: string | null,
+): AppSettings {
+  const key = unit.trim().toLowerCase();
+  const paletteAssignments = { ...settings.paletteAssignments };
+  if (name) {
+    paletteAssignments[key] = name;
+  } else {
+    delete paletteAssignments[key];
+  }
+  return { ...settings, paletteAssignments };
+}
+
+export function normalizePalettes(raw: Record<string, unknown>): Palette[] {
+  const source = Array.isArray(raw.palettes)
+    ? raw.palettes
+    : raw.palette
+      ? [raw.palette]
+      : [];
+  const read: Palette[] = [];
+  for (const entry of source) {
+    const palette = normalizePalette(entry);
+    if (!palette) continue;
+    // One name, one table. A second import under a name already on the shelf
+    // replaced the first at import time, so two here is a hand-edited file.
+    if (read.some((held) => held.name === palette.name)) continue;
+    read.push(palette);
+    if (read.length === MAX_PALETTES) break;
+  }
+  return read;
+}
+
+/**
+ * Which table is in force per unit, dropped to the ones that could be true.
+ *
+ * The names are not checked against the library here. A name for a table that
+ * is not on the shelf simply does not resolve, and keeping it means removing a
+ * table and importing it again restores the assignment it had.
+ */
+export function normalizePaletteAssignments(
+  raw: Record<string, unknown>,
+): Record<string, string> {
+  const stored = raw.paletteAssignments;
+  const assignments: Record<string, string> = {};
+  if (stored && typeof stored === "object" && !Array.isArray(stored)) {
+    for (const [unit, name] of Object.entries(
+      stored as Record<string, unknown>,
+    )) {
+      if (typeof name !== "string" || !name) continue;
+      assignments[unit.trim().toLowerCase()] = name.slice(0, 60);
+    }
+  } else if (!Array.isArray(raw.palettes) && raw.palette) {
+    // The single table an older build held was always in force, so the
+    // upgrade keeps it in force rather than leaving the map suddenly plain.
+    const only = normalizePalette(raw.palette);
+    if (only) {
+      assignments[paletteUnit(only).toLowerCase()] = only.name;
+    }
+  }
+  return assignments;
+}
+
+/**
+ * A stored colour table, re-read from its own text rather than trusted.
+ *
+ * Written back out with `writePalette` and parsed again, so a hand-edited
+ * settings file cannot put anything on the map the parser would not have
+ * produced. This used to carry its own copy of what `writePalette` does, and
+ * the copy asked about a stop's second colour before its solid flag where the
+ * original asks about solid first: one format written in two files, differing
+ * in the order they ask, which nothing would have caught until a palette
+ * arrived with both set.
+ *
+ * The sanitising stays, because `writePalette` takes a palette and this takes
+ * whatever was in the file: a stop with no number, or a colour that is not
+ * one, is dropped before the writer sees it. The writer's own fallback for a
+ * bad colour is black, and a black stop nobody chose is worse than a missing
+ * one.
+ */
+export function normalizePalette(value: unknown): Palette | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<Palette>;
+  if (!Array.isArray(raw.stops) || !raw.stops.length) return null;
+  const colour = (from: unknown): string | null =>
+    typeof from === "string" && /^#[0-9a-fA-F]{6}$/.test(from) ? from : null;
+  const stops = raw.stops.flatMap((stop) => {
+    const at = Number(stop?.value);
+    const color = colour(stop?.color);
+    if (!Number.isFinite(at) || !color) return [];
+    return [
+      {
+        value: at,
+        color,
+        toColor: colour(stop?.toColor ?? null),
+        solid: Boolean(stop?.solid),
+      },
+    ];
+  });
+  if (!stops.length) return null;
+  const name = typeof raw.name === "string" ? raw.name.slice(0, 60) : "palette";
+  // Anything truthy, written as text, rather than strings only. These two
+  // arrive from a stored `settings.json` that a reader or an older build may
+  // have written, so `units: 5` and `units: ["dBZ"]` both turn up, and it is
+  // the units that decide which readings a table colours. Refusing a non-string
+  // silently drops that decision and the table quietly starts colouring
+  // something else, or nothing. Written out, a nonsense one is at least
+  // visible: the parser puts `product` in the skipped list, and the units go
+  // on screen beside the table's name.
+  const said = (value: unknown): string | null =>
+    value ? String(value) : null;
+  return parsePalette(
+    writePalette({
+      name,
+      product: said(raw.product),
+      units: said(raw.units),
+      step: Number.isFinite(raw.step) ? Number(raw.step) : null,
+      stops,
+      rangeFolded: colour(raw.rangeFolded ?? null),
+      skipped: [],
+    }),
+    name,
+  );
 }

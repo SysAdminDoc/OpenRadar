@@ -13,7 +13,8 @@ import {
   type WatchPlace,
 } from "./watch";
 import type { OverlayData } from "./overlays";
-import { DEFAULT_SETTINGS, normalizeSettings, watchedPlaces } from "./settings";
+import { DEFAULT_SETTINGS, normalizeSettings } from "./settings";
+import { watchedPlaces } from "./watch";
 import { translate } from "../i18n";
 
 const watch = {

@@ -13,7 +13,7 @@ import {
   MAX_SOUND_BYTES,
   MAX_SOUND_SECONDS,
 } from "./sound";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { SEVERITY_RANK } from "./alertSeverity";
 import { DEFAULT_SETTINGS } from "./settings";
@@ -368,10 +368,14 @@ describe("a sound of the reader's own", () => {
   it("is kept by path, so a backup cannot swallow it", () => {
     // The settings hold where it is rather than what is in it: a backup that
     // carried two megabytes of audio would quietly become the only copy.
-    const source = readFileSync(
-      join(import.meta.dirname, "settings.ts"),
-      "utf8",
-    );
+    // Every file of the settings module, because it became a directory on
+    // 2026-09-09 and a gate that names one file says the file moved rather
+    // than whether the two copies still agree.
+    const where = join(import.meta.dirname, "settings");
+    const source = readdirSync(where)
+      .filter((name) => name.endsWith(".ts"))
+      .map((name) => readFileSync(join(where, name), "utf8"))
+      .join(String.fromCharCode(10));
     expect(source).toContain("alertSoundPath");
     expect(source).not.toContain("alertSoundBytes");
     expect(DEFAULT_SETTINGS.alertSoundPath).toBeNull();

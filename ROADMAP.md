@@ -350,18 +350,6 @@ Ninth pass. Evidence in RESEARCH.md of the same date. Numbered on from `AUD-378`
       Effort: M
 
 
-- [ ] AUD-423 (P3): `settings.ts` is 2,138 lines that import nineteen leaf modules, and every ring this week ran through it
-      Category: maintainability
-      Where: `src/lib/settings.ts` (2,138 lines; 32 import lines from 19 modules: `alertTypes`, `approach`, `cappi`, `classification`, `gaugeQpe`, `level2`, `lightningGrids`, `lightningWatch`, `palette`, `rotationTrack`, `runtime`, `satelliteBands`, `siteLoop`, `spcHazards`, `surge`, `theme`, `units`, `watch`; imported by 36 non-test files); `src/lib/layering.test.ts` (the three rules that now guard it).
-      Problem: The module holds the types, the defaults, thirty-odd private normalisers and the store, and to normalise each section it imports the leaf that owns that section's vocabulary. Every one of those leaves must therefore never import `settings.ts` back, and three did in the last week (`AUD-375`, `AUD-392`, `AUD-403`), each found by an adversarial review rather than by the build. The gate now catches the ring; it does not remove the shape that keeps producing one. `AUD-272` splits `App.tsx` for the same reason and does not cover this file.
-      Evidence: `wc -l`, the import list and `grep -rl` counts on 2026-09-08; the three commits named.
-      Fix: Split along the seams the file already has: `settings/types.ts` (the interfaces, no imports), `settings/defaults.ts`, one normaliser per section beside the leaf that owns it (`normalizeWatch` in `watch.ts`, `normalizePalette` in `palette.ts`, and so on, each taking `unknown` and returning its own type), and `settings.ts` left as the store plus `normalizeSettings` composing them. The leaves then import the types module only, which cannot close a ring.
-      Acceptance: `settings.ts` is under 600 lines and imports no module that imports it; `layering.test.ts` still green; `npm run check` green.
-      Confidence: Verified
-      Effort: M
-
-
-
 - [ ] AUD-445 (P3): `misplaced` mixes the boundary's mistakes with the wind's, so neither can be bounded on its own
   Why: `misplaced` counts gates that never folded and came back on a branch other than the picture's own, whatever put them there. Two different passes can do it: a boundary vote that gets a whole patch wrong, and the reference wind placing an unreached group. The first dominates. Recorded over the week of 2026-09-01 to 2026-09-07, 159,771 of these exist with no reference pass running at all, against 167,180 with the pass and its plausibility bar. That is why `AUD-388` could not be finished as written: a per-station line drawn on the total clears the recorded week at 1.285 and still clears it at 1.329 with the bar removed, so no line both leaves room for the weather and answers for the wind. Split at the point of placement and the wind's own contribution becomes a number that can carry a line.
   Evidence: measured 2026-09-08 while draining `AUD-388`, from two full runs of `recording_the_days_unfolding_is_held_against`, 42 station-days with the plausibility bar and 38 comparable without. Per-station worst with the bar 0.166, 0.633, 0.835, 0.953, 1.263, 1.285; without it 0.200, 0.699, 0.910, 0.962, 1.285, 1.329. Worst single station-day movement 0.122, aggregate over the shared days 152,398 against 160,430. `src-tauri/src/level2/testing.rs` (where `misplaced` is counted), `src-tauri/src/level2/decode_tests.rs` (the bound and the reasoning beside it).

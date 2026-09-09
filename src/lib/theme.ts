@@ -351,3 +351,22 @@ export function themeCss(theme: WorkspaceTheme): string {
   // worse than no theming at all.
   return `:root:root {\n${declarations.join("\n")}\n}\n`;
 }
+
+/* A stored theme, read back through the parser that would have made it. */
+
+export function normalizeTheme(value: unknown): WorkspaceTheme | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<WorkspaceTheme>;
+  if (!raw.tokens || typeof raw.tokens !== "object") return null;
+  const name = typeof raw.name === "string" ? raw.name : "theme";
+  const text = themeText({
+    name,
+    base: raw.base === "light" ? "light" : "dark",
+    tokens: Object.fromEntries(
+      Object.entries(raw.tokens as Record<string, unknown>).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    ),
+  });
+  return parseTheme(text, name)?.theme ?? null;
+}

@@ -29,12 +29,11 @@ import {
   DEFAULT_SETTINGS,
   looksLikeSettings,
   normalizeSettings,
-  withPalette,
-  withoutPalette,
   type AppSettings,
   type CameraState,
   type ProjectionMode,
 } from "../lib/settings";
+import { withPalette, withoutPalette } from "../lib/palette";
 import type { GeoPoint } from "../lib/geo";
 import type { OverlayBounds } from "../lib/overlays";
 import type { PlaceResult } from "../lib/weather";

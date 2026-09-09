@@ -3,7 +3,11 @@ import { en } from "../i18n/en";
 import type { StringKey } from "../i18n/en";
 import { nativeErrorParams } from "./nativeError";
 import { failureSentence } from "./serviceAnswer";
-import type { IncidentPackReference } from "./settings";
+import { finiteInRange } from "./settings/read";
+import type {
+  IncidentPackReference,
+  IncidentPackSettings,
+} from "./settings/types";
 import { isDesktopRuntime } from "./runtime";
 
 export interface PackBounds {
@@ -227,4 +231,97 @@ export function packErrorText(failure: unknown, args: string[] = []): string {
   // TypeError reading "Failed to fetch", in English whatever language the
   // app is in, and this text is what the panel shows.
   return failureSentence(failure, translate("packs.error.failed"));
+}
+
+/*
+ * Reading the packs a settings file names.
+ *
+ * Beside what a pack is rather than in the store: the reference carries a
+ * hash and a size and a bounding box, and what makes one readable is this
+ * module's business rather than the store's.
+ */
+
+export function normalizeIncidentPackReference(
+  value: unknown,
+): IncidentPackReference | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<IncidentPackReference>;
+  const bounds = raw.bounds;
+  if (
+    typeof raw.id !== "string" ||
+    !/^[0-9a-f]{24}$/i.test(raw.id) ||
+    typeof raw.name !== "string" ||
+    !raw.name.trim() ||
+    !bounds ||
+    typeof bounds !== "object" ||
+    typeof raw.sha256 !== "string" ||
+    !/^[0-9a-f]{64}$/i.test(raw.sha256) ||
+    typeof raw.attribution !== "string" ||
+    !raw.attribution.trim()
+  ) {
+    return null;
+  }
+  const normalizedBounds = {
+    west: finiteInRange(bounds.west, Number.NaN, -180, 180),
+    south: finiteInRange(bounds.south, Number.NaN, -85, 85),
+    east: finiteInRange(bounds.east, Number.NaN, -180, 180),
+    north: finiteInRange(bounds.north, Number.NaN, -85, 85),
+  };
+  if (
+    Object.values(normalizedBounds).some((entry) => !Number.isFinite(entry)) ||
+    normalizedBounds.west >= normalizedBounds.east ||
+    normalizedBounds.south >= normalizedBounds.north
+  ) {
+    return null;
+  }
+  const minZoom = Math.round(finiteInRange(raw.minZoom, Number.NaN, 2, 15));
+  const maxZoom = Math.round(finiteInRange(raw.maxZoom, Number.NaN, 2, 15));
+  if (
+    !Number.isFinite(minZoom) ||
+    !Number.isFinite(maxZoom) ||
+    minZoom > maxZoom
+  ) {
+    return null;
+  }
+  return {
+    id: raw.id.toLowerCase(),
+    name: raw.name.trim().slice(0, 60),
+    bounds: normalizedBounds,
+    minZoom,
+    maxZoom,
+    bytes: Math.round(finiteInRange(raw.bytes, 0, 0, Number.MAX_SAFE_INTEGER)),
+    sha256: raw.sha256.toLowerCase(),
+    attribution: raw.attribution.trim().slice(0, 200),
+  };
+}
+
+export function normalizeIncidentPacks(
+  value: unknown,
+  fallback: IncidentPackSettings,
+): IncidentPackSettings {
+  const raw =
+    value && typeof value === "object"
+      ? (value as Partial<IncidentPackSettings>)
+      : {};
+  const references = Array.isArray(raw.references)
+    ? raw.references
+        .map(normalizeIncidentPackReference)
+        .filter((entry): entry is IncidentPackReference => entry !== null)
+        .filter(
+          (entry, at, all) =>
+            all.findIndex((item) => item.id === entry.id) === at,
+        )
+        .slice(0, 64)
+    : [];
+  const selectedId =
+    typeof raw.selectedId === "string" && /^[0-9a-f]{24}$/i.test(raw.selectedId)
+      ? raw.selectedId.toLowerCase()
+      : null;
+  return {
+    diskLimitMb: Math.round(
+      finiteInRange(raw.diskLimitMb, fallback.diskLimitMb, 256, 32_768),
+    ),
+    selectedId,
+    references,
+  };
 }
