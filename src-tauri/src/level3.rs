@@ -596,7 +596,7 @@ impl Hydrometeor {
     /// The class a stored byte means, or nothing for a value with no class.
     pub fn from_code(code: u8) -> Option<Self> {
         // Steps of ten, and nothing in between them means anything.
-        if code % 10 != 0 {
+        if !code.is_multiple_of(10) {
             return None;
         }
         Some(match code / 10 {

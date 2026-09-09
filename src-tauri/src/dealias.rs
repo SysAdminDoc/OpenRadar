@@ -775,7 +775,7 @@ mod tests {
                 let truth = strength * angle.cos() * (0.4 + reach) + next() * noise;
                 values.push(fold(truth, NYQUIST));
                 // Some sweeps have holes in them, as a real one does.
-                valid.push(seed % 3 != 0 || next() > -0.6);
+                valid.push(!seed.is_multiple_of(3) || next() > -0.6);
             }
         }
 

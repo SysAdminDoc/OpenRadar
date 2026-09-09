@@ -109,7 +109,9 @@ fn smoothing_never_paints_where_the_radar_read_nothing() {
             None,
         );
         pixels
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|pixel| pixel[3] > 0)
             .collect::<Vec<_>>()
     };
@@ -213,7 +215,9 @@ fn the_smoothed_picture_is_the_one_that_was_pinned() {
     // smoothing means.
     let colours = |pixels: &[u8]| {
         pixels
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .filter(|pixel| pixel[3] > 0)
             .map(|pixel| [pixel[0], pixel[1], pixel[2]])
             .collect::<std::collections::HashSet<_>>()
@@ -254,7 +258,12 @@ fn the_threshold_reaches_the_picture_that_is_drawn() {
             false,
             None,
         );
-        pixels.chunks_exact(4).filter(|p| p[3] > 0).count()
+        pixels
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .filter(|p| p[3] > 0)
+            .count()
     };
 
     let whole = drawn(40.0, None);

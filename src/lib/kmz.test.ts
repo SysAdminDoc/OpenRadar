@@ -183,7 +183,7 @@ describe("a deflated entry", () => {
     const raw = new TextEncoder().encode(KML);
     const packed = new Uint8Array(
       await new Response(
-        new ReadableStream<Uint8Array>({
+        new ReadableStream<Uint8Array<ArrayBuffer>>({
           start(controller) {
             controller.enqueue(raw);
             controller.close();
@@ -284,7 +284,7 @@ describe("a deflated entry the decompressor cannot read", () => {
     const raw = new TextEncoder().encode(KML);
     return new Uint8Array(
       await new Response(
-        new ReadableStream<Uint8Array>({
+        new ReadableStream<Uint8Array<ArrayBuffer>>({
           start(controller) {
             controller.enqueue(raw);
             controller.close();
@@ -329,7 +329,7 @@ describe("a deflated entry the decompressor cannot read", () => {
     const huge = new Uint8Array(MAX_KMZ_ENTRY_BYTES + 1024);
     const packed = new Uint8Array(
       await new Response(
-        new ReadableStream<Uint8Array>({
+        new ReadableStream<Uint8Array<ArrayBuffer>>({
           start(controller) {
             controller.enqueue(huge);
             controller.close();

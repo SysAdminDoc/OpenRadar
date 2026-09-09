@@ -83,14 +83,17 @@ function readDirectory(bytes: DataView): ZipEntry[] {
   return entries;
 }
 
-async function inflate(raw: Uint8Array): Promise<Uint8Array> {
+async function inflate(raw: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
   if (typeof DecompressionStream === "undefined") {
     throw new Error(translate("kmz.noDecompressor"));
   }
   // A stream built from the bytes rather than from a Blob. A Blob does not
   // carry a stream everywhere this runs, and going through one buys nothing:
   // the bytes are already in memory.
-  const source = new ReadableStream<Uint8Array>({
+  // Typed as the stream really is. `DecompressionStream` reads and writes
+  // buffers this side allocated, and a bare `Uint8Array` in the parameter
+  // says they might be shared across threads, which they cannot be here.
+  const source = new ReadableStream<Uint8Array<ArrayBuffer>>({
     start(controller) {
       controller.enqueue(raw);
       controller.close();

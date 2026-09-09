@@ -460,14 +460,23 @@ async function exportLoopEncoded(
       // them is a file no player will open.
       const description = metadata?.decoderConfig?.description;
       if (description && !state.description) {
-        state.description = new Uint8Array(
-          description instanceof ArrayBuffer
-            ? description.slice(0)
-            : description.buffer.slice(
-                description.byteOffset,
-                description.byteOffset + description.byteLength,
-              ),
-        );
+        // Narrowed with `ArrayBuffer.isView` rather than by asking whether it
+        // is an `ArrayBuffer`: the encoder may hand over a buffer shared
+        // across threads, and the `else` of that question is a union of a
+        // shared buffer and a view, which has neither `buffer` nor
+        // `byteOffset` on it.
+        const view = ArrayBuffer.isView(description)
+          ? new Uint8Array(
+              description.buffer,
+              description.byteOffset,
+              description.byteLength,
+            )
+          : new Uint8Array(description);
+        // And copied into a buffer this side owns, so the parameter sets
+        // survive the encoder reusing whatever it handed over.
+        const own = new Uint8Array(view.length);
+        own.set(view);
+        state.description = own;
       }
       const data = new Uint8Array(chunk.byteLength);
       chunk.copyTo(data);

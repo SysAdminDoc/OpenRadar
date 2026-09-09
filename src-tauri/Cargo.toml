@@ -4,7 +4,10 @@ version = "0.13.0"
 description = "OpenRadar v0.13.0 desktop weather radar"
 authors = ["SysAdminDoc <matt_parker@outlook.com>"]
 edition = "2021"
-rust-version = "1.85"
+# Raised on 2026-09-09, before a release forces it: Tauri 2.12 carries an
+# msrv-1.90 change and has not shipped, so this is a floor moved on a quiet
+# day rather than under a version bump that needs to land.
+rust-version = "1.90"
 
 [lib]
 name = "openradar_lib"
@@ -78,7 +81,9 @@ tauri-plugin-autostart = "2.5.1"
 tauri-plugin-dialog = "2.7.3"
 bytes = "1.10.1"
 futures-util = "0.3.31"
-image = { version = "=0.25.8", default-features = false, features = ["jpeg", "png"] }
+# Pinned exactly because it decodes bytes this app did not write, so which
+# version was read is part of what was audited. 0.25.10 on 2026-09-09.
+image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png"] }
 pmtiles = { version = "=0.24.0", default-features = false, features = ["mmap-async-tokio", "write"] }
 sha2 = "0.11.0"
 # The digital Level III products (the hydrometeor classification and its

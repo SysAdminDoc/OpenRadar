@@ -112,7 +112,12 @@ fn decodes_and_draws_a_live_kdmx_volume() {
         false,
         None,
     );
-    let painted = pixels.chunks_exact(4).filter(|p| p[3] > 0).count();
+    let painted = pixels
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .filter(|p| p[3] > 0)
+        .count();
     let total = IMAGE_SIZE * IMAGE_SIZE;
     assert!(
         painted > total / 100,
@@ -334,8 +339,10 @@ fn persistence_off_draws_exactly_what_it_always_did() {
     let older_only =
         sweep_from_scan("KTLX", "older", &older, &none, plain).expect("the finished sweep");
     let untouched = drawn_pixels(&first)
-        .chunks_exact(4)
-        .zip(drawn_pixels(&older_only).chunks_exact(4))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .zip(drawn_pixels(&older_only).as_chunks::<4>().0.iter())
         .filter(|(a, b)| a == b)
         .count();
     assert!(
@@ -393,7 +400,12 @@ fn persistence_fades_the_older_sweep_and_moves_no_reading() {
 
     let mut dimmed = 0;
     let mut recoloured = 0;
-    for (was, now) in before.chunks_exact(4).zip(after.chunks_exact(4)) {
+    for (was, now) in before
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .zip(after.as_chunks::<4>().0.iter())
+    {
         if was[3] == 0 && now[3] == 0 {
             continue;
         }
@@ -464,8 +476,10 @@ fn the_beam_edge_is_drawn_only_when_something_is_moving() {
     // Reduced motion keeps the composite: it is the edge that goes, not
     // the picture.
     let different = quiet
-        .chunks_exact(4)
-        .zip(lit.chunks_exact(4))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .zip(lit.as_chunks::<4>().0.iter())
         .filter(|(a, b)| a != b)
         .count();
     let all = quiet.len() / 4;
@@ -970,7 +984,7 @@ fn the_beam_marker_is_drawn_where_the_beam_is() {
 
     let base = 40u8;
     let mut pixels = vec![base; IMAGE_SIZE * IMAGE_SIZE * 4];
-    for pixel in pixels.chunks_exact_mut(4) {
+    for pixel in pixels.as_chunks_mut::<4>().0.iter_mut() {
         pixel[3] = 255;
     }
     let due_north = 0.0f32;
