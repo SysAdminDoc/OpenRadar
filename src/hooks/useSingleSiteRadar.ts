@@ -31,6 +31,11 @@ import {
 } from "../lib/dataExport";
 import type { RadarSettings } from "../lib/settings";
 import { useLatestReply } from "./useLatestReply";
+import {
+  providerHealth,
+  recordFailure,
+  recordSuccess,
+} from "../lib/providers/health";
 
 export interface SingleSiteState {
   /** The sweep on the map, or null while the mosaic is still the picture. */
@@ -1178,6 +1183,29 @@ export function useSingleSiteRadar(options: {
         // is true about the site rather than about this request, and without
         // it there is nothing to measure the next box against.
         if (within === null) rememberDisc(next);
+        // Whether the volume in progress could be read, which the picture
+        // itself cannot say: a site between volumes and a site whose chunks
+        // cannot be reached both come back as the last finished volume, and
+        // the age beside the sweep looks the same. Recorded against a source
+        // of its own so Diagnostics counts the run of them and the second in
+        // a row reaches the log, rather than a feed going quiet for hours
+        // with nothing to read afterwards.
+        if (radar.live) {
+          if (next.liveFailed) {
+            recordFailure("level2", next.liveFailed);
+            const failing = providerHealth().find(
+              (one) => one.id === "level2",
+            )?.consecutiveFailures;
+            if ((failing ?? 0) >= 2) {
+              log.warn(
+                "radar",
+                `${station}: no live volume ${failing} times running: ${next.liveFailed}`,
+              );
+            }
+          } else {
+            recordSuccess("level2", next.liveTilts);
+          }
+        }
         setSweep(next);
         // Read from a ref rather than a dependency: this effect refetches on
         // every value it depends on, and the listing refreshes on its own

@@ -240,6 +240,17 @@ pub struct SweepImage {
     /// How many tilts the radar has published of this volume so far. Only
     /// meaningful on a live sweep, where the answer grows as it is watched.
     pub live_tilts: usize,
+    /// Why the volume in progress could not be read, when one was asked for
+    /// and the attempt failed.
+    ///
+    /// The picture is still the last finished volume, which is what the
+    /// archive path has always shown and is never wrong, only behind. The
+    /// difference this carries is between a site that is between volumes and
+    /// one whose chunks cannot be reached at all: the first is ordinary and
+    /// the second is a source that has stopped, and the age beside the sweep
+    /// looks the same either way. `None` when a live volume was not asked for
+    /// or was read.
+    pub live_failed: Option<String>,
     /// When the next piece of the volume in progress is due, and when the
     /// volume is projected to finish, from the radar's own coverage pattern.
     ///

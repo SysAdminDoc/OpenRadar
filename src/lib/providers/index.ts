@@ -43,6 +43,7 @@ export const DIAGNOSTIC_SOURCES: Array<{ id: ProviderId; label: string }> = [
     label: provider.label,
   })),
   { id: "hrrr", label: "HRRR forecast" },
+  { id: "level2", label: "NEXRAD Level II live" },
 ];
 
 const budgets = new Map<string, RequestBudget>();

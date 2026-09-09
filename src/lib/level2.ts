@@ -123,6 +123,16 @@ export interface SweepImage {
   /** How many cuts the volume in progress has published. Zero when not live. */
   liveTilts: number;
   /**
+   * Why the volume in progress could not be read, when one was asked for.
+   *
+   * The picture is the last finished volume either way, which is what the
+   * archive path has always shown and is never wrong, only behind. This is
+   * the difference between a site between volumes and one whose chunks
+   * cannot be reached at all, which the age beside the sweep cannot tell
+   * apart. Null when a live volume was not asked for or was read.
+   */
+  liveFailed: string | null;
+  /**
    * When the next piece of the volume in progress is due, and when the volume
    * is projected to finish, from the radar's own coverage pattern.
    *

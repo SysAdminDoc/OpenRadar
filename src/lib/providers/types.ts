@@ -8,7 +8,11 @@ export type ProviderId =
   | "archive"
   | "mrms"
   | "geomet"
-  | "dwd";
+  | "dwd"
+  // Not a mosaic provider: the chunk feed a held site's live volume is read
+  // from. It fails on its own, and a reader whose picture has quietly gone
+  // back to the last finished volume has no other way to find out.
+  | "level2";
 
 export interface ForecastStamp {
   initUtc: string;

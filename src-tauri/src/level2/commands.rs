@@ -109,11 +109,19 @@ pub async fn level2_sweep(
     // path needs both. A site that is not publishing chunks, or one between
     // volumes, simply gets the finished picture: that is what the archive path
     // has always shown and it is never wrong, only behind.
+    // Why the scan failed, when one was asked for and did. The picture is the
+    // finished volume either way; what this carries is the difference between
+    // a site between volumes and one whose chunks cannot be reached, which the
+    // age beside the sweep cannot tell apart. The workspace counts these and
+    // shows them in Diagnostics, so a feed that has been down for hours says
+    // so instead of just looking behind.
+    let mut live_failed = None;
     let live = if live {
         match chunks::live_scan(&station).await {
             Ok(found) => Some(found),
             Err(reason) => {
                 log::debug!("no live volume for {station}: {reason}");
+                live_failed = Some(reason.to_string());
                 None
             }
         }
@@ -161,6 +169,10 @@ pub async fn level2_sweep(
             }
             None => sweep_from_volume(&station, &key, data, asked),
         }
+        .map(|mut sweep| {
+            sweep.live_failed = live_failed;
+            sweep
+        })
     })
     .await
     .map_err(|error| Level2Error::Decode(error.to_string()))?

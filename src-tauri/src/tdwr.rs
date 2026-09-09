@@ -445,6 +445,8 @@ fn draw_product(
         tilt_index: asked.tilt_index,
         live: false,
         live_tilts: 0,
+        // A terminal radar has no chunk feed to fail at reading.
+        live_failed: None,
         // A terminal radar publishes no chunk stream, so there is no volume in
         // progress to project the rest of.
         next_chunk_at: None,
