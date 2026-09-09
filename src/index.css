@@ -1728,6 +1728,11 @@ input[type="range"]:disabled {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  /* A heading and its description are two runs of text on one line, and
+     `space-between` alone puts nothing between them once the description is
+     long enough to reach: the longest one in the panel touched its heading at
+     exactly zero pixels and read as one word, in every language. */
+  gap: 12px;
   margin-bottom: 5px;
 }
 
@@ -1741,6 +1746,7 @@ input[type="range"]:disabled {
 .settings-section__title small {
   color: var(--subtle);
   font-size: 9px;
+  text-align: right;
 }
 
 .incident-packs {
