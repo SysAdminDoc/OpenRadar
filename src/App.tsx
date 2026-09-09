@@ -1503,7 +1503,13 @@ export default function App() {
       offers.push({
         id: "volume",
         label: t("export.dataVolume"),
-        format: isTdwrStation(singleSite.station) ? "nids" : "ar2v",
+        // From the sweep rather than from the site the map is parked on. The
+        // two differ while a reader looks at an archive volume from somewhere
+        // else, and the native side names the file from the sweep: reading
+        // the map's station put `nids` on a button that writes an `.ar2v`.
+        format: isTdwrStation(singleSite.sweep?.station ?? null)
+          ? "nids"
+          : "ar2v",
         // Nothing is read out of it, so the toast says its size rather than
         // counting readings that were never taken.
         verbatim: true,
@@ -1566,8 +1572,8 @@ export default function App() {
     mrms.layers,
     singleSite.exportValues,
     singleSite.saveVolume,
-    singleSite.station,
     singleSite.sweep?.product,
+    singleSite.sweep?.station,
     t,
   ]);
 

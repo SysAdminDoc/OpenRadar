@@ -242,7 +242,11 @@ beforeEach(() => {
   nearestSite.mockResolvedValue("KDMX");
   fetchSweep.mockImplementation(async (station, product, tilt, live) => ({
     ...sweepFor(station, product, tilt),
-    live,
+    // A terminal radar publishes no chunk stream, so it never comes back live
+    // whatever was asked for: the native side writes `live: false` on every
+    // one of its sweeps. Spreading the request over it said otherwise, which
+    // is the same shape of fixture lie as the source label that said Level II.
+    ...(isTdwrStation(station) ? {} : { live }),
   }));
   fetchArchiveSweep.mockImplementation(async (station, _at, product, tilt) => ({
     ...sweepFor(station, product, tilt),
@@ -395,7 +399,10 @@ describe("choosing a site", () => {
     expect(result.current.sweep?.rangeKm).toBeLessThan(100);
     // And what it says about itself, which a fixture written the other way
     // round left saying Level II: the object literal after the branch won,
-    // so the branch's own source was never read.
+    // so the branch's own source was never read. These two hold the fixture
+    // rather than the hook, which passes both fields straight through: what
+    // they catch is this harness drifting from what the native side really
+    // writes, which is what made every other case here mean nothing.
     expect(result.current.sweep?.source.label).toContain("Level III");
     expect(result.current.sweep?.siteName).toBe("Atlanta, GA");
   });
@@ -439,6 +446,38 @@ describe("choosing a site", () => {
     });
   });
 
+  it("does not offer to save the volume the radar is sweeping now", async () => {
+    // A live picture is two volumes: the one being swept, drawn over the last
+    // finished one. The newer half arrives as chunks under a numbered folder
+    // rather than as an object, so its key is `114` and there is no single
+    // file to hand over. Offered anyway, the button asked the native side for
+    // a volume called `114` and came back refused, every time.
+    fetchSweep.mockImplementation(async (station, product, tilt, live) => ({
+      ...sweepFor(station, product, tilt),
+      live,
+      liveTilts: live ? 3 : 0,
+      volume: live ? "114" : `${station}-${product}-${tilt}`,
+    }));
+    const { result, rerender } = renderHook(
+      (props: { live: boolean }) =>
+        useSingleSiteRadar(
+          options({ radar: { live: props.live, station: "KDMX" } }),
+        ),
+      { initialProps: { live: true } },
+    );
+    await waitFor(() => expect(result.current.sweep?.live).toBe(true));
+    expect(result.current.saveVolume).toBeNull();
+
+    // The control, through the same path: the same site with the composite
+    // off is one finished volume, and it is offered.
+    rerender({ live: false });
+    await waitFor(() => expect(result.current.sweep?.live).toBe(false));
+    await act(async () => {
+      await result.current.saveVolume?.();
+    });
+    expect(exportVolumeFile).toHaveBeenCalledTimes(1);
+  });
+
   it("does not offer to save a file the reader opened themselves", async () => {
     // Its key is a hash of the bytes rather than a bucket object, and they
     // have the file already: there is nothing to fetch and nowhere to fetch
@@ -454,8 +493,13 @@ describe("choosing a site", () => {
     );
     await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
     // The control: a fetched volume is offered, so what the assertion below
-    // reads is the file rather than the guard never being reached.
-    expect(result.current.saveVolume).not.toBeNull();
+    // reads is the file rather than the guard never being reached. Called
+    // rather than compared against null, which `undefined` also satisfies:
+    // deleting the property outright left the first version of this green.
+    await act(async () => {
+      await result.current.saveVolume?.();
+    });
+    expect(exportVolumeFile).toHaveBeenCalledTimes(1);
     await act(async () => {
       await result.current.openLocal();
     });
