@@ -596,12 +596,6 @@ Tenth research pass, at `beae469`. Everything below came from the third refutati
 
 ### P3
 
-- [ ] AUD-457 (P3): The export caption's ellipsis is length-neutral, not width-neutral, and the test's `measureText` cannot tell
-  Why: a truncated caption line drops its last two characters and appends a space and an ellipsis. In the caption's font (Segoe UI, then system-ui) the two dropped may be narrow glyphs at about 7 px together and the added pair about 13 px, so the line grows by about 6 px and can creep into the right margin. When the line is two characters or shorter the ellipsis is appended with nothing removed. The fake canvas in the test returns a width proportional to character count, which is monospace, so the test passes a change it cannot measure.
-  Evidence: refutation report of 2026-09-08 (LOW 6); `src/lib/export.ts:171` (the slice), `:189-191` (the width measured after truncation, which is why the damage is bounded to the margin), `src/lib/export.test.ts:38-40` (the fake `measureText`).
-  Touches: `src/lib/export.ts` (trim by measured width: drop characters until the head plus the ellipsis measures no wider than the box), `src/lib/export.test.ts` (a fake `measureText` with two glyph widths, narrow for i, l and t and wide for the rest, and a case with a line ending in narrow glyphs asserting the truncated line is no wider than the box).
-  Acceptance: the new case fails on the current slice and passes after; the three caption cases from `AUD-444` stay green.
-  Complexity: S
 
 
 
