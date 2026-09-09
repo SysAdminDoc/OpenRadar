@@ -731,6 +731,7 @@ export const es: Catalogue = {
   "radar.compositeDetail": "Animación de dos horas de la fuente activa",
   "radar.opacity": "Opacidad",
   "radar.speed": "Velocidad",
+  "radar.speedValue": "{count}/s",
   "radar.history": "Historial",
   "radar.minutes": "{count} min",
   "radar.show": "Mostrar el radar",

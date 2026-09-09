@@ -392,3 +392,37 @@ describe("every slider in the panel", () => {
     }
   });
 });
+
+describe("the numbers the panel puts on its chips", () => {
+  it("says the loop speed in something a reader can act on", () => {
+    // The chip printed `animationSpeed` itself, which is a position on a
+    // slider running from -0.8 to 0.5. A fresh install therefore read "-0.1"
+    // under the word Speed: a negative, unitless speed, which means nothing
+    // to a reader and looks like a fault. Seen in the 2026-09-08 inspection.
+    render(
+      <RadarProductPanel
+        radar={DEFAULT_SETTINGS.radar}
+        clock={Date.now()}
+        singleSite={null}
+        siteStatus={[]}
+        stormCells={{
+          report: null,
+          features: null,
+          rotating: new Set(),
+          loading: false,
+          error: null,
+        }}
+        watch={DEFAULT_SETTINGS.watch}
+        onRadar={vi.fn()}
+        onClose={() => {}}
+      />,
+    );
+
+    const label = screen.getByText(en["radar.speed"]);
+    const shown = label.parentElement?.querySelector("strong")?.textContent;
+    // The default runs a frame a second, which is what the reader is told.
+    expect(shown).toBe(en["radar.speedValue"].replace("{count}", "1.0"));
+    // And never the slider's own position, whatever it happens to be.
+    expect(shown).not.toContain(String(DEFAULT_SETTINGS.radar.animationSpeed));
+  });
+});
