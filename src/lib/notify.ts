@@ -130,6 +130,19 @@ let saying: number | null = null;
 let lookAgain: ReturnType<typeof setTimeout> | null = null;
 
 /**
+ * Which sentence is the one being read, counted up.
+ *
+ * An utterance goes on raising events after it has stopped mattering: a cut
+ * one raises `error`, and a refused one may raise either. Both handlers are
+ * the same closure, and without this the late event clears the queue's hold
+ * on a sentence that is already being read over.
+ */
+let reading = 0;
+
+/** Whether a listener is already waiting for the voice list to fill. */
+let waitingForVoices = false;
+
+/**
  * Reads a sentence aloud, in the language the catalogue is in.
  *
  * Silent where there is no speech engine at all, which is a browser preview
@@ -172,6 +185,12 @@ function sayNext(): void {
       }
       return;
     }
+    // `cancel` fires `error` on the utterance it cuts, and that utterance's
+    // handler is the `done` below. Left to run it would clear `saying` after
+    // the sentence underneath had already started, and the one after that
+    // would be spoken over it: two voices at once, reachable only through
+    // this line, which is the one written to stop exactly that.
+    reading += 1;
     engine.cancel();
     saying = null;
   }
@@ -182,31 +201,53 @@ function sayNext(): void {
   // Microsoft disabled its cloud Natural voices there by design, so this is
   // whatever Windows has installed and it may take a moment to say so.
   if (engine.getVoices().length === 0) {
-    engine.addEventListener("voiceschanged", () => sayNext(), { once: true });
+    // One listener however many sentences are waiting. `once` deduplicates
+    // nothing, because each call would hand it a new function.
+    if (!waitingForVoices) {
+      waitingForVoices = true;
+      engine.addEventListener(
+        "voiceschanged",
+        () => {
+          waitingForVoices = false;
+          sayNext();
+        },
+        { once: true },
+      );
+    }
     return;
   }
   const next = waiting.shift();
   if (!next) return;
   const said = new globalThis.SpeechSynthesisUtterance(next.sentence);
   said.lang = locale();
+  const mine = (reading += 1);
   // Both, because an engine that fails partway through leaves the queue
-  // stopped otherwise and nothing is ever read again this run.
+  // stopped otherwise and nothing is ever read again this run. Ignored when
+  // this is no longer the sentence being read: an utterance that was cut, or
+  // one the engine refused, still gets to raise its event afterwards.
   const done = () => {
+    if (mine !== reading) return;
     saying = null;
     sayNext();
   };
   said.onend = done;
   said.onerror = done;
+  // Before the call rather than after. Chromium dispatches `end`
+  // asynchronously, but an engine that dispatches it from inside `speak`
+  // would have its `saying = null` overwritten by the assignment underneath,
+  // and the queue would be marked as reading a sentence that had finished.
+  saying = now;
   try {
     engine.speak(said);
-    // After the call and not before it. An engine that refuses outright
-    // would otherwise leave the queue held by a sentence that was never
-    // started, and every warning after it waiting on the ceiling.
-    saying = now;
   } catch (failure) {
+    // Nothing this utterance says afterwards counts, and the queue is not
+    // held by a sentence that was never started.
+    reading += 1;
+    saying = null;
     log.warn(
       "watch",
       failure instanceof Error ? failure.message : "The voice refused.",
     );
+    sayNext();
   }
 }

@@ -102,8 +102,17 @@ export const MAP_INK = {
   rotation: { light: "#b91c1c", dark: "#f87171" },
   /** A tropical track whose fix carries no colour of its own. */
   track: { light: "#334155", dark: "#e2e8f0" },
-  /** The ring round a point a placefile drops. */
-  placefilePoint: { light: "#1e293b", dark: "#eff6ff" },
+  /**
+   * The ring round a small coloured dot: a point a placefile drops, a
+   * six-hourly hurricane fix coloured by the wind it carried.
+   *
+   * The dot carries the reading and the ring is what separates it from the
+   * ground, so the ring is the half that has to change with the ground. The
+   * hurricane fix had a fixed dark ring, which is right over the light
+   * basemap and invisible over the dark one, and it was written in the same
+   * navy the storm cells take over a pale ground.
+   */
+  pointRing: { light: "#1e293b", dark: "#eff6ff" },
   /** The line and the ends of a measurement the reader is drawing. */
   tool: { light: "#0369a1", dark: "#7dd3fc" },
 } as const;
