@@ -120,6 +120,91 @@ function said(match: RegExpMatchArray): string {
   return match[1] ?? match[2] ?? match[3] ?? "";
 }
 
+/**
+ * The same source with every string, template, comment and regex blanked to
+ * spaces, character for character.
+ *
+ * Everything below reasons about punctuation: where a call's brackets open,
+ * where a ternary's condition ends. None of that is punctuation when it is
+ * inside a quote. A `?` in `"retry?"` was read as a ternary and blanked the
+ * expression in front of it, which hid the names a leak travelled through:
+ * `setError(detail + " retry?")` with `detail` carrying `failure.message`
+ * passed the gate. `throw new Error(` written in a comment would open a call
+ * that is not there.
+ *
+ * Same length as what went in, so an index into one is an index into the
+ * other and the real text is what gets sliced. Only the search reads this.
+ */
+function withoutText(source: string): string {
+  const out = [...source];
+  const blank = (from: number, to: number) => {
+    for (let at = from; at < to && at < out.length; at += 1) {
+      if (out[at] !== "\n") out[at] = " ";
+    }
+  };
+  // Whether a `/` here starts a regex or divides. Division follows a value,
+  // and a value ends in a word character, a closing bracket or a quote.
+  const dividesAfter = /[\w$)\]"'`]/;
+  let last = "";
+  let at = 0;
+  while (at < source.length) {
+    const here = source[at];
+    const next = source[at + 1];
+    if (here === "/" && next === "/") {
+      const end = source.indexOf("\n", at);
+      const stop = end === -1 ? source.length : end;
+      blank(at, stop);
+      at = stop;
+      continue;
+    }
+    if (here === "/" && next === "*") {
+      const end = source.indexOf("*/", at + 2);
+      const stop = end === -1 ? source.length : end + 2;
+      blank(at, stop);
+      at = stop;
+      continue;
+    }
+    if (here === '"' || here === "'" || here === "`") {
+      let end = at + 1;
+      while (end < source.length) {
+        if (source[end] === "\\") {
+          end += 2;
+          continue;
+        }
+        if (source[end] === here) break;
+        end += 1;
+      }
+      // The quotes stay so the shape is still recognisable; the words go.
+      blank(at + 1, end);
+      at = Math.min(end + 1, source.length);
+      last = here;
+      continue;
+    }
+    if (here === "/" && !dividesAfter.test(last)) {
+      let end = at + 1;
+      let inClass = false;
+      while (end < source.length) {
+        if (source[end] === "\\") {
+          end += 2;
+          continue;
+        }
+        if (source[end] === "[") inClass = true;
+        else if (source[end] === "]") inClass = false;
+        else if (source[end] === "/" && !inClass) break;
+        else if (source[end] === "\n") break;
+        end += 1;
+      }
+      blank(at, Math.min(end + 1, source.length));
+      at = Math.min(end + 1, source.length);
+      last = "/";
+      continue;
+    }
+    if (!/\s/.test(here)) last = here;
+    at += 1;
+  }
+  return out.join("");
+}
+
 /** The text from a brace or bracket to the one that closes it. */
 function balanced(text: string, from: number, open: string, close: string) {
   let depth = 0;
@@ -153,7 +238,7 @@ function callsTo(
     `\\b${sink.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\(`,
     "g",
   );
-  for (const match of text.matchAll(opener)) {
+  for (const match of withoutText(text).matchAll(opener)) {
     const from = match.index + match[0].length - 1;
     found.push({ at: from, call: balanced(text, from, "(", ")") });
   }
@@ -239,10 +324,12 @@ function valueNames(call: string): string[] {
  */
 function withoutConditions(call: string): string {
   const out = [...call];
+  // Punctuation only counts outside a quote or a comment.
+  const code = withoutText(call);
   const boundary: number[] = [0];
   let depth = 0;
-  for (let at = 0; at < call.length; at += 1) {
-    const here = call[at];
+  for (let at = 0; at < code.length; at += 1) {
+    const here = code[at];
     if (here === "(" || here === "[" || here === "{") {
       depth += 1;
       boundary[depth] = at + 1;
@@ -257,7 +344,7 @@ function withoutConditions(call: string): string {
       continue;
     }
     if (here !== "?") continue;
-    if (call[at + 1] === "." || call[at + 1] === "?") {
+    if (code[at + 1] === "." || code[at + 1] === "?") {
       at += 1;
       continue;
     }
@@ -472,6 +559,32 @@ describe("what the gate itself reads", () => {
     const [call] = callsTo(source, "throw new Error");
     expect(call, "the fixture stopped containing the sink").toBeTruthy();
     expect(taintedName(source, call.call, call.at, new Set())).toBe("failed");
+  });
+
+  it("does not take a question mark inside a quote for a ternary", () => {
+    // Everything the gate reasons about is punctuation, and none of it is
+    // punctuation inside a quote. A `?` in a sentence blanked the expression
+    // in front of it, which took the names a leak travelled through with it:
+    // this exact shape passed until 2026-09-09.
+    const source = `
+      let detail = "";
+      if (failure instanceof Error) detail = failure.message;
+      setError(detail + " retry?");
+    `;
+    const [call] = callsTo(source, "setError");
+    expect(call, "the fixture stopped containing the sink").toBeTruthy();
+    expect(taintedName(source, call.call, call.at, new Set())).toBe("detail");
+  });
+
+  it("does not open a call that is only written about", () => {
+    // `callsTo` matched its own name in prose. A comment explaining what the
+    // gate looks for would have made the file it sits in look guilty.
+    const source = `
+      // Anything that would throw new Error(failure.message) belongs here.
+      const note = "throw new Error(failure.message)";
+      return note;
+    `;
+    expect(callsTo(source, "throw new Error")).toEqual([]);
   });
 
   it("reads no names out of a ternary's condition", () => {
