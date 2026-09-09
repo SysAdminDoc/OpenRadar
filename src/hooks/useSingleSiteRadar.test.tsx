@@ -8,6 +8,7 @@ import {
 } from "../lib/level2";
 import type { Level2ProductId, SweepImage } from "../lib/level2";
 import { DEFAULT_SETTINGS, type RadarSettings } from "../lib/settings";
+import { isTdwrStation, TDWR_RANGE_KM } from "../lib/radarKinds";
 import { log } from "../lib/log";
 import { providerHealth, resetHealth } from "../lib/providers/health";
 
@@ -97,6 +98,17 @@ const DISCS: Record<
   KDMX: { west: -96.5, south: 39.6, east: -91, north: 43.8 },
   KTLX: { west: -96.1, south: 39.4, east: -90.6, north: 43.6 },
   KVNX: { west: -95.7, south: 39.2, east: -90.2, north: 43.4 },
+  // Atlanta's terminal radar, at its own reach rather than a WSR-88D's: 88.8
+  // km against 230, which is what makes it a different instrument rather than
+  // a differently named one. Without an entry here the fixture threw on the
+  // spread below, so no sweep ever landed for a terminal radar and the live
+  // path's own handling of one was never reached by anything.
+  TATL: {
+    west: -85.2202,
+    south: 32.8492,
+    east: -83.3037,
+    north: 34.4446,
+  },
 };
 
 function sweepFor(
@@ -136,8 +148,13 @@ function sweepFor(
     siteLat: (DISCS[station].south + DISCS[station].north) / 2,
     image: "data:image/png;base64,AAAA",
     volume: `${station}-${product}-${tilt}`,
-    radar: "WSR-88D",
-    rangeKm: 230,
+    // What the site is, not what the caller asked for. A terminal radar has
+    // no Level II volume and reads from its Level III products, and a fixture
+    // that called one a WSR-88D would let a test pass on a picture the app
+    // could never have been given.
+    ...(isTdwrStation(station)
+      ? { radar: "TDWR" as const, rangeKm: TDWR_RANGE_KM }
+      : { radar: "WSR-88D" as const, rangeKm: 230 }),
     source: {
       kind: "recent",
       label: "NOAA NEXRAD Level II",
@@ -323,6 +340,54 @@ describe("choosing a site", () => {
       );
     } finally {
       warn.mockRestore();
+      resetHealth();
+    }
+  });
+
+  it("holds a terminal radar and draws its sweep", async () => {
+    // The harness could hold one and never got a picture for it: the disc
+    // table had no entry, the fixture threw on the spread, and every case
+    // about a terminal radar was green without the live path ever running its
+    // body. This is what makes the case below able to fail.
+    const { result } = renderHook(() =>
+      useSingleSiteRadar(options({ radar: { live: true, station: "TATL" } })),
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("TATL"));
+    expect(result.current.sweep?.radar).toBe("TDWR");
+    // Its own reach, which is what makes it a different instrument.
+    expect(result.current.sweep?.rangeKm).toBeLessThan(100);
+  });
+
+  it("says nothing about the Level II feed for a radar that has none", async () => {
+    // A terminal radar has no chunk feed. Its sweep carries no failure by
+    // construction, so recording a success for it claimed the Level II bucket
+    // had answered when it was never asked. Deleted on 2026-09-09 rather than
+    // shipped vacuous, because it passed with the guard removed: nothing ever
+    // reached the block it guards.
+    resetHealth();
+    try {
+      const { result, rerender } = renderHook(
+        (props: { station: string }) =>
+          useSingleSiteRadar(
+            options({ radar: { live: true, station: props.station } }),
+          ),
+        { initialProps: { station: "TATL" } },
+      );
+      await waitFor(() => expect(result.current.sweep?.station).toBe("TATL"));
+      expect(
+        providerHealth().find((one) => one.id === "level2"),
+        "a terminal radar answered for the Level II feed",
+      ).toBeUndefined();
+
+      // The positive control, through the same path: a site that does have
+      // one still reaches the row.
+      rerender({ station: "KDMX" });
+      await waitFor(() =>
+        expect(
+          providerHealth().find((one) => one.id === "level2"),
+        ).toBeTruthy(),
+      );
+    } finally {
       resetHealth();
     }
   });
