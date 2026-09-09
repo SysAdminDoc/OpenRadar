@@ -170,12 +170,12 @@ function sweepFor(
           siteName: "Des Moines, IA",
           live: false,
           liveTilts: 0,
+          source: {
+            kind: "recent" as const,
+            label: "NOAA NEXRAD Level II",
+            url: "https://registry.opendata.aws/noaa-nexrad/",
+          },
         }),
-    source: {
-      kind: "recent",
-      label: "NOAA NEXRAD Level II",
-      url: "https://registry.opendata.aws/noaa-nexrad/",
-    },
   };
 }
 
@@ -372,6 +372,11 @@ describe("choosing a site", () => {
     expect(result.current.sweep?.radar).toBe("TDWR");
     // Its own reach, which is what makes it a different instrument.
     expect(result.current.sweep?.rangeKm).toBeLessThan(100);
+    // And what it says about itself, which a fixture written the other way
+    // round left saying Level II: the object literal after the branch won,
+    // so the branch's own source was never read.
+    expect(result.current.sweep?.source.label).toContain("Level III");
+    expect(result.current.sweep?.siteName).toBe("Atlanta, GA");
   });
 
   it("offers a terminal radar none of the things it has no volume for", async () => {
