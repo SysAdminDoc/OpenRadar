@@ -156,11 +156,16 @@ export function ambientTypeScale(
   const wanted = Math.max(1, metres / DEFAULT_AMBIENT_METRES);
   // The gaps between the lines, the way out and the inset do not scale, so
   // they come off the room before the rest is divided by what does.
-  const across =
-    (room.width - AMBIENT_INSET_PX * 2) / Math.max(1, natural.width);
+  //
+  // Divided plainly. Both of these were written `Math.max(1, natural.width)`,
+  // which cannot change any answer this returns: nothing measured yet divides
+  // by zero and comes back `Infinity`, which the minimum below discards, and
+  // a room and a readout both at zero comes back `NaN`, which the last line
+  // already answers. A guard that cannot fire reads as one that can.
+  const across = (room.width - AMBIENT_INSET_PX * 2) / natural.width;
   const down =
     (room.height - AMBIENT_INSET_PX - AMBIENT_LEAVE_PX - AMBIENT_GAPS_PX) /
-    Math.max(1, natural.height);
+    natural.height;
   const fits = Math.min(wanted, across, down);
   // Never below the size it was drawn at, and never a number that is not one:
   // a scale of `NaN` reaches the stylesheet as an invalid `calc` and takes
@@ -168,8 +173,16 @@ export function ambientTypeScale(
   return Number.isFinite(fits) ? Math.max(1, fits) : 1;
 }
 
-/** How far the readout sits from the corner, and how tall its way out is. */
-const AMBIENT_INSET_PX = 32;
-const AMBIENT_LEAVE_PX = 52;
-/** The gaps between the three lines, which do not scale with the type. */
-const AMBIENT_GAPS_PX = 4;
+/**
+ * The parts of the readout that stay the size they are whatever the type does.
+ *
+ * All three are held against `index.css` by a test, the way the three design
+ * sizes are. They were not, and the gap was wrong: the column has four
+ * children rather than three, so there are three gaps and not two.
+ */
+/** `left` and `bottom` on `.ambient-readout`. */
+export const AMBIENT_INSET_PX = 32;
+/** The way out: 44 pixels of button and the 8 above it. */
+export const AMBIENT_LEAVE_PX = 52;
+/** Three gaps of two, between the clock, the place, the line and the way out. */
+export const AMBIENT_GAPS_PX = 6;

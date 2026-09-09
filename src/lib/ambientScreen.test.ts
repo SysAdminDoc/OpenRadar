@@ -3,6 +3,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   AMBIENT_CLOCK_PX,
+  AMBIENT_GAPS_PX,
+  AMBIENT_INSET_PX,
+  AMBIENT_LEAVE_PX,
   AMBIENT_PLACE_PX,
   AMBIENT_SMALLEST_PX,
   DEFAULT_AMBIENT_METRES,
@@ -200,5 +203,38 @@ describe("the sizes the rule is anchored on", () => {
     expect(sized("strong")).toBe(String(AMBIENT_CLOCK_PX));
     expect(sized("span")).toBe(String(AMBIENT_PLACE_PX));
     expect(sized("small")).toBe(String(AMBIENT_SMALLEST_PX));
+  });
+
+  it("leave the room the parts that do not scale really take", () => {
+    // The three sizes above were anchored and the three subtractions were
+    // not, and one of them was wrong: the column has four children, so there
+    // are three gaps and the rule was leaving room for two. Everything here
+    // is a fixed size the type never multiplies, which is exactly why it has
+    // to be taken out of the room before the type is fitted into it.
+    const css = readFileSync(
+      join(import.meta.dirname, "..", "index.css"),
+      "utf8",
+    );
+    // Anchored to the start of a line, so the variant rules do not answer for
+    // the base ones: `.ambient-readout[data-over-light] .ambient-readout__leave`
+    // comes first in the file and sets two colours and nothing else.
+    const rule = (selector: string) =>
+      new RegExp(String.raw`^\.${selector} \{([^}]*)\}`, "m").exec(css)?.[1] ??
+      `no .${selector} rule`;
+    const readout = rule("ambient-readout");
+    const leave = rule("ambient-readout__leave");
+    const pixels = (block: string, property: string) =>
+      Number(new RegExp(`${property}:\\s*(\\d+)px`).exec(block)?.[1]);
+
+    // The corner it sits in, which is the same both ways.
+    expect(pixels(readout, "left")).toBe(AMBIENT_INSET_PX);
+    expect(pixels(readout, "bottom")).toBe(AMBIENT_INSET_PX);
+    // The way out: its own height plus the space above it.
+    expect(pixels(leave, "height") + pixels(leave, "margin-top")).toBe(
+      AMBIENT_LEAVE_PX,
+    );
+    // And the gaps. Four children in the column, so three of them, whatever
+    // the flex gap is set to.
+    expect(pixels(readout, "gap") * 3).toBe(AMBIENT_GAPS_PX);
   });
 });
