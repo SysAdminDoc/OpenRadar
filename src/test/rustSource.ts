@@ -12,6 +12,13 @@ import { join } from "node:path";
  * still agree, and the quickest way past it is to point it at a file rather
  * than at the thing it is checking. This reads the whole directory, so the
  * next move needs no repair at all.
+ *
+ * Comments come out here rather than at each caller. The files are joined in
+ * name order, so `draw.rs` comes before `listing.rs`, `mod.rs` and `ramp.rs`,
+ * and the gates built on this read their constant with a non-global pattern:
+ * the first match wins, and a commented-out copy sitting in an earlier file
+ * answers for the live one in a later file. Three gates could be defeated
+ * that way, and putting the strip at one call site fixed one of the three.
  */
 export function level2Source(): string {
   const dir = join(process.cwd(), "src-tauri", "src", "level2");
@@ -19,5 +26,9 @@ export function level2Source(): string {
   if (files.length === 0) {
     throw new Error("the single-site radar has no source files to read");
   }
-  return files.map((name) => readFileSync(join(dir, name), "utf8")).join("\n");
+  return files
+    .map((name) => readFileSync(join(dir, name), "utf8"))
+    .join("\n")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*/g, "");
 }

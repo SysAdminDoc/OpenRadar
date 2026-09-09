@@ -652,18 +652,14 @@ describe("how much ground the sweep is drawn over", () => {
     // A raster that changed size there would move every answer above without
     // touching a line of this file.
     //
-    // Comments out first, and every match rather than the first. The pattern
-    // was non-global over every `.rs` file in the directory joined in name
-    // order, and `draw.rs` sorts before `mod.rs`: a comment in `draw.rs`
-    // holding the old number answered for a `mod.rs` that really said
-    // something else, which is the same defect this suite fixed in the
-    // ambient screen's stylesheet patterns two commits earlier.
-    const rust = level2Source()
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/\/\/.*/g, "");
-    const said = [...rust.matchAll(/const IMAGE_SIZE: usize = (\d+);/g)].map(
-      (found) => found[1],
-    );
+    // Every match rather than the first, so a second definition is a failure
+    // in itself rather than something the first one hides. The comments are
+    // taken out by `level2Source` now: this file stripped them itself and two
+    // other gates reading the same source did not, which is a repair made at
+    // one call site for a defect that was in the reader.
+    const said = [
+      ...level2Source().matchAll(/const IMAGE_SIZE: usize = (\d+);/g),
+    ].map((found) => found[1]);
     expect(said).toEqual([String(SWEEP_RASTER_PX)]);
   });
 
