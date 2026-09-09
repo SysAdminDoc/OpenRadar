@@ -1151,22 +1151,31 @@ export function LayersPanel({
             <span>{t("layers.spcOutlookChoice")}</span>
             <small>{t("layers.spcOutlookChoiceDetail")}</small>
           </div>
-          <div
-            className="segmented-control segmented-control--full"
-            role="group"
-            aria-label={t("layers.spcDay")}
-          >
-            {SPC_DAYS.map((day) => (
-              <button
-                key={day}
-                type="button"
-                className={spcDay === day ? "is-active" : ""}
-                aria-pressed={spcDay === day}
-                onClick={() => onSpcDay(day)}
-              >
-                {day}
-              </button>
-            ))}
+          {/* Two controls under one heading, so the heading names neither:
+              "Convective outlook" is the section and not the day. Both had a
+              name for a screen reader and none on screen, which is the same
+              row a reader has to guess at that Settings had. */}
+          <div className="settings-field">
+            <span>
+              <strong>{t("layers.spcDay")}</strong>
+            </span>
+            <div
+              className="segmented-control segmented-control--full"
+              role="group"
+              aria-label={t("layers.spcDay")}
+            >
+              {SPC_DAYS.map((day) => (
+                <button
+                  key={day}
+                  type="button"
+                  className={spcDay === day ? "is-active" : ""}
+                  aria-pressed={spcDay === day}
+                  onClick={() => onSpcDay(day)}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
           </div>
           {/* Day 3 publishes two products, a categorical and one combined
               probability, and it used to have no control of its own: which
@@ -1176,49 +1185,59 @@ export function LayersPanel({
               unreachable from a fresh workspace. Days 4 to 8 publish one
               probability and genuinely have nothing to choose between. */}
           {spcDay <= 2 ? (
-            <div
-              className="segmented-control segmented-control--full"
-              role="group"
-              aria-label={t("layers.spcHazard")}
-            >
-              {SPC_HAZARDS.map((hazard) => (
-                <button
-                  key={hazard}
-                  type="button"
-                  className={spcHazard === hazard ? "is-active" : ""}
-                  aria-pressed={spcHazard === hazard}
-                  onClick={() => onSpcHazard(hazard)}
-                >
-                  {t(HAZARD_LABELS[hazard])}
-                </button>
-              ))}
+            <div className="settings-field">
+              <span>
+                <strong>{t("layers.spcHazard")}</strong>
+              </span>
+              <div
+                className="segmented-control segmented-control--full"
+                role="group"
+                aria-label={t("layers.spcHazard")}
+              >
+                {SPC_HAZARDS.map((hazard) => (
+                  <button
+                    key={hazard}
+                    type="button"
+                    className={spcHazard === hazard ? "is-active" : ""}
+                    aria-pressed={spcHazard === hazard}
+                    onClick={() => onSpcHazard(hazard)}
+                  >
+                    {t(HAZARD_LABELS[hazard])}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : spcDay === 3 ? (
-            <div
-              className="segmented-control segmented-control--full"
-              role="group"
-              aria-label={t("layers.spcHazard")}
-            >
-              <button
-                type="button"
-                className={spcHazard === "categorical" ? "is-active" : ""}
-                aria-pressed={spcHazard === "categorical"}
-                onClick={() => onSpcHazard("categorical")}
+            <div className="settings-field">
+              <span>
+                <strong>{t("layers.spcHazard")}</strong>
+              </span>
+              <div
+                className="segmented-control segmented-control--full"
+                role="group"
+                aria-label={t("layers.spcHazard")}
               >
-                {t(HAZARD_LABELS.categorical)}
-              </button>
-              <button
-                type="button"
-                className={spcHazard === "categorical" ? "" : "is-active"}
-                aria-pressed={spcHazard !== "categorical"}
-                // Day 3's probability is one combined number rather than one
-                // per hazard, so any of the three hazards names it. Tornado
-                // is chosen so switching back to Day 1 or 2 lands somewhere
-                // a reader would recognise.
-                onClick={() => onSpcHazard("tornado")}
-              >
-                {t("layers.spcDay3Probability")}
-              </button>
+                <button
+                  type="button"
+                  className={spcHazard === "categorical" ? "is-active" : ""}
+                  aria-pressed={spcHazard === "categorical"}
+                  onClick={() => onSpcHazard("categorical")}
+                >
+                  {t(HAZARD_LABELS.categorical)}
+                </button>
+                <button
+                  type="button"
+                  className={spcHazard === "categorical" ? "" : "is-active"}
+                  aria-pressed={spcHazard !== "categorical"}
+                  // Day 3's probability is one combined number rather than one
+                  // per hazard, so any of the three hazards names it. Tornado
+                  // is chosen so switching back to Day 1 or 2 lands somewhere
+                  // a reader would recognise.
+                  onClick={() => onSpcHazard("tornado")}
+                >
+                  {t("layers.spcDay3Probability")}
+                </button>
+              </div>
             </div>
           ) : null}
         </div>

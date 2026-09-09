@@ -1333,6 +1333,7 @@ input[type="range"]:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -1658,6 +1659,16 @@ input[type="range"]:disabled {
   padding-inline: 4px;
 }
 
+/* A switch row inside a labelled field is inset once, not twice. The field
+   takes the five pixels the column is drawn on and the row inside it was
+   taking five more, so four rows in the panel began ten pixels in where
+   every other row begins at five: Start with Windows, the screen-on switch
+   and the two watch switches. */
+.settings-field > .toggle-row {
+  padding-inline: 0;
+  border-inline: 0;
+}
+
 .settings-section {
   display: flex;
   flex-direction: column;
@@ -1674,6 +1685,12 @@ input[type="range"]:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  /* The same five pixels every labelled row and every switch in the panel
+     insets its contents by: four of padding and one of border. Without them
+     this row began five pixels to the left of every other one in the column,
+     which is the difference a reader's eye follows down the panel. */
+  padding: 0 4px;
+  border: 1px solid transparent;
   margin-top: 4px;
 }
 
@@ -1891,6 +1908,7 @@ input[type="range"]:disabled {
 
 .incident-pack-list__heading {
   justify-content: space-between;
+  gap: 12px;
 }
 
 .incident-pack-list__heading > span {
@@ -1971,13 +1989,22 @@ input[type="range"]:disabled {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* Five, for the same reason `.accent-row` above takes five: four of
+     padding and one of border is what a switch row and a labelled field come
+     to, and this row was one pixel to their left. */
   padding: 8px 4px;
+  border: 1px solid transparent;
 }
 
 .range-row > span {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* A label and its value are two runs of text on one line, and
+     `space-between` puts nothing between them once the label is long enough
+     to reach: "Site loop length" met "10 volumes" at exactly zero pixels in
+     the pseudolocale, the same collision the section headings had. */
+  gap: 12px;
 }
 
 .range-row strong,
@@ -5749,7 +5776,10 @@ input[type="range"]:disabled {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  /* Twelve, like every other pair of text runs on one line in this panel.
+     At ten the pseudolocale put a label and its control ten pixels apart,
+     which is inside the gate's own threshold and reads as touching. */
+  gap: 12px;
   padding: 0;
   border-bottom: 0;
 }
