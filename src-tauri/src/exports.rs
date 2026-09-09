@@ -76,6 +76,20 @@ impl serde::Serialize for ExportError {
     }
 }
 
+/// Whether a name this app built itself ends in a kind of file it may write.
+///
+/// `sanitize_file_name` is for a name that came from the page and rewrites the
+/// stem to make it safe, which is wrong for a name the app composed: run over
+/// `openradar-kdmx.csv.provenance.json` it would turn the dots into dashes and
+/// rename the sidecar. `data_export` writes through `write_atomically` for
+/// exactly that reason, and so nothing was holding its names to this list at
+/// all. This is the check without the rewrite.
+pub fn extension_allowed(name: &str) -> bool {
+    name.rsplit_once('.').is_some_and(|(_, extension)| {
+        ALLOWED_EXTENSIONS.contains(&extension.to_ascii_lowercase().as_str())
+    })
+}
+
 /// Keeps letters, digits, dashes, and underscores; everything else in the stem
 /// becomes a dash. Separators and parent references cannot survive, so the
 /// result can only ever name a file inside the folder we picked, and a name

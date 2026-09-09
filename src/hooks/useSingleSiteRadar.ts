@@ -1595,12 +1595,19 @@ export function useSingleSiteRadar(options: {
           ? writeValues
           : null,
       // A terminal radar's Level III product saves the same way a volume
-      // does, so this one is offered for both. Never for a file off the
-      // reader's own disk: its key is a hash of the bytes rather than a
-      // bucket object, and they have the file already.
+      // does, so this one is offered for both.
+      //
+      // Never for a file off the reader's own disk: its key is a hash of the
+      // bytes rather than a bucket object, and they have the file already.
+      // And never for a live composite, which is the volume being swept now
+      // drawn over the last finished one. That is two volumes, the newer one
+      // arrives as chunks rather than as an object, and its key is the
+      // numbered folder they came from. There is no single file to hand over,
+      // and offering one asked the reader to save `114`.
       saveVolume:
         showing &&
         current !== null &&
+        !current.live &&
         dataExportAvailable() &&
         historicalSource?.kind !== "local" &&
         current.source.kind !== "local"

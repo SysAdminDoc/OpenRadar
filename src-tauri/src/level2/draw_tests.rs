@@ -232,6 +232,7 @@ fn a_cut_whose_angle_has_drifted_is_still_the_same_cut() {
         let sweep = sweep_over(
             "KTLX",
             "live",
+            "2026/08/30/KTLX/KTLX20260830_092159_V06",
             &older,
             &none,
             &live,
@@ -247,6 +248,10 @@ fn a_cut_whose_angle_has_drifted_is_still_the_same_cut() {
             sweep.live,
             "cut {tilt} drifted a quantisation step and lost its live sweep"
         );
+        // A genuine composite is two volumes and names the one being swept.
+        // The other assertion is at the end of this case, where the picture
+        // is only the finished one.
+        assert_eq!(sweep.volume, "live");
         assert!((sweep.elevation_degrees - degrees).abs() < 0.01);
     }
 
@@ -261,6 +266,7 @@ fn a_cut_whose_angle_has_drifted_is_still_the_same_cut() {
     let sweep = sweep_over(
         "KTLX",
         "live",
+        "2026/08/30/KTLX/KTLX20260830_092159_V06",
         &older,
         &none,
         &far,
@@ -273,6 +279,13 @@ fn a_cut_whose_angle_has_drifted_is_still_the_same_cut() {
         !sweep.live,
         "the live volume has nothing at 3.08 and must not offer its 4.30 cut"
     );
+    // And it names the object it really came from. The live key is a numbered
+    // chunk folder rather than anything the bucket serves, so a picture that
+    // is wholly the finished volume carrying that number told everything
+    // downstream it came from a file that does not exist: the reader was
+    // offered a copy of the volume on screen and the save was refused,
+    // over the one case where there is a whole object to hand.
+    assert_eq!(sweep.volume, "2026/08/30/KTLX/KTLX20260830_092159_V06");
 }
 
 #[test]
@@ -291,6 +304,7 @@ fn persistence_off_draws_exactly_what_it_always_did() {
     let first = sweep_over(
         "KTLX",
         "live",
+        "2026/08/30/KTLX/KTLX20260830_092159_V06",
         &older,
         &none,
         &live,
@@ -302,6 +316,7 @@ fn persistence_off_draws_exactly_what_it_always_did() {
     let again = sweep_over(
         "KTLX",
         "live",
+        "2026/08/30/KTLX/KTLX20260830_092159_V06",
         &older,
         &none,
         &live,
@@ -350,6 +365,7 @@ fn persistence_fades_the_older_sweep_and_moves_no_reading() {
         &sweep_over(
             "KTLX",
             "live",
+            "2026/08/30/KTLX/KTLX20260830_092159_V06",
             &older,
             &none,
             &live,
@@ -363,6 +379,7 @@ fn persistence_fades_the_older_sweep_and_moves_no_reading() {
         &sweep_over(
             "KTLX",
             "live",
+            "2026/08/30/KTLX/KTLX20260830_092159_V06",
             &older,
             &none,
             &live,
@@ -419,6 +436,7 @@ fn the_beam_edge_is_drawn_only_when_something_is_moving() {
         &sweep_over(
             "KTLX",
             "live",
+            "2026/08/30/KTLX/KTLX20260830_092159_V06",
             &older,
             &none,
             &live,
@@ -432,6 +450,7 @@ fn the_beam_edge_is_drawn_only_when_something_is_moving() {
         &sweep_over(
             "KTLX",
             "live",
+            "2026/08/30/KTLX/KTLX20260830_092159_V06",
             &older,
             &none,
             &live,
@@ -469,6 +488,7 @@ fn a_sweep_with_two_ages_reports_both_of_them() {
     let sweep = sweep_over(
         "KTLX",
         "live",
+        "2026/08/30/KTLX/KTLX20260830_092159_V06",
         &older,
         &none,
         &live,
@@ -600,6 +620,7 @@ fn the_swept_sector_is_drawn_over_the_volume_before_it() {
     let sweep = sweep_over(
         "KTLX",
         "live",
+        "2026/08/30/KTLX/KTLX20260830_092159_V06",
         &older,
         &none,
         &live,
@@ -695,6 +716,7 @@ fn a_storm_that_has_moved_on_comes_off_the_swept_sector() {
     let sweep = sweep_over(
         "KTLX",
         "live",
+        "2026/08/30/KTLX/KTLX20260830_092159_V06",
         &older,
         &none,
         &live,
@@ -746,6 +768,7 @@ fn a_cut_the_live_volume_has_not_reached_falls_back_to_the_finished_one() {
     let sweep = sweep_over(
         "KTLX",
         "live",
+        "2026/08/30/KTLX/KTLX20260830_092159_V06",
         &older,
         &none,
         &live,
@@ -802,6 +825,7 @@ fn the_tilt_asked_for_is_matched_by_angle_across_the_two_volumes() {
     let sweep = sweep_over(
         "KTLX",
         "live",
+        "2026/08/30/KTLX/KTLX20260830_092159_V06",
         &older,
         &none,
         &live,
@@ -825,6 +849,7 @@ fn the_tilt_asked_for_is_matched_by_angle_across_the_two_volumes() {
     let sweep = sweep_over(
         "KTLX",
         "live",
+        "2026/08/30/KTLX/KTLX20260830_092159_V06",
         &older,
         &none,
         &live,

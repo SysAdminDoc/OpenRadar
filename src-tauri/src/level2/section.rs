@@ -369,6 +369,14 @@ pub async fn level2_cross_section(
 pub(crate) fn sweep_over(
     station: &str,
     volume_key: &str,
+    // The archive object the finished volume underneath came from, carried
+    // beside the live one because the two answers below are two different
+    // pictures. `volume_key` names the volume the radar is sweeping now,
+    // which is a numbered chunk folder rather than an object anybody can
+    // fetch; when the radar has not reached this cut, the picture is the
+    // finished volume and nothing else, and naming it after the folder was
+    // how a reader was offered a copy of a file that does not exist.
+    finished_key: &str,
     older: &Scan,
     older_nyquist: &dyn Fn(u8) -> Option<f32>,
     live: &Scan,
@@ -397,10 +405,11 @@ pub(crate) fn sweep_over(
     let Ok(newer) = prepare_sweep(station, live, live_nyquist, asked, Some(angle)) else {
         // The radar has not reached this cut in the volume it is sweeping now,
         // so the finished volume is the whole picture and says nothing about
-        // being live, because none of what is on screen is.
+        // being live, because none of what is on screen is. It names the
+        // object it really came from for the same reason.
         return draw_sweep(
             station,
-            volume_key,
+            finished_key,
             offered,
             asked.tilt_index,
             beneath?,

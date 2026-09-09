@@ -484,6 +484,15 @@ fn write_pair(
     readings: usize,
     omitted: usize,
 ) -> Result<DataExportReport, DataExportError> {
+    // Held to the same list a name from the page is held to. This module
+    // writes through `write_atomically`, which checks nothing, so the
+    // allowlist had no effect on anything written here and the test that
+    // reads it was asserting a property nothing enforced.
+    if !exports::extension_allowed(&name) {
+        return Err(DataExportError::Write(format!(
+            "{name} is not a kind of file this app writes"
+        )));
+    }
     let checksum = sha256_hex(data);
     provenance.data_file = name.clone();
     provenance.sha256 = checksum.clone();
@@ -708,7 +717,7 @@ fn volume_file_name(key: &str, extension: &str) -> String {
 ///
 /// The two buckets stamp their keys differently: an Archive II volume is
 /// `KDMX20260830_092159_V06` and a Level III product is
-/// `TATL_NZH_2026_08_30_23_40_12`. Both are the collection time rather than
+/// `ATL_TZ0_2026_08_30_23_40_12`. Both are the collection time rather than
 /// the publication time, which is what the sidecar has to say.
 fn key_moment(key: &str) -> Option<DateTime<Utc>> {
     if let Some(at) = level2::key_time(key) {
@@ -719,6 +728,51 @@ fn key_moment(key: &str) -> Option<DateTime<Utc>> {
     chrono::NaiveDateTime::parse_from_str(stamp, "%Y_%m_%d_%H_%M_%S")
         .ok()
         .map(|parsed| parsed.and_utc())
+}
+
+/// Which bucket a key names, what to call the file, and what to say about it.
+struct Object {
+    host: String,
+    extension: &'static str,
+    source: ProvenanceSource,
+}
+
+/// The whole of what a save can get wrong before it touches the network.
+///
+/// Its own step, and not inline in the command, for the same reason
+/// `wanted_grid` is one: a command taking an `AppHandle` cannot be called from
+/// a test, so a gate written inside one is a gate nothing can drive. This one
+/// decides whether a key names an object at all, and it shipped untested.
+fn wanted_object(station: &str, key: &str) -> Result<Object, DataExportError> {
+    // An airport's own radar publishes a Level III product at a time under its
+    // own name; everything else publishes an Archive II volume.
+    if crate::tdwr::is_tdwr(station) {
+        return Ok(Object {
+            host: format!("https://{}", crate::level3::BUCKET),
+            extension: LEVEL3_EXTENSION,
+            source: ProvenanceSource {
+                kind: "archive",
+                label: "NOAA NEXRAD Level III (TDWR)".to_string(),
+                url: Some("https://registry.opendata.aws/noaa-nexrad/".to_string()),
+            },
+        });
+    }
+    // A partial upload is published under `_MDM` and is not a volume, and the
+    // volume the radar is sweeping now arrives as chunks under a numbered
+    // folder rather than as an object: a live picture's key is `114`, and
+    // this is what refuses it.
+    if !(key.ends_with("_V06") || key.ends_with("_V03")) {
+        return Err(DataExportError::NotAVolume);
+    }
+    Ok(Object {
+        host: level2::ARCHIVE_HOST.to_string(),
+        extension: VOLUME_EXTENSION,
+        source: ProvenanceSource {
+            kind: "archive",
+            label: "NOAA NEXRAD Level II archive".to_string(),
+            url: Some("https://registry.opendata.aws/noaa-nexrad/".to_string()),
+        },
+    })
 }
 
 /// The volume behind the picture, saved as the bucket published it.
@@ -742,40 +796,17 @@ pub async fn export_volume_file(
         return Err(DataExportError::NotAVolume);
     }
     let folder = exports::export_folder(&app).map_err(|_| DataExportError::NoFolder)?;
-
-    // An airport's own radar publishes a Level III product at a time under its
-    // own name; everything else publishes an Archive II volume.
     let terminal = crate::tdwr::is_tdwr(&station);
-    let (host, extension, source) = if terminal {
-        (
-            format!("https://{}", crate::level3::BUCKET),
-            LEVEL3_EXTENSION,
-            ProvenanceSource {
-                kind: "archive",
-                label: "NOAA NEXRAD Level III (TDWR)".to_string(),
-                url: Some("https://registry.opendata.aws/noaa-nexrad/".to_string()),
-            },
-        )
-    } else {
-        // A partial upload is published under `_MDM` and is not a volume; the
-        // picture is never drawn from one, so neither is a saved file.
-        if !(key.ends_with("_V06") || key.ends_with("_V03")) {
-            return Err(DataExportError::NotAVolume);
-        }
-        (
-            level2::ARCHIVE_HOST.to_string(),
-            VOLUME_EXTENSION,
-            ProvenanceSource {
-                kind: "archive",
-                label: "NOAA NEXRAD Level II archive".to_string(),
-                url: Some("https://registry.opendata.aws/noaa-nexrad/".to_string()),
-            },
-        )
-    };
+    let Object {
+        host,
+        extension,
+        source,
+    } = wanted_object(&station, &key)?;
 
-    // The bytes the picture was drawn from, where they are still held. The
-    // ordinary case is a reader saving the volume they are looking at, and
-    // that one costs nothing and cannot come back as a different object.
+    // The bytes the picture was drawn from, where they are still held. For a
+    // Level II volume that is the ordinary case, and it costs nothing and
+    // cannot come back as a different object. A terminal radar's products are
+    // not put in that cache by anything, so its save always fetches.
     let bytes = match level2::cached(&key) {
         Some(held) => held,
         None => crate::http::get_bytes(&format!("{host}/{key}"))
@@ -1489,7 +1520,7 @@ mod tests {
         // real names go through the same allowlist.
         for name in [
             volume_file_name("2026/08/30/KDMX/KDMX20260830_092159_V06", VOLUME_EXTENSION),
-            volume_file_name("TATL_NZH_2026_08_30_23_40_12", LEVEL3_EXTENSION),
+            volume_file_name("ATL_TZ0_2026_08_30_23_40_12", LEVEL3_EXTENSION),
         ] {
             exports::sanitize_file_name(&name)
                 .unwrap_or_else(|error| panic!("{name} cannot be written: {error:?}"));
@@ -1497,6 +1528,19 @@ mod tests {
             exports::sanitize_file_name(&sidecar)
                 .unwrap_or_else(|error| panic!("{sidecar} cannot be written: {error:?}"));
         }
+        // And the check `write_pair` really runs, which is the list without
+        // the rewriting: `sanitize_file_name` would turn a sidecar's own dots
+        // into dashes, which is why this module never called it and why the
+        // allowlist had no effect on anything it wrote.
+        for extension in EXTENSIONS {
+            let name = file_name(&["KDMX"], extension);
+            assert!(exports::extension_allowed(&name), "{name}");
+            assert!(exports::extension_allowed(&format!(
+                "{name}.provenance.json"
+            )));
+        }
+        assert!(!exports::extension_allowed("openradar-kdmx.exe"));
+        assert!(!exports::extension_allowed("openradar-kdmx"));
     }
 
     #[test]
@@ -1509,8 +1553,8 @@ mod tests {
             "KDMX20260830_092159_V06.ar2v"
         );
         assert_eq!(
-            volume_file_name("TATL_NZH_2026_08_30_23_40_12", LEVEL3_EXTENSION),
-            "TATL_NZH_2026_08_30_23_40_12.nids"
+            volume_file_name("ATL_TZ0_2026_08_30_23_40_12", LEVEL3_EXTENSION),
+            "ATL_TZ0_2026_08_30_23_40_12.nids"
         );
     }
 
@@ -1519,7 +1563,7 @@ mod tests {
         // The key comes from the page, and it is half a URL. Every one of
         // these would otherwise be pasted into a fetch and written to disk.
         assert!(readable_key("2026/08/30/KDMX/KDMX20260830_092159_V06"));
-        assert!(readable_key("TATL_NZH_2026_08_30_23_40_12"));
+        assert!(readable_key("ATL_TZ0_2026_08_30_23_40_12"));
         for bad in [
             "",
             "../../etc/passwd",
@@ -1545,10 +1589,48 @@ mod tests {
             Some("2026-08-30T09:21:59Z".to_string())
         );
         assert_eq!(
-            key_moment("TATL_NZH_2026_08_30_23_40_12").map(stamp),
+            key_moment("ATL_TZ0_2026_08_30_23_40_12").map(stamp),
             Some("2026-08-30T23:40:12Z".to_string())
         );
         // And a name with no stamp in it says nothing rather than guessing.
         assert_eq!(key_moment("KDMX"), None);
+    }
+
+    #[test]
+    fn only_a_finished_volume_is_a_thing_to_save() {
+        // The one thing this gate exists for, and it shipped with nothing
+        // driving it. The volume the radar is sweeping now arrives as chunks
+        // under a numbered folder, so a live picture's key is `114`: it is a
+        // legal key by every other rule here and it names no object at all.
+        // The refusal is what stops a reader being handed a save that can
+        // only fail.
+        for live in ["114", "0", "2026/08/30/KDMX/KDMX20260830_092159_V06_MDM"] {
+            assert!(
+                matches!(
+                    wanted_object("KDMX", live),
+                    Err(DataExportError::NotAVolume)
+                ),
+                "{live} was read as a volume"
+            );
+        }
+
+        // A finished one is, and it names the bucket that serves it and the
+        // extension every other tool expects.
+        let volume = wanted_object("KDMX", "2026/08/30/KDMX/KDMX20260830_092159_V06")
+            .expect("a finished volume is a thing to save");
+        assert_eq!(volume.extension, VOLUME_EXTENSION);
+        assert_eq!(volume.host, level2::ARCHIVE_HOST);
+        assert!(volume.source.label.contains("Level II"));
+
+        // A terminal radar publishes one Level III product at a time out of a
+        // different bucket, and its key carries none of the suffixes above.
+        let product = wanted_object("TATL", "ATL_TZ0_2026_08_30_23_40_12")
+            .expect("a terminal radar's product is a thing to save");
+        assert_eq!(product.extension, LEVEL3_EXTENSION);
+        assert!(product.host.contains(crate::level3::BUCKET));
+        assert!(product.source.label.contains("Level III"));
+        // The two are different buckets, which is the whole reason the branch
+        // exists: fetching one key from the other's host is a 404.
+        assert_ne!(product.host, volume.host);
     }
 }
