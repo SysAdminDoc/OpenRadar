@@ -838,7 +838,10 @@ input[type="range"]:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  /* Twelve, like every other pair of text runs on one line in this app. At
+     ten the storm name and its buttons met at ten pixels in the pseudolocale,
+     which reads as touching. */
+  gap: 12px;
   padding: 9px 10px;
   background: var(--surface-raised);
   border: 1px solid var(--border);

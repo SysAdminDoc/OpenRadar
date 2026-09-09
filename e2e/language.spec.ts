@@ -353,13 +353,6 @@ test.describe("a section heading and the line describing it @ownViewport", () =>
       // every language, and the description simply wrapped underneath rather
       // than clipping.
       await startIn(page, language);
-      await page
-        .locator(`.command-bar button[aria-label="${words("panel.settings")}"]`)
-        .first()
-        .click();
-      await expect(
-        page.locator(".settings-section__title").first(),
-      ).toBeVisible();
 
       // Every row in the panel that puts two runs of text on one line, not
       // only the section headings: the first version of this named
@@ -367,37 +360,65 @@ test.describe("a section heading and the line describing it @ownViewport", () =>
       // further down, where a range row's label met its value at zero pixels
       // in the pseudolocale. The shape is the thing, so the sweep finds it
       // rather than being told where to look.
-      const tight = await page.evaluate(() => {
-        const bad: string[] = [];
-        for (const row of document.querySelectorAll<HTMLElement>(
-          ".surface-panel--settings *",
-        )) {
-          const style = getComputedStyle(row);
-          if (style.display !== "flex") continue;
-          if (style.justifyContent !== "space-between") continue;
-          if (style.flexDirection.startsWith("column")) continue;
-          const kids = [...row.children].filter((one) =>
-            one.textContent?.trim(),
-          );
-          if (kids.length < 2) continue;
-          for (let at = 1; at < kids.length; at += 1) {
-            const gap =
-              kids[at].getBoundingClientRect().left -
-              kids[at - 1].getBoundingClientRect().right;
-            // Against the gap the stylesheet writes, not a looser number:
-            // asked at eight, two thirds of a twelve pixel gap could be
-            // deleted and this would still pass.
-            if (gap < 11.5) {
-              bad.push(
-                `${row.className}: ${kids[at - 1].textContent?.slice(0, 24)} + ${kids[
-                  at
-                ].textContent?.slice(0, 24)}: ${gap}px`,
-              );
+      const tight: string[] = [];
+      let rows = 0;
+      for (const key of PANELS) {
+        const button = page.locator(
+          `.command-bar button[aria-label="${words(key)}"]`,
+        );
+        if (!(await button.count())) continue;
+        await button.first().click();
+        await expect(page.locator(".surface-panel")).toBeVisible();
+        // A panel's contents are a lazy chunk, so the surface is on screen
+        // and empty for a frame or two after the click.
+        await page
+          .waitForFunction(
+            () => document.querySelectorAll(".surface-panel *").length > 20,
+            undefined,
+            { timeout: 4000 },
+          )
+          .catch(() => {});
+        const found = await page.evaluate(() => {
+          const bad: string[] = [];
+          let looked = 0;
+          for (const row of document.querySelectorAll<HTMLElement>(
+            ".surface-panel *",
+          )) {
+            const style = getComputedStyle(row);
+            if (style.display !== "flex") continue;
+            if (style.justifyContent !== "space-between") continue;
+            if (style.flexDirection.startsWith("column")) continue;
+            const kids = [...row.children].filter((one) =>
+              one.textContent?.trim(),
+            );
+            if (kids.length < 2) continue;
+            looked += 1;
+            for (let at = 1; at < kids.length; at += 1) {
+              const gap =
+                kids[at].getBoundingClientRect().left -
+                kids[at - 1].getBoundingClientRect().right;
+              // Against the gap the stylesheet writes, not a looser number:
+              // asked at eight, two thirds of a twelve pixel gap could be
+              // deleted and this would still pass.
+              if (gap < 11.5) {
+                bad.push(
+                  `${row.className}: ${kids[at - 1].textContent?.slice(0, 24)} + ${kids[
+                    at
+                  ].textContent?.slice(0, 24)}: ${gap}px`,
+                );
+              }
             }
           }
-        }
-        return bad;
-      });
+          return { bad, looked };
+        });
+        tight.push(...found.bad.map((one) => `${key}: ${one}`));
+        rows += found.looked;
+        await button.first().click();
+      }
+      // What stops a clean sweep over nothing. Every panel is a lazy chunk,
+      // and a version of this that measured before they loaded reported zero
+      // rows in all eleven and passed.
+      expect(rows, "no row was measured in any panel").toBeGreaterThan(20);
       expect(tight, "two runs of text meeting on one line").toEqual([]);
     });
   }
@@ -438,7 +459,10 @@ test.describe("a section heading and the line describing it @ownViewport", () =>
         // asked for one dropped three rows without a word.
         const row = label.closest<HTMLElement>(".settings-section > *");
         if (!row || row.classList.contains("settings-section__title")) continue;
-        const at = Math.round(label.getBoundingClientRect().left);
+        // Not rounded. At 130 per cent text the real edges came out at 5.2,
+        // 6.2 and 12.4, so rounding to whole pixels collapses a ragged column
+        // into a tidy one for exactly the reader who most needs it tidy.
+        const at = label.getBoundingClientRect().left;
         left.set(at, [
           ...(left.get(at) ?? []),
           label.textContent?.slice(0, 20) ?? "",
