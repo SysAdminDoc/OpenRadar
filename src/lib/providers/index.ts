@@ -36,14 +36,21 @@ export const RADAR_PROVIDERS: RadarProvider[] = [
 
 type BudgetKind = "tile" | "discovery";
 
-/** What the Diagnostics panel lists, including sources outside the chain. */
+/**
+ * What the Diagnostics panel lists, including sources outside the chain.
+ *
+ * Names only. Every label a provider brings is the name of the thing and
+ * nothing else, and these two hand-written rows were the only ones carrying
+ * an English common noun after it, which a reader in Spanish or French read
+ * untranslated beside eight proper nouns.
+ */
 export const DIAGNOSTIC_SOURCES: Array<{ id: ProviderId; label: string }> = [
   ...RADAR_PROVIDERS.map((provider) => ({
     id: provider.id,
     label: provider.label,
   })),
-  { id: "hrrr", label: "HRRR forecast" },
-  { id: "level2", label: "NEXRAD Level II live" },
+  { id: "hrrr", label: "HRRR" },
+  { id: "level2", label: "NEXRAD Level II" },
 ];
 
 const budgets = new Map<string, RequestBudget>();

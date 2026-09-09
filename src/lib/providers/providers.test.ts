@@ -3,6 +3,7 @@ import { createRollingRequestBudget } from "./budget";
 import {
   BLANK_TILE_URL,
   coverageKey,
+  DIAGNOSTIC_SOURCES,
   fetchRadarTimeline,
   guardRadarRequest,
   providerChain,
@@ -332,5 +333,22 @@ describe("long time intervals", () => {
     expect(steps.at(-1)?.iso).toBe("2026-08-30T06:00:00.000Z");
     // Eight hours back at two-minute steps, not the first day of the month.
     expect(steps[0].iso).toBe("2026-08-29T22:02:00.000Z");
+  });
+});
+
+describe("what the Diagnostics panel calls a source", () => {
+  it("names each one, in a language nobody has to be reading", () => {
+    // Every label a provider carries is the name of the thing: "NOAA MRMS",
+    // "DWD Radarkomposit", "RainViewer". The two hand-written rows appended
+    // an English word to the name, "HRRR forecast" and "NEXRAD Level II
+    // live", and the panel writes labels through unchanged, so a reader in
+    // Spanish or French had two English phrases sitting in a column of eight
+    // proper nouns. A name needs no catalogue entry; a phrase does.
+    for (const source of DIAGNOSTIC_SOURCES) {
+      const common = source.label
+        .split(" ")
+        .filter((word) => /^[a-z]+$/.test(word));
+      expect(common, `${source.label} is a phrase, not a name`).toEqual([]);
+    }
   });
 });
