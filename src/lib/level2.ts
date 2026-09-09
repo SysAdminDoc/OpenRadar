@@ -598,7 +598,13 @@ export function finestDetailSteps(rangeKm: number, gateKm: number): number {
   if (!real(rangeKm) || !real(gateKm)) return 16;
   const wanted =
     (PIXELS_ACROSS_A_GATE * 2 * rangeKm) / (SWEEP_RASTER_PX * gateKm);
-  return Math.max(1, 2 ** Math.ceil(Math.log2(wanted)));
+  // Bounded at both ends. The gate length arrives as an unchecked number of
+  // metres out of a file header, and a header saying one metre would ask for
+  // four thousand steps, each of them a volume decoded and a 1,024 square
+  // drawn to cover a hundred metres of ground. The deepest any real product
+  // justifies is thirty-two, so this is one step past the furthest honest
+  // answer and a hard stop on a dishonest one.
+  return Math.min(64, Math.max(1, 2 ** Math.ceil(Math.log2(wanted))));
 }
 
 /**
