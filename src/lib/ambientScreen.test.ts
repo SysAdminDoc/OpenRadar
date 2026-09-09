@@ -223,8 +223,14 @@ describe("the sizes the rule is anchored on", () => {
       `no .${selector} rule`;
     const readout = rule("ambient-readout");
     const leave = rule("ambient-readout__leave");
+    // Anchored to the start of a declaration, so `padding-left` cannot answer
+    // for `left` and `line-height` cannot answer for `height`.
     const pixels = (block: string, property: string) =>
-      Number(new RegExp(`${property}:\\s*(\\d+)px`).exec(block)?.[1]);
+      Number(
+        new RegExp(String.raw`(?:^|[;{])\s*${property}:\s*(\d+)px`, "m").exec(
+          block,
+        )?.[1],
+      );
 
     // The corner it sits in, which is the same both ways.
     expect(pixels(readout, "left")).toBe(AMBIENT_INSET_PX);
@@ -233,8 +239,12 @@ describe("the sizes the rule is anchored on", () => {
     expect(pixels(leave, "height") + pixels(leave, "margin-top")).toBe(
       AMBIENT_LEAVE_PX,
     );
-    // And the gaps. Four children in the column, so three of them, whatever
-    // the flex gap is set to.
+    // And the gaps, at the most the column can have. The clock, the place,
+    // the line and the way out is four children and three gaps; the place is
+    // only drawn once the reader has named where they watch, so a fresh
+    // install is three children and two. The larger figure leaves two pixels
+    // unused there and never overruns, which is the direction to be wrong in.
     expect(pixels(readout, "gap") * 3).toBe(AMBIENT_GAPS_PX);
+    expect(AMBIENT_GAPS_PX).toBeGreaterThan(pixels(readout, "gap") * 2);
   });
 });

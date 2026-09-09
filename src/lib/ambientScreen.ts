@@ -157,15 +157,18 @@ export function ambientTypeScale(
   // The gaps between the lines, the way out and the inset do not scale, so
   // they come off the room before the rest is divided by what does.
   //
-  // Divided plainly. Both of these were written `Math.max(1, natural.width)`,
-  // which cannot change any answer this returns: nothing measured yet divides
-  // by zero and comes back `Infinity`, which the minimum below discards, and
-  // a room and a readout both at zero comes back `NaN`, which the last line
-  // already answers. A guard that cannot fire reads as one that can.
-  const across = (room.width - AMBIENT_INSET_PX * 2) / natural.width;
+  // The clamp on the divisor stays. It was taken out once as a guard that
+  // could not fire, and that was wrong: a readout measuring zero on one axis
+  // and something on the other divides a positive room by nothing and comes
+  // back with a number, not `Infinity`, so that axis stops binding at all.
+  // The inputs where it differs need a room narrower than the inset it has to
+  // leave, which no window this draws in is, so nothing was ever wrong. It is
+  // still a clamp rather than a comment about one.
+  const across =
+    (room.width - AMBIENT_INSET_PX * 2) / Math.max(1, natural.width);
   const down =
     (room.height - AMBIENT_INSET_PX - AMBIENT_LEAVE_PX - AMBIENT_GAPS_PX) /
-    natural.height;
+    Math.max(1, natural.height);
   const fits = Math.min(wanted, across, down);
   // Never below the size it was drawn at, and never a number that is not one:
   // a scale of `NaN` reaches the stylesheet as an invalid `calc` and takes
@@ -184,5 +187,13 @@ export function ambientTypeScale(
 export const AMBIENT_INSET_PX = 32;
 /** The way out: 44 pixels of button and the 8 above it. */
 export const AMBIENT_LEAVE_PX = 52;
-/** Three gaps of two, between the clock, the place, the line and the way out. */
+/**
+ * The most gap the column can have: three of two pixels.
+ *
+ * Four children at most, so three gaps at most. The place line is only drawn
+ * when the reader has named the place they watch, and a fresh install has not,
+ * so that column is three children and two gaps. Taking the larger figure off
+ * the room leaves two pixels unused in that case and never overruns, which is
+ * the direction to be wrong in.
+ */
 export const AMBIENT_GAPS_PX = 6;
