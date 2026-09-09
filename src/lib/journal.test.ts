@@ -252,7 +252,10 @@ describe("what opens an entry", () => {
    * here what event it is, in a file the reviewer reads.
    */
   const WRITERS = [
-    "App.tsx",
+    // The sky changing at a watched place. It was in `App.tsx` until
+    // 2026-09-09, and moving it out is why this list names a hook rather
+    // than the workspace: the event is the same one it always was.
+    "hooks/useStationRecord.ts",
     "hooks/useAlertWatch.ts",
     "hooks/useCellJournal.ts",
   ];

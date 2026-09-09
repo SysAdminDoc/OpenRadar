@@ -8,7 +8,6 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { failureSentence } from "./lib/serviceAnswer";
 import type { SurfaceId, ToolMode } from "./components/CommandBar";
 import { MapStage } from "./components/MapStage";
 import { useLatestReply } from "./hooks/useLatestReply";
@@ -20,13 +19,7 @@ import { AmbientReadout } from "./components/AmbientReadout";
 import { useCuriosities } from "./hooks/useCuriosities";
 import type { Curiosity } from "./lib/curiosities";
 import { useAmbient } from "./hooks/useAmbient";
-import {
-  appendJournalRow,
-  journalRows,
-  setJournalWriting,
-  thumbnailFrom,
-} from "./lib/journal";
-import { catchUpFrom, type CatchUp } from "./lib/catchUp";
+import { setJournalWriting, thumbnailFrom } from "./lib/journal";
 import type { MapViewportHandle } from "./components/MapViewport";
 import { CaptureBar } from "./components/CaptureBar";
 import { WorkspaceChrome } from "./components/WorkspaceChrome";
@@ -38,12 +31,11 @@ import {
   useReducedMotion,
   useSecondClock,
 } from "./hooks/useClock";
-import { useExport, type DataExportSource } from "./hooks/useExport";
+import { useExport } from "./hooks/useExport";
 import { useWorkspaceOverlays } from "./hooks/useWorkspaceOverlays";
 import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import { useSettings } from "./hooks/useSettings";
 import { useToasts, UNDO_LIFETIME_MS } from "./hooks/useToasts";
-import type { UndoableRemoval } from "./components/ToastHost";
 import { useAutostart } from "./hooks/useAutostart";
 import { notificationPermission, type NotifyPermission } from "./lib/notify";
 import {
@@ -59,22 +51,24 @@ import {
 } from "./hooks/useLightningWatch";
 import { useAlertSound } from "./hooks/useAlertSound";
 import { useGlanceWindow } from "./hooks/useGlanceWindow";
+import { useWorkspaceReport } from "./hooks/useWorkspaceReport";
+import { useReplayBundles } from "./hooks/useReplayBundles";
+import { useStormTrack } from "./hooks/useStormTrack";
+import { useWallpaper } from "./hooks/useWallpaper";
+import { usePaletteActions } from "./hooks/usePaletteActions";
+import { useNearbyReadout } from "./hooks/useNearbyReadout";
+import { useStationRecord } from "./hooks/useStationRecord";
+import { useCatchUp } from "./hooks/useCatchUp";
 import {
   setCloseToTray,
   setGlanceOnTop,
   setTrayEnabled,
   setTrayCopy,
 } from "./lib/tray";
-import {
-  restoreWallpaper,
-  wallpaperAvailable,
-  wallpaperDue,
-  writeWallpaperIfDue,
-} from "./lib/wallpaper";
 import { useDisplayAwake } from "./hooks/useDisplayAwake";
 import { useWelcomeHint } from "./hooks/useWelcomeHint";
-import { mrmsTimeFor, useMrmsOverlays } from "./hooks/useMrmsOverlays";
-import { COUNTY_VINTAGE, loadCounties } from "./lib/counties";
+import { useMrmsOverlays } from "./hooks/useMrmsOverlays";
+import { loadCounties } from "./lib/counties";
 import { useNativeReports } from "./hooks/useNativeReports";
 import { useLightning } from "./hooks/useLightning";
 import { usePalette } from "./hooks/usePalette";
@@ -92,24 +86,15 @@ import { log, recentLog, subscribeLog } from "./lib/log";
 import type { OverlayBounds, OverlayLegend } from "./lib/overlays";
 import {
   providerHealth,
-  providerIncidents,
   loadProviderIncidents,
   satelliteFrameTime,
   subscribeHealth,
 } from "./lib/providers";
 import { frameAgeMinutes, type RadarFrame } from "./lib/radar";
-import { useMeasurements } from "./lib/units";
 import { watchRingFeatures } from "./lib/ring";
-import {
-  archiveFrames,
-  loadStorm,
-  replayFocus,
-  stormTrack,
-  trackBounds,
-  type Storm,
-} from "./lib/hurdat";
+import type { Storm } from "./lib/hurdat";
 import { basemapCredit, drawnOverLight } from "./lib/mapStyles";
-import { isTdwrStation, supportedProduct } from "./lib/radarKinds";
+import { supportedProduct } from "./lib/radarKinds";
 import { level2Available } from "./lib/level2";
 import { pairingById } from "./lib/alertPairings";
 import { featureBounds } from "./lib/overlays";
@@ -132,20 +117,7 @@ const FOLLOW_QUIET_MS = 20_000;
  * one view.
  */
 const HOME_ZOOM = 7;
-import { dataExportAvailable, exportGridData } from "./lib/dataExport";
-import { domainFor } from "./lib/providers/mrms";
-import {
-  bundleErrorText,
-  bundleMissingNote,
-  bundleReplay,
-  bundlesAvailable,
-  captureReplayBundle,
-  captureRequestFor,
-  closeReplayBundle,
-  openReplayBundle,
-  pickBundleFile,
-} from "./lib/replayBundle";
-import { createWorkspaceBackup, restoreWorkspace } from "./lib/workspaceBackup";
+import { bundlesAvailable } from "./lib/replayBundle";
 import type { ArchiveReplay } from "./hooks/useRadarTimeline";
 import type {
   AppSettings,
@@ -155,12 +127,6 @@ import type {
   RadarSettings,
 } from "./lib/settings";
 import {
-  withPalette,
-  withPaletteAssigned,
-  withoutPalette,
-} from "./lib/palette";
-import {
-  APP_VERSION,
   noteWorkspaceDrawn,
   restoreArrangement,
   settingsRecovery,
@@ -172,34 +138,11 @@ import {
   overlayGates,
   type WorkspaceOverlayFile,
 } from "./lib/workspaceOverlays";
-import {
-  formatNumber,
-  translate,
-  useLanguage,
-  useT,
-  type StringKey,
-} from "./i18n";
+import { translate, useT, type StringKey } from "./i18n";
 import { fetchVwp, vwpAvailable } from "./lib/vwp";
 import type { SpcHazard } from "./lib/overlays/registry";
-import { diagnosticsBlock, issueUrl } from "./lib/diagnostics";
 import { OVERLAY_ADAPTERS } from "./lib/overlays";
-import { saveFile } from "./lib/saveFile";
-import {
-  overlayProvenance,
-  timelineProvenance,
-  type Provenance,
-} from "./lib/provenance";
-import { LAYER_SOURCES, layerProvenance } from "./lib/layerProvenance";
 
-/**
- * The layer switches whose records come from the overlay adapters instead.
- *
- * Both lists are complete, so anything here would otherwise be reported twice
- * under two slightly different names.
- */
-const COVERED_BY_ADAPTERS = new Set(
-  OVERLAY_ADAPTERS.map((adapter) => adapter.id as string),
-);
 import { useStormCells } from "./hooks/useStormCells";
 import type { CellReport } from "./lib/cells";
 import { useCellJournal } from "./hooks/useCellJournal";
@@ -211,17 +154,10 @@ import {
   forecastSmokeCorners,
   forecastSmokeValid,
 } from "./lib/forecastSmoke";
-import { nearbyCells, nearbySummary, warningsOver } from "./lib/nearby";
-import {
-  activePalettes,
-  type Palette,
-  paletteUnit,
-  writePalette,
-} from "./lib/palette";
+import { activePalettes } from "./lib/palette";
 import { METAR_MIN_ZOOM } from "./lib/overlays/metar";
 import { GAUGE_MIN_ZOOM } from "./lib/overlays/rivers";
 import { useProbSevere } from "./hooks/useProbSevere";
-import { gpuSupport } from "./lib/gpu";
 import { NoGpu } from "./components/NoGpu";
 import { useOfflineSince } from "./hooks/useOffline";
 import { useStateNotices } from "./hooks/useStateNotices";
@@ -231,18 +167,9 @@ const PanelSurfaces = lazy(async () => {
   return { default: module.PanelSurfaces };
 });
 
-/**
- * How often the app writes down that it is still running.
- *
- * Read on the next launch to work out how long it was away, and compared
- * against a four-hour threshold, so five minutes of slack costs nothing and
- * saves fifty-five settings writes an hour.
- */
 /** One list rather than a fresh one each render, so nothing downstream of
     an export re-arms on a picture nobody asked to be keyed. */
 const EMPTY_KEYS: OverlayLegend[] = [];
-
-const LAST_SEEN_EVERY_MS = 5 * 60_000;
 
 export default function App() {
   const t = useT();
@@ -609,7 +536,6 @@ export default function App() {
   });
 
   // One token per effect run, so an answer that arrives after a newer
-  const latestWallpaper = useLatestReply();
 
   const journalFrame = useCallback(async () => {
     const canvas = mapRef.current?.canvas();
@@ -704,55 +630,14 @@ export default function App() {
   // of it is the motion.
   const revealing = hydrated && !settings.seenReveal && !reducedMotion;
 
-  // What the weather did at the reader's places while the app was closed.
-  //
-  // The gap is measured from the last time the app was running, which is read
-  // once, at hydration, before the clock below starts writing it again. Read
-  // out of the record on the disk: nothing is fetched to answer this, so it
-  // cannot claim a warning stood somewhere it did not.
-  const [catchUp, setCatchUp] = useState<CatchUp | null>(null);
-  const [catchUpGone, setCatchUpGone] = useState(false);
-  const awaySince = useRef<number | null>(null);
-  useEffect(() => {
-    if (!hydrated || awaySince.current !== null) return;
-    awaySince.current = settingsRef.current.lastSeen;
-    if (!settingsRef.current.catchUp) return;
-    const since = awaySince.current;
-    void journalRows()
-      .then((rows) => {
-        setCatchUp(catchUpFrom(rows, since, Date.now()));
-      })
-      .catch((failure: unknown) => {
-        // A record that cannot be read is a launch with nothing to catch up
-        // on, which is what a reader who has no record sees anyway. Left
-        // uncaught it was an unhandled rejection with no card and no line.
-        log.warn(
-          "catch-up",
-          failure instanceof Error ? failure.message : String(failure),
-        );
-      });
-  }, [hydrated, settingsRef]);
-
-  // Written while the window is open rather than on the way out. A process
-  // that is killed, crashes or loses power never runs its closing code, and a
-  // summary that only survives a tidy exit is missing exactly when somebody
-  // wants it. The clock ticks once a minute, so this costs one settings write
-  // a minute, which is what the workspace already does.
-  const lastSeenRef = useRef(0);
-  useEffect(() => {
-    if (!hydrated) return;
-    const now = Date.now();
-    // Every five minutes rather than every tick. A settings write replaces the
-    // settings object, which wakes every memo and effect in the workspace that
-    // is keyed on it, and doing that sixty times an hour for the life of the
-    // process is a lot of work to record a figure that is compared against a
-    // four-hour threshold.
-    if (now - lastSeenRef.current < LAST_SEEN_EVERY_MS) return;
-    lastSeenRef.current = now;
-    applySettings({ ...settingsRef.current, lastSeen: now });
-    // `clock` is what makes this run again; nothing else here changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clock, hydrated]);
+  // What the weather did at the reader's places while the app was closed,
+  // and the mark that says when it was last running.
+  const { catchUp, dismissCatchUp } = useCatchUp({
+    hydrated,
+    clock,
+    settingsRef,
+    onSettings: applySettings,
+  });
   // Stable, or the effect that owns the sweep's timer restarts on every
   // render of the app and the flag is never written.
   const markRevealSeen = useCallback(() => {
@@ -783,39 +668,14 @@ export default function App() {
     }
   }, [ambient.seen, overlays.alertActive]);
 
-  // What the station said, into the reader's own record, when it changes.
-  //
-  // The station near a watched place is the only observation this app takes
-  // of somewhere the reader named, and it is taken only while the weather on
-  // the chrome is switched on. One row per change rather than one per poll: a
-  // record of six identical rows an hour is a record nobody reads.
-  //
-  // The key is the place, the station and the reading together, and it is not
-  // cleared when the reading goes away: alt-tabbing clears what the hook is
-  // holding, and resetting on that wrote a fresh identical row every time the
-  // window came back. Renaming home or moving the watch does change it, which
-  // is right, because that is a different place being observed.
-  const lastRecorded = useRef<string | null>(null);
-  useEffect(() => {
-    const home = settings.watch.name?.trim();
-    if (!settings.watch.enabled || !home || !ambient.seen) return;
-    const { condition, station, observed } = ambient.seen;
-    const key = `${home}|${station}|${condition}`;
-    if (lastRecorded.current === key) return;
-    lastRecorded.current = key;
-    void appendJournalRow(
-      {
-        at: new Date().toISOString(),
-        place: home,
-        kind: "observation",
-        source: station,
-        observed: new Date(observed).toISOString(),
-        obtained: translate("journal.obtainedStation"),
-        text: translate(`opening.${condition}`),
-      },
-      journalFrame,
-    );
-  }, [ambient.seen, journalFrame, settings.watch.enabled, settings.watch.name]);
+  // What the station near a watched place said, into the reader's own
+  // record, when it changes.
+  useStationRecord({
+    place: settings.watch.name?.trim(),
+    watching: settings.watch.enabled,
+    ambient,
+    journalFrame,
+  });
 
   // One line, once a year, the first time a pack is on screen. It carries the
   // way to send that occasion away until next year; the switch that ends them
@@ -1244,252 +1104,37 @@ export default function App() {
     [overlayFiles, gateZoom, gateMinute],
   );
 
-  // What is drawn right now that has numbers behind it: the sweep, and every
-  // grid on the map. A grid is cut to the view rather than written whole,
-  // because the whole of one is a continent and nobody asked for a continent.
-  const dataSources = useMemo(() => {
-    if (!dataExportAvailable()) return [];
-    const offers: DataExportSource[] = [];
-    if (singleSite.exportValues) {
-      const write = singleSite.exportValues;
-      offers.push({
-        id: "sweep",
-        label: singleSite.sweep?.product ?? t("export.dataRadar"),
-        // Named for the sweep on screen, and the hook sends that sweep's own
-        // product rather than the setting, so a switch still in flight cannot
-        // label one product and write another.
-        format: "csv",
-        // A sweep is a fan around its site rather than a rectangle, so the
-        // view has nothing to say about which gates are in it.
-        run: () => write(),
-      });
-    }
-    // The object the picture was decoded from, beside the readings taken out
-    // of it. A CSV is this app's account of the volume; the volume is what
-    // another tool reopens, and it is the same file the bucket published.
-    if (singleSite.saveVolume) {
-      const save = singleSite.saveVolume;
-      offers.push({
-        id: "volume",
-        label: t("export.dataVolume"),
-        // From the sweep rather than from the site the map is parked on. The
-        // two differ while a reader looks at an archive volume from somewhere
-        // else, and the native side names the file from the sweep: reading
-        // the map's station put `nids` on a button that writes an `.ar2v`.
-        format: isTdwrStation(singleSite.sweep?.station ?? null)
-          ? "nids"
-          : "ar2v",
-        // Nothing is read out of it, so the toast says its size rather than
-        // counting readings that were never taken.
-        verbatim: true,
-        run: () => save(),
-      });
-    }
-    // The picture on the map is a grid too when MRMS is drawing it, and it is
-    // the one a reader is most likely to want the numbers behind.
-    const frame = frames[frameIndex];
-    if (frame?.providerId === "mrms") {
-      offers.push({
-        id: "grid:composite",
-        label: t("export.dataComposite"),
-        format: "tif",
-        run: (view) =>
-          view
-            ? exportGridData({
-                product: "composite",
-                time: frame.time,
-                domain:
-                  domainFor([
-                    (view.west + view.east) / 2,
-                    (view.south + view.north) / 2,
-                  ])?.id ?? null,
-                west: view.west,
-                south: view.south,
-                east: view.east,
-                north: view.north,
-              })
-            : Promise.reject(new Error(t("export.dataNoView"))),
-      });
-    }
-    for (const layer of mrms.layers) {
-      offers.push({
-        id: `grid:${layer.product}`,
-        label: t(layer.labelKey),
-        format: "tif",
-        // Cut to the view at the moment the button is pressed. The whole of
-        // one of these grids is a continent, and nobody asked for a continent.
-        run: (view) =>
-          view
-            ? exportGridData({
-                product: layer.product,
-                time: layer.time,
-                west: view.west,
-                south: view.south,
-                east: view.east,
-                north: view.north,
-              })
-            : Promise.reject(new Error(t("export.dataNoView"))),
-      });
-    }
-    return offers;
-    // Through `t` rather than the module's own translate, so the list is
-    // built again when the language changes: it is built once otherwise, and
-    // a switch mid-session left these labels in the language before it.
-  }, [
-    frameIndex,
-    frames,
-    mrms.layers,
-    singleSite.exportValues,
-    singleSite.saveVolume,
-    singleSite.sweep?.product,
-    singleSite.sweep?.station,
-    t,
-  ]);
-
-  /**
-   * Every layer drawn over the radar right now, each saying where it came
-   * from and what it claims.
-   *
-   * Only what is both switched on and holding data, because a record for
-   * something the reader cannot see would describe a different picture from
-   * the one they are looking at.
-   *
-   * Two surfaces need this and only the diagnostics block had it. An
-   * exported picture credits the basemap and the radar out of its own
-   * records, so one made with the warnings, the outlooks or the smoke
-   * analysis over the radar said nothing about any of them, on the one
-   * artefact that leaves the machine and reaches somebody who cannot check
-   * it. The map's own attribution control has always credited them, which is
-   * what made that easy to miss.
-   *
-   * The radar frame is not in here. Diagnostics puts its own in front of
-   * these and an export already carries one record per frame.
-   */
-  const drawnOverlays = useCallback(
-    (now: number): Provenance[] => {
-      const layers: Provenance[] = [];
-      for (const adapter of OVERLAY_ADAPTERS) {
-        const state = overlays.states[adapter.id];
-        if (!overlays.data[adapter.id] || !state?.fetchedAt) continue;
-        // The analysis comes off the map while the model's smoke has it, and
-        // a record of a layer that is not drawn describes a picture the
-        // reader cannot see.
-        if (adapter.id === "smoke" && drawnForecastSmoke) continue;
-        // The adapter knows how to fetch itself; the table knows what kind of
-        // statement it makes, and three of these are forecasts rather than
-        // observations.
-        const described = Object.values(LAYER_SOURCES).find(
-          (source) => source.sourceId === adapter.id,
-        );
-        layers.push(
-          overlayProvenance({
-            adapter,
-            fetchedAt: state.fetchedAt,
-            kind: described?.kind,
-            // A derived layer has to say what was done to it, and the ledger
-            // beside the switch is where that sentence is written. Leaving it
-            // behind made the record malformed rather than incomplete, which
-            // suppressed the source, the credit and the times as well.
-            derivedFrom: described?.derivedFrom,
-          }),
-        );
-      }
-
-      // Everything else the reader can switch on. The overlay adapters above
-      // already speak for themselves, so this covers the rest: the locally
-      // decoded grids, both lightning layers, wind, satellite, and the two
-      // products the radar's own algorithms derive.
-      //
-      // Each takes the best time the app actually has for it. An MRMS grid knows
-      // when it was valid and a lightning window knows when it was observed;
-      // where nothing is known the record says it was fetched now, which is true
-      // and claims nothing more.
-
-      for (const [key, on] of Object.entries(settings.layers)) {
-        // Named rather than `typeof settings.layers`, which reads as a use of
-        // the whole settings object and puts it in this callback's
-        // dependencies, rebuilding it on every unrelated preference.
-        const layer = key as keyof LayerSettings;
-        if (!on) continue;
-        // Switched on is not the same as drawing. A record for a layer that
-        // fetched nothing describes a picture the reader cannot see, which is
-        // the opposite of what a report about the picture is for.
-        if (layer === "wind" && !wind.field) continue;
-        if (layer === "lightningFlashes" && !lightning.window) continue;
-        if (layer === "classification" && !classification.report) continue;
-        if (layer === "forecastSmoke" && !forecastSmoke.field) continue;
-        const source = LAYER_SOURCES[layer];
-        // Matched on the source rather than on the switch's own name, because
-        // the two do not agree: the alerts adapter is `alerts` and the switch
-        // that draws it is `weatherAlerts`. Comparing the names would have let
-        // that one layer be reported twice under both.
-        if (COVERED_BY_ADAPTERS.has(source.sourceId)) continue;
-        // Reference geography with a vintage rather than a moment. Left to
-        // fall through it reported the Census boundaries as observed this
-        // instant, which is a freshness claim about something that has not
-        // moved since 2024.
-        if (layer === "counties" && !countiesDrawn) continue;
-        const observedAt =
-          (layer === "counties" ? COUNTY_VINTAGE : undefined) ??
-          mrmsTimeFor(mrms.layers, layer, mrmsChoices) ??
-          (layer === "lightningFlashes"
-            ? // The flash window carries seconds, like the radar frames and
-              // unlike everything in a record. Passed straight through it dated
-              // every lightning layer to 1970.
-              lightning.window
-              ? lightning.window.observed * 1000
-              : null
-            : layer === "classification" && classification.report
-              ? Date.parse(classification.report.observed)
-              : null);
-        // The wind layer is the one forecast here whose run the app already
-        // reads, so it can report a real one rather than saying it does not know.
-        const modelRun =
-          layer === "wind" && wind.field
-            ? {
-                initUtc: wind.field.init,
-                leadMinutes: wind.field.leadHours * 60,
-              }
-            : layer === "forecastSmoke" && forecastSmoke.field
-              ? {
-                  initUtc: forecastSmoke.field.init,
-                  leadMinutes: forecastSmoke.field.leadHours * 60,
-                }
-              : undefined;
-        // The smoke names the hour it is for; the wind's hour is worked
-        // forward from now because the field is the run's own analysis.
-        const validAt =
-          layer === "forecastSmoke" && forecastSmoke.field
-            ? Date.parse(forecastSmoke.field.valid)
-            : modelRun
-              ? now + modelRun.leadMinutes * 60_000
-              : (observedAt ?? now);
-        layers.push(
-          layerProvenance({
-            layer,
-            fetchedAt: now,
-            observedAt: observedAt ?? now,
-            validAt,
-            modelRun,
-          }),
-        );
-      }
-      return layers;
-    },
-    [
-      classification.report,
-      countiesDrawn,
-      drawnForecastSmoke,
-      forecastSmoke.field,
-      lightning.window,
-      mrms.layers,
+  // What the workspace can say about itself: the grids and sweeps that
+  // have numbers behind them, the layers actually drawn and where each
+  // came from, and the block a reader copies when something is wrong.
+  const { dataSources, drawnOverlays, copyDiagnostics, reportIssue } =
+    useWorkspaceReport({
+      frames,
+      frameIndex,
+      singleSite,
+      mrms,
       mrmsChoices,
-      overlays.data,
-      overlays.states,
-      settings.layers,
-      wind.field,
-    ],
-  );
+      overlays,
+      settings,
+      classification,
+      forecastSmoke,
+      drawnForecastSmoke,
+      lightning,
+      wind,
+      countiesDrawn,
+      timeline,
+      health,
+      logEntries,
+      mapStatus,
+      notifications,
+      autostart,
+      lastCrash,
+      lastWebviewCrash,
+      webviewRuntime,
+      settingsRef,
+      pushToast,
+      t,
+    });
 
   const exportState = useExport({
     mapRef,
@@ -1539,91 +1184,15 @@ export default function App() {
     pushToast,
   });
 
-  /**
-   * The current view on the desktop, on the gap the reader chose.
-   *
-   * The same composed still the export writes, so the picture on the desktop
-   * carries the frame time, the source credits and its own age exactly as a
-   * saved one does. It writes nothing when there is no frame to draw or the
-   * map has not come up: a wallpaper of an empty map is worse than the one
-   * that is already there.
-   */
-  const wallpaperAt = useRef(0);
-  const wallpaperBusy = useRef(false);
-  // Asked once. Whether this machine can have its wallpaper set does not
-  // change while the app is running, and without the question a settings file
-  // carried over from a Windows machine has a Mac writing a picture nothing
-  // can apply, every hour, for ever.
-  const [wallpaperOk, setWallpaperOk] = useState(false);
-  useEffect(() => {
-    const reply = latestWallpaper();
-    void wallpaperAvailable().then((ok) => {
-      if (reply.current()) setWallpaperOk(ok);
-    });
-    return reply.close;
-  }, [latestWallpaper]);
-  const { writeWallpaper } = exportState;
-  useEffect(() => {
-    if (!wallpaperOk || wallpaperBusy.current) return;
-    if (!wallpaperDue(settings.wallpaperMinutes, wallpaperAt.current, clock)) {
-      return;
-    }
-    wallpaperBusy.current = true;
-    void (async () => {
-      try {
-        wallpaperAt.current = await writeWallpaperIfDue({
-          everyMinutes: settings.wallpaperMinutes,
-          lastAt: wallpaperAt.current,
-          now: clock,
-          write: writeWallpaper,
-          onFailure: (failure) => {
-            // Said out loud rather than leaving a stale picture up and saying
-            // nothing. The log gets the reason, which comes from the
-            // operating system and is in English; the reader gets their own
-            // words.
-            log.warn(
-              "wallpaper",
-              failure instanceof Error
-                ? failure.message
-                : "It was not written.",
-            );
-            pushToast({
-              title: translate("wallpaper.failed"),
-              detail: translate("wallpaper.failedDetail"),
-            });
-          },
-        });
-      } finally {
-        wallpaperBusy.current = false;
-      }
-    })();
-    // `clock` and the arrival of frames are what make this run again. The
-    // second one matters on a cold start: the clock ticks once a minute, and
-    // without it a launch that had nothing to draw waited a whole minute
-    // after the first frames landed before trying again.
-    // `exportState` is a fresh object every render, so the callback is
-    // depended on rather than the whole of it.
-  }, [
+  // The view on the desktop, on the gap the reader chose, and putting back
+  // whatever was there when they switch it off.
+  useWallpaper({
+    every: settings.wallpaperMinutes,
     clock,
-    frames.length,
+    frameCount: frames.length,
+    writeWallpaper: exportState.writeWallpaper,
     pushToast,
-    settings.wallpaperMinutes,
-    wallpaperOk,
-    writeWallpaper,
-  ]);
-
-  // Switched off puts the reader's own wallpaper back, which is the whole
-  // reason this is safe to have at all.
-  const hadWallpaper = useRef(false);
-  useEffect(() => {
-    if (settings.wallpaperMinutes > 0) {
-      hadWallpaper.current = true;
-      return;
-    }
-    if (!hadWallpaper.current) return;
-    hadWallpaper.current = false;
-    void restoreWallpaper();
-  }, [settings.wallpaperMinutes]);
+  });
 
   // The flight happens here rather than where the alert is announced, because
   // the watch speaks the moment it sees a warning and the polygon it is about
@@ -1801,20 +1370,18 @@ export default function App() {
     }
   }, []);
 
-  // The labels on the points are the reader's own words now, not the
-  // archive's codes, so this has to be rebuilt when the language changes.
-  // Keyed on the storm alone it was correct while the label was "TS 65 kt"
-  // and wrong the moment it became a sentence: every panel turned French and
-  // the points on the map stayed English until the storm was picked again.
-  const spoken = useLanguage();
-  const stormTrackData = useMemo(
-    () => (historyStorm ? stormTrack(historyStorm) : null),
-    // `spoken` reads as unused because `stormTrack` reaches the catalogue
-    // through the module rather than through an argument. It is the reason
-    // this is rebuilt at all.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [historyStorm, spoken],
-  );
+  // A storm out of the archive: its track drawn as points, and the two
+  // ways of arriving at one. Picking it frames the whole track; replaying
+  // it goes to the moment the radar is about, which is a much tighter view.
+  const { stormTrackData, showStorm, showStormById, replayStorm } =
+    useStormTrack({
+      historyStorm,
+      setHistoryStorm,
+      setReplay,
+      mapRef,
+      setActiveSurface,
+      pushToast,
+    });
 
   /**
    * Escape, from anywhere the panel did not already handle it.
@@ -1890,499 +1457,33 @@ export default function App() {
     push: pushToast,
   });
 
-  // Picking a storm frames its whole track; replaying one goes to the moment
-  // the radar is about, which is a much tighter view.
-  const showStorm = useCallback((storm: Storm | null) => {
-    setHistoryStorm(storm);
-    setReplay(null);
-    if (storm) mapRef.current?.fitBounds(trackBounds(storm.track));
-  }, []);
-
-  /**
-   * A storm chosen by name in the search.
-   *
-   * The track is loaded here and handed to the same place a Storm history
-   * result goes, so the track is drawn and the replay is offered exactly
-   * where the archive reaches. A name the record does not hold, or a decade
-   * file that will not load, leaves the workspace as it was and says so.
-   */
-  const showStormById = useCallback(
-    (id: string) => {
-      void loadStorm(id)
-        .then((storm) => {
-          showStorm(storm);
-          setActiveSurface("history");
-        })
-        .catch((failure: unknown) =>
-          pushToast({
-            title: translate("history.unknownStorm"),
-            detail: failureSentence(failure, translate("history.unknownStorm")),
-          }),
-        );
-    },
-    [pushToast, showStorm],
-  );
-
-  const replayStorm = useCallback(
-    (storm: Storm) => {
-      const frames = archiveFrames(storm);
-      const focus = replayFocus(storm);
-      if (!frames.length || !focus) return;
-      setHistoryStorm(storm);
-      setReplay({
-        id: storm.id,
-        label: translate("radar.archive"),
-        attributionUrl: "https://mesonet.agron.iastate.edu/",
-        frames,
-        focusTime: focus.point[0],
-      });
-      mapRef.current?.flyTo({
-        center: [focus.point[2], focus.point[1]],
-        zoom: 7,
-        bearing: 0,
-        pitch: 0,
-      });
-      pushToast({
-        title: translate("replay.title", {
-          name: storm.name,
-          year: storm.year,
-        }),
-        detail: translate(
-          focus.landfall ? "replay.atLandfall" : "replay.atClosest",
-        ),
-      });
-    },
-    [pushToast],
-  );
-
-  // There is no tracker to round-trip through, so the first message somebody
-  // sends about a problem has to carry enough to work with. Everything in the
-  // block goes through the redaction: a radar workspace knows where its reader
-  // lives to four decimal places, and their account name from every path it
-  // has ever logged.
-  const copyDiagnostics = useCallback(
-    (withPlace: boolean) => {
-      const now = Date.now();
-      // What is actually on the map right now, each layer saying where it came
-      // from and what it claims. Only the frame on screen and the overlays that
-      // are both switched on and holding data, because a record for something
-      // the reader cannot see would be describing a different picture from the
-      // one they are writing about.
-      const layers: Provenance[] = [];
-      const shown = timelineProvenance({
-        frames: timeline.frames,
-        frameIndex: timeline.frameIndex,
-        provider: timeline.source,
-        fetchedAt: timeline.fetchedAt,
-        cachedAgeSeconds: timeline.cachedAgeSeconds,
-      });
-      if (shown) layers.push(shown);
-      layers.push(...drawnOverlays(now));
-      const packs = settingsRef.current.incidentPacks;
-      const block = diagnosticsBlock({
-        lastCrash,
-        lastWebviewCrash,
-        webviewRuntime,
-        renderer: gpuSupport().renderer,
-        mapReady: mapStatus === "ready",
-        radarReady: timeline.frames.length > 0,
-        activeSource: timeline.sourceLabel,
-        health,
-        incidents: providerIncidents(),
-        log: logEntries,
-        layers,
-        now,
-        cache: {
-          servedAgeSeconds: timeline.cachedAgeSeconds,
-          packs: packs.references.length,
-          packBytes: packs.references.reduce(
-            (total, pack) => total + pack.bytes,
-            0,
-          ),
-          selectedPack: packs.selectedId !== null,
-          packLimitMb: packs.diskLimitMb,
-        },
-        notifications,
-        startsWithMachine: autostart.on,
-        // Only when the reader ticked the box beside the button, and only when
-        // there is a watched place at all.
-        place:
-          withPlace && settingsRef.current.watch.enabled
-            ? {
-                label: translate("diagnostics.watchedPlace"),
-                longitude: settingsRef.current.watch.center[0],
-                latitude: settingsRef.current.watch.center[1],
-              }
-            : null,
-      });
-      void (async () => {
-        try {
-          await navigator.clipboard.writeText(block);
-          pushToast({
-            title: translate("diagnostics.copied"),
-            detail: translate("diagnostics.copiedBody"),
-          });
-        } catch {
-          // A clipboard can be refused: no permission, no focus, no clipboard.
-          // Saying where the same text lives is better than saying nothing.
-          pushToast({
-            title: translate("diagnostics.copyFailed"),
-            detail: translate("diagnostics.copyFailedBody"),
-          });
-        }
-      })();
-    },
-    [
-      autostart.on,
-      notifications,
-      drawnOverlays,
-      lastCrash,
-      lastWebviewCrash,
-      webviewRuntime,
-      health,
-      logEntries,
+  // What a reader can do with a colour table: send it back out as the file
+  // it came in as, take it off the shelf with a way back, and put one in
+  // force for a unit.
+  const { exportPalette, removePalette, assignPalette, offerUndo } =
+    usePaletteActions({
       settingsRef,
-      mapStatus,
+      onSettings: applySettings,
       pushToast,
-      timeline,
-    ],
-  );
-
-  // A table back out as the file it came in as. Colour tables are what
-  // this hobby actually shares, and one tuned here used to live and die
-  // inside the settings file.
-  const exportPalette = useCallback(
-    (palette: Palette) => {
-      const name = `${palette.name.replace(/\.pal$/i, "")}.pal`;
-      void saveFile(name, new Blob([writePalette(palette)]))
-        .then((saved) => {
-          // Where it landed, the way every other export says it. `saveFile`
-          // answers with a record rather than a flag, so testing the record
-          // itself only ever asked whether an object is an object.
-          pushToast({
-            title: translate("upload.paletteSaved", { name }),
-            detail: saved.path ?? translate("toast.settingsSavedBody"),
-          });
-        })
-        .catch((failure: unknown) => {
-          pushToast({
-            title: translate("upload.paletteNotSaved"),
-            detail: failureSentence(
-              failure,
-              translate("upload.paletteNotSaved"),
-            ),
-          });
-        });
-    },
-    [pushToast],
-  );
-
-  // Copy the block, then open the form. The block goes on the clipboard
-  // rather than into the address, because a GitHub issue URL is a GET: its
-  // query travels through history and every hop between here and there,
-  // and this one would be carrying the renderer, the sources and forty
-  // lines of log. It is also far past the length several browsers will
-  // open.
-  const reportIssue = useCallback(
-    (withPlace: boolean) => {
-      copyDiagnostics(withPlace);
-      void import("@tauri-apps/plugin-opener")
-        .then((opener) => opener.openUrl(issueUrl(APP_VERSION)))
-        .catch(() => {
-          // A build with no bridge to a browser still has the block on the
-          // clipboard, which is the half that cannot be done by hand.
-          pushToast({
-            title: translate("diagnostics.reportFailed"),
-            detail: translate("diagnostics.reportFailedDetail"),
-          });
-        });
-    },
-    [copyDiagnostics, pushToast],
-  );
-
-  // Loading a colour table is work: a file found, opened and dropped on the
-  // window. Removing one was the action that threw that away with nothing to
-  // say so and no way back.
-  const removePalette = useCallback(
-    (name: string) => {
-      const previous = settingsRef.current;
-      const found = previous.palettes.find((held) => held.name === name);
-      if (!found) return;
-      // Which unit it was in force for, if any, so the undo can put it back
-      // there and the toast can say what actually changed on the map.
-      const heldUnit = Object.entries(previous.paletteAssignments).find(
-        ([, assigned]) => assigned === name,
-      )?.[0];
-      applySettings(withoutPalette(previous, name));
-      pushToast({
-        title: translate("toast.paletteCleared"),
-        // Only claim the fallback when there was something to fall back from.
-        // A table sitting on the shelf, in force for nothing, changes no
-        // picture when it goes.
-        detail: heldUnit
-          ? translate("toast.paletteClearedBody", { name })
-          : translate("toast.paletteShelvedBody", { name }),
-        actionLabel: translate("toast.undo"),
-        // Only this table, put back where it was. Restoring the whole
-        // snapshot would undo anything else the reader did in between: remove
-        // A, remove B, undo A, and B came back too.
-        onAction: () => {
-          const now = settingsRef.current;
-          const back = withPalette(now, found);
-          if (!back) return;
-          applySettings(
-            heldUnit
-              ? back
-              : withPaletteAssigned(
-                  back,
-                  paletteUnit(found),
-                  now.paletteAssignments[paletteUnit(found).toLowerCase()] ??
-                    null,
-                ),
-          );
-        },
-      });
-    },
-    [applySettings, pushToast, settingsRef],
-  );
-
-  /**
-   * The way back from a removal a panel made, as a held toast.
-   *
-   * The panel knows what went and what to call it; the window is the same one
-   * a cleared record gets, because the presses this covers all throw away
-   * something the reader made or downloaded rather than a preference.
-   */
-  const offerUndo = useCallback(
-    (removal: UndoableRemoval) => {
-      pushToast({
-        title: removal.title,
-        detail: removal.detail,
-        actionLabel: translate("toast.undo"),
-        onAction: removal.undo,
-        lifetimeMs: UNDO_LIFETIME_MS,
-      });
-    },
-    [pushToast],
-  );
-
-  const assignPalette = useCallback(
-    (unit: string, name: string | null) => {
-      applySettings(withPaletteAssigned(settingsRef.current, unit, name));
-    },
-    [applySettings, settingsRef],
-  );
+    });
 
   // Finding a storm in the archive takes a search and a choice, and stopping
   // the replay put the reader back at the start of both.
-  // An open bundle answers for its own addresses ahead of the network, so
-  // leaving its replay has to close it however the reader left: stopping,
-  // picking a storm, opening another bundle. Tied to the replay itself rather
-  // than to the one button that used to do it, because every other route out
-  // left up to 256 MB in memory answering for tiles nobody was replaying.
-  const openBundleRef = useRef<string | null>(null);
-  useEffect(() => {
-    const now = replay?.id.startsWith("bundle:") ? replay.id : null;
-    if (openBundleRef.current && openBundleRef.current !== now) {
-      void closeReplayBundle();
-    }
-    openBundleRef.current = now;
-  }, [replay]);
-
-  const stopReplay = useCallback(() => {
-    setReplay(null);
-    if (!replay) return;
-    // A replay drawn from a bundle cannot be put back from a toast: its bytes
-    // are in a file that would have to be opened again.
-    if (replay.id.startsWith("bundle:")) {
-      pushToast({
-        title: translate("toast.replayStopped"),
-        detail: translate("toast.replayStoppedBody"),
-      });
-      return;
-    }
-    pushToast({
-      title: translate("toast.replayStopped"),
-      detail: translate("toast.replayStoppedBody"),
-      actionLabel: translate("toast.undo"),
-      onAction: () => setReplay(replay),
-    });
-    // Depends on the replay itself rather than a ref read during render, which
-    // React refuses. It changes when a storm is chosen, which is rare.
-  }, [pushToast, replay]);
-
-  // One file that keeps this replay's frames and warnings byte for byte,
-  // written natively into the export folder. The reader's workspace goes in
-  // only when they ticked the box.
-  const saveReplayBundle = useCallback(
-    async (includeWorkspace: boolean) => {
-      if (!replay) return;
-      const bounds = mapRef.current?.bounds();
-      const camera = mapRef.current?.camera() ?? settingsRef.current.camera;
-      if (!bounds) {
-        pushToast({
-          title: translate("toast.bundleFailed"),
-          detail: translate("bundle.error.noView"),
-        });
-        return;
-      }
-      const request = captureRequestFor({
-        replay,
-        storm: historyStorm,
-        bounds,
-        camera,
-        workspace: includeWorkspace
-          ? createWorkspaceBackup(settingsRef.current, overlayFiles)
-          : null,
-      });
-      if (!request) return;
-      pushToast({ title: translate("toast.bundleSaving") });
-      try {
-        const report = await captureReplayBundle(request);
-        const notes = [
-          translate("toast.bundleSavedBody", {
-            entries: report.entries,
-            size: formatNumber(report.bytes / 1_048_576, 1),
-            path: report.path,
-          }),
-        ];
-        if (report.missing.length) {
-          notes.push(
-            translate("toast.bundleMissing", { count: report.missing.length }),
-          );
-        }
-        pushToast({
-          title: translate("toast.bundleSaved"),
-          detail: notes.join(" "),
-        });
-      } catch (failure: unknown) {
-        pushToast({
-          title: translate("toast.bundleFailed"),
-          detail: bundleErrorText(failure),
-        });
-      }
-    },
-    [historyStorm, overlayFiles, pushToast, replay, settingsRef],
-  );
-
-  // A bundle's workspace is somebody's home and watched places. It is applied
-  // on this and never on opening the bundle.
-  const applyBundledWorkspace = useCallback(
-    (value: unknown) => {
-      // Somebody else's home, watched places and saved views, out of a file
-      // that was sent to this reader. It gets exactly what a workspace file
-      // gets: a note when it is only a partial restore, and an undo.
-      const previous = settingsRef.current;
-      const previousOverlay = overlayFiles;
-      try {
-        const restored = restoreWorkspace(value);
-        applySettings(restored.settings);
-        setOverlayFiles(restored.overlayFiles);
-        mapRef.current?.flyTo(restored.settings.camera);
-        const notes: string[] = [];
-        if (restored.fromNewerBuild) {
-          notes.push(translate("toast.settingsFromNewer"));
-        }
-        if (restored.unread.length) {
-          notes.push(
-            translate("toast.settingsUnread", {
-              names: restored.unread.join(", "),
-            }),
-          );
-        }
-        pushToast({
-          title: translate(
-            notes.length
-              ? "toast.bundleWorkspacePartly"
-              : "toast.bundleWorkspaceApplied",
-          ),
-          detail: notes.length ? notes.join(" ") : undefined,
-          actionLabel: translate("toast.undo"),
-          onAction: () => {
-            applySettings(previous);
-            setOverlayFiles(previousOverlay);
-            mapRef.current?.flyTo(previous.camera);
-          },
-        });
-      } catch {
-        pushToast({
-          title: translate("toast.workspaceInvalidTitle"),
-          detail: translate("toast.workspaceInvalid"),
-        });
-      }
-    },
-    [applySettings, overlayFiles, pushToast, settingsRef],
-  );
-
-  // A bundle is opened through the operating system's picker, so its bytes
-  // never cross into the page: the native side reads and checks the file and
-  // answers with what it holds. Nothing here changes until it has.
-  const openBundle = useCallback(async () => {
-    try {
-      const path = await pickBundleFile();
-      if (!path) return;
-      const manifest = await openReplayBundle(path);
-      const next = bundleReplay(manifest);
-      if (!next) {
-        // Opening replaced whatever bundle was already answering, so the one
-        // before this is gone whether or not this one is usable. Say so and
-        // put the map back on live radar rather than leaving a replay whose
-        // frames now quietly come off the network.
-        await closeReplayBundle();
-        const wasBundled = openBundleRef.current !== null;
-        if (wasBundled) setReplay(null);
-        pushToast({
-          title: translate("toast.bundleFailed"),
-          detail: wasBundled
-            ? `${translate("bundle.error.noFrames")} ${translate("bundle.error.letGo")}`
-            : translate("bundle.error.noFrames"),
-        });
-        return;
-      }
-      // The storm's track from the bundled record. A storm the record has
-      // never heard of is still replayed, without a track.
-      let storm: Storm | null = null;
-      if (manifest.storm) {
-        try {
-          storm = await loadStorm(manifest.storm.id);
-        } catch {
-          storm = null;
-        }
-      }
-      setHistoryStorm(storm);
-      setReplay(next);
-      mapRef.current?.flyTo({
-        center: manifest.camera.center,
-        zoom: manifest.camera.zoom,
-        bearing: manifest.camera.bearing,
-        pitch: manifest.camera.pitch,
-      });
-      const missing = bundleMissingNote(manifest);
-      pushToast({
-        title: translate("toast.bundleOpened", { label: manifest.label }),
-        detail: [
-          translate("toast.bundleOpenedBody", {
-            frames: next.frames.length,
-            made: manifest.createdAt.slice(0, 10),
-          }),
-          missing,
-        ]
-          .filter((line): line is string => Boolean(line))
-          .join(" "),
-        ...(manifest.workspace
-          ? {
-              actionLabel: translate("toast.bundleApplyWorkspace"),
-              onAction: () => applyBundledWorkspace(manifest.workspace),
-            }
-          : {}),
-      });
-    } catch (failure: unknown) {
-      pushToast({
-        title: translate("toast.bundleFailed"),
-        detail: bundleErrorText(failure),
-      });
-    }
-  }, [applyBundledWorkspace, pushToast]);
+  // Leaving a replay, saving one as a bundle, and opening one somebody
+  // else saved. An open bundle answers for its own addresses ahead of the
+  // network, so every way out of its replay has to close it.
+  const { stopReplay, saveReplayBundle, openBundle } = useReplayBundles({
+    replay,
+    setReplay,
+    historyStorm,
+    setHistoryStorm,
+    overlayFiles,
+    setOverlayFiles,
+    mapRef,
+    settingsRef,
+    onSettings: applySettings,
+    pushToast,
+  });
 
   // One place that knows how to do each kind of thing the palette offers, so
   // the palette itself stays a list rather than a second copy of the app.
@@ -2464,75 +1565,15 @@ export default function App() {
     [applySettings, handleTool, settingsRef],
   );
 
-  const centerPoint = useMemo<GeoPoint>(
-    () => ({ lon: settings.camera.center[0], lat: settings.camera.center[1] }),
-    [settings.camera.center],
-  );
-
-  // The map, in words, for a reader who is not looking at it. The centre by
-  // default, because that is what the rest of the workspace is about, and any
-  // watched place instead, because a reader listening from a desk cares about
-  // where they live rather than where the camera drifted.
-  const [nearbyPlaceId, setNearbyPlaceId] = useState("centre");
-  const measurements = useMeasurements();
-  const nearbyPlaces = useMemo(
-    () => [
-      { id: "centre", name: translate("nearby.placeCentre") },
-      ...watchedPlaces(settings).map((place) => ({
-        id: place.id,
-        name: place.name,
-      })),
-    ],
-    [settings],
-  );
-  const nearbyPoint = useMemo<GeoPoint>(() => {
-    const watched = watchedPlaces(settings).find(
-      (place) => place.id === nearbyPlaceId,
-    );
-    return watched
-      ? { lon: watched.center[0], lat: watched.center[1] }
-      : centerPoint;
-  }, [centerPoint, nearbyPlaceId, settings]);
-  const nearby = useMemo(() => {
-    // The same collection the map is handed, so a replay's warnings are in the
-    // readout too. Reading `overlays.data.alerts` alone left a reader who
-    // cannot see the map hearing "no warnings over this place" while the map
-    // drew that day's polygons: the live fetch is switched off for the whole
-    // replay, which is exactly when the archive is on.
-    const warnings = warningsOver(
-      replayedAlerts ?? overlays.data.alerts ?? null,
-      nearbyPoint,
-    );
-    const cells = stormCells.report
-      ? nearbyCells(stormCells.report.cells, nearbyPoint, {
-          rotating: stormCells.rotating,
-        })
-      : [];
-    const name =
-      nearbyPlaces.find((place) => place.id === nearbyPlaceId)?.name ??
-      translate("nearby.placeCentre");
-    return {
-      warnings,
-      cells,
-      summary: nearbySummary(warnings, cells, name),
-    };
-    // Every sentence here is a distance, a bearing or a speed, and units.ts
-    // says plainly that anything formatting a measurement and staying on
-    // screen has to subscribe. Without this the readout kept saying miles
-    // after the reader switched to kilometres. The rule cannot see that,
-    // because the unit is module state the formatters read rather than an
-    // argument they are handed.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    measurements,
-    nearbyPlaceId,
-    nearbyPlaces,
-    nearbyPoint,
-    overlays.data.alerts,
-    replayedAlerts,
-    stormCells.report,
-    stormCells.rotating,
-  ]);
+  // What the readout answers with: the point it is about, the places it can
+  // be about, and the sentence itself.
+  const { centerPoint, nearbyPlaces, nearbyPlaceId, setNearbyPlaceId, nearby } =
+    useNearbyReadout({
+      settings,
+      overlays,
+      stormCells,
+      replayedAlerts,
+    });
   // Staleness is a property of the observed feed, not of the frame the user
   // scrubbed to and not of a forecast frame that is hours ahead by design.
   const radarAge = timeline.newestObserved
@@ -2633,15 +1674,15 @@ export default function App() {
         // measurement taken in 1934 sitting over a live warning.
         <CuriosityCard found={curiosity} onDismiss={() => setCuriosity(null)} />
       ) : null}
-      {catchUp && !catchUpGone && !overlays.alertActive ? (
+      {catchUp && !overlays.alertActive ? (
         // Stood down while a warning is in force at a watched place, like
         // everything else discoverable here: a map with a warning on it is a
         // serious instrument and this is a card about last Tuesday.
         <CatchUpCard
           summary={catchUp}
-          onDismiss={() => setCatchUpGone(true)}
+          onDismiss={dismissCatchUp}
           onOpenRecord={() => {
-            setCatchUpGone(true);
+            dismissCatchUp();
             setActiveSurface("settings");
           }}
         />
