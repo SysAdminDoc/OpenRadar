@@ -297,6 +297,46 @@ describe("watching a place for alerts", () => {
     expect(String(spoken.mock.calls[0][0])).toContain("Tornado Warning");
   });
 
+  it("reads nothing aloud for a place whose own voice is off", () => {
+    // The tone is one switch for the whole watch and this is not. A reader
+    // who turned the voice on for the school and not for home should not
+    // have the machine start talking about home, which is what asking the
+    // list as a whole gives them.
+    const told = vi.fn();
+    fetchData.mockResolvedValue(alerts("Tornado Warning"));
+    const far: WatchPlace = {
+      ...watch,
+      id: "school",
+      name: "School",
+      voice: true,
+      center: [-118.24, 34.05],
+    };
+    renderHook(() =>
+      useAlertWatch([{ ...watch, voice: false }, far], {}, told),
+    );
+    return vi
+      .waitFor(() => expect(told).toHaveBeenCalledTimes(1))
+      .then(() => expect(spoken).not.toHaveBeenCalled());
+  });
+
+  it("still announces the warning when the voice fails", async () => {
+    // The voice is called from inside the poll's own loop, between the tone
+    // and the notification. A throw from there took the announcement, the
+    // record and the rest of the batch with it, and left both alerts
+    // unannounced so the next poll threw in the same place: an addition
+    // that suppressed the thing it was added to.
+    const told = vi.fn();
+    spoken.mockImplementation(() => {
+      throw new Error("the voice service is not running");
+    });
+    fetchData.mockResolvedValue(
+      alerts("Tornado Warning", "Flash Flood Warning"),
+    );
+    renderHook(() => useAlertWatch([{ ...watch, voice: true }], {}, told));
+    await vi.waitFor(() => expect(told).toHaveBeenCalledTimes(2));
+    expect(spoken).toHaveBeenCalledTimes(2);
+  });
+
   it("says nothing about a kind the reader switched off", async () => {
     // The panel lists what the map draws, and this notification's own action
     // opens that panel. Announcing a kind the panel will not show sends

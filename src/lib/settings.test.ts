@@ -757,6 +757,24 @@ describe("the places a reader watches", () => {
     expect(settings.watchPlaces[0].sound).toBe(true);
     // Quiet hours arrive whether or not the file had them.
     expect(settings.watchPlaces[0].quietHours).toBeTruthy();
+    // And the voice does not, because the file predates it. Nothing this
+    // app can do is more startling than a machine that starts talking, so
+    // the answer to a question nobody was asked is no.
+    expect(settings.watchPlaces[0].voice).toBe(false);
+  });
+
+  it("leaves the voice off in a fresh install and in an older file", () => {
+    // Read through the store rather than off a hand-built place: the shape
+    // the hook takes has `voice` optional, so a test that writes
+    // `voice: undefined` into one asserts nothing about the default a
+    // reader actually gets.
+    expect(DEFAULT_SETTINGS.watch.voice).toBe(false);
+    expect(normalizeSettings({}).watch.voice).toBe(false);
+    expect(normalizeSettings({ watch: {} }).watch.voice).toBe(false);
+    // Asked for, and it stays asked for.
+    expect(normalizeSettings({ watch: { voice: true } }).watch.voice).toBe(
+      true,
+    );
   });
 
   it("drops a place with nowhere to be rather than inventing one", () => {

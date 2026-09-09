@@ -154,12 +154,6 @@ export function useAlertWatch(
     soundRef.current = places.some((place) => place.sound);
   }, [places]);
 
-  // And for the voice, which follows the tone exactly.
-  const voiceRef = useRef(places.some((place) => place.voice));
-  useEffect(() => {
-    voiceRef.current = places.some((place) => place.voice);
-  }, [places]);
-
   // The same, for the kinds. Switching one back on should not replay every
   // alert the watch has already mentioned.
   const kindsRef = useRef(kinds);
@@ -283,11 +277,28 @@ export function useAlertWatch(
           // is enough, and this says which warning and where, where one is
           // not.
           //
-          // Keyed on the places it reached, so a warning arriving for a
-          // place while an older one for the same place is still waiting
-          // replaces it rather than queueing behind it.
-          if (voiceRef.current) {
-            speak(watchAlertBody(alert), [...reached].sort().join("|"));
+          // Asked of the places this alert actually reached rather than of
+          // the list as a whole. The tone is a single switch for the whole
+          // watch and this is not: a machine that starts talking about a
+          // place whose voice is off is a different promise from a tone.
+          const spokenFor = placesRef.current.some(
+            (place) => place.voice && reached.has(place.id),
+          );
+          // Wrapped as well as `speak` being total, because the two guard
+          // different things: `speak` keeps the next sentence readable, and
+          // this keeps the notification, the record and the rest of the
+          // batch from going with a voice that failed.
+          if (spokenFor) {
+            try {
+              speak(watchAlertBody(alert));
+            } catch (failure) {
+              log.warn(
+                "watch",
+                failure instanceof Error
+                  ? failure.message
+                  : "The voice failed.",
+              );
+            }
           }
           spoken += 1;
           let delivered = false;
@@ -413,7 +424,7 @@ export function useAlertWatch(
     // is one they find out about during a warning, and whether Windows has
     // a voice for the language they are reading in is not knowable from
     // here.
-    if (first.voice) speak(watchAlertBody(alert), first.id);
+    if (first.voice) speak(watchAlertBody(alert));
     let delivered = false;
     if (isDesktopRuntime()) {
       try {

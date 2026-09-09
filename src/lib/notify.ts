@@ -25,6 +25,7 @@
  * `default` while the native side still says no.
  */
 import { locale } from "../i18n";
+import { log } from "./log";
 
 export type NotifyPermission = "granted" | "refused" | "unasked";
 
@@ -85,40 +86,97 @@ export async function announceOnDesktop(
 }
 
 /**
- * What is waiting to be read aloud, newest sentence per place.
+ * The longest one sentence may hold the queue before it is given up on.
+ *
+ * `speechSynthesis` promises an `end` event and does not always deliver one:
+ * Chromium drops it on an utterance it cut off, and WebView2 is Chromium.
+ * Without a ceiling the first sentence that goes quiet stops every warning
+ * after it for the life of the run, which is the failure this whole queue
+ * exists to avoid, arrived at from the other side.
+ */
+const SPEAKING_CEILING_MS = 20_000;
+
+/**
+ * How old a sentence may be when its turn comes.
+ *
+ * A warning read out four minutes late is worse than one not read at all:
+ * it is about a storm that has moved. The queue is short in practice, so
+ * this only fires after the ceiling above has released a wedged engine.
+ */
+const STALE_MS = 60_000;
+
+/**
+ * What is waiting to be read aloud, in the order it arrived.
  *
  * A queue rather than a call. `speechSynthesis.speak` starts a second
  * utterance over the first, and three warnings landing in one poll would be
  * three voices reading three county names at once, which is worse than any
  * one of them alone.
  *
- * Keyed, and the key is the places the alert reached. A second warning for
- * the same place replaces the first while it is still waiting: somebody
- * whose watch has been upgraded to a warning wants the warning, not both in
- * the order they arrived.
+ * Nothing is dropped for being about the same place as something else. The
+ * first shape of this replaced a waiting sentence with a newer one for the
+ * same place, on the reasoning that an upgrade supersedes a watch; what it
+ * actually did, given three warnings for one place in one poll, was read the
+ * first and the third and silently lose the middle one, which the feed order
+ * makes arbitrary and which was the tornado warning in the case that found
+ * it. Age is the only thing that takes a sentence out of this queue.
  */
-const waiting: Array<{ key: string; sentence: string }> = [];
-let saying = false;
+const waiting: Array<{ sentence: string; at: number }> = [];
+
+/** When the sentence being read started, or null when nothing is being read. */
+let saying: number | null = null;
+
+/** One pending look at a wedged engine, so the check is not a loop. */
+let lookAgain: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Reads a sentence aloud, in the language the catalogue is in.
  *
  * Silent where there is no speech engine at all, which is a browser preview
  * with the API switched off and every test that has not asked for one.
+ *
+ * Total on purpose. It is called from the watch's own loop, between the tone
+ * and the notification, and a throw from here would take the announcement,
+ * the record and the rest of the batch with it: an addition that suppresses
+ * the thing it was added to. Whatever the engine does, this returns.
  */
-export function speak(sentence: string, key: string): void {
-  if (!globalThis.speechSynthesis || !globalThis.SpeechSynthesisUtterance) {
-    return;
+export function speak(sentence: string): void {
+  try {
+    if (!globalThis.speechSynthesis || !globalThis.SpeechSynthesisUtterance) {
+      return;
+    }
+    waiting.push({ sentence, at: Date.now() });
+    sayNext();
+  } catch (failure) {
+    log.warn(
+      "watch",
+      failure instanceof Error ? failure.message : "The voice refused.",
+    );
   }
-  const at = waiting.findIndex((one) => one.key === key);
-  if (at === -1) waiting.push({ key, sentence });
-  else waiting[at] = { key, sentence };
-  sayNext();
 }
 
 function sayNext(): void {
-  if (saying || !waiting.length) return;
   const engine = globalThis.speechSynthesis;
+  if (!engine) return;
+  const now = Date.now();
+  if (saying !== null) {
+    const held = now - saying;
+    if (held < SPEAKING_CEILING_MS) {
+      // Looked at again when the ceiling is up, because nothing else will:
+      // the sentence that would have triggered this is the one waiting.
+      if (lookAgain === null) {
+        lookAgain = setTimeout(() => {
+          lookAgain = null;
+          sayNext();
+        }, SPEAKING_CEILING_MS - held);
+      }
+      return;
+    }
+    engine.cancel();
+    saying = null;
+  }
+  while (waiting.length && now - waiting[0].at > STALE_MS) waiting.shift();
+  if (!waiting.length) return;
   // The voice list fills asynchronously and speaking before it has is
   // silent. WebView2 offers the machine's SAPI voices and nothing else:
   // Microsoft disabled its cloud Natural voices there by design, so this is
@@ -131,14 +189,24 @@ function sayNext(): void {
   if (!next) return;
   const said = new globalThis.SpeechSynthesisUtterance(next.sentence);
   said.lang = locale();
-  saying = true;
   // Both, because an engine that fails partway through leaves the queue
   // stopped otherwise and nothing is ever read again this run.
   const done = () => {
-    saying = false;
+    saying = null;
     sayNext();
   };
   said.onend = done;
   said.onerror = done;
-  engine.speak(said);
+  try {
+    engine.speak(said);
+    // After the call and not before it. An engine that refuses outright
+    // would otherwise leave the queue held by a sentence that was never
+    // started, and every warning after it waiting on the ceiling.
+    saying = now;
+  } catch (failure) {
+    log.warn(
+      "watch",
+      failure instanceof Error ? failure.message : "The voice refused.",
+    );
+  }
 }
