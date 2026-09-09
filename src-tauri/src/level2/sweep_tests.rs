@@ -626,3 +626,55 @@ fn a_fold_over_one_corner_of_a_sweep_is_still_taken_out() {
         "{adrift} gates did not come back to the wind that was planted, {back} did"
     );
 }
+
+#[test]
+fn a_site_with_a_supplemental_base_tilt_draws_it_as_the_lowest() {
+    // Build 24.1 gave some sites a base tilt at 0.3 degrees, and the lower
+    // angle is the one SAILS and MRLE repeat while it is on. Nothing here
+    // asserted what happens to a volume whose first cut is below half a
+    // degree, and the fixture writer had never emitted one, so the whole
+    // class was unreachable: every pattern in the tree starts at 0.5.
+    let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
+    let scan = built_volume(&[
+        fixture::flat_cut(
+            at,
+            fixture::Cut {
+                number: 1,
+                degrees: 0.3,
+                gates: 8,
+                ..fixture::Cut::default()
+            },
+        ),
+        fixture::flat_cut(
+            at,
+            fixture::Cut {
+                number: 2,
+                degrees: 0.5,
+                gates: 8,
+                ..fixture::Cut::default()
+            },
+        ),
+    ]);
+
+    // The picker names both, lowest first, and says 0.3 rather than rounding
+    // it away.
+    assert_eq!(tilts(&scan), vec![0.3, 0.5]);
+
+    // And tilt one is the 0.3 degree cut, which is what a reader asking for
+    // the lowest look is asking for.
+    let chosen = sweep_field(&scan, Product::Reflectivity, 0).expect("the lowest cut decodes");
+    assert!(
+        (chosen.elevation_degrees - 0.3).abs() < 0.05,
+        "the lowest cut came back at {}",
+        chosen.elevation_degrees
+    );
+
+    // The one above it is still reachable, so a volume with a supplemental
+    // tilt has not simply shifted every index by one.
+    let above = sweep_field(&scan, Product::Reflectivity, 1).expect("the second cut decodes");
+    assert!(
+        (above.elevation_degrees - 0.5).abs() < 0.05,
+        "the second cut came back at {}",
+        above.elevation_degrees
+    );
+}

@@ -1585,6 +1585,25 @@ fn area(
 /// data would say so.
 const CLASSIFICATION_PRODUCTS: [(&str, f64); 2] = [("N0H", QUARTER_KM), ("HHC", QUARTER_KM)];
 
+/// The codes to ask a site for, in order, for a classification product.
+///
+/// Build 24.1 gave some sites a supplemental base tilt at 0.3 degrees with a
+/// Level III set of its own, and `NZH` is that set's hydrometeor
+/// classification: the same product one cut lower. Where a site publishes it,
+/// it is the lowest look at what is falling, which is what this product is
+/// asked for. Where a site does not, the listing comes back empty and the
+/// 0.5 degree one answers, which is every site that has not had the build.
+///
+/// Only for the lowest-tilt product. `HHC` is the hybrid scan, read through
+/// the whole volume rather than at one elevation, so a lower first cut
+/// changes nothing about which product answers.
+fn classification_codes(code: &str) -> &'static [&'static str] {
+    match code {
+        "N0H" => &["NZH", "N0H"],
+        _ => &[],
+    }
+}
+
 /// The radar's own account of what is falling at a site.
 #[tauri::command]
 pub async fn level3_classification(
@@ -1600,7 +1619,16 @@ pub async fn level3_classification(
         .copied()
         .ok_or_else(|| Level3Error::NoProduct(station.clone(), wanted.clone()))?;
 
-    let Some(key) = newest_key(&site, code).await? else {
+    // The supplemental base tilt first where a site has one, then the cut
+    // this product has always been read at.
+    let mut found = None;
+    for candidate in classification_codes(code).iter().copied().chain([code]) {
+        if let Some(key) = newest_key(&site, candidate).await? {
+            found = Some((candidate, key));
+            break;
+        }
+    }
+    let Some((code, key)) = found else {
         return Err(Level3Error::NoProduct(station, "classification".into()));
     };
     let bytes = http::get_bytes(&format!("https://{BUCKET}/{key}")).await?;
@@ -1679,6 +1707,23 @@ mod tests {
     /// The wind profile the RPG published for the same volume, taken live
     /// from the Unidata bucket.
     const NVW: &[u8] = include_bytes!("../tests/fixtures/DMX_NVW_2026_09_05_01_05_20");
+
+    #[test]
+    fn the_supplemental_base_tilt_is_asked_for_first() {
+        // Build 24.1 gave some sites a Level III set of their own at 0.3
+        // degrees, and `NZH` is that set's hydrometeor classification: the
+        // same product one cut lower. Where a site publishes it, it is the
+        // lowest look at what is falling, which is what this product is asked
+        // for; where a site does not, its listing comes back empty and the
+        // half-degree one answers.
+        assert_eq!(classification_codes("N0H"), ["NZH", "N0H"]);
+        // The hybrid scan is read through the whole volume rather than at one
+        // elevation, so a lower first cut changes nothing about it.
+        assert_eq!(classification_codes("HHC"), [] as [&str; 0]);
+        // And the fallback is the code itself, which the caller appends, so
+        // the list never has to repeat it.
+        assert!(!classification_codes("HHC").contains(&"HHC"));
+    }
 
     #[test]
     fn a_wind_profile_reads_the_levels_its_own_table_states() {
