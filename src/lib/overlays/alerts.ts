@@ -387,19 +387,39 @@ function timeLabel(value: unknown): string {
  * down because a second country's service had a bad minute would lose a
  * tornado warning over Oklahoma to an outage in Ottawa.
  */
+/**
+ * Whether a failure is a cancelled request rather than a source that is down.
+ *
+ * The workspace aborts when it changes its mind; the browser aborts on a
+ * navigation or a connection reset, and that one leaves the workspace signal
+ * clear, so the failure has to be read as well.
+ */
+function aborted(failure: unknown): boolean {
+  return failure instanceof DOMException && failure.name === "AbortError";
+}
+
 async function ecccFeatures(
   bounds: OverlayBounds,
   signal?: AbortSignal,
-): Promise<OverlayFeature[]> {
+): Promise<OverlayFeature[] | null> {
   try {
     const answer = await fetch(cachedUrl(ecccUrl(bounds)), {
       signal,
       headers: { Accept: "application/json" },
     });
-    if (!answer.ok) return [];
+    if (!answer.ok) throw new Error(translate("alerts.officeUnanswered"));
     return parseEcccAlerts(await answer.json(), language().startsWith("fr"));
-  } catch {
-    return [];
+  } catch (failure) {
+    // An abort is the workspace or the browser cancelling, not an answer, so
+    // it goes back up rather than being reported as a country with no
+    // warnings in it.
+    if (aborted(failure)) throw failure;
+    // Everything else leaves the American polygons drawn and says which
+    // office was not reached. Returning an empty list said the opposite: a
+    // reader over Ontario during an outage was shown a map with no Canadian
+    // warnings on it and nothing to say the source had not answered, which
+    // is wrong data rather than missing data.
+    return null;
   }
 }
 
@@ -413,16 +433,18 @@ async function ecccFeatures(
 async function dwdFeatures(
   bounds: OverlayBounds,
   signal?: AbortSignal,
-): Promise<OverlayFeature[]> {
+): Promise<OverlayFeature[] | null> {
   try {
     const answer = await fetch(cachedUrl(dwdUrl(bounds)), {
       signal,
       headers: { Accept: "application/json" },
     });
-    if (!answer.ok) return [];
+    if (!answer.ok) throw new Error(translate("alerts.officeUnanswered"));
     return parseDwdWarnings(await answer.json());
-  } catch {
-    return [];
+  } catch (failure) {
+    // Same terms as the Canadian source above.
+    if (aborted(failure)) throw failure;
+    return null;
   }
 }
 
@@ -514,14 +536,19 @@ export const alertsOverlay: OverlayAdapter = {
     // switch of its own: the hazard filters, the watch, the readout and the
     // popup then treat a Canadian warning exactly as they treat an American
     // one, which is the whole point. A view over Kansas asks nobody.
+    const unanswered: string[] = [];
     if (reachesCanada(bounds)) {
-      drawn.features.push(...(await ecccFeatures(bounds, signal)));
+      const canadian = await ecccFeatures(bounds, signal);
+      if (canadian) drawn.features.push(...canadian);
+      else unanswered.push(translate("alerts.officeEccc"));
     }
     // And Germany, on the same terms. The DWD composite has been on the map
     // since the app learned to look at Europe, and nothing said a
     // Gewitterwarnung stood over it.
     if (reachesGermany(bounds)) {
-      drawn.features.push(...(await dwdFeatures(bounds, signal)));
+      const german = await dwdFeatures(bounds, signal);
+      if (german) drawn.features.push(...german);
+      else unanswered.push(translate("alerts.officeDwd"));
     }
     if (reachesCanada(bounds) || reachesGermany(bounds)) {
       drawn.features.sort(
@@ -532,7 +559,17 @@ export const alertsOverlay: OverlayAdapter = {
             Number(left.properties.impactRank),
       );
     }
-    return drawn;
+    // Which office did not answer, so the layer can say it rather than
+    // letting a country with no warnings drawn stand for one that was not
+    // asked successfully.
+    return unanswered.length
+      ? {
+          ...drawn,
+          partial: translate("alerts.officeMissing", {
+            office: unanswered.join(", "),
+          }),
+        }
+      : drawn;
   },
   layers: (sourceId) => [
     {

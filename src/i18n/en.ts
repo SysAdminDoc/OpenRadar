@@ -462,6 +462,11 @@ export const en = {
   "route.failed": "Check the two places and try again.",
   "route.placeMissing": "One of those places could not be found.",
   "alerts.failed": "The weather service {answer}.",
+  "alerts.officeMissing":
+    "{office} could not be reached, so any warnings it has are not on the map.",
+  "alerts.officeEccc": "Environment and Climate Change Canada",
+  "alerts.officeDwd": "Deutscher Wetterdienst",
+  "alerts.officeUnanswered": "the office did not answer",
   "earthquakes.failed": "The USGS earthquake service {answer}.",
   "smoke.failed": "The NOAA smoke analysis {answer}.",
   "tropical.failed": "The National Hurricane Center {answer}.",
