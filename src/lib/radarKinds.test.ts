@@ -9,6 +9,42 @@ import {
   WSR88D_RANGE_KM,
 } from "./radarKinds";
 import { LEVEL2_PRODUCTS } from "./level2";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { level2Source } from "../test/rustSource";
+
+describe("how far each radar reaches, on both sides", () => {
+  it("says the same three distances the native side draws with", () => {
+    // These three used to be a copy nothing compared. Then they became the
+    // key of the disc record, so a wrong one hands one product's ground to
+    // another and the box is measured against a circle nobody is drawing.
+    // The tests beside this one compare each constant to itself: they say
+    // `radarCapabilities` returns the constant, not that the constant is
+    // right, so doubling a WSR-88D's reach to 460 left the whole suite green.
+    //
+    // Both are 230 kilometres because the same circle is drawn twice, once
+    // on each side of the boundary. Read out of the source rather than
+    // trusted, the way the raster size and the loop clamp are.
+    const level2 = level2Source();
+    const tdwr = readFileSync(
+      join(process.cwd(), "src-tauri", "src", "tdwr.rs"),
+      "utf8",
+    ).replace(/\/\/.*/g, "");
+    const said = (source: string, name: string, kind: string) => {
+      // `String.raw`, because a template literal eats the backslash: written
+      // plainly, `[\d._]` reaches the engine as `[d._]` and matches nothing
+      // with a digit in it, which is every number this is here to read.
+      const found = new RegExp(
+        String.raw`const ${name}: ${kind} = ([\d._]+);`,
+      ).exec(source);
+      expect(found, `${name} is gone from the native side`).not.toBeNull();
+      return Number(found![1].replace(/_/g, ""));
+    };
+    expect(said(level2, "MAX_RANGE_KM", "f64")).toBe(WSR88D_RANGE_KM);
+    expect(said(tdwr, "BASE_RANGE_KM", "f64")).toBe(TDWR_RANGE_KM);
+    expect(said(tdwr, "LONG_RANGE_KM", "f64")).toBe(TDWR_LONG_RANGE_KM);
+  });
+});
 
 describe("which radars are terminal radars", () => {
   it("knows the forty-five from the official list, by id", () => {
