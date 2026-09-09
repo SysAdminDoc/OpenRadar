@@ -79,6 +79,7 @@ import { nightPolygon } from "../lib/terminator";
 import { MRMS_MAX_ZOOM } from "../lib/providers/mrms";
 import { casingFor } from "../lib/lineOnMap";
 import { isLightBasemap } from "../lib/mapStyles";
+import { inkFor, MAP_INK_HALO } from "../lib/lineOnMap";
 import { useMapSync } from "../hooks/useMapSync";
 import { syncRasterLane, type RasterLane } from "../lib/mapLayers/raster";
 import {
@@ -497,6 +498,18 @@ function MapViewportInner(
   // switch to metric has to rebuild the layer rather than only redraw it.
   const measurements = useMeasurements();
   const highContrastRef = useRef(highContrast);
+  /**
+   * Whether the ground the map is drawing is a pale one.
+   *
+   * A ref and not the prop, because a lane's `layers()` is read when the
+   * lane is added, and after `setStyle` that happens from the `style.load`
+   * handler registered when the map was made. That closure holds the first
+   * render's props for the life of the map, so a lane reading the prop was
+   * dressed for whichever basemap the app started on: choosing Light left
+   * the county lines and the watched ring in their dark-basemap colours
+   * until the app was restarted.
+   */
+  const overLightRef = useRef(isLightBasemap(mapStyle));
   const overlayOpacityRef = useRef(overlayOpacity);
   const flashWindowRef = useRef(flashWindowMinutes);
   const flashClockRef = useRef(flashClock);
@@ -637,6 +650,10 @@ function MapViewportInner(
     let source = map.getSource(TOOL_SOURCE_ID) as
       maplibregl.GeoJSONSource | undefined;
     if (!source) {
+      // The measurement is drawn straight onto the basemap like the storm
+      // cells are, and its sky blue over the light ground reads at about
+      // one and a half to one.
+      const ink = inkFor("tool", overLightRef.current);
       map.addSource(TOOL_SOURCE_ID, { type: "geojson", data: emptyTools() });
       map.addLayer({
         id: TOOL_LINE_LAYER_ID,
@@ -644,7 +661,7 @@ function MapViewportInner(
         source: TOOL_SOURCE_ID,
         filter: ["==", ["geometry-type"], "LineString"],
         paint: {
-          "line-color": "#7dd3fc",
+          "line-color": ink,
           "line-width": 3,
           "line-dasharray": [2, 1.4],
         },
@@ -657,7 +674,7 @@ function MapViewportInner(
         paint: {
           "circle-radius": 6,
           "circle-color": "#101722",
-          "circle-stroke-color": "#7dd3fc",
+          "circle-stroke-color": ink,
           "circle-stroke-width": 2,
         },
       });
@@ -1004,7 +1021,7 @@ function MapViewportInner(
     sourceId: COUNTY_SOURCE_ID,
     layers: () => {
       const heavier = highContrastRef.current ? 1.6 : 1;
-      const overLight = isLightBasemap(mapStyle);
+      const overLight = overLightRef.current;
       const line = highContrastRef.current
         ? overLight
           ? "#0b1220"
@@ -1104,7 +1121,7 @@ function MapViewportInner(
   const WATCH_RING_LANE: VectorLane = {
     sourceId: WATCH_RING_SOURCE_ID,
     layers: () => {
-      const overLight = isLightBasemap(mapStyle);
+      const overLight = overLightRef.current;
       const ink = overLight ? "#1d4ed8" : "#93c5fd";
       return [
         {
@@ -1354,6 +1371,12 @@ function MapViewportInner(
     // is kept: both move.
     layers: () => {
       const heavier = highContrastRef.current ? 1.6 : 1;
+      // The county lines' reasoning, applied to the marks that say where a
+      // storm is and where it is going. None of these is long enough to
+      // carry a casing, so each takes the lightness the ground is not.
+      const overLight = overLightRef.current;
+      const ink = inkFor("cell", overLight);
+      const rotating = inkFor("rotation", overLight);
       return [
         {
           id: CELL_TRACK_LAYER_ID,
@@ -1361,7 +1384,7 @@ function MapViewportInner(
           source: CELL_SOURCE_ID,
           filter: ["==", ["get", "kind"], "track"],
           paint: {
-            "line-color": "#f8fafc",
+            "line-color": ink,
             "line-width": 1.5 * heavier,
             "line-opacity": 0.75,
             // Dashed, so a track is never taken for a road or a boundary.
@@ -1376,7 +1399,7 @@ function MapViewportInner(
           paint: {
             // Fainter the further ahead it is, because it is less certain.
             "circle-radius": 3 * heavier,
-            "circle-color": "#f8fafc",
+            "circle-color": ink,
             "circle-opacity": [
               "interpolate",
               ["linear"],
@@ -1407,10 +1430,10 @@ function MapViewportInner(
             "circle-stroke-color": [
               "case",
               ["==", ["get", "kind"], "rotation"],
-              "#f87171",
+              rotating,
               ["get", "rotating"],
-              "#f87171",
-              "#f8fafc",
+              rotating,
+              ink,
             ],
             "circle-stroke-width": [
               "case",
@@ -1441,8 +1464,10 @@ function MapViewportInner(
             "text-allow-overlap": false,
           },
           paint: {
-            "text-color": "#f8fafc",
-            "text-halo-color": "rgba(9, 11, 16, 0.85)",
+            "text-color": ink,
+            "text-halo-color": overLight
+              ? MAP_INK_HALO.light
+              : MAP_INK_HALO.dark,
             "text-halo-width": 1.5 * heavier,
           },
         },
@@ -1607,7 +1632,13 @@ function MapViewportInner(
         source: TRACK_SOURCE_ID,
         filter: ["==", ["geometry-type"], "LineString"],
         paint: {
-          "line-color": ["coalesce", ["get", "color"], "#e2e8f0"],
+          // Only where the fix carries no colour of its own. A track that
+          // came coloured is drawn in that colour on either ground.
+          "line-color": [
+            "coalesce",
+            ["get", "color"],
+            inkFor("track", overLightRef.current),
+          ],
           "line-width": ["coalesce", ["get", "width"], 2],
           "line-opacity": 0.85,
         },
@@ -1687,7 +1718,7 @@ function MapViewportInner(
         paint: {
           "circle-radius": 6,
           "circle-color": ["coalesce", ["get", "color"], "#60a5fa"],
-          "circle-stroke-color": "#eff6ff",
+          "circle-stroke-color": inkFor("placefilePoint", overLightRef.current),
           "circle-stroke-width": 1.5,
           "circle-opacity": ["coalesce", ["get", "fileOpacity"], 1],
           "circle-stroke-opacity": ["coalesce", ["get", "fileOpacity"], 1],
@@ -2516,6 +2547,9 @@ function MapViewportInner(
   useEffect(() => {
     // Which basemap is actually drawn, which is not the same as the setting:
     // Auto resolves against the theme before it gets here.
+    // Before the early returns below and before `setStyle`, because the
+    // lanes are rebuilt from the `style.load` that follows it.
+    overLightRef.current = isLightBasemap(mapStyle);
     if (containerRef.current) containerRef.current.dataset.mapStyle = mapStyle;
     if (containerRef.current) {
       containerRef.current.dataset.incidentPack = incidentPack?.id ?? "";
