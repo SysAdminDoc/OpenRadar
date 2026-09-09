@@ -103,7 +103,7 @@ import { statusFor } from "./lib/radarStatus";
 import { useUpdates } from "./hooks/useUpdates";
 import { useWorkspaceActions } from "./hooks/useWorkspaceActions";
 import type { CommandAction } from "./lib/commands";
-import { surfaceLabelKey } from "./lib/commands";
+import { SURFACE_FRAMES } from "./lib/commands";
 import { LazyPanel } from "./components/LazyPanel";
 import type { GeoPoint } from "./lib/geo";
 import { log, recentLog, subscribeLog } from "./lib/log";
@@ -2640,15 +2640,19 @@ export default function App() {
         ? "right"
         : "none";
   // What to call the frame the surfaces are drawn in while their own module
-  // is still arriving. The panels cannot answer for themselves: they are in
-  // the chunk being waited on, along with the eleventh `lazy` in this app,
-  // which is the module holding the other ten.
-  const openSurfaceLabel = activeSurface
-    ? surfaceLabelKey(activeSurface)
-    : null;
-  const openSurfaceTitle = openSurfaceLabel
-    ? t(openSurfaceLabel)
-    : t("panel.radarProducts");
+  // is still arriving, and how much room to hold for it. The panels cannot
+  // answer for themselves: they are in the chunk being waited on, along with
+  // the eleventh `lazy` in this app, which is the module holding the other
+  // ten.
+  //
+  // The surface wins over the product panel when both are open, because the
+  // surface is the one the reader just asked for. It is also the one whose
+  // width varies: the settings-shaped panels are 410 and the wide ones 430
+  // against a base of 360, and standing in for any of them at the base width
+  // moved the map chrome once for the stand-in and again for the panel.
+  const openFrame =
+    (activeSurface ? SURFACE_FRAMES[activeSurface] : null) ??
+    SURFACE_FRAMES["radar-product"];
 
   // A machine that passed the WebGL2 probe at start-up and could not make
   // the map's own context after all. It reaches here rather than through the
@@ -2783,12 +2787,8 @@ export default function App() {
 
       {activeSurface || productOpen ? (
         <LazyPanel
-          title={openSurfaceTitle}
-          className={
-            panelSide === "left"
-              ? "surface-panel--left"
-              : "surface-panel--right"
-          }
+          title={t(openFrame.key)}
+          className={openFrame.className}
           onClose={() => {
             setActiveSurface(null);
             setProductOpen(false);
