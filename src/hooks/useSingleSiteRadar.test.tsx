@@ -434,6 +434,138 @@ describe("historical volumes", () => {
     expect(closer[2] - closer[0]).toBeLessThan(opened![2] - opened![0]);
   });
 
+  it("keeps the box a reader keeps coming back to, not the one they saw first", async () => {
+    // `trimHeld` keeps the last entries by insertion order, and reading a key
+    // out of a Map does not move it, so the order was when each box first
+    // arrived rather than when it was last wanted. A reader working between
+    // two boxes therefore lost whichever they had opened first the moment a
+    // ninth arrived: the two in use were the two evicted, and the next pan
+    // back paid ten megabytes for a picture that had been in hand a second
+    // earlier.
+    const { result, rerender } = renderHook(
+      (props: { center: [number, number] }) =>
+        useSingleSiteRadar(options({ ...props, zoom: 12 })),
+      { initialProps: { center: [-96.2, 41.7] as [number, number] } },
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+
+    await act(async () => {
+      await result.current.openArchive("kdmx", "2021-12-10T03:15:00.000Z");
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // The snap grid at this zoom is a third of a degree. The box the archive
+    // opened on is the earliest entry in the hold, which is the one insertion
+    // order sheds first and recency keeps: eight more cells fill the hold and
+    // a ninth pushes one out.
+    const cellWide = 0.34375;
+    const cells: Array<[number, number]> = [];
+    for (let step = 0; step < 8; step += 1) {
+      cells.push([-95.4 + step * cellWide, 41.7]);
+    }
+    const visit = async (at: [number, number]) => {
+      rerender({ center: at });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+    };
+
+    // Seven more boxes, each a fetch of its own or the walk is not filling
+    // the hold and nothing below means anything. With the opening box that
+    // is eight, which is what the hold keeps.
+    for (const at of cells.slice(0, 7)) {
+      const before = fetchArchiveSweep.mock.calls.length;
+      await visit(at);
+      expect(
+        fetchArchiveSweep.mock.calls.length,
+        `${at[0]} was not a box of its own`,
+      ).toBeGreaterThan(before);
+    }
+
+    // Back to the box the archive opened on. Held, so no fetch, and this is
+    // the touch that has to move it to the front of the queue.
+    const beforeReturn = fetchArchiveSweep.mock.calls.length;
+    await visit([-96.2, 41.7]);
+    expect(
+      fetchArchiveSweep.mock.calls.length,
+      "the opening box was not held at all",
+    ).toBe(beforeReturn);
+
+    // A ninth box, which pushes exactly one entry out of the hold.
+    const beforeNinth = fetchArchiveSweep.mock.calls.length;
+    await visit(cells[7]);
+    expect(fetchArchiveSweep.mock.calls.length).toBeGreaterThan(beforeNinth);
+
+    // The one just used must be the one still there.
+    const beforeLast = fetchArchiveSweep.mock.calls.length;
+    await visit([-96.2, 41.7]);
+    expect(
+      fetchArchiveSweep.mock.calls.length,
+      "the box in use was the box evicted",
+    ).toBe(beforeLast);
+  });
+
+  it("lets the held pictures go when the reader goes back to live", async () => {
+    // Eight decoded sweeps, several megabytes each, stayed pinned for the
+    // life of the window after historical mode was left, and none of them
+    // could be reached again without re-entering it and choosing the same
+    // volume anyway.
+    //
+    // Seen through a pan rather than through the open, because opening an
+    // archive always fetches: it is the effect that reads the hold, so a box
+    // panned to is the only thing that can say whether the hold survived.
+    const { result, rerender } = renderHook(
+      (props: { center: [number, number] }) =>
+        useSingleSiteRadar(options({ ...props, zoom: 12 })),
+      { initialProps: { center: [-96.2, 41.7] as [number, number] } },
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+    const visit = async (at: [number, number]) => {
+      rerender({ center: at });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+    };
+
+    await act(async () => {
+      await result.current.openArchive("kdmx", "2021-12-10T03:15:00.000Z");
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // A second box, so there is something in the hold worth keeping.
+    const beforePan = fetchArchiveSweep.mock.calls.length;
+    await visit([-95.4, 41.7]);
+    expect(fetchArchiveSweep.mock.calls.length).toBeGreaterThan(beforePan);
+    // Held: panning back is free, which is what the hold is for.
+    const beforeBack = fetchArchiveSweep.mock.calls.length;
+    await visit([-96.2, 41.7]);
+    expect(
+      fetchArchiveSweep.mock.calls.length,
+      "the second box was never held, so this proves nothing",
+    ).toBe(beforeBack);
+
+    act(() => {
+      result.current.resumeRecent();
+    });
+    await waitFor(() => expect(result.current.historical).toBe(false));
+
+    await act(async () => {
+      await result.current.openArchive("kdmx", "2021-12-10T03:15:00.000Z");
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // The same box as before. Still held, it would come back without a fetch,
+    // which is the memory this is meant to have released.
+    const beforeAgain = fetchArchiveSweep.mock.calls.length;
+    await visit([-95.4, 41.7]);
+    expect(
+      fetchArchiveSweep.mock.calls.length,
+      "the pictures were still held after going back to live",
+    ).toBeGreaterThan(beforeAgain);
+  });
+
   it("holds an archived box it has already drawn, the way the loop does", async () => {
     // The scrubber has kept its frames since it was written and this path
     // never learned to: it compared one string and kept nothing, so panning

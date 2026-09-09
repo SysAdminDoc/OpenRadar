@@ -596,13 +596,6 @@ Tenth research pass, at `beae469`. Everything below came from the third refutati
 
 ### P3
 
-- [ ] AUD-454 (P3): The historical hold evicts the oldest inserted rather than the least used, and is never released on return to live
-  Why: `trimHeld` keeps the last `keep` entries by Map insertion order, a set on an existing key does not reorder, and the `already` branch never re-inserts, so a reader moving between two boxes across nine cells evicts the two they use most. `resumeRecent` clears the request key and the source and leaves `historicalHeldRef` alone, so up to eight decoded sweeps, about 4 MB each by the module's own estimate, stay pinned for the life of the window after the reader has gone back to live.
-  Evidence: refutation report of 2026-09-08 (LOW 11); `src/lib/siteLoop.ts:149-157` (`trimHeld`), `src/hooks/useSingleSiteRadar.ts` (`HISTORICAL_HELD = 8`, `historicalHeldRef`, the `already` branch, and `resumeRecent` at `:970`, which touches neither ref).
-  Touches: `src/hooks/useSingleSiteRadar.ts` (delete and re-set on a hit so the map's order is recency; clear `historicalHeldRef` in `resumeRecent`), `src/hooks/useSingleSiteRadar.test.tsx` (nine boxes visited as A, B, A, B, then seven others: A and B still held; `resumeRecent` empties the hold).
-  Acceptance: both new cases fail on the current code and pass after; the existing hold cases stay green.
-  Complexity: S
-
 - [ ] AUD-457 (P3): The export caption's ellipsis is length-neutral, not width-neutral, and the test's `measureText` cannot tell
   Why: a truncated caption line drops its last two characters and appends a space and an ellipsis. In the caption's font (Segoe UI, then system-ui) the two dropped may be narrow glyphs at about 7 px together and the added pair about 13 px, so the line grows by about 6 px and can creep into the right margin. When the line is two characters or shorter the ellipsis is appended with nothing removed. The fake canvas in the test returns a width proportional to character count, which is monospace, so the test passes a change it cannot measure.
   Evidence: refutation report of 2026-09-08 (LOW 6); `src/lib/export.ts:171` (the slice), `:189-191` (the width measured after truncation, which is why the damage is bounded to the margin), `src/lib/export.test.ts:38-40` (the fake `measureText`).

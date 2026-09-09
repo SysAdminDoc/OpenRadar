@@ -1053,6 +1053,12 @@ export function useSingleSiteRadar(options: {
   const resumeRecent = useCallback(() => {
     requestRef.current += 1;
     historicalRequestRef.current = null;
+    // The held pictures belong to historical mode and go with it. Up to eight
+    // decoded sweeps, several megabytes each, stayed pinned for the life of
+    // the window after the reader went back to live, and none of them could
+    // be reached again without re-entering historical mode and re-choosing
+    // the same volume anyway.
+    historicalHeldRef.current = new Map();
     setHistoricalSource(null);
     setSweep(null);
     setError(null);
@@ -1067,11 +1073,19 @@ export function useSingleSiteRadar(options: {
     // A box this reader has already been at. Panning away and back is the
     // ordinary thing to do with an archived volume open, and it cost a fetch
     // and a decode every time.
-    const already = historicalHeldRef.current.get(key)?.image;
-    if (already) {
+    const already = historicalHeldRef.current.get(key);
+    if (already?.image) {
+      // Put back at the end, so the map's order is when each box was last
+      // wanted rather than when it first arrived. `trimHeld` keeps the last
+      // entries by insertion order and a `get` does not move a key, so a
+      // reader working between two boxes lost whichever they had opened
+      // first the moment a ninth box arrived: the two in use were the two
+      // evicted.
+      historicalHeldRef.current.delete(key);
+      historicalHeldRef.current.set(key, already);
       historicalRequestRef.current = key;
       requestRef.current += 1;
-      setSweep(already);
+      setSweep(already.image);
       setError(null);
       setLoading(false);
       return;
