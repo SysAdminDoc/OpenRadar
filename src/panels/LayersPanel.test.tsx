@@ -723,6 +723,36 @@ describe("finding a layer by what it is called", () => {
     expect(document.querySelector("[data-satellite-band]")).toBeNull();
   });
 
+  it("keeps a row whose note carries the word and whose label does not", () => {
+    // "Label or detail" is the promise, and the sweep above cannot tell the
+    // two apart: dropping the note from the matcher leaves every surviving
+    // row still containing the word, which is all it asks. Hydrometeor
+    // Classification is the case. Its label says nothing about hail; its
+    // note says "rain, snow, hail, or that it cannot tell".
+    render(panel({}));
+    type("hail");
+    const shown = rows().map((row) => row.getAttribute("data-layer"));
+    expect(shown).toContain("classification");
+    expect(en["layer.classification"].toLowerCase()).not.toContain("hail");
+    expect(en["layers.classificationDetail"].toLowerCase()).toContain("hail");
+  });
+
+  it("does not say nothing matched over a section that did", () => {
+    // Three sections have words of their own rather than a switch's, and
+    // they were asked separately from the line that says nothing matched.
+    // "Solid" appears in "How solid the overlays are" and in no switch at
+    // all, so the panel told the reader both things at once.
+    render(panel({ layers: { lightningDensity: true } }));
+    type("solid");
+    expect(rows()).toHaveLength(0);
+    expect(document.querySelector("[data-overlay-opacity]")).toBeTruthy();
+    expect(screen.queryByText(en["layers.findNone"])).toBeNull();
+    // And the line is still there for a word nothing answers to.
+    type("biscuits");
+    expect(document.querySelector("[data-overlay-opacity]")).toBeNull();
+    expect(screen.getByText(en["layers.findNone"])).toBeTruthy();
+  });
+
   it("says so rather than going blank when nothing is called that", () => {
     render(panel({}));
     type("biscuits");

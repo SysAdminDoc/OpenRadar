@@ -733,6 +733,26 @@ export function LayersPanel({
       ),
   );
   /**
+   * The three sections with words of their own rather than a switch's.
+   *
+   * Named here rather than asked inline, because the line that says nothing
+   * matched has to know about them. Asked separately, the panel said "no
+   * layer here is called that" over a section that had just answered to the
+   * same word: typing "solid" finds "How solid the overlays are" and no
+   * switch at all, and the reader was told both things at once.
+   */
+  const smoothingShown = answers(
+    "layers.smoothGrids",
+    "layers.smoothGridsDetail",
+    "layers.smoothGridsLabel",
+    "layers.smoothGridsNote",
+  );
+  const orderShown =
+    arrangeable.length > 1 && answers("layers.order", "layers.orderDetail");
+  const opacityShown =
+    OVERLAY_LAYERS.some(({ key }) => layers[key]) &&
+    answers("layers.opacity", "layers.opacityDetail");
+  /**
    * The word for what a switched-on layer is doing, and how old its picture
    * is. Nothing for a layer that is off, and nothing for one with no source
    * of its own: the grids, the sweep and the reader's own files all answer
@@ -784,7 +804,7 @@ export function LayersPanel({
           onChange={(event) => setFind(event.target.value)}
         />
       </div>
-      {kept.length === 0 ? (
+      {kept.length === 0 && !smoothingShown && !orderShown && !opacityShown ? (
         <p className="settings-find__none">{t("layers.findNone")}</p>
       ) : null}
       {LAYER_GROUPS.filter((group) =>
@@ -854,12 +874,7 @@ export function LayersPanel({
           </div>
         </div>
       ))}
-      {answers(
-        "layers.smoothGrids",
-        "layers.smoothGridsDetail",
-        "layers.smoothGridsLabel",
-        "layers.smoothGridsNote",
-      ) ? (
+      {smoothingShown ? (
         <div className="settings-section" data-grid-smoothing>
           <div className="settings-section__title">
             <span>{t("layers.smoothGrids")}</span>
@@ -883,8 +898,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {arrangeable.length > 1 &&
-      answers("layers.order", "layers.orderDetail") ? (
+      {orderShown ? (
         <div className="settings-section" data-overlay-order>
           <div className="settings-section__title">
             <span>{t("layers.order")}</span>
@@ -1099,8 +1113,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {OVERLAY_LAYERS.some(({ key }) => layers[key]) &&
-      answers("layers.opacity", "layers.opacityDetail") ? (
+      {opacityShown ? (
         <div className="settings-section" data-overlay-opacity>
           <div className="settings-section__title">
             <span>{t("layers.opacity")}</span>

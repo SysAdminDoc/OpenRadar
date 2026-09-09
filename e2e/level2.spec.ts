@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { expectClean } from "./support/axe";
+import { inkPixels } from "./support/pixels";
 import {
   routeWorkspace,
   smokeKml,
@@ -1476,6 +1477,46 @@ test("reads the storm motion off the sweep, and takes yours instead", async ({
   // And it can be handed back to the sweep to work out again.
   await motion.getByRole("button", { name: /Read it from the sweep/ }).click();
   await expect(motion).toContainText("Read from the sweep");
+});
+
+test("rings a storm cell in the lightness the basemap is not", async ({
+  page,
+}) => {
+  // The mark this item was written about. A near-white ring over the light
+  // basemap composites to about the ground's own lightness, and the ring is
+  // what says which storm to look at first.
+  //
+  // A pixel read rather than the source, because the source read this
+  // replaces passed with the lane hard-wired to the dark basemap: it still
+  // named no colour and still used `ink`, and every mark in it was wrong for
+  // good. What reaches the screen is the only thing that answers.
+  await open(page, 9);
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Storm Cells/ }).check();
+  await expect(pane).toHaveAttribute("data-layer-stack", /cell-points/);
+  await page.getByRole("button", { name: "Close Layers" }).click();
+
+  const PALE: [number, number, number] = [248, 250, 252];
+  const DARK: [number, number, number] = [15, 23, 42];
+
+  await expect(pane).toHaveAttribute("data-map-style", "pro-dark");
+  await expect.poll(() => inkPixels(page, PALE)).toBeGreaterThan(0);
+  expect(await inkPixels(page, DARK)).toBe(0);
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Light", exact: true }).click();
+  await expect(pane).toHaveAttribute("data-map-style", "pro-light");
+  await page.getByRole("button", { name: "Close Settings" }).click();
+
+  // Swapped, and not merely present: the pale ring has to be gone, or this
+  // would pass with the lane drawing both.
+  await expect(pane).toHaveAttribute("data-layer-stack", /cell-points/);
+  await expect.poll(() => inkPixels(page, DARK)).toBeGreaterThan(0);
+  expect(await inkPixels(page, PALE)).toBe(0);
 });
 
 test("says which storm reaches the watched place and when", async ({

@@ -6,6 +6,7 @@ import {
   transparentPng,
 } from "./support/fixtures";
 import { expectClean } from "./support/axe";
+import { inkPixels } from "./support/pixels";
 import { contrast } from "./support/contrast";
 
 /** Every switch in the Layers panel and the map layer it is meant to control. */
@@ -1514,32 +1515,6 @@ test("says what each switched-on source is doing, on its own row", async ({
     "weatherAlerts:fresh",
   );
 });
-
-/** How many pixels the map is drawing of one exact colour, near enough. */
-async function inkPixels(page: Page, want: [number, number, number]) {
-  return page.evaluate((rgb) => {
-    const canvas = document.querySelector("canvas");
-    if (!canvas) return 0;
-    const target = document.createElement("canvas");
-    target.width = canvas.width;
-    target.height = canvas.height;
-    const context = target.getContext("2d");
-    if (!context) return 0;
-    context.drawImage(canvas, 0, 0);
-    const pixels = context.getImageData(0, 0, target.width, target.height).data;
-    let found = 0;
-    for (let at = 0; at < pixels.length; at += 4) {
-      if (
-        Math.abs(pixels[at] - rgb[0]) <= 5 &&
-        Math.abs(pixels[at + 1] - rgb[1]) <= 5 &&
-        Math.abs(pixels[at + 2] - rgb[2]) <= 5
-      ) {
-        found += 1;
-      }
-    }
-    return found;
-  }, want);
-}
 
 test("rings a placefile point in the lightness the basemap is not", async ({
   page,

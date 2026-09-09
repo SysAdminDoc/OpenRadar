@@ -78,7 +78,7 @@ import { loadCounties } from "../lib/counties";
 import { nightPolygon } from "../lib/terminator";
 import { MRMS_MAX_ZOOM } from "../lib/providers/mrms";
 import { casingFor } from "../lib/lineOnMap";
-import { isLightBasemap } from "../lib/mapStyles";
+import { paleGround } from "../lib/mapStyles";
 import { inkFor, MAP_INK_HALO } from "../lib/lineOnMap";
 import { useMapSync } from "../hooks/useMapSync";
 import { syncRasterLane, type RasterLane } from "../lib/mapLayers/raster";
@@ -508,8 +508,13 @@ function MapViewportInner(
    * dressed for whichever basemap the app started on: choosing Light left
    * the county lines and the watched ring in their dark-basemap colours
    * until the app was restarted.
+   *
+   * The pack is part of the question and not a second one. An incident pack
+   * replaces the basemap outright with USGS Topo, which is a pale sheet
+   * whatever the reader had picked before, so a lane that asked only about
+   * the style drew for a map that was not on screen.
    */
-  const overLightRef = useRef(isLightBasemap(mapStyle));
+  const overLightRef = useRef(paleGround(mapStyle, incidentPack !== null));
   const overlayOpacityRef = useRef(overlayOpacity);
   const flashWindowRef = useRef(flashWindowMinutes);
   const flashClockRef = useRef(flashClock);
@@ -2549,7 +2554,7 @@ function MapViewportInner(
     // Auto resolves against the theme before it gets here.
     // Before the early returns below and before `setStyle`, because the
     // lanes are rebuilt from the `style.load` that follows it.
-    overLightRef.current = isLightBasemap(mapStyle);
+    overLightRef.current = paleGround(mapStyle, incidentPack !== null);
     if (containerRef.current) containerRef.current.dataset.mapStyle = mapStyle;
     if (containerRef.current) {
       containerRef.current.dataset.incidentPack = incidentPack?.id ?? "";
