@@ -3191,19 +3191,24 @@ input[type="range"]:disabled {
     --command-ink-faint: #a4b0c2;
   }
 
-  /* Marked important rather than out-weighted. The flat layout at the bottom
-     of this file turns the same blur off on each of these unconditionally and
-     later, so written plainly none of this was read; raising it through
-     `:root` only moved it past the plain rules and left it losing to the
+  /* Every surface in the file that blurs what is behind it, which is what
+     this block is for and what the list was missing: the toast, the tool
+     readout and the product legend all blurred on through it.
+
+     Marked important rather than out-weighted. The flat layout at the bottom
+     of this file turns the same blur off on most of these unconditionally
+     and later, so written plainly those were not read; raising them through
+     `:root` only moved them past the plain rules and left them losing to the
      narrow-layout ones, which are more specific still. This is the same
-     promise the focus ring below makes and it is made the same way: a reader
-     who asked the system for more contrast does not get a translucent
-     surface, whatever else the file says. */
+     promise the focus ring below makes and it is made the same way. */
   .surface-panel,
   .radar-timeline,
   .radar-legend,
   .zoom-controls,
-  .command-bar {
+  .command-bar,
+  .tool-hud,
+  .toast,
+  .product-legend {
     backdrop-filter: none !important;
   }
 }
@@ -3291,13 +3296,16 @@ input[type="range"]:disabled {
   }
 
   /* Nothing translucent survives a repaint legibly. Important for the same
-     reason as the block above. */
+     reason as the block above, and the same list: the tool readout and the
+     product legend were missing from it and blurred on through. */
   .surface-panel,
   .radar-timeline,
   .radar-legend,
   .zoom-controls,
   .command-bar,
-  .toast {
+  .tool-hud,
+  .toast,
+  .product-legend {
     backdrop-filter: none !important;
   }
 

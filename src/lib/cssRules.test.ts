@@ -136,10 +136,11 @@ function taken(property: string, wins: Map<string, string>): boolean {
  * `:where()` contributes nothing and takes its contents with it. `:not()`,
  * `:is()` and `:has()` contribute their argument, which is exact for one
  * argument and an over-count for a list, where the specification takes the
- * largest. This file has six `:not()`, each with a single argument, and no
- * `:is`, `:where` or `:has` at all, so the list case cannot arise here; it is
- * written down rather than left to be found later. A pseudo-element counts as
- * a type selector rather than as nothing.
+ * largest. This file writes nine `:not()` across five selectors, each with a
+ * single argument, one `:has()` with one, and no `:is` or `:where` at all, so
+ * the list case cannot arise here; it is written down rather than left to be
+ * found later. A pseudo-element counts as a type selector rather than as
+ * nothing, and the argument of a pseudo-class counts as nothing at all.
  */
 function weight(selector: string): [number, number, number] {
   const bare = selector
@@ -150,10 +151,18 @@ function weight(selector: string): [number, number, number] {
     .replace(/::[a-z-]+(?:\([^)]*\))?/g, " e")
     .replace(/:where\([^)]*\)/g, " ")
     .replace(/:(?:not|is|has)\(([^)]*)\)/g, " $1 ");
+  // What is left inside brackets and inside a pseudo-class's parentheses is
+  // not a selector: `[aria-label="show more"]` was counted as one attribute
+  // and then `more` again as a type, and `:nth-child(odd)` as one class and
+  // then `odd` as a type. Counted first, then taken out of the way.
+  const classes = (
+    bare.match(/\.[\w-]+|\[[^\]]*\]|:[a-z-]+(?:\([^)]*\))?/g) ?? []
+  ).length;
+  const types = bare.replace(/\[[^\]]*\]|:[a-z-]+\([^)]*\)/g, " ");
   return [
     (bare.match(/#[\w-]+/g) ?? []).length,
-    (bare.match(/\.[\w-]+|\[[^\]]*\]|:[a-z-]+(?:\([^)]*\))?/g) ?? []).length,
-    (bare.match(/(^|[\s>+~(,])[a-z][\w-]*/g) ?? []).length,
+    classes,
+    (types.match(/(^|[\s>+~(,])[a-z][\w-]*/g) ?? []).length,
   ];
 }
 
@@ -164,13 +173,24 @@ function weight(selector: string): [number, number, number] {
  * both rules about command bars; everything in front only says which ones. So
  * two rules that share a subject are two rules about one kind of element, and
  * the later of them can take a declaration from the earlier.
+ *
+ * Descendants only, in the sense that this says nothing about whether the two
+ * ancestries overlap: `.app-shell .toast` and `.capture-bar .toast` share a
+ * subject and select nothing in common, and would be reported as a defeat.
+ * No pair in this file is that shape, and the gate is meant to shout.
  */
 function subject(selector: string): string {
+  // A space inside an attribute value is not a combinator, so it is held out
+  // of the way while the compounds are split and put back afterwards. Not a
+  // non-breaking space, which `\s` matches in JavaScript and which would be
+  // split on exactly like the one it replaced.
+  const HELD = String.fromCharCode(1);
   const compounds = selector
+    .replace(/\[[^\]]*\]/g, (attribute) => attribute.replaceAll(" ", HELD))
     .replace(/\s*[>+~]\s*/g, " ")
     .trim()
     .split(/\s+/);
-  return compounds[compounds.length - 1] ?? selector;
+  return (compounds[compounds.length - 1] ?? selector).replaceAll(HELD, " ");
 }
 
 /** Whether the second selector wins a tie or better against the first. */
@@ -306,6 +326,50 @@ const LITERALS_WITH_A_REASON: Array<{ selector: string; reason: string }> = [
 ];
 
 /**
+ * Every declaration inside an at-rule that a later plain rule takes away.
+ *
+ * A function over parsed rules rather than a block inside the test, so a
+ * case list can drive it with a stylesheet written for the purpose. It could
+ * not be, and that mattered: on the current `index.css` this reports nothing
+ * under the subject rule, under the suffix rule it replaced, and under plain
+ * string equality, so reverting the containment left the whole suite green
+ * and only the pre-repair stylesheet told them apart.
+ */
+function beatenInsideAtRules(all: Rule[]): string[] {
+  const parts = (rule: Rule) =>
+    rule.selector.split(",").map((one) => one.replace(/\s+/g, " ").trim());
+  const plain = all.filter((rule) => !context(rule));
+  const beaten: string[] = [];
+  for (const [at, rule] of all.entries()) {
+    const inside = context(rule);
+    if (!/@media|@supports/.test(inside)) continue;
+    const mine = properties(rule);
+    // One selector of the block's list at a time. Reported per rule, a block
+    // naming six things was reported as beaten six times over whichever one
+    // of them really was, and `.toast` was named four times by lines that do
+    // not select a toast at all.
+    for (const one of parts(rule)) {
+      for (const later of plain) {
+        if (all.indexOf(later) < at) continue;
+        const takes = parts(later).some(
+          (other) => subject(other) === subject(one) && beats(other, one),
+        );
+        if (!takes) continue;
+        const wins = properties(later);
+        for (const [property, value] of mine) {
+          if (value.includes("!important")) continue;
+          if (!taken(property, wins)) continue;
+          beaten.push(
+            `${inside} ${one} line ${rule.source?.start?.line}: ${property} is taken by line ${later.source?.start?.line}`,
+          );
+        }
+      }
+    }
+  }
+  return beaten;
+}
+
+/**
  * What the file says against what the browser does.
  *
  * This stylesheet grew a second layout at the bottom without the first one
@@ -318,6 +382,42 @@ const LITERALS_WITH_A_REASON: Array<{ selector: string; reason: string }> = [
 describe("the stylesheet says what the browser does", () => {
   const css = readFileSync(join(ROOT, "index.css"), "utf8");
   const all = rules(css);
+
+  it("sees a later plain rule take a declaration however it is written", () => {
+    // Driven on a stylesheet written for it, because `index.css` cannot tell
+    // these apart: it reports nothing under the subject rule, under the
+    // suffix rule that came before it and under plain string equality, so
+    // reverting the containment leaves every other case here green. The
+    // shapes below are the three that matter, and only the last one is what
+    // the file itself ever had.
+    const said = (css: string) => beatenInsideAtRules(rules(css));
+
+    // The exact string, which every version of this has caught.
+    expect(
+      said("@media (forced-colors: active){.a{color:red}} .a{color:blue}"),
+    ).toHaveLength(1);
+    // A descendant in front of it, which the string comparison could not see.
+    expect(
+      said("@media (forced-colors: active){.a{color:red}} .b .a{color:blue}"),
+    ).toHaveLength(1);
+    // And a heavier ancestor on the same subject, which the suffix comparison
+    // could not see either. This is the shape that got past the last repair.
+    expect(
+      said(
+        "@media (forced-colors: active){:root .a{color:red}}" +
+          ':root[data-x="1"] .a{color:blue}',
+      ),
+    ).toHaveLength(1);
+
+    // And the two it must stay quiet about: a weaker later rule, and one
+    // written before the block rather than after it.
+    expect(
+      said("@media (forced-colors: active){.b .a{color:red}} .a{color:blue}"),
+    ).toEqual([]);
+    expect(
+      said("* .a{color:blue} @media (forced-colors: active){.a{color:red}}"),
+    ).toEqual([]);
+  });
 
   it("counts a selector's weight the way the cascade does", () => {
     // Held against the specification rather than against this file. The first
@@ -333,9 +433,19 @@ describe("the stylesheet says what the browser does", () => {
       ["::-webkit-scrollbar", [0, 0, 1]],
       // `:where` contributes nothing at all, and its contents go with it.
       [".a:where(.b.c.d)", [0, 1, 0]],
-      // `:not` and `:has` contribute their argument.
+      // `:not` and `:has` contribute their argument, which is why the two
+      // below are here as well as these: with a class argument, "expand the
+      // argument" and "count the pseudo-class as one class" give the same
+      // answer, so deleting the expansion left the whole list green.
       [".a:not(.b)", [0, 2, 0]],
       [".a:has(.b)", [0, 2, 0]],
+      [".a:not(#b)", [1, 1, 0]],
+      [".a:has(div)", [0, 1, 1]],
+      // A pseudo-class's own argument is not a selector: `odd` was counted
+      // as a type selector and `show more` as one too.
+      [":nth-child(odd)", [0, 1, 0]],
+      ["li:nth-of-type(even)", [0, 1, 1]],
+      ['[aria-label="show more"]', [0, 1, 0]],
       // The pair the media gate has to tell apart, which is what sent it
       // looking: the second of these was taking the first and neither the
       // string comparison nor the suffix one could see it.
@@ -360,6 +470,8 @@ describe("the stylesheet says what the browser does", () => {
     );
     expect(subject(".a > .b + .c ~ .d")).toBe(".d");
     expect(subject(".toast")).toBe(".toast");
+    // A space inside an attribute value is not a combinator.
+    expect(subject('.a[data-x="two words"]')).toBe('.a[data-x="two words"]');
   });
 
   it("has no declaration a later rule with the same selector already sets", () => {
@@ -421,36 +533,7 @@ describe("the stylesheet says what the browser does", () => {
     // the other is the element they select, which is the last compound;
     // everything in front only says which of those elements, and the weight
     // settles the rest.
-    const parts = (rule: Rule) =>
-      rule.selector.split(",").map((one) => one.replace(/\s+/g, " ").trim());
-    const plain = all.filter((rule) => !context(rule));
-    const beaten: string[] = [];
-    for (const [at, rule] of all.entries()) {
-      const inside = context(rule);
-      if (!/@media|@supports/.test(inside)) continue;
-      const mine = properties(rule);
-      // One selector of the block's list at a time. Reported per rule, a
-      // block naming six things was reported as beaten six times over
-      // whichever one of them really was, and `.toast` was named four times
-      // by lines that do not select a toast at all.
-      for (const one of parts(rule)) {
-        for (const later of plain) {
-          if (all.indexOf(later) < at) continue;
-          const takes = parts(later).some(
-            (other) => subject(other) === subject(one) && beats(other, one),
-          );
-          if (!takes) continue;
-          const wins = properties(later);
-          for (const [property, value] of mine) {
-            if (value.includes("!important")) continue;
-            if (!taken(property, wins)) continue;
-            beaten.push(
-              `${inside} ${one} line ${rule.source?.start?.line}: ${property} is taken by line ${later.source?.start?.line}`,
-            );
-          }
-        }
-      }
-    }
+    const beaten = beatenInsideAtRules(all);
     expect(beaten).toEqual([]);
   });
 
@@ -517,6 +600,43 @@ describe("the stylesheet says what the browser does", () => {
       unexplained.push(`${first} line ${rule.source?.start?.line}`);
     }
     expect(unexplained).toEqual([]);
+  });
+
+  it("turns every blur off for a reader who asked for contrast", () => {
+    // The two contrast blocks named five surfaces and the file blurs eight.
+    // Measured in Chromium before this: at `prefers-contrast: more` the tool
+    // readout stayed at `blur(18px)`, the product legend at `blur(9px)` and
+    // the toast at `blur(20px)`, in both layouts, and two of the three
+    // survived `forced-colors: active` as well. Nothing said so, because the
+    // list was written by hand and the surfaces were added later.
+    //
+    // A list against a list, so adding a translucent surface without adding
+    // it to both blocks is what fails rather than something a reader finds.
+    const blurred = new Set<string>();
+    for (const rule of all) {
+      if (context(rule)) continue;
+      for (const [property, value] of properties(rule)) {
+        if (property !== "backdrop-filter") continue;
+        if (value === "none") continue;
+        for (const one of rule.selector.split(",")) blurred.add(one.trim());
+      }
+    }
+    expect(blurred.size).toBeGreaterThan(4);
+
+    for (const query of ["prefers-contrast: more", "forced-colors: active"]) {
+      const cleared = new Set<string>();
+      for (const rule of all) {
+        if (!context(rule).includes(query)) continue;
+        if (properties(rule).get("backdrop-filter") !== "none !important") {
+          continue;
+        }
+        for (const one of rule.selector.split(",")) cleared.add(one.trim());
+      }
+      expect(
+        [...blurred].filter((one) => !cleared.has(one)),
+        query,
+      ).toEqual([]);
+    }
   });
 
   it("has no rule with nothing in it", () => {
