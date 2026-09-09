@@ -120,17 +120,30 @@ export function firstLoadFailure(gzip, budgetKb) {
     : null;
 }
 
-/** The table the gate prints, as lines, so a test can read it. */
+/**
+ * The table the gate prints, as lines, so a test can read it.
+ *
+ * Both budgets, beside the measurement each of them is for. It printed the
+ * gzip budget in one column called "budget" and nothing at all for the raw
+ * one, so a chunk over its raw limit read as `27 kB   6 kB   6 kB`, which is
+ * a row where every number looks fine. Seven commits went out with the gate
+ * failing on exactly that shape, and the only thing that said so was the
+ * sentence underneath.
+ */
 export function budgetTable(rows, firstLoadGzip, firstLoadKb) {
   const width = Math.max(...rows.map((row) => row.name.length), 5);
-  const lines = ["chunk".padEnd(width) + "      raw    gzip   budget"];
+  const lines = [
+    "chunk".padEnd(width) + "      raw   of    gzip   of",
+  ];
   for (const row of rows) {
+    const over = (had, budget) => (had > budget ? "!" : " ");
     lines.push(
       [
         row.name.padEnd(width),
         `${String(row.raw).padStart(6)} kB`,
+        `${String(row.budget.raw).padStart(4)}${over(row.raw, row.budget.raw)}`,
         `${String(row.gzip).padStart(4)} kB`,
-        `${String(row.budget.gzip).padStart(5)} kB`,
+        `${String(row.budget.gzip).padStart(4)}${over(row.gzip, row.budget.gzip)}`,
       ].join(" "),
     );
   }
@@ -138,8 +151,9 @@ export function budgetTable(rows, firstLoadGzip, firstLoadKb) {
     [
       "first load".padEnd(width),
       " ".repeat(9),
+      " ".repeat(5),
       `${String(firstLoadGzip).padStart(4)} kB`,
-      `${String(firstLoadKb).padStart(5)} kB`,
+      `${String(firstLoadKb).padStart(4)}${firstLoadGzip > firstLoadKb ? "!" : " "}`,
     ].join(" "),
   );
   return lines;
