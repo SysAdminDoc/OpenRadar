@@ -194,7 +194,34 @@ describe("the table the gate prints", () => {
     expect(lines[0]).toContain("chunk");
     expect(lines).toHaveLength(budgets.length + 2);
     expect(lines.at(-1)).toContain("first load");
-    expect(lines.at(-1)).toContain("60 kB");
+    // The cold open's own budget, which is a gzip one, so it keeps the `kB`
+    // the chunk rows dropped from their budget columns.
+    expect(lines.at(-1)).toContain("60");
+  });
+
+  it("says which budget a chunk missed, and marks the one it missed", () => {
+    // The table printed the gzip budget in a single column headed "budget"
+    // and nothing at all for the raw one, so a chunk over its raw limit read
+    // as three numbers that all looked fine and only the sentence underneath
+    // said otherwise. Seven commits went out with this gate failing.
+    const rows = [
+      {
+        name: "over-raw",
+        raw: 27,
+        gzip: 6,
+        budget: { raw: 26, gzip: 6 },
+      },
+      {
+        name: "fine",
+        raw: 10,
+        gzip: 3,
+        budget: { raw: 26, gzip: 6 },
+      },
+    ];
+    const [, over, fine] = budgetTable(rows, 1, 60);
+    expect(over, "the raw budget is not in the row").toContain("26");
+    expect(over, "nothing marks the column that failed").toContain("26!");
+    expect(fine).not.toContain("!");
   });
 });
 
