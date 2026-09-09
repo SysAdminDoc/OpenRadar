@@ -1657,7 +1657,7 @@ function MapViewportInner(
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 3.5, 8, 7],
           "circle-color": ["coalesce", ["get", "color"], "#94a3b8"],
-          "circle-stroke-color": "#0f172a",
+          "circle-stroke-color": inkFor("pointRing", overLightRef.current),
           "circle-stroke-width": 1,
         },
       },
@@ -1723,7 +1723,7 @@ function MapViewportInner(
         paint: {
           "circle-radius": 6,
           "circle-color": ["coalesce", ["get", "color"], "#60a5fa"],
-          "circle-stroke-color": inkFor("placefilePoint", overLightRef.current),
+          "circle-stroke-color": inkFor("pointRing", overLightRef.current),
           "circle-stroke-width": 1.5,
           "circle-opacity": ["coalesce", ["get", "fileOpacity"], 1],
           "circle-stroke-opacity": ["coalesce", ["get", "fileOpacity"], 1],

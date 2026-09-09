@@ -123,7 +123,10 @@ describe("what the workspace can say about notifications", () => {
  * A stand-in for the engine Windows provides, which remembers what it was
  * asked to say and hands back the utterance so a test can end it.
  */
-function withSpeech(voices: number, options: { throws?: boolean } = {}) {
+function withSpeech(
+  voices: number,
+  options: { throws?: boolean; endsAtOnce?: boolean } = {},
+) {
   let installed = voices;
   const said: Array<{ text: string; lang: string }> = [];
   const live: Array<{ onend?: () => void; onerror?: () => void }> = [];
@@ -140,11 +143,20 @@ function withSpeech(voices: number, options: { throws?: boolean } = {}) {
     addEventListener: (_name: string, run: () => void) => listeners.push(run),
     cancel: () => {
       cancelled += 1;
-      live.length = 0;
+      // What the engine actually does. `cancel` raises `error` on the
+      // utterance it cuts, and a stub that only empties its own list hides
+      // every consequence of that.
+      for (const one of live.splice(0)) one.onerror?.();
     },
     speak: (one: Utterance) => {
       if (options.throws) throw new Error("the voice service is not running");
       said.push({ text: one.text, lang: one.lang });
+      // An engine that finishes before `speak` returns, which Chromium does
+      // not do and a stricter one might.
+      if (options.endsAtOnce) {
+        one.onend?.();
+        return;
+      }
       live.push(one);
     },
   };
@@ -176,6 +188,10 @@ function withSpeech(voices: number, options: { throws?: boolean } = {}) {
       installed = 2;
       listeners.splice(0).forEach((run) => run());
     },
+    /** How many utterances the engine believes it is still reading. */
+    live: () => live.length,
+    /** How many callbacks are waiting on the voice list. */
+    listeners: () => listeners.length,
     /** Stops throwing, for the sentence after the one that failed. */
     recover: () => {
       options.throws = false;
@@ -315,6 +331,71 @@ describe("reading an alert aloud", () => {
     } finally {
       engine.undo();
       vi.useRealTimers();
+    }
+  });
+
+  it("reads one sentence at a time through the ceiling as well", async () => {
+    // The way this queue could still speak over itself, and only through the
+    // line written to stop it. `cancel` raises `error` on the utterance it
+    // cuts; that handler was the same closure the queue uses to move on, so
+    // it cleared the hold on the sentence that had just started and the one
+    // after that was spoken over it.
+    vi.useFakeTimers();
+    const engine = withSpeech(2);
+    try {
+      const { speak } = await freshSpeech();
+      speak("A tornado warning");
+      speak("A flash flood warning");
+      speak("A severe thunderstorm warning");
+      await vi.advanceTimersByTimeAsync(21_000);
+      expect(engine.words()).toEqual([
+        "A tornado warning",
+        "A flash flood warning",
+      ]);
+      // One being read, not two.
+      expect(engine.live()).toBe(1);
+    } finally {
+      engine.undo();
+      vi.useRealTimers();
+    }
+  });
+
+  it("is not held by a sentence that finished before speak returned", async () => {
+    // Chromium raises `end` on its own thread, so this is a stricter engine
+    // than the one that ships. It costs nothing to survive and the same
+    // bookkeeping is what the cancelled utterance above corrupts: the queue
+    // was marked as reading a sentence that had already ended, and every
+    // warning after it waited the full twenty seconds.
+    const engine = withSpeech(2, { endsAtOnce: true });
+    try {
+      const { speak } = await freshSpeech();
+      speak("A tornado warning");
+      speak("A flash flood warning");
+      expect(engine.words()).toEqual([
+        "A tornado warning",
+        "A flash flood warning",
+      ]);
+    } finally {
+      engine.undo();
+    }
+  });
+
+  it("waits for the voice list with one listener, not one for each", async () => {
+    // `once` deduplicates nothing when every call hands it a new function,
+    // so a queue that filled before the list did would call back once per
+    // sentence and each of those would try to start reading.
+    const engine = withSpeech(0);
+    try {
+      const { speak } = await freshSpeech();
+      speak("A tornado warning");
+      speak("A flash flood warning");
+      speak("A severe thunderstorm warning");
+      expect(engine.listeners()).toBe(1);
+      engine.voicesArrive();
+      expect(engine.words()).toEqual(["A tornado warning"]);
+      expect(engine.live()).toBe(1);
+    } finally {
+      engine.undo();
     }
   });
 

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { MAP_INK } from "../lib/lineOnMap";
 
 /**
  * What a map lane may read while it is being built.
@@ -49,6 +50,37 @@ describe("which basemap a lane thinks it is drawing over", () => {
     const writes = source.match(/overLightRef\.current = [^;]+;/g) ?? [];
     expect(writes).toEqual([`overLightRef.current = ${asked};`]);
     expect(source).toContain(`useRef(${asked})`);
+    // And written before the style is set, not after it. The lanes are put
+    // back from the `style.load` that follows `setStyle`, so a write below
+    // that call is a race the compiler cannot see and neither can a gate
+    // that only counts the writes.
+    const wrote = source.indexOf(`overLightRef.current = ${asked};`);
+    const set = source.indexOf("map.setStyle(");
+    expect(wrote).toBeGreaterThan(-1);
+    expect(set).toBeGreaterThan(-1);
+    expect(wrote).toBeLessThan(set);
+  });
+
+  it("spells out no colour the ink table already pairs", () => {
+    // The hurricane fix's ring was `#0f172a` outright, three lines below a
+    // mark on the same source that reads the ground. It is the storm cell's
+    // own light ink, so over the dark basemap the ring was the one colour
+    // the ground is not, and the pixel gate that reads exactly that value
+    // held only because its case leaves Tropical switched off.
+    //
+    // A pair may still be written out where the line chooses between the
+    // two: what is not allowed is one half of a pair standing on its own.
+    const loose: string[] = [];
+    for (const line of source.split(String.fromCharCode(10))) {
+      for (const pair of Object.values(MAP_INK)) {
+        for (const ink of [pair.light, pair.dark]) {
+          if (line.includes(ink) && !line.includes("overLight")) {
+            loose.push(line.trim());
+          }
+        }
+      }
+    }
+    expect(loose).toEqual([]);
   });
 
   it("names no colour of its own inside the storm cell lane", () => {
