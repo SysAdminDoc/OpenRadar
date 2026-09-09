@@ -110,22 +110,31 @@ function endOf(bytes: Uint8Array): number | null {
 }
 
 /**
- * Whether a keyword is one the format allows.
+ * Whether a keyword is one this writer can put in a file correctly.
  *
- * One to seventy-nine Latin-1 characters, which is the specification's own
- * limit and was documented above while nothing checked it: a four hundred
- * byte keyword, an empty one and a keyword written in Japanese all produced a
- * file, and the last of them reads back as mojibake in every viewer. The
- * constant this ships with is twenty ASCII characters, so what this catches
- * is the next one somebody adds.
+ * The format allows 1 to 79 characters from 32-126 and 161-255, with no
+ * leading, trailing or consecutive spaces. This is stricter in one way and
+ * the reason is the writer below: the keyword goes through `TextEncoder`,
+ * which is UTF-8, into a field the format defines as Latin-1. Every code
+ * above 126 therefore comes out as two bytes and reads back wrong, so
+ * "Créditos" was written as "CrÃ©ditos" and a first attempt at this check
+ * blessed it as a good keyword. ASCII is what round-trips, so ASCII is what
+ * is allowed, and the alternative, encoding the field as Latin-1, buys a
+ * range nothing here wants.
+ *
+ * The space rules are the specification's own, and they are about a person
+ * reading the keyword back rather than about the bytes.
  */
 function usableKeyword(keyword: string): boolean {
   return (
     keyword.length >= 1 &&
     keyword.length <= 79 &&
+    !keyword.startsWith(" ") &&
+    !keyword.endsWith(" ") &&
+    !keyword.includes("  ") &&
     [...keyword].every((character) => {
       const code = character.charCodeAt(0);
-      return code >= 32 && code <= 255 && !(code >= 127 && code <= 160);
+      return code >= 32 && code <= 126;
     })
   );
 }
