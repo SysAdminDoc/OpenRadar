@@ -142,7 +142,14 @@ function PanelPlaceholder({
  */
 function isChunkFailure(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
-  return /dynamically imported module|Importing a module script failed/i.test(
+  // The three engines' wordings for a module that did not arrive, and Vite's
+  // own for the stylesheet beside it. `__vitePreload` fetches a lazy chunk's
+  // CSS before the module and rejects with "Unable to preload CSS for" when
+  // that fails, which is the same failure to a reader and matched none of the
+  // three: the panel's own frame was skipped and the whole workspace went to
+  // the recovery screen. Not reachable while no lazily imported module in
+  // this tree carries a stylesheet, and reachable by the first one that does.
+  return /dynamically imported module|Importing a module script failed|Unable to preload CSS/i.test(
     error.message,
   );
 }

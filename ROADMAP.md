@@ -603,13 +603,6 @@ Tenth research pass, at `beae469`. Everything below came from the third refutati
   Acceptance: both new cases fail on the current code and pass after; the existing hold cases stay green.
   Complexity: S
 
-- [ ] AUD-456 (P3): `isChunkFailure` does not match Vite's own CSS preload rejection
-  Why: the detector covers the three engines' wordings for a dynamic import that did not arrive. Vite's preload helper rejects a lazy import whose CSS did not arrive with "Unable to preload CSS for" and the path, which matches none of them, so that failure is rethrown past the panel boundary to the whole-window recovery screen, which is the outcome `AUD-443` exists to prevent. Not reachable today, because no lazily imported module in the tree imports CSS; it is exactly the "generous direction" the docblock argues for and the first panel that gains a stylesheet of its own reaches it.
-  Evidence: refutation report of 2026-09-08 (LOW 9); `src/components/LazyPanel.tsx` (`isChunkFailure`, the regex), `node_modules/vite/dist/node/chunks/node.js:28912` (the rejection).
-  Touches: `src/components/LazyPanel.tsx` (the regex gains the Vite wording), `src/components/LazyPanel.test.tsx` (a boundary given that error shows the fetch failure frame rather than rethrowing).
-  Acceptance: the new case fails before and passes after; the existing render-failure rethrow case stays green.
-  Complexity: S
-
 - [ ] AUD-457 (P3): The export caption's ellipsis is length-neutral, not width-neutral, and the test's `measureText` cannot tell
   Why: a truncated caption line drops its last two characters and appends a space and an ellipsis. In the caption's font (Segoe UI, then system-ui) the two dropped may be narrow glyphs at about 7 px together and the added pair about 13 px, so the line grows by about 6 px and can creep into the right margin. When the line is two characters or shorter the ellipsis is appended with nothing removed. The fake canvas in the test returns a width proportional to character count, which is monospace, so the test passes a change it cannot measure.
   Evidence: refutation report of 2026-09-08 (LOW 6); `src/lib/export.ts:171` (the slice), `:189-191` (the width measured after truncation, which is why the damage is bounded to the margin), `src/lib/export.test.ts:38-40` (the fake `measureText`).

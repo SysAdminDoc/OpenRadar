@@ -44,6 +44,38 @@ describe("a panel that arrives over the network", () => {
     expect(screen.getByText("the map is still here")).toBeTruthy();
   });
 
+  it("keeps a chunk whose stylesheet did not arrive inside the frame too", () => {
+    // Vite fetches a lazy chunk's CSS before the module and rejects with a
+    // wording of its own when that fails. To a reader it is the same failure,
+    // the panel did not arrive, but it matched none of the three engine
+    // wordings, so this one was rethrown past the panel's frame and took the
+    // whole workspace to the recovery screen: the outcome the frame exists to
+    // prevent, reached by the one route it did not recognise.
+    const noise = vi.spyOn(console, "error").mockImplementation(() => {});
+    function NoStylesheet(): never {
+      throw new Error(
+        "Unable to preload CSS for /assets/RoutePanel-a1b2c3d4.css",
+      );
+    }
+    render(
+      <div>
+        <p>the map is still here</p>
+        <LazyPanel
+          title="Route"
+          className="surface-panel--right"
+          onClose={() => {}}
+        >
+          <NoStylesheet />
+        </LazyPanel>
+      </div>,
+    );
+    noise.mockRestore();
+
+    expect(screen.getByText(en["panelChunk.failed"])).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Route" })).toBeTruthy();
+    expect(screen.getByText("the map is still here")).toBeTruthy();
+  });
+
   it("says which panel failed in the log, not which chunk", () => {
     // A hashed chunk file name tells a reader nothing and tells a report
     // nothing either. What they know is the panel they opened.
