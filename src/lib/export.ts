@@ -174,7 +174,21 @@ export function drawFrame(
       // them, so a line ending in `ill` or `tt` came back wider than the one
       // that was already too wide. Characters come off until what is left
       // plus the ellipsis fits the same room every other line was wrapped to.
-      const ellipsis = " …";
+      // A bare ellipsis on a picture with no room even for that, which is
+      // under about sixty pixels wide. Trimming the head to nothing still
+      // leaves " …" over the limit, so the ellipsis goes on its own and the
+      // space with it: a caption that cannot hold three dots is past the
+      // point where any of this is legible, and the rule it obeys is still
+      // the one every other line obeys.
+      // The widest marker that fits, and none at all where even three dots
+      // do not: that is a picture under about sixty pixels wide, where the
+      // caption is past legible anyway and a marker hanging over the edge
+      // says less than a clean cut does. The rule every other line obeys then
+      // has no exception, which is what makes it worth asserting.
+      const marker = [" …", "…", ""].find(
+        (one) => room <= 0 || context.measureText(one).width <= room,
+      );
+      const ellipsis = marker ?? "";
       let head = kept[fits - 1];
       while (
         room > 0 &&
@@ -183,7 +197,9 @@ export function drawFrame(
       ) {
         head = head.slice(0, -1);
       }
-      kept[fits - 1] = `${head}${ellipsis}`;
+      // A head trimmed to end in a space would leave two before the
+      // ellipsis, which reads as a gap rather than as a cut.
+      kept[fits - 1] = `${head.replace(/s+$/, "")}${ellipsis}`;
       laid = {
         ...laid,
         lines: kept,
