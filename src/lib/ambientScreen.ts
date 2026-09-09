@@ -158,12 +158,18 @@ export function ambientTypeScale(
   // they come off the room before the rest is divided by what does.
   //
   // The clamp on the divisor stays. It was taken out once as a guard that
-  // could not fire, and that was wrong: a readout measuring zero on one axis
-  // and something on the other divides a positive room by nothing and comes
-  // back with a number, not `Infinity`, so that axis stops binding at all.
-  // The inputs where it differs need a room narrower than the inset it has to
-  // leave, which no window this draws in is, so nothing was ever wrong. It is
-  // still a clamp rather than a comment about one.
+  // could not fire, and that was wrong: a readout measuring zero on an axis
+  // divides that axis by nothing, and `Infinity` is exactly the answer that
+  // stops it binding, so the room on that side is not consulted at all.
+  //
+  // Where that changes the answer is narrower than it first reads. It is not
+  // a room narrower than the inset: it is a room whose space left over after
+  // the inset and the way out is smaller than the size being asked for, which
+  // at the furthest setting is about seven pixels. A room 153 by 93 with a
+  // readout measuring nothing answers 3 with the clamp and 6.67 without it.
+  // No window this draws in is that short, so nothing a reader met was ever
+  // wrong; it is still a clamp rather than an argument about one, and the
+  // test below is that pair of numbers rather than this paragraph.
   const across =
     (room.width - AMBIENT_INSET_PX * 2) / Math.max(1, natural.width);
   const down =
