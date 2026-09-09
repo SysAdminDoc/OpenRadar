@@ -3,6 +3,7 @@ import {
   drawFrame,
   exportFileName,
   exportLoop,
+  exportLoopMp4,
   exportLoopGif,
   exportStill,
   MAX_GIF_FRAMES,
@@ -571,11 +572,35 @@ describe("exporting a loop as a GIF", () => {
   });
 });
 
+/** Where one run of bytes starts inside another, or -1. */
+function indexOfBytes(haystack: Uint8Array, needle: Uint8Array): number {
+  outer: for (let at = 0; at + needle.length <= haystack.length; at += 1) {
+    for (let step = 0; step < needle.length; step += 1) {
+      if (haystack[at + step] !== needle[step]) continue outer;
+    }
+    return at;
+  }
+  return -1;
+}
+
 /**
  * The pieces of WebCodecs the export uses, so both paths can be walked in a
  * runtime that has neither.
  */
-function stubEncoder(options: { supported: boolean }) {
+function stubEncoder(options: {
+  supported: boolean;
+  /**
+   * The parameter sets the encoder hands over beside its first chunk.
+   *
+   * Absent by default, which is how this fake shipped, and which meant the
+   * copy that reads them was reached by no test at all: `output(chunk)` was
+   * called with one argument, so `metadata?.decoderConfig?.description` was
+   * always undefined and the branch under it never ran.
+   */
+  description?: AllowSharedBufferSource;
+  /** Called after the first chunk, so a test can reuse the buffer above. */
+  onSecondChunk?: () => void;
+}) {
   const encoded: Array<{ keyFrame: boolean }> = [];
   class FakeVideoFrame {
     constructor(
@@ -588,19 +613,35 @@ function stubEncoder(options: { supported: boolean }) {
     static isConfigSupported = (config: { codec: string }) =>
       Promise.resolve({ supported: options.supported, config });
     state = "unconfigured";
-    constructor(readonly handlers: { output: (chunk: unknown) => void }) {}
+    constructor(
+      readonly handlers: {
+        output: (chunk: unknown, metadata?: unknown) => void;
+      },
+    ) {}
     configure() {
       this.state = "configured";
     }
     encode(frame: FakeVideoFrame, init?: { keyFrame?: boolean }) {
       const keyFrame = init?.keyFrame === true;
       encoded.push({ keyFrame });
-      this.handlers.output({
-        byteLength: 900,
-        timestamp: frame.init.timestamp,
-        type: keyFrame ? "key" : "delta",
-        copyTo: (into: Uint8Array) => into.fill(7),
-      });
+      const first = encoded.length === 1;
+      this.handlers.output(
+        {
+          byteLength: 900,
+          timestamp: frame.init.timestamp,
+          type: keyFrame ? "key" : "delta",
+          copyTo: (into: Uint8Array) => into.fill(7),
+        },
+        // Once, beside the first chunk, which is where a real encoder puts
+        // them and why the copy exists.
+        first && options.description
+          ? { decoderConfig: { description: options.description } }
+          : undefined,
+      );
+      // A real encoder owns the buffer it handed over and is free to write
+      // over it the moment the call returns. Doing so here is what makes the
+      // copy on the other side load-bearing rather than decorative.
+      if (!first) options.onSecondChunk?.();
     }
     flush() {
       return Promise.resolve();
@@ -781,6 +822,56 @@ describe("exporting a loop as a WebM", () => {
       expect(blob.size).toBeGreaterThan(2000);
     } finally {
       restoreRecorder();
+    }
+  });
+
+  it("keeps the parameter sets the encoder handed over, wherever they sat", async () => {
+    // An MP4 with no parameter sets is a file no player opens, so the copy
+    // that takes them is load-bearing, and nothing reached it: the fake
+    // encoder called `output` with one argument, so the branch was dead in
+    // every test in this file.
+    //
+    // Handed over as a view partway into a larger buffer, which is the shape
+    // that made the old reading wrong: it asked whether the description was
+    // an `ArrayBuffer` and read `.buffer` off the else, which is a union with
+    // a shared buffer and has no such property. The bytes either side are
+    // what a copy that ignored the offset would pick up instead.
+    const whole = new Uint8Array([
+      0xaa, 0xaa, 0xaa, 0x01, 0x02, 0x03, 0x04, 0x05, 0xbb, 0xbb,
+    ]);
+    const description = whole.subarray(3, 8);
+    const wanted = Uint8Array.from(description);
+    const encoder = stubEncoder({
+      supported: true,
+      description,
+      // The encoder takes its buffer back as soon as it has handed it over.
+      onSecondChunk: () => whole.fill(0xee),
+    });
+    const source = fakeCanvas(320, 180);
+    try {
+      const blob = await withCanvas(() =>
+        exportLoopMp4({
+          source: source.canvas,
+          frameCount: 3,
+          showFrame: async () => {},
+          captionFor: () => ({ lines: ["x"], attribution: "OpenRadar" }),
+          frameDurationMs: 1,
+        }),
+      );
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      expect(
+        indexOfBytes(bytes, wanted),
+        "the parameter sets the encoder handed over are not in the file",
+      ).toBeGreaterThan(-1);
+      // The five bytes and not the ten they sat inside. A copy that took the
+      // whole buffer would satisfy the reading above, because the run it
+      // wants is inside the run it took.
+      expect(
+        indexOfBytes(bytes, Uint8Array.from([0xaa, 0xaa, 0xaa, 0x01])),
+        "the bytes before the description came with it",
+      ).toBe(-1);
+    } finally {
+      encoder.restore();
     }
   });
 
