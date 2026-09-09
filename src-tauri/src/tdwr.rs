@@ -778,7 +778,9 @@ mod tests {
         let painted = |rendered: &Rendered| {
             rendered
                 .pixels
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .filter(|pixel| pixel[3] > 0)
                 .count()
         };

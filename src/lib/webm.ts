@@ -26,7 +26,15 @@ const TIMECODE_SCALE_NS = 1_000_000;
  */
 const MAX_CLUSTER_MS = 16_000;
 
-type Bytes = Uint8Array;
+/**
+ * Bytes this app made, which are never shared across threads.
+ *
+ * The parameter matters: a bare `Uint8Array` may be backed by a
+ * `SharedArrayBuffer`, and `Blob` will not take one. Everything here is
+ * allocated a few lines away, so saying so is saying what is true rather than
+ * asserting it at the call site.
+ */
+type Bytes = Uint8Array<ArrayBuffer>;
 
 function bytes(...values: number[]): Bytes {
   return new Uint8Array(values);

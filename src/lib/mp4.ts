@@ -55,7 +55,7 @@ function fourcc(name: string): Uint8Array {
   return out;
 }
 
-function join(parts: Uint8Array[]): Uint8Array {
+function join(parts: Uint8Array[]): Uint8Array<ArrayBuffer> {
   const total = parts.reduce((sum, part) => sum + part.length, 0);
   const out = new Uint8Array(total);
   let at = 0;
@@ -291,7 +291,12 @@ export function framesInOrder(frames: Mp4Frame[]): boolean {
  * The layout is brand, media, movie: the movie box holds the position of the
  * first sample, so the media has to be laid out before it can be described.
  */
-export function writeMp4(frames: Mp4Frame[], options: Mp4Options): Uint8Array {
+export function writeMp4(
+  frames: Mp4Frame[],
+  options: Mp4Options,
+  // Never shared across threads, which is what lets the caller hand this
+  // straight to a `Blob`.
+): Uint8Array<ArrayBuffer> {
   if (!frames.length) throw new Error("writeMp4 needs at least one frame.");
   if (!options.description.length) {
     throw new Error("writeMp4 needs the encoder's codec configuration.");

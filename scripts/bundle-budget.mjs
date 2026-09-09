@@ -119,7 +119,15 @@ const BUDGETS = [
     match: /^LayersPanel-.*\.js$/,
     // The layer switches and their segmented controls, fetched when the
     // layers panel is opened. Adding a switch group lands here.
-    raw: 26,
+    //
+    // Twenty-eight from twenty-six on 2026-09-09, for two changes of about
+    // four hundred bytes each. Giving the Convective outlook's two segmented
+    // controls a visible name apiece is the first: the heading over them
+    // named neither, so a reader had to work out which row was the day and
+    // which the hazard from the words on the buttons. The second is the
+    // toolchain bump of the same day, mostly lucide-react 1.41 to 1.43, which
+    // this chunk carries six kilobytes of. Gzipped it is unchanged at six.
+    raw: 28,
     gzip: 6,
     firstLoad: false,
   },

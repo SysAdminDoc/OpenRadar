@@ -293,15 +293,19 @@ mod tests {
 
         fn shorts(&self, tag: u16) -> Vec<u16> {
             self.payload(tag, 2)
-                .chunks_exact(2)
-                .map(|pair| u16::from_le_bytes(pair.try_into().unwrap()))
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|pair| u16::from_le_bytes(*pair))
                 .collect()
         }
 
         fn doubles(&self, tag: u16) -> Vec<f64> {
             self.payload(tag, 8)
-                .chunks_exact(8)
-                .map(|eight| f64::from_le_bytes(eight.try_into().unwrap()))
+                .as_chunks::<8>()
+                .0
+                .iter()
+                .map(|eight| f64::from_le_bytes(*eight))
                 .collect()
         }
 
@@ -316,8 +320,10 @@ mod tests {
             let (_, _, length) = self.entry(STRIP_BYTE_COUNTS);
             let length = u32::from_le_bytes(length) as usize;
             self.bytes[at..at + length]
-                .chunks_exact(4)
-                .map(|four| f32::from_le_bytes(four.try_into().unwrap()))
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|four| f32::from_le_bytes(*four))
                 .collect()
         }
     }

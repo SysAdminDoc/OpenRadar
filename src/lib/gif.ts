@@ -209,7 +209,7 @@ class Writer {
     for (const letter of value) this.byte(letter.charCodeAt(0));
   }
 
-  done(): Uint8Array {
+  done(): Uint8Array<ArrayBuffer> {
     this.flush();
     const out = new Uint8Array(this.total);
     let at = 0;

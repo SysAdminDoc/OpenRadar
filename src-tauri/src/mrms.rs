@@ -1838,7 +1838,7 @@ fn reduction_for(columns: usize, rows: usize, points: usize, ceiling: usize) -> 
         return None;
     }
     for reduce in 1..=MAX_SOURCE_REDUCTION {
-        if columns % reduce != 0 || rows % reduce != 0 {
+        if !columns.is_multiple_of(reduce) || !rows.is_multiple_of(reduce) {
             continue;
         }
         if points / (reduce * reduce) <= ceiling {
@@ -1947,7 +1947,7 @@ fn decode_png_samples(
         line_values.clear();
         match (color_type, bit_depth) {
             (png::ColorType::Grayscale, png::BitDepth::Sixteen) => {
-                for pair in bytes.chunks_exact(2) {
+                for pair in bytes.as_chunks::<2>().0 {
                     line_values.push(u32::from(u16::from_be_bytes([pair[0], pair[1]])));
                 }
             }
@@ -1957,7 +1957,7 @@ fn decode_png_samples(
             (png::ColorType::Rgb, png::BitDepth::Eight) => {
                 // Most significant byte first, which is how the packing
                 // spreads a sample wider than one channel.
-                for pixel in bytes.chunks_exact(3) {
+                for pixel in bytes.as_chunks::<3>().0 {
                     line_values.push(
                         (u32::from(pixel[0]) << 16)
                             | (u32::from(pixel[1]) << 8)
@@ -1978,7 +1978,7 @@ fn decode_png_samples(
             )));
         }
 
-        if source_row % reduce == 0 {
+        if source_row.is_multiple_of(reduce) {
             folded.clear();
             folded.resize(kept_columns, u32::MIN);
         }
@@ -1989,7 +1989,7 @@ fn decode_png_samples(
             }
         }
         source_row += 1;
-        if source_row % reduce == 0 {
+        if source_row.is_multiple_of(reduce) {
             samples.extend_from_slice(&folded);
         }
     }
@@ -3952,7 +3952,9 @@ mod tests {
         // straight over.
         let shades = |pixels: &[u8]| {
             pixels
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .filter(|pixel| pixel[3] > 0)
                 .map(|pixel| (pixel[0], pixel[1], pixel[2]))
                 .collect::<std::collections::BTreeSet<_>>()
@@ -5045,7 +5047,14 @@ mod tests {
                         },
                     )
                 })
-                .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
+                .map(|pixels| {
+                    pixels
+                        .as_chunks::<4>()
+                        .0
+                        .iter()
+                        .filter(|p| p[3] > 0)
+                        .count()
+                })
                 .sum::<usize>()
         };
         let walked = count(entry);
@@ -5107,7 +5116,14 @@ mod tests {
                     smooth: false,
                 },
             )
-            .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
+            .map(|pixels| {
+                pixels
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .filter(|p| p[3] > 0)
+                    .count()
+            })
             .unwrap_or(0)
         };
 
@@ -5151,7 +5167,14 @@ mod tests {
                     smooth: false,
                 },
             )
-            .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
+            .map(|pixels| {
+                pixels
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .filter(|p| p[3] > 0)
+                    .count()
+            })
             .unwrap_or(0)
         };
 
@@ -5268,7 +5291,14 @@ mod tests {
                 smooth: false,
             },
         )
-        .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
+        .map(|pixels| {
+            pixels
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .filter(|p| p[3] > 0)
+                .count()
+        })
         .unwrap_or(0)
     }
 
@@ -5404,7 +5434,9 @@ mod tests {
             )
             .map(|pixels| {
                 let first = pixels
-                    .chunks_exact(4)
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .find(|p| p[3] > 0)
                     .expect("a painted pixel");
                 [first[0], first[1], first[2]]
