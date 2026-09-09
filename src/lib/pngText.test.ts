@@ -158,13 +158,42 @@ describe("the record inside the picture", () => {
     // UTF-8. The picture comes back untouched rather than carrying a chunk
     // nothing can read.
     const png = tinyPng();
-    for (const bad of ["", "k".repeat(80), "気象レーダー", "with\nnewline"]) {
+    for (const bad of [
+      "",
+      "k".repeat(80),
+      "気象レーダー",
+      "with\nnewline",
+      // The specification's own space rules, which are about a person reading
+      // the keyword back rather than about the bytes.
+      " leading",
+      "trailing ",
+      "two  spaces",
+      // And the one a first attempt at this let through. The writer encodes
+      // this field with `TextEncoder`, which is UTF-8, into a field the
+      // format defines as Latin-1: "Créditos" was written as the bytes for
+      // "CrÃ©ditos" and every viewer read it back that way. ASCII is what
+      // round-trips, so ASCII is what is allowed.
+      "Créditos",
+    ]) {
       expect(withPngText(png, bad, record), JSON.stringify(bad)).toBe(png);
     }
-    // And the boundary on the good side, so the limit is a limit rather than
-    // a refusal of everything.
+    // And the boundaries on the good side, so the limit is a limit rather
+    // than a refusal of everything.
     expect(withPngText(png, "k".repeat(79), record)).not.toBe(png);
-    expect(withPngText(png, "Créditos", record)).not.toBe(png);
+    expect(withPngText(png, "One Space", record)).not.toBe(png);
+  });
+
+  it("writes a keyword a reader gets back exactly", () => {
+    // The keyword is the only thing anybody has to find this by, so it is
+    // read back byte for byte rather than trusted. Every allowed character
+    // is one byte, which is what makes that true.
+    const written = withPngText(tinyPng(), PROVENANCE_KEYWORD, record);
+    const carried = chunks(written).find((one) => one.type === "iTXt");
+    const keyword = carried!.data.subarray(0, carried!.data.indexOf(0));
+    expect([...keyword]).toEqual(
+      [...PROVENANCE_KEYWORD].map((one) => one.charCodeAt(0)),
+    );
+    expect(new TextDecoder().decode(keyword)).toBe(PROVENANCE_KEYWORD);
   });
 
   it("carries text that is not ASCII", () => {
