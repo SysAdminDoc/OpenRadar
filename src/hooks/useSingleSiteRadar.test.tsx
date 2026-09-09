@@ -364,6 +364,19 @@ describe("choosing a site", () => {
             ?.consecutiveFailures,
         ).toBe(1),
       );
+
+      // And an archive nobody can reach, which is the one that does not look
+      // like a transport failure from here: the listing swallows a failed day
+      // and moves on, so a total outage arrives as a site with no volumes.
+      // Read as the ask being impossible, it left the row green through it.
+      fetchSweep.mockRejectedValue({ code: "noVolume", args: ["KDMX"] });
+      rerender({ tilt: 2 });
+      await waitFor(() =>
+        expect(
+          providerHealth().find((one) => one.id === "level2")
+            ?.consecutiveFailures,
+        ).toBe(2),
+      );
     } finally {
       warn.mockRestore();
       resetHealth();

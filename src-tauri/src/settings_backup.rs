@@ -96,8 +96,18 @@ fn recover(dir: &Path) -> Option<Recovery> {
         // load it on every start from here on and the reader is stuck on the
         // defaults for good, with every save failing behind them.
         if let Err(error) = std::fs::remove_file(&live) {
+            // Neither moved nor removed, which on Windows is a file something
+            // else has open. Said anyway rather than passing in silence: the
+            // store will fall to its defaults, the copy beside it is still
+            // good, and a reader who is told can close whatever is holding it
+            // and start again. Returning nothing here left them on the
+            // defaults with no notice, which is the silence this module was
+            // written to remove.
             log::warn!("OpenRadar could not move the unreadable settings file: {error}");
-            return None;
+            return Some(Recovery {
+                kept_at: live.display().to_string(),
+                restored: false,
+            });
         }
     }
     let previous = dir.join(PREVIOUS);

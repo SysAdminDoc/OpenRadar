@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { haversineMiles } from "./geo";
 import { ringAround, watchRingFeatures } from "./ring";
+import { DEFAULT_QUIET_HOURS } from "./watch";
 
 describe("the ring a watched place is judged inside", () => {
   it("puts every point at the radius, at every latitude", () => {
@@ -59,20 +60,22 @@ describe("the rings the map is given", () => {
     {
       id: "home",
       name: "Home",
+      enabled: true,
       center: [-93.6, 41.6] as [number, number],
       radiusMiles: 30,
       minSeverity: "severe" as const,
       sound: false,
-      quietHours: { enabled: false, from: 22, to: 7, severe: true },
+      quietHours: DEFAULT_QUIET_HOURS,
     },
     {
       id: "school",
       name: "School",
+      enabled: true,
       center: [-96.8, 32.78] as [number, number],
       radiusMiles: 10,
       minSeverity: "severe" as const,
       sound: false,
-      quietHours: { enabled: false, from: 22, to: 7, severe: true },
+      quietHours: DEFAULT_QUIET_HOURS,
     },
   ];
 

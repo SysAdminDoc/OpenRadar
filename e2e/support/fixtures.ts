@@ -690,6 +690,7 @@ export async function fakeDesktop(page: Page, stub: DesktopStub = {}) {
           if (command === "settings_recovered") return null;
           if (command === "settings_keep_previous") return true;
           if (command === "unclean_starts") return 0;
+          if (command === "workspace_drawn") return null;
           if (command === "clear_unclean_starts") return null;
           if (command === "crash_last_webview_report") return null;
           if (command === "host_webview_version") return "152.0.4191.62";

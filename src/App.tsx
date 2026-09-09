@@ -179,6 +179,7 @@ import type {
 import { isDesktopRuntime } from "./lib/runtime";
 import {
   APP_VERSION,
+  noteWorkspaceDrawn,
   restoreArrangement,
   settingsRecovery,
   startedPlain,
@@ -379,6 +380,14 @@ export default function App() {
     viewportPx,
   } = useSettings({ onPersistError });
 
+  // The workspace is up, which is the whole of what the count is about: a
+  // start that never got this far is the one worth standing an arrangement
+  // down for.
+  useEffect(() => {
+    if (!hydrated) return;
+    void noteWorkspaceDrawn();
+  }, [hydrated]);
+
   // Two starts that did not finish, and the arrangement stood down for this
   // one. Said out loud with the one press that puts it back, because a
   // workspace that quietly opens without the reader's theme and saved view
@@ -390,6 +399,10 @@ export default function App() {
       title: translate("app.startedPlain"),
       detail: translate("app.startedPlainBody"),
       actionLabel: translate("app.startedPlainRestore"),
+      // As long as every other toast that offers to undo something. Five
+      // seconds is enough for a notice and not enough to read a sentence
+      // about the workspace being different and decide what to do about it.
+      lifetimeMs: UNDO_LIFETIME_MS,
       onAction: () => {
         void restoreArrangement();
       },
