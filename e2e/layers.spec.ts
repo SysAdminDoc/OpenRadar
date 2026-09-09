@@ -1432,3 +1432,44 @@ test("takes a file dropped anywhere on the drop zone", async ({ page }) => {
   expect(wearing.focused).toBe(true);
   expect(wearing.opacity).toBe("0");
 });
+
+test("draws the radius each watched place is judged inside, when asked", async ({
+  page,
+}) => {
+  // The rules are judged against a radius and nothing on the map showed it,
+  // so a reader who set "within ten miles" could not see which storms were
+  // inside the circle and which were not.
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await expect(pane).not.toHaveAttribute("data-layer-stack", /watch-ring/);
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "openradar.settings",
+      JSON.stringify({
+        schemaVersion: 3,
+        watchRings: true,
+        watch: {
+          enabled: true,
+          center: [-96.8, 32.78],
+          radiusMiles: 30,
+          minSeverity: "severe",
+        },
+      }),
+    );
+  });
+  await page.reload();
+  await expect(pane).toBeVisible();
+
+  await expect(pane).toHaveAttribute("data-layer-stack", /watch-ring/);
+  // The label as well as the circle, because the distance is the half of it
+  // that says what the circle means.
+  await expect(pane).toHaveAttribute("data-layer-stack", /watch-ring-label/);
+  // Under the tools and over everything a service published: a line about
+  // the reader's own rules must not be able to hide a warning.
+  const stack = (await pane.getAttribute("data-layer-stack"))?.split(" ") ?? [];
+  expect(stack.indexOf("openradar-watch-ring")).toBeGreaterThan(
+    stack.indexOf("openradar-overlay-alerts-fill"),
+  );
+});

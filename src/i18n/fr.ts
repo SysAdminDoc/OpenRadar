@@ -1125,6 +1125,9 @@ export const fr: Catalogue = {
   "watch.followNew": "Aller aux nouvelles alertes",
   "watch.followNewDetail":
     "Amener la carte sur une alerte dès qu'elle atteint un endroit surveillé. Déplacer la carte vous-même arrête le vol, et arrête le suivant un moment.",
+  "watch.showRings": "Afficher le rayon sur la carte",
+  "watch.showRingsDetail":
+    "Trace un cercle autour de chaque endroit surveillé à la distance que ses règles utilisent, pour voir quels orages sont dedans. Absent des images exportées.",
   "nearby.north": "nord",
   "nearby.northeast": "nord-est",
   "nearby.east": "est",

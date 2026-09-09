@@ -450,6 +450,17 @@ export interface AppSettings {
    */
   followNewWarnings: boolean;
   /**
+   * Draw each watched place's radius on the map.
+   *
+   * The rules are judged against that radius and nothing on the map showed
+   * it, so a reader who set "within ten miles" could not see which storms
+   * were inside the circle. Off until asked for, because a ring around every
+   * watched place is a line over the weather for a reader who is not
+   * currently thinking about their rules. One preference for the workspace
+   * rather than one per place: it is about what the map draws.
+   */
+  watchRings: boolean;
+  /**
    * Which GOES-East view the satellite layer draws.
    *
    * GeoColor by default, which is the picture people expect. The infrared
@@ -778,6 +789,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     quietHours: DEFAULT_QUIET_HOURS,
   },
   followNewWarnings: false,
+  watchRings: false,
   satelliteBand: "geocolor",
   approach: DEFAULT_APPROACH,
   lightningWatch: DEFAULT_LIGHTNING_RULE,
@@ -1914,6 +1926,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       raw.followNewWarnings,
       DEFAULT_SETTINGS.followNewWarnings,
     ),
+    watchRings: bool(raw.watchRings, DEFAULT_SETTINGS.watchRings),
     // Read from the old key too, which held the same two band names before
     // the satellite stopped being part of the choice. A file written by any
     // build before 2026-09-03 keeps the view its reader picked.

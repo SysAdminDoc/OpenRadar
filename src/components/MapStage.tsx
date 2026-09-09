@@ -57,6 +57,8 @@ interface MapStageProps {
   satelliteAgeMinutes: number | null;
   overlays: Partial<Record<OverlayId, OverlayData | null>>;
   route: Record<string, unknown> | null;
+  /** The ring around each watched place, or null when they are switched off. */
+  watchRings: Record<string, unknown> | null;
   customOverlay: Record<string, unknown> | null;
   stormTrack: Record<string, unknown> | null;
   /** One site's own sweep, drawn in place of the mosaic when it is set. */
@@ -121,6 +123,7 @@ export function MapStage({
   satelliteAgeMinutes,
   overlays,
   route,
+  watchRings,
   customOverlay,
   stormTrack,
   sweep,
@@ -217,6 +220,7 @@ export function MapStage({
     radarOpacity: settings.radar.opacity,
     overlays,
     route,
+    watchRings,
     counties: settings.layers.counties,
     night: settings.layers.night,
     customOverlay: settings.layers.customOverlay ? customOverlay : null,

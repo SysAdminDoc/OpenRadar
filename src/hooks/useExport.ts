@@ -480,6 +480,10 @@ export function useExport(options: {
       drawnRef.current.clear();
       startedRef.current = Date.now();
       setBusy("image");
+      // Before the pixels are read, and put back however this ends. The map
+      // carries chrome that is about the reader rather than about the
+      // weather, and a picture they send somebody should not have it.
+      mapRef.current?.setCapturing(true);
       try {
         const blob = await exportStill(canvas, captionFor(frameIndex));
         await finish(exportFileName("openradar", "png"), blob);
@@ -495,6 +499,7 @@ export function useExport(options: {
           detail: translate("export.imageFailedBody"),
         });
       } finally {
+        mapRef.current?.setCapturing(false);
         setBusy(null);
       }
     })();
@@ -536,16 +541,21 @@ export function useExport(options: {
   );
 
   const writeWallpaper = useCallback(async () => {
+    mapRef.current?.setCapturing(true);
     const canvas = mapRef.current?.canvas();
     // Nothing to draw is not a failure. A wallpaper of an empty map is worse
     // than the one that is already there. Answering false rather than
     // throwing is what lets the schedule tell "there was nothing yet" from
     // "it went wrong", so a cold start does not spend its first slot on a
     // map that had not come up.
-    if (!canvas || !frames.length) return false;
-    const blob = await exportStill(canvas, wallpaperCaption(frameIndex));
-    await setWallpaper(new Uint8Array(await blob.arrayBuffer()));
-    return true;
+    try {
+      if (!canvas || !frames.length) return false;
+      const blob = await exportStill(canvas, wallpaperCaption(frameIndex));
+      await setWallpaper(new Uint8Array(await blob.arrayBuffer()));
+      return true;
+    } finally {
+      mapRef.current?.setCapturing(false);
+    }
   }, [frameIndex, frames.length, mapRef, wallpaperCaption]);
 
   const exportPostcard = useCallback(
@@ -556,6 +566,7 @@ export function useExport(options: {
         drawnRef.current.clear();
         startedRef.current = Date.now();
         setBusy("image");
+        mapRef.current?.setCapturing(true);
         try {
           const blob = await drawPostcard({
             frame: canvas,
@@ -583,6 +594,7 @@ export function useExport(options: {
             detail: translate("export.imageFailedBody"),
           });
         } finally {
+          mapRef.current?.setCapturing(false);
           setBusy(null);
         }
       })();
@@ -616,6 +628,9 @@ export function useExport(options: {
         const wasPlaying = timeline.playing;
         setBusy(busyAs);
         timeline.setPlaying(false);
+        // For the whole walk, not one frame of it: `showFrame` moves the
+        // timeline and waits for the map between every capture.
+        mapRef.current?.setCapturing(true);
         try {
           const blob = await encode({
             source: canvas,
@@ -666,6 +681,7 @@ export function useExport(options: {
                 : failureSentence(failure, translate("export.nothingWritten")),
           });
         } finally {
+          mapRef.current?.setCapturing(false);
           timeline.selectFrame(originalFrame);
           try {
             await mapRef.current?.onceIdle();

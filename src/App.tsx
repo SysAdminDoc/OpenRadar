@@ -117,6 +117,7 @@ import {
 } from "./lib/providers";
 import { frameAgeMinutes, type RadarFrame } from "./lib/radar";
 import { useMeasurements } from "./lib/units";
+import { watchRingFeatures } from "./lib/ring";
 import {
   archiveFrames,
   loadStorm,
@@ -1133,6 +1134,21 @@ export default function App() {
     // this rebuilt on every write, which restarted the effect below with it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [settings.watch, settings.watchPlaces],
+  );
+
+  // The radius each watched place's rules are judged against, drawn as a ring
+  // around it. Built here rather than in the map: the radius is the reader's,
+  // the label is in the units they are reading in, and the map component has
+  // no business knowing what a watched place is.
+  const watchRings = useMemo(
+    () => (settings.watchRings ? watchRingFeatures(watchedForJournal) : null),
+    // The units are read by `formatDistance` from a store rather than passed
+    // in, so the labels have to be rebuilt when the setting behind that store
+    // changes. The rule cannot see that read and calls the dependency
+    // unnecessary; without it a reader switching to metric keeps rings
+    // labelled in miles until something else moves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [settings.watchRings, settings.units, watchedForJournal],
   );
 
   // Tied to whichever site the single-site radar is reading, because the cells
@@ -2823,6 +2839,7 @@ export default function App() {
             : overlays.data
         }
         route={route}
+        watchRings={watchRings}
         customOverlay={overlayShapes}
         stormTrack={stormTrackData}
         sweep={singleSite.sweep}

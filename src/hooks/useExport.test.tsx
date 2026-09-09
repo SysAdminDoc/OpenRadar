@@ -68,6 +68,7 @@ describe("loop export workspace restoration", () => {
     });
     const map = {
       canvas: () => document.createElement("canvas"),
+      setCapturing: vi.fn(),
       onceIdle,
     } as unknown as MapViewportHandle;
     const pushToast = vi.fn();
@@ -101,6 +102,78 @@ describe("loop export workspace restoration", () => {
   });
 });
 
+describe("what a picture does not carry", () => {
+  const timeline: RadarTimelineState = {
+    frames,
+    frameIndex: 1,
+    playing: false,
+    source: null,
+    sourceLabel: null,
+    attribution: null,
+    error: null,
+    cached: false,
+    cachedAgeSeconds: null,
+    fetchedAt: FETCHED_AT,
+    newestObserved: undefined,
+    setPlaying: vi.fn(),
+    selectFrame: vi.fn(),
+  };
+
+  /**
+   * A map that records what it was told, beside when its pixels were read.
+   *
+   * The read is the encode, not the call that hands the canvas element over:
+   * that one only passes a reference, and the pixels come off it later.
+   */
+  function recordingMap() {
+    const order: string[] = [];
+    const map = {
+      canvas: () => document.createElement("canvas"),
+      setCapturing: (on: boolean) => order.push(on ? "on" : "off"),
+      onceIdle: vi.fn().mockResolvedValue(undefined),
+    } as unknown as MapViewportHandle;
+    exportStill.mockImplementation(async () => {
+      order.push("read");
+      return new Blob(["a picture"], { type: "image/png" });
+    });
+    return { map, order };
+  }
+
+  it("takes the chrome off before the pixels are read and puts it back", async () => {
+    // The ring around a watched place is about the reader's own rules rather
+    // than about the weather, so it does not belong in a picture they send
+    // somebody. The order is the whole of it: taken off after the read it
+    // would be in the file, and left off at the end the map would be missing
+    // it until something else redrew.
+    const { map, order } = recordingMap();
+    const { result } = renderHook(() =>
+      useExport({
+        mapRef: { current: map },
+        frames,
+        frameIndex: 1,
+        source: null,
+        timeline,
+        basemapCredit: "OpenStreetMap",
+        overlayProvenance: () => [],
+        dataSources: [],
+        sweep: null,
+        siteLoop: null,
+        keys: [],
+        pushToast: vi.fn(),
+      }),
+    );
+
+    act(() => result.current.exportImage());
+    await waitFor(() => expect(result.current.busy).toBeNull());
+
+    // The whole sequence, not the order of two of it. Written as a pair of
+    // index comparisons, a missing "on" reads as -1 and sits before
+    // everything, so the case passed against a build that never took the
+    // chrome off at all.
+    expect(order).toEqual(["on", "read", "off"]);
+  });
+});
+
 describe("the record written beside the picture", () => {
   const timeline: RadarTimelineState = {
     frames,
@@ -121,6 +194,7 @@ describe("the record written beside the picture", () => {
   function renderExport(over: Partial<Parameters<typeof useExport>[0]> = {}) {
     const map = {
       canvas: () => document.createElement("canvas"),
+      setCapturing: vi.fn(),
       onceIdle: vi.fn().mockResolvedValue(undefined),
     } as unknown as MapViewportHandle;
     return renderHook(() =>
@@ -703,6 +777,7 @@ describe("the picture that goes on the desktop", () => {
   function renderExport(over: Partial<Parameters<typeof useExport>[0]> = {}) {
     const map = {
       canvas: () => document.createElement("canvas"),
+      setCapturing: vi.fn(),
       onceIdle: vi.fn().mockResolvedValue(undefined),
     } as unknown as MapViewportHandle;
     return renderHook(() =>

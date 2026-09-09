@@ -479,13 +479,6 @@ Ninth pass. Evidence in RESEARCH.md of the same date. Numbered on from `AUD-378`
   Acceptance: A fixture volume whose first cut is 0.3 degrees draws that cut as tilt one with the picker naming 0.3; a listing that holds `NZH` is read for the classification and one without it falls back to `N0H`, both pinned in tests; `cargo test --lib` green.
   Complexity: S
 
-- [ ] AUD-382 (P3): Draw the radius each watch rule uses as a ring around its place
-  Why: Every watched place carries a radius the rules are judged against (`radiusMiles` for the warning, arrival and lightning rules) and the map never shows it, so a reader who set "within ten miles" cannot see which storms are inside the circle and which are not. Range rings have been a fixture of radar displays from the beginning, and tar1090 keeps the same convention for aircraft.
-  Evidence: `src/lib/watch.ts:47`, `:222`, `:263-265`, `:366` (`radiusMiles` in the rules and in the distance test); `grep -rn "rangeRing\|range ring" src` is empty on 2026-09-07; https://github.com/wiedehopf/tar1090 (range rings from the layers control).
-  Touches: `src/components/MapViewport.tsx` (a GeoJSON circle per watched place at its radius, a line layer keyed on `isLightBasemap` for its ink, off the export unless asked), `src/panels/WatchSection.tsx` (a switch "Show the radius on the map", off by default), `src/lib/settings.ts`, `src/i18n/*`, the watch or layers spec in `e2e/`.
-  Acceptance: With the switch on, each watched place draws a ring at its own radius in the reader's units, labelled once with the distance; the ring follows the radius when it is changed; it is absent from the export by default; the pseudolocale clipping test covers the label.
-  Complexity: S
-
 ## Verification Findings, 2026-09-08
 
 Raised by a second adversarial review, of `ca36e7a..ddebfd1`, instructed to refute rather than confirm. Every one is a defect in this session's own work or in a claim it made.
