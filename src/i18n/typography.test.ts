@@ -122,14 +122,18 @@ describe("where a description ends", () => {
    * "under 5 MB. Larger files are rejected" reads as one sentence and its
    * missing stop goes unseen, while "larger than 20 MB. The export stops
    * there." is called one sentence with a stop on it and fails for being
-   * correct. `MB.` already appears ten times across the three catalogues.
+   * correct. `MB.` already appears ten times, five in English and five in
+   * Spanish; French writes "Mo" and has none.
    * What makes "EE. UU." an abbreviation rather than a sentence end is that
    * the next token is another one or two capitals with a period of its own,
    * which "Larger" and "The" are not.
    *
-   * The one case this cannot separate is a real sentence starting straight
-   * after such a run, where Spanish itself lets the abbreviation's period do
-   * both jobs. No string does that today.
+   * Two cases this cannot separate, both of them where the abbreviation's own
+   * period would have to do a sentence's job as well: a real sentence starting
+   * straight after a run, and a run at the end of a value that is genuinely
+   * more than one sentence ("La capa es opcional. Cubre solo EE. UU."). A
+   * name's initials mid-string are the same shape from the other side. None of
+   * the three is in a catalogue today.
    *
    * `À-Ü` spans U+00D7, which is the multiplication sign rather than a
    * letter, so the class is written around it.

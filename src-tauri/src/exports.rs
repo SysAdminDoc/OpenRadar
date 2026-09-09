@@ -83,7 +83,13 @@ impl serde::Serialize for ExportError {
 /// `openradar-kdmx.csv.provenance.json` it would turn the dots into dashes and
 /// rename the sidecar. `data_export` writes through `write_atomically` for
 /// exactly that reason, and so nothing was holding its names to this list at
-/// all. This is the check without the rewrite.
+/// all.
+///
+/// The extension and only the extension. A name that would walk out of the
+/// folder or address a DOS device passes this, unlike `sanitize_file_name`,
+/// and that is safe here because the two builders that reach it map every
+/// character but a letter, a digit, a dash and an underscore to a dash, so
+/// neither a separator nor a second dot can survive into a name.
 pub fn extension_allowed(name: &str) -> bool {
     name.rsplit_once('.').is_some_and(|(_, extension)| {
         ALLOWED_EXTENSIONS.contains(&extension.to_ascii_lowercase().as_str())
