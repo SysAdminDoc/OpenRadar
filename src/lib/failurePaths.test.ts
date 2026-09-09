@@ -77,6 +77,19 @@ const SINKS = [
   // reader without passing anything on this list. Reverting that helper left
   // the gate green.
   "setAnswer",
+  // A sentence built into an error and thrown reaches a reader as surely as
+  // one handed to a setter: whoever catches it runs it through
+  // `failureSentence`, which passes a plain `Error`'s own message through by
+  // design, and writes it into state a panel renders. The storm reports built
+  // a refused connection's "Failed to fetch" into `reports.serviceStatus`
+  // that way and the gate walked past it, because the taint left through a
+  // `throw` and arrived under a property key.
+  //
+  // Not `onError`, which was considered on 2026-09-08 and is wrong: the wind
+  // layer hands its `onError` the driver's own compile log, which reaches
+  // `log.warn` and never a reader. Making it a sink convicts a developer log
+  // this file's own docblock exempts.
+  "throw new Error",
 ];
 
 /** A failure's own message, which is the engine's words and never translated. */
@@ -190,9 +203,56 @@ function reaches(text: string, name: string): boolean {
  * repository.
  */
 function valueNames(call: string): string[] {
-  return [...call.matchAll(/(?<![.\w$])([A-Za-z_$][\w$]*)(?![\w$:])/g)].map(
-    (one) => one[1],
-  );
+  return [
+    ...withoutConditions(call).matchAll(
+      /(?<![.\w$])([A-Za-z_$][\w$]*)(?![\w$:])/g,
+    ),
+  ].map((one) => one[1]);
+}
+
+/**
+ * The same call with every ternary's condition blanked out.
+ *
+ * A condition is not a value: nothing it names reaches what the call produces.
+ * `tides.ts` throws `new Error(/no predictions/i.test(said) ? translate(a) :
+ * translate(b))`, where `said` is the service's own message and the sentence
+ * is a catalogue string either way, which is exactly how it should be written.
+ * Reading names out of the condition convicted it.
+ *
+ * The condition runs from the last boundary at this depth to the `?`, which
+ * is why the boundaries are tracked per depth rather than globally. `?.` and
+ * `??` are not ternaries and are stepped over.
+ */
+function withoutConditions(call: string): string {
+  const out = [...call];
+  const boundary: number[] = [0];
+  let depth = 0;
+  for (let at = 0; at < call.length; at += 1) {
+    const here = call[at];
+    if (here === "(" || here === "[" || here === "{") {
+      depth += 1;
+      boundary[depth] = at + 1;
+      continue;
+    }
+    if (here === ")" || here === "]" || here === "}") {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (here === "," || here === ":") {
+      boundary[depth] = at + 1;
+      continue;
+    }
+    if (here !== "?") continue;
+    if (call[at + 1] === "." || call[at + 1] === "?") {
+      at += 1;
+      continue;
+    }
+    for (let back = boundary[depth] ?? 0; back < at; back += 1) {
+      out[back] = " ";
+    }
+    boundary[depth] = at + 1;
+  }
+  return out.join("");
 }
 
 /**
@@ -220,7 +280,20 @@ function taintedName(
     // engine's words in carries no `const`.
     for (const assigned of [
       new RegExp(`(?:const|let|var)\\s+${name}\\s*(?::[^=]*)?=([^;]*);`, "g"),
-      new RegExp(`(?<![.\\w$])${name}\\s*=([^;=][^;]*);`, "g"),
+      // The first character after the `=` may not open a brace or an arrow.
+      // JSX writes every attribute as `name={...}` and has no semicolons
+      // inside an element, so this pattern read `label={t("radar.retry")}` as
+      // an assignment to `label` and ran on past the closing tag to whatever
+      // semicolon came next. A developer log two lines below then convicted
+      // an unrelated `label` handed bare to a sink. The tree was green by
+      // luck: on 2026-09-08 the only non-declaration match anywhere was one
+      // name that is never passed bare.
+      //
+      // The cost is an assignment of an object literal, `detail = { ... };`,
+      // which this no longer follows. Nothing in the tree puts a failure's
+      // words into one, and `passesOwnWords` still reaches a helper that
+      // returns one.
+      new RegExp(`(?<![.\\w$])${name}\\s*=\\s*([^;={>][^;]*);`, "g"),
     ]) {
       for (const match of before.matchAll(assigned)) {
         if (OWN_WORDS.test(match[1]) && !match[1].includes("failureSentence")) {
@@ -337,5 +410,81 @@ describe("what a failure is allowed to say to a reader", () => {
       "these put an English sentence where a catalogue key belongs, so a " +
         "Spanish or French reader gets English the moment it fires",
     ).toEqual([]);
+  });
+});
+
+describe("what the gate itself reads", () => {
+  it("does not take a JSX attribute for an assignment", () => {
+    // JSX writes every attribute as `name={...}` and puts no semicolons
+    // inside an element, so the reassignment pattern read `label={...}` as an
+    // assignment to `label` and ran past the closing tag to the next
+    // semicolon it found. The developer log below it then convicted a `label`
+    // that is a catalogue string and nothing else. The tree was green by
+    // luck rather than by construction: on 2026-09-08 the only
+    // non-declaration match in `src` was one name never passed bare.
+    const source = `
+      const label = t("radar.retry");
+      return (
+        <RadarError
+          label={t("radar.retry")}
+          onRetry={() =>
+            log.warn("radar", failure instanceof Error ? failure.message : "")
+          }
+        />
+      );
+      setError(label);
+    `;
+    const [call] = callsTo(source, "setError");
+    expect(call, "the fixture stopped containing the sink").toBeTruthy();
+    expect(taintedName(source, call.call, call.at, new Set())).toBeNull();
+  });
+
+  it("follows a failure's words into a sentence that is thrown", () => {
+    // The shape the storm reports had. Whoever catches this runs it through
+    // `failureSentence`, which passes a plain `Error`'s own message through
+    // by design, and writes it into state a panel renders, so the engine's
+    // "Failed to fetch" reached the screen. The taint leaves through a
+    // `throw` and arrives under a property key, and the gate followed
+    // neither until 2026-09-08.
+    const source = `
+      let failed = "";
+      try {
+        await fetch(url);
+      } catch (error) {
+        failed = error instanceof Error ? error.message : "";
+      }
+      throw new Error(translate("reports.serviceStatus", { answer: failed }));
+    `;
+    const [call] = callsTo(source, "throw new Error");
+    expect(call, "the fixture stopped containing the sink").toBeTruthy();
+    expect(taintedName(source, call.call, call.at, new Set())).toBe("failed");
+  });
+
+  it("reads no names out of a ternary's condition", () => {
+    // A condition is not a value. `tides.ts` throws a catalogue sentence
+    // chosen by testing the service's own message against a regex, which is
+    // the right way to write it, and the first version of the throw sink
+    // convicted it for naming the message at all.
+    const source = `
+      const said = String(raw.error.message);
+      throw new Error(
+        /no predictions/i.test(said)
+          ? translate("tides.noPredictions")
+          : translate("tides.unknown"),
+      );
+    `;
+    const [call] = callsTo(source, "throw new Error");
+    expect(call, "the fixture stopped containing the sink").toBeTruthy();
+    expect(taintedName(source, call.call, call.at, new Set())).toBeNull();
+    // And the same words reaching the sentence itself are still caught, so
+    // the rule above drops conditions rather than dropping the check.
+    const leaking = source.replace(
+      'translate("tides.unknown")',
+      'translate("tides.unknown", { answer: said })',
+    );
+    const [second] = callsTo(leaking, "throw new Error");
+    expect(taintedName(leaking, second.call, second.at, new Set())).toBe(
+      "said",
+    );
   });
 });
