@@ -308,3 +308,95 @@ test("opens on a stored workspace it can read without saying anything", async ({
     ),
   ).toBeNull();
 });
+
+/**
+ * A window that will not draw twice running, and the workspace standing its
+ * own arrangement down.
+ *
+ * The counting is the native side's and is tested there. What a spec can see
+ * is the part that matters to a reader: what the workspace opens on, what it
+ * says about it, and whether one press puts everything back.
+ */
+const PLAIN_SETTINGS = {
+  schemaVersion: 3,
+  camera: { center: [-93.62, 41.59], zoom: 8, bearing: 0, pitch: 0 },
+  occasions: { enabled: true, declined: {}, seen: {} },
+};
+
+async function startWithUncleanStarts(page: Page, starts: number) {
+  await fakeDesktop(page, { settings: PLAIN_SETTINGS });
+  // Kept where a reload can find it, so the count the second window reads is
+  // the one the first window left. Held in a variable it would go back to
+  // two on the way through, and the assertion after the press would hold
+  // whether or not anything cleared it.
+  await page.addInitScript((planted: number) => {
+    const KEY = "test.uncleanStarts";
+    (
+      window as unknown as {
+        __answer: (command: string) => [unknown] | undefined;
+      }
+    ).__answer = (command: string) => {
+      if (command === "unclean_starts") {
+        const held = window.localStorage.getItem(KEY);
+        return [held === null ? planted : Number(held)];
+      }
+      if (command === "clear_unclean_starts") {
+        window.localStorage.setItem(KEY, "0");
+        return [null];
+      }
+      return undefined;
+    };
+  }, starts);
+  await routeWorkspace(page);
+  await page.goto("/?testMode=1");
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+}
+
+function cameraOf(page: Page) {
+  return page.getByRole("application").first().getAttribute("data-camera");
+}
+
+test("opens plain after two starts that did not finish, and puts it back on one press", async ({
+  page,
+}) => {
+  // Something a reader imported can take the window down before there is a
+  // window, and the crash screen's Reset layout is reachable only once the
+  // page has drawn. So the one way out was the one way that was shut.
+  await startWithUncleanStarts(page, 2);
+
+  await expect(page.locator(".toast-host")).toContainText(
+    "Opened plain after two bad starts",
+  );
+  await expect
+    .poll(() => cameraOf(page), { message: "the saved view was kept" })
+    .toContain("-85.5");
+
+  await page.getByRole("button", { name: "Put it all back" }).click();
+
+  await expect
+    .poll(() => cameraOf(page), { message: "the view did not come back" })
+    .toContain("-93.62");
+  // And the window that comes back is not stood down again, which is only
+  // true if the count was cleared before the reload.
+  await expect(page.locator(".toast-host")).not.toContainText(
+    "Opened plain after two bad starts",
+  );
+});
+
+test("changes nothing after a single start that did not finish", async ({
+  page,
+}) => {
+  // The positive control, and the reason the threshold is two: one is a power
+  // cut, a killed process, or a laptop lid closed on a bad hibernate, and
+  // standing the workspace down for that would be its own annoyance.
+  await startWithUncleanStarts(page, 1);
+
+  await expect
+    .poll(() => cameraOf(page), { message: "the saved view was stood down" })
+    .toContain("-93.62");
+  await expect(page.locator(".toast-host")).not.toContainText(
+    "Opened plain after two bad starts",
+  );
+});

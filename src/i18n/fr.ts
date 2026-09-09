@@ -2272,6 +2272,10 @@ export const fr: Catalogue = {
   "app.settingsUnreadable": "Vos réglages n'ont pas pu être lus",
   "app.settingsUnreadableBody":
     "Le fichier de réglages était abîmé et il n'y avait aucune copie, cette fenêtre s'est donc ouverte sans rien. Le fichier illisible a été conservé.",
+  "app.startedPlain": "Ouverture sans rien après deux démarrages ratés",
+  "app.startedPlainBody":
+    "OpenRadar n'a pas terminé ses deux derniers démarrages, votre thème, l'habillage de saison, les tables de couleurs importées et la vue enregistrée sont donc désactivés dans cette fenêtre. Une pression les remet.",
+  "app.startedPlainRestore": "Tout remettre",
   "app.savedView": "Vue enregistrée",
   "popup.importedShape": "Forme importée",
   "popup.openProduct": "Ouvrir le produit officiel",
