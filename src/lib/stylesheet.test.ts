@@ -43,9 +43,14 @@ function writtenText(): string {
 const NOT_OURS = /^maplibregl-/;
 
 describe("the stylesheet styles things that exist", () => {
-  // Both of them. The glance window has its own, and gating one sheet while
-  // the other went unread would have left exactly the same hole open.
-  for (const sheet of ["index.css", "glance.css"] as const)
+  // Every one of them, found rather than named. Two were named here, which
+  // was right on the day and is a list that goes stale the first time
+  // somebody adds a third, with nothing to say the third went unread. The
+  // comment this replaces gave the reason itself: gating one sheet while the
+  // other went unread leaves exactly this hole open.
+  const sheets = readdirSync(ROOT).filter((name) => name.endsWith(".css"));
+  expect(sheets.length, "no stylesheet was found").toBeGreaterThan(1);
+  for (const sheet of sheets)
     it(`${sheet} names no class the app never writes`, () => {
       // Dead rules are not free. They are read as live during a redesign, they
       // are carried through every refactor of the thing they appear to style,
@@ -61,7 +66,12 @@ describe("the stylesheet styles things that exist", () => {
       for (const found of css.matchAll(/\.(-?[A-Za-z_][\w-]*)/g)) {
         named.add(found[1]);
       }
-      expect(named.size).toBeGreaterThan(sheet === "index.css" ? 100 : 2);
+      // A floor so the walk cannot report a clean sheet it failed to read.
+      // Two was the figure for the one small sheet there was; any number
+      // above zero is the honest one for a sheet nobody has written yet.
+      expect(named.size, sheet).toBeGreaterThan(
+        sheet === "index.css" ? 100 : 0,
+      );
 
       const source = writtenText();
       const orphans = [...named]
