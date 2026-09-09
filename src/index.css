@@ -89,16 +89,8 @@ a {
 
 .map-stage {
   position: absolute;
-  inset: 0 0 var(--command-height);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  background:
-    radial-gradient(
-      circle at 42% 38%,
-      rgba(31, 74, 104, 0.24),
-      transparent 42%
-    ),
-    var(--map-ground);
 }
 
 .app-shell.is-dual-pane .map-stage {
@@ -118,13 +110,10 @@ a {
 
 .top-status {
   position: absolute;
-  z-index: 20;
   top: 12px;
   left: 12px;
   right: 12px;
-  height: 46px;
   display: grid;
-  grid-template-columns: auto 1fr auto;
   align-items: center;
   pointer-events: none;
 }
@@ -137,28 +126,12 @@ a {
 }
 
 .app-brand {
-  gap: 10px;
-  padding: 5px 10px 5px 6px;
   color: var(--text);
-  background: color-mix(in srgb, var(--surface-solid) 88%, transparent);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(18px) saturate(130%);
 }
 
 .brand-mark {
   display: grid;
-  width: 34px;
-  height: 34px;
   place-items: center;
-  color: #071019;
-  background: linear-gradient(145deg, #8be7ff, #38bdf8 58%, #0284c7);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 8px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.34),
-    0 6px 16px rgba(2, 132, 199, 0.24);
 }
 
 .app-brand > span:last-child {
@@ -167,28 +140,11 @@ a {
   gap: 1px;
 }
 
-.app-brand strong {
-  font-size: 13px;
-  letter-spacing: 0.01em;
-}
-
 .app-brand small {
   color: var(--muted);
   font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.top-status__center {
-  justify-self: center;
-  gap: 6px;
-  padding: 5px;
-  color: var(--text);
-  background: color-mix(in srgb, var(--surface-solid) 86%, transparent);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(18px) saturate(130%);
 }
 
 .live-chip {
@@ -402,23 +358,13 @@ a {
 }
 
 .command-group {
-  display: flex;
   /* No shrinking: a squeezed group used to overlap its neighbour, which put
      one button on top of another and made the one underneath unclickable.
      The bar scrolls instead. */
   flex: 0 0 auto;
-  align-items: stretch;
-}
-
-.command-spacer {
-  flex: 1 1 auto;
 }
 
 .command-divider {
-  width: 1px;
-  height: 32px;
-  align-self: center;
-  margin: 0 4px;
   background: var(--command-line);
 }
 
@@ -449,9 +395,7 @@ a {
 .command-button span {
   overflow: hidden;
   max-width: 68px;
-  font-size: 8px;
   font-weight: 600;
-  line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -461,24 +405,15 @@ a {
   color: var(--command-ink);
   background: var(--command-hover);
   border-color: var(--command-line);
-  transform: translateY(-1px);
-}
-
-.command-button[aria-pressed="true"] {
-  color: var(--command-accent);
-  background: var(--command-accent-soft);
-  border-color: color-mix(in srgb, var(--command-accent) 35%, transparent);
 }
 
 .preset-button {
   min-width: 36px;
   width: 36px;
-  padding: 0;
   gap: 2px;
 }
 
 .preset-button span {
-  font-size: 12px;
   font-weight: 700;
 }
 
@@ -501,18 +436,14 @@ a {
 .radar-legend {
   position: absolute;
   z-index: 32;
-  left: calc(50% - 318px);
   bottom: calc(var(--command-height) + 11px);
   display: grid;
-  grid-template-columns: auto 1fr auto;
   grid-template-rows: auto auto;
   align-items: center;
-  width: 188px;
   min-height: 58px;
   /* The chip grows downwards when the words in it are longer, which is what
      the two-line grid above is for. */
   height: auto;
-  padding: 8px 10px;
   gap: 2px 9px;
   color: var(--text);
   text-align: left;
@@ -530,7 +461,6 @@ a {
 .radar-legend:hover,
 .radar-legend.is-active {
   border-color: color-mix(in srgb, var(--accent) 60%, transparent);
-  transform: translateY(-1px);
 }
 
 .radar-legend > span {
@@ -551,10 +481,6 @@ a {
   font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.12em;
-}
-
-.radar-legend strong {
-  font-size: 12px;
 }
 
 /* Said under the product name rather than in the accent the eyebrow uses:
@@ -616,15 +542,8 @@ a {
 
 .play-button {
   display: grid;
-  width: 37px;
-  height: 37px;
   place-items: center;
-  color: var(--accent-ink);
-  background: var(--accent-fill);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 7px;
   cursor: pointer;
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .timeline-copy {
@@ -642,13 +561,8 @@ a {
   overflow-wrap: anywhere;
 }
 
-.timeline-copy strong {
-  font-size: 12px;
-}
-
 .timeline-copy span {
   color: var(--muted);
-  font-size: 9px;
 }
 
 /* The scrubber under the map is the most dragged thing in the app, and its
@@ -731,17 +645,12 @@ input[type="range"]:disabled {
 .zoom-controls {
   position: absolute;
   z-index: 31;
-  right: 18px;
-  top: 76px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(18px);
 }
 
 .zoom-controls button {
@@ -1382,7 +1291,6 @@ input[type="range"]:disabled {
   position: absolute;
   z-index: 15;
   right: 18px;
-  bottom: calc(var(--command-height) + 31px);
   display: grid;
   width: 32px;
   height: 27px;
@@ -1429,7 +1337,6 @@ input[type="range"]:disabled {
 }
 
 .surface-panel--product {
-  bottom: calc(var(--command-height) + 82px);
   width: min(350px, calc(var(--screen-width) - 32px));
 }
 
@@ -1446,10 +1353,8 @@ input[type="range"]:disabled {
 
 .surface-panel__header {
   display: flex;
-  min-height: 68px;
   align-items: center;
   justify-content: space-between;
-  padding: 13px 14px 12px 16px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -1459,11 +1364,8 @@ input[type="range"]:disabled {
 }
 
 .surface-panel__header h2 {
-  margin-top: 2px;
-  font-size: 19px;
   line-height: 1.15;
   letter-spacing: -0.02em;
-  font-weight: var(--heading-weight);
 }
 
 .eyebrow {
@@ -1476,7 +1378,6 @@ input[type="range"]:disabled {
 
 .surface-panel__body {
   min-height: 0;
-  padding: 13px;
   overflow: auto;
   scrollbar-color: var(--border-strong) transparent;
   scrollbar-width: thin;
@@ -2799,7 +2700,6 @@ input[type="range"]:disabled {
 .toast-host {
   position: absolute;
   z-index: 100;
-  top: 70px;
   right: 64px;
   display: flex;
   width: min(360px, calc(var(--screen-width) - 32px));
@@ -3019,12 +2919,6 @@ input[type="range"]:disabled {
   transform: none;
 }
 
-:root[data-narrow~="980"] .command-group,
-:root[data-narrow~="980"] .command-divider,
-:root[data-narrow~="980"] .command-spacer {
-  display: none;
-}
-
 :root[data-narrow~="980"] .compact-command-group {
   display: grid;
   width: 100%;
@@ -3072,11 +2966,6 @@ input[type="range"]:disabled {
 
 :root[data-narrow~="680"] .radar-timeline {
   right: 58px;
-  grid-template-columns: 36px 1fr;
-}
-
-:root[data-narrow~="680"] .radar-timeline input {
-  grid-column: 2;
 }
 
 :root[data-narrow~="680"] .surface-panel,
@@ -3084,10 +2973,7 @@ input[type="range"]:disabled {
 :root[data-narrow~="680"] .surface-panel--right,
 :root[data-narrow~="680"] .surface-panel--settings,
 :root[data-narrow~="680"] .surface-panel--wide {
-  right: 8px;
   bottom: calc(var(--command-height) + 8px);
-  left: 8px;
-  width: auto;
 }
 
 :root[data-narrow~="680"] .map-style-grid {
