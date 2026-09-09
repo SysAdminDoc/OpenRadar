@@ -2204,6 +2204,10 @@ export const en = {
   "app.settingsUnreadable": "Your settings could not be read",
   "app.settingsUnreadableBody":
     "The settings file was damaged and there was no copy to go back to, so this window opened plain. The file it could not read has been kept.",
+  "app.startedPlain": "Opened plain after two bad starts",
+  "app.startedPlainBody":
+    "OpenRadar did not finish its last two starts, so your theme, seasonal look, imported colour tables and saved view are switched off for this window. One press puts them back.",
+  "app.startedPlainRestore": "Put it all back",
   "app.savedView": "Saved view",
   "popup.importedShape": "Imported shape",
   "popup.openProduct": "Open the official product",

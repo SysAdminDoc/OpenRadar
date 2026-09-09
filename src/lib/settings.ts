@@ -859,6 +859,48 @@ export function settingsRecovery(): SettingsRecovery | null {
 /** Forgets the last recovery, so a test does not carry one between cases. */
 export function resetSettingsRecovery(): void {
   recovery = null;
+  plainFrom = null;
+}
+
+/**
+ * What was stored, when this launch was made plain because the last two did
+ * not finish. Null on every ordinary launch.
+ */
+let plainFrom: AppSettings | null = null;
+
+/**
+ * The arrangement this launch is not using, for the one press that puts it
+ * back.
+ *
+ * Held rather than re-read, because the workspace has already begun writing
+ * the plain one over it: the switches are off in the file as soon as anything
+ * else is saved, and that is the trade for not having to read a file that may
+ * be what is wedging the window.
+ */
+export function startedPlain(): AppSettings | null {
+  return plainFrom;
+}
+
+/**
+ * The one press that puts the arrangement back.
+ *
+ * Written and then reloaded, the same as the crash screen's Reset layout,
+ * because a theme, a colour table and a saved view are all applied as the
+ * window opens: putting them back into the settings this window is already
+ * running on would leave the map where it is and the chrome as it was. The
+ * count is cleared first, or the reload stands the workspace down again.
+ */
+export async function restoreArrangement(): Promise<void> {
+  const stored = plainFrom;
+  plainFrom = null;
+  // Only if something has already been written over it. Nothing is saved on
+  // a plain start, so on an untouched one the stored file is still the
+  // reader's own and writing it back is a round trip for nothing.
+  if (stored) await saveSettings(stored).catch(() => undefined);
+  if (isDesktopRuntime()) {
+    await invoke("clear_unclean_starts").catch(() => undefined);
+  }
+  window.location.reload();
 }
 
 function finiteInRange(
@@ -2112,6 +2154,38 @@ export function looksLikeSettings(text: string): boolean {
  * is kept by default. Losing somebody's watched place because a new field was
  * not thought about is the failure this is guarding against.
  */
+/**
+ * How many starts in a row must fail before the workspace opens plain.
+ *
+ * One is a power cut, a killed process, or somebody closing the laptop lid on
+ * a machine that then hibernated badly. Standing the workspace down for that
+ * would be its own annoyance, and it would happen to readers whose
+ * arrangement is perfectly fine.
+ */
+export const PLAIN_AFTER_UNCLEAN_STARTS = 2;
+
+/**
+ * The workspace opened plain, for a window that will not draw twice running.
+ *
+ * `resetLayout` is the arrangement, which is most of what can wedge a window,
+ * and this is that plus the three things a reader imported that reach the
+ * chrome and the colours. Switches only: the theme file, the colour tables
+ * and the packs are all still in the settings, so this costs one press to
+ * undo and nothing at all to keep.
+ */
+export function plainStart(settings: AppSettings): AppSettings {
+  return {
+    ...resetLayout(settings),
+    // The look, which is where a file the reader was given reaches the chrome.
+    occasions: { ...settings.occasions, enabled: false },
+    ambient: false,
+    // An imported colour table applied to a product. The tables themselves
+    // stay: this is which product each is drawn with, and it is the one
+    // imported thing the settings file restores at boot.
+    paletteAssignments: {},
+  };
+}
+
 export function resetLayout(settings: AppSettings): AppSettings {
   return {
     ...settings,
@@ -2139,6 +2213,15 @@ export async function loadSettings(): Promise<AppSettings> {
     recovery = await invoke<SettingsRecovery | null>("settings_recovered")
       .then((answer) => answer ?? null)
       .catch(() => null);
+    // Something the reader imported can take the window down before there is
+    // a window, and the crash screen's Reset layout is reachable only once
+    // the page has drawn. Two starts that did not finish is the app deciding
+    // for itself that it cannot be the one to ask.
+    const unclean = await invoke<number>("unclean_starts").catch(() => 0);
+    if (unclean >= PLAIN_AFTER_UNCLEAN_STARTS) {
+      plainFrom = settings;
+      return plainStart(settings);
+    }
   }
   return settings;
 }

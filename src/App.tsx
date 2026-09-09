@@ -178,7 +178,9 @@ import type {
 import { isDesktopRuntime } from "./lib/runtime";
 import {
   APP_VERSION,
+  restoreArrangement,
   settingsRecovery,
+  startedPlain,
   watchedPlaces,
   withPalette,
   withPaletteAssigned,
@@ -375,6 +377,23 @@ export default function App() {
     updateCamera,
     viewportPx,
   } = useSettings({ onPersistError });
+
+  // Two starts that did not finish, and the arrangement stood down for this
+  // one. Said out loud with the one press that puts it back, because a
+  // workspace that quietly opens without the reader's theme and saved view
+  // reads as the app having forgotten them.
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!startedPlain()) return;
+    pushToast({
+      title: translate("app.startedPlain"),
+      detail: translate("app.startedPlainBody"),
+      actionLabel: translate("app.startedPlainRestore"),
+      onAction: () => {
+        void restoreArrangement();
+      },
+    });
+  }, [hydrated, pushToast]);
 
   // A settings file that would not parse used to be silent: the workspace
   // opened on the defaults and the reader was left wondering where their

@@ -2248,6 +2248,10 @@ export const es: Catalogue = {
   "app.settingsUnreadable": "No se pudieron leer tus ajustes",
   "app.settingsUnreadableBody":
     "El archivo de ajustes estaba dañado y no había ninguna copia, así que esta ventana se abrió sin nada. El archivo ilegible se ha conservado.",
+  "app.startedPlain": "Se abrió sin nada tras dos arranques fallidos",
+  "app.startedPlainBody":
+    "OpenRadar no terminó sus dos últimos arranques, así que tu tema, el aspecto de temporada, las tablas de color importadas y la vista guardada quedan desactivados en esta ventana. Un toque los devuelve.",
+  "app.startedPlainRestore": "Devolver todo",
   "app.savedView": "Vista guardada",
   "popup.importedShape": "Forma importada",
   "popup.openProduct": "Abrir el producto oficial",

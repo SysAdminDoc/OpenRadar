@@ -40,6 +40,7 @@ mod mrms;
 mod palette;
 mod probsevere;
 mod radar_status;
+mod safe_start;
 mod settings_backup;
 mod sound;
 mod tdwr;
@@ -353,6 +354,8 @@ pub fn run() {
             crash::crash_last_webview_report,
             window_geometry::window_reset_geometry,
             sound::alert_sound_bytes,
+            safe_start::unclean_starts,
+            safe_start::clear_unclean_starts,
             settings_backup::settings_keep_previous,
             settings_backup::settings_recovered,
             tray::tray_enabled
@@ -382,6 +385,10 @@ pub fn run() {
                     // store finds a file it can read rather than falling to
                     // the defaults and writing them back over the reader's.
                     settings_backup::init(&dir);
+                    // And the mark that says this run is in progress, read
+                    // before it is written: a window that dies before it
+                    // draws cannot reach the crash screen's own way out.
+                    safe_start::init(&dir);
                     // The wallpaper picture is written here too, one file
                     // overwritten each time rather than a growing folder of
                     // yesterdays somewhere the reader has to find.
@@ -476,8 +483,17 @@ pub fn run() {
                 let _ = window.hide();
             }
         })
-        .run(tauri::generate_context!())
-        .expect("OpenRadar could not start");
+        .build(tauri::generate_context!())
+        .expect("OpenRadar could not start")
+        .run(|_app, event| {
+            // The one place every graceful exit passes through, whether it
+            // came from the window's close button or the tray's Quit. Both
+            // call `exit`, and hooking each of them separately would mean a
+            // third way out added later going unmarked.
+            if let tauri::RunEvent::Exit = event {
+                safe_start::clean_exit();
+            }
+        });
 }
 
 #[cfg(test)]

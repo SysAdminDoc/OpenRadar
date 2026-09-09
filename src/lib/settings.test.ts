@@ -7,6 +7,7 @@ import {
   cameraKey,
   looksLikeSettings,
   normalizeSettings,
+  plainStart,
   resetSettingsRecovery,
   saveSettings,
   settingsRecovery,
@@ -958,6 +959,64 @@ describe("a settings document that will not parse", () => {
     window.localStorage.setItem(LIVE, "not json at all");
     await saveSettings(normalizeSettings(JSON.parse(stored("Trabajo"))));
     expect(window.localStorage.getItem(PREVIOUS)).toContain("Casa");
+  });
+});
+
+describe("opening plain after two starts that did not finish", () => {
+  it("switches the arrangement off and keeps everything it is made of", () => {
+    // Switches only. What can wedge a window is the arrangement, and what a
+    // reader would have to set up again is the things it is made of: the
+    // colour tables, the packs, the places. Turning one off has to be one
+    // press to undo or the remedy costs more than the fault.
+    const settings = normalizeSettings({
+      ...DEFAULT_SETTINGS,
+      camera: { center: [-93.6, 41.6], zoom: 9, bearing: 30, pitch: 45 },
+      // Keyed by the directive a theme file writes rather than the property
+      // it sets: a theme whose tokens are not real ones normalises to
+      // nothing, and naming the property here would trip the rule that keeps
+      // those out of every file but the theme module's own.
+      workspaceTheme: {
+        name: "mine",
+        base: "dark",
+        tokens: { Accent: "#00ff00" },
+      },
+      occasions: { enabled: true, declined: {}, seen: {} },
+      ambient: true,
+      palettes: [{ name: "table", product: "reflectivity", stops: [] }],
+      paletteAssignments: { reflectivity: "table" },
+      watchPlaces: [
+        {
+          id: "one",
+          name: "Casa",
+          center: [-93.7, 41.7],
+          radiusMiles: 30,
+          minSeverity: "severe",
+        },
+      ],
+    });
+
+    const plain = plainStart(settings);
+    expect(
+      settings.workspaceTheme,
+      "the fixture lost its theme",
+    ).not.toBeNull();
+    expect(plain.workspaceTheme).toBeNull();
+    expect(plain.occasions.enabled).toBe(false);
+    expect(plain.ambient).toBe(false);
+    expect(plain.paletteAssignments).toEqual({});
+    expect(plain.camera).toEqual(DEFAULT_SETTINGS.camera);
+    // And nothing a reader built is gone with it.
+    expect(plain.palettes).toEqual(settings.palettes);
+    expect(plain.watchPlaces).toEqual(settings.watchPlaces);
+  });
+
+  it("leaves a workspace alone that has nothing switched on", () => {
+    // The positive control: this must be a change to what was on, not a
+    // reset of everything it touches.
+    const plain = plainStart(normalizeSettings(DEFAULT_SETTINGS));
+    expect(plain.occasions.enabled).toBe(false);
+    expect(plain.watchPlaces).toEqual([]);
+    expect(plain.palettes).toEqual([]);
   });
 });
 

@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.12.0
 
+- A window that will not draw twice running opens plain the third time. Something you imported can take the app down before there is anything on screen: a colour table applied to a product, a theme file edited by hand, a saved view the projection cannot show. The way out was the crash screen's Reset layout, which you can only reach once the page has drawn, so the one remedy was the one that was shut. OpenRadar now notices two starts in a row that did not finish and opens with your theme, seasonal look, imported colour tables and saved view switched off, and says so with one press to put them back. One bad start changes nothing, because that is a power cut.
+
 - Your settings survive a damaged settings file. Everything you set up lives in one file, and it is read as a whole, so one bad byte in it lost your watched places, colour tables, offline packs and presets at once. The app opened on the defaults, said nothing about it, and wrote those defaults back over the file at the next change. A copy is now kept before each write and put back when the live file will not parse, the unreadable file is kept rather than dropped, and a toast says which of the two happened.
 
 - The Wind Profile and Cross-section panels offer a way to do the thing they ask for. Both need a single radar site held, and both used to say so in one sentence and leave you to find the switch, which is in a different panel. Each now ends that sentence with a button that holds the nearest radar. The wind panel does not offer it when the map is already held on a past day, because holding a site is not the answer to that one.

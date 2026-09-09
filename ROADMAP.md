@@ -486,13 +486,6 @@ Ninth pass. Evidence in RESEARCH.md of the same date. Numbered on from `AUD-378`
   Acceptance: With the switch on, each watched place draws a ring at its own radius in the reader's units, labelled once with the distance; the ring follows the radius when it is changed; it is absent from the export by default; the pseudolocale clipping test covers the label.
   Complexity: S
 
-- [ ] AUD-383 (P3): Start plain after two unclean exits in a row
-  Why: An imported overlay, a placefile, a theme file or a saved camera that takes the window down at boot takes it down on every boot, and the only recovery today is the crash screen's Reset layout, which a reader never reaches if the page dies before it renders. OBS writes a zero-byte sentinel at launch and deletes it on clean shutdown; finding it on the next launch offers Safe Mode. Firefox's Troubleshoot Mode disables customisations temporarily and puts them back on exit. The roadmap's own rule is that the workspace opens plain for a reader who wants it plain.
-  Evidence: https://github.com/obsproject/obs-studio/pull/8455 ; https://support.mozilla.org/en-US/kb/diagnose-firefox-issues-using-troubleshoot-mode ; `src-tauri/src/crash.rs:317-331` (`crash_last_dump`, `crash_last_webview_report`: the record of the last crash, and nothing that changes the next start); `src/components/ErrorBoundary.tsx` (Reset layout, reachable only once React has mounted); `src/lib/settings.ts` (imported overlays, palettes, themes and the camera all restored at boot).
-  Touches: `src-tauri/src/crash.rs` or `lib.rs` (a `running` sentinel in app data written in the setup hook and removed on a clean exit, with a count of consecutive unclean starts), `src/hooks/useSettings.ts` (on the second unclean start in a row, load with imported overlays, placefiles, the custom theme and the seasonal look off and the camera at home, and say so in a toast with one press to put everything back), `src/i18n/*`, `e2e/storage.spec.ts` with a planted sentinel.
-  Acceptance: A planted sentinel with a count of two at launch opens the workspace plain with the toast; pressing Restore puts every switch back and clears the count; a clean exit removes the sentinel; a single unclean exit changes nothing; the spec covers all three.
-  Complexity: M
-
 ## Verification Findings, 2026-09-08
 
 Raised by a second adversarial review, of `ca36e7a..ddebfd1`, instructed to refute rather than confirm. Every one is a defect in this session's own work or in a claim it made.
