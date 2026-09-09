@@ -104,7 +104,17 @@ function PanelPlaceholder({
       <header className="surface-panel__header">
         <div>
           <p className="eyebrow">{t("panelChunk.loading")}</p>
-          <h2>{title}</h2>
+          {/*
+            Styled as the panel's heading and deliberately not announced as
+            one. The panel this stands in for does not exist yet, so a
+            heading here puts a landmark in a reader's outline that vanishes
+            under them a second later. It also made the stand-in answer to
+            every `getByRole("heading")` in the e2e suite: six cases went on
+            to measure an empty box and read a panel that had not arrived,
+            and two of those are the ones that watch for a panel hanging out
+            of the window.
+          */}
+          <h2 role="presentation">{title}</h2>
         </div>
         <button
           className="icon-button"

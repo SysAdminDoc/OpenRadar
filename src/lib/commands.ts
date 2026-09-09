@@ -321,16 +321,66 @@ const LAYER_COMMANDS: Array<{
 ];
 
 /**
- * What a surface is called, for anything that has to name one without the
- * module that draws it.
+ * What a surface is called and how much room it takes, for the frame drawn
+ * while the module that draws it is still arriving.
  *
  * The panels all live behind a `lazy`, including the module holding the lot
- * of them, so the frame drawn while that chunk is on its way cannot ask the
- * panel what it is called. This table is already here and already loaded.
+ * of them, so the frame cannot ask the panel either question. Both answers
+ * are copied out of the panel component, and `surfaceFrames.test.ts` reads
+ * them back out of those same files on every run: a stand-in fifty pixels
+ * narrower than the panel it stands in for moves the map chrome twice, which
+ * is the jump the stand-in exists to prevent.
+ *
+ * Keyed on more surfaces than `SURFACE_COMMANDS` holds, and on the panel's
+ * own title rather than that table's label. The palette cannot offer itself
+ * and the cross-section panel is opened by a tool rather than by a command,
+ * so both were missing and both got named after the radar products; and a
+ * command is named for the reader looking for it, which is not always what
+ * the panel calls itself once it is open.
  */
-export function surfaceLabelKey(surface: string): StringKey | null {
-  return SURFACE_COMMANDS.find((one) => one.surface === surface)?.key ?? null;
-}
+export const SURFACE_FRAMES: Record<
+  string,
+  { key: StringKey; className: string }
+> = {
+  search: { key: "search.title", className: "surface-panel--left" },
+  alerts: { key: "alerts.title", className: "surface-panel--right" },
+  nearby: { key: "nearby.title", className: "surface-panel--right" },
+  tropical: { key: "tropical.title", className: "surface-panel--right" },
+  history: { key: "history.title", className: "surface-panel--right" },
+  commands: { key: "palette.title", className: "surface-panel--left" },
+  route: {
+    key: "route.title",
+    className: "surface-panel--right surface-panel--settings",
+  },
+  guidance: {
+    key: "guidance.title",
+    className: "surface-panel--right surface-panel--settings",
+  },
+  sounding: {
+    key: "sounding.title",
+    className: "surface-panel--right surface-panel--wide",
+  },
+  vwp: { key: "vwp.title", className: "surface-panel--right" },
+  tides: { key: "tides.title", className: "surface-panel--right" },
+  "map-type": {
+    key: "mapType.title",
+    className: "surface-panel--left surface-panel--wide",
+  },
+  layers: { key: "layers.title", className: "surface-panel--left" },
+  export: { key: "export.title", className: "surface-panel--right" },
+  upload: { key: "upload.title", className: "surface-panel--right" },
+  forecast: { key: "forecast.title", className: "surface-panel--right" },
+  settings: {
+    key: "settings.title",
+    className: "surface-panel--right surface-panel--settings",
+  },
+  more: { key: "diagnostics.title", className: "surface-panel--right" },
+  section: { key: "section.title", className: "surface-panel--right" },
+  // Not a `SurfaceId`. The product panel is opened by a switch of its own and
+  // can be on screen beside a surface, but it shares the one lazy module, so
+  // the frame has to be able to name it too.
+  "radar-product": { key: "radar.title", className: "surface-panel--product" },
+};
 
 const SURFACE_COMMANDS: Array<{
   surface: string;
