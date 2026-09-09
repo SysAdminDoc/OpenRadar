@@ -776,3 +776,52 @@ describe("when the usual source for storm reports does not answer", () => {
     expect(read.features[0].properties.kind).toBe("wind");
   });
 });
+
+describe("what a reader is told when neither source answers", () => {
+  const bounds = { west: -104, south: 30, east: -90, north: 42 };
+
+  /**
+   * The first host refuses the connection and the second answers a bad status.
+   *
+   * A refused connection has no status code to read, so `fetch` rejects with a
+   * `TypeError` whose message is the engine's: "Failed to fetch" in Chromium,
+   * in English whatever the app is set to. That message used to be captured
+   * straight off the error, interpolated into `reports.serviceStatus` and
+   * thrown as a plain `Error`, which `failureSentence` passes through by
+   * design, so it reached overlay state and the panels rendered it.
+   */
+  function neitherAnswers() {
+    return (async (url: string) => {
+      if (!String(url).includes("mapservices.weather.noaa.gov")) {
+        throw new TypeError("Failed to fetch");
+      }
+      return { ok: false, status: 503, json: async () => ({}) } as Response;
+    }) as unknown as typeof fetch;
+  }
+
+  it("says it in the app's own words, not the engine's", async () => {
+    const fetched = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(neitherAnswers());
+    try {
+      const failure = await stormReportsOverlay
+        .fetchData(bounds, undefined, DEFAULT_OVERLAY_CHOICES)
+        .then(
+          () => null,
+          (error: unknown) => error,
+        );
+      expect(failure).toBeInstanceOf(Error);
+      const said = (failure as Error).message;
+      // Nothing of the engine's, and the app's own sentence for a host that
+      // could not be reached.
+      expect(said).not.toContain("Failed to fetch");
+      expect(said).toContain(en["service.unreachable"]);
+      // And it is still the layer's own frame around it, so the reader is
+      // told which service as well as what happened.
+      const [frame] = en["reports.serviceStatus"].split("{answer}");
+      expect(said).toContain(frame);
+    } finally {
+      fetched.mockRestore();
+    }
+  });
+});

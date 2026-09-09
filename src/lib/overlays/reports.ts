@@ -1,5 +1,5 @@
 import { translate } from "../../i18n";
-import { serviceAnswer } from "../serviceAnswer";
+import { failureSentence, serviceAnswer } from "../serviceAnswer";
 import { cachedUrl } from "../tileCache";
 import { formatReportMagnitude } from "../units";
 import {
@@ -383,7 +383,15 @@ export const stormReportsOverlay: OverlayAdapter = {
       // that is down, and asking the second one for it would be a request
       // nobody wants and an answer nobody reads.
       if (signal?.aborted) throw error;
-      failed = error instanceof Error ? error.message : "";
+      // Through `failureSentence` rather than straight off the error. This
+      // string is interpolated into `reports.serviceStatus` below and thrown
+      // as a plain `Error`, which `failureSentence` passes through verbatim
+      // when the hook catches it, so a refused connection put Chromium's
+      // "Failed to fetch" into overlay state and onto a panel, in English
+      // whatever the app was set to. The empty string stays as the fallback,
+      // because the second source's own status is the better sentence when
+      // there is one and `failed || ...` below is what chooses.
+      failed = error instanceof Error ? failureSentence(error, "") : "";
     }
     // The second answer. A layer with one source cannot tell a quiet
     // afternoon from a host that is down, and neither can the reader.
