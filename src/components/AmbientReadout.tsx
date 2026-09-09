@@ -1,4 +1,10 @@
-import { useEffect, useRef, type CSSProperties } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { X } from "lucide-react";
 import { useT } from "../i18n";
 import { formatClock } from "../lib/units";
@@ -71,15 +77,58 @@ export function AmbientReadout({
   }, []);
 
   const at = drift(idleMs);
-  // Read once and drawn once, because the size of the type is worked out from
-  // how long these are.
   const shown = formatClock(clock, { hour: "numeric", minute: "2-digit" });
   const beneath =
     frameAgeMinutes === null
       ? source
       : t("ambientScreen.age", { source, minutes: frameAgeMinutes });
+
+  /**
+   * How big the readout comes out at its design size, measured rather than
+   * worked out from the strings.
+   *
+   * A glyph is not half an em, and in some scripts it is nowhere near: a
+   * forty-five character place name ran a hundred pixels off the right edge
+   * and sixteen characters of Japanese stood a hundred and forty above the
+   * top. The element knows what it comes to, so it is asked, at its design
+   * size, before anything is scaled.
+   *
+   * The room is divided by the reader's text size, which is a `zoom` on the
+   * root. Everything measured here is in the layout's own pixels, which zoom
+   * multiplies on the way to the screen, and neither `window.innerWidth` nor
+   * `documentElement.clientWidth` is divided by it. The stylesheet keeps
+   * `--screen-width` for exactly this and says so; at 130 per cent, reading
+   * the undivided number put the readout off the edge.
+   */
+  const readoutRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useLayoutEffect(() => {
+    const node = readoutRef.current;
+    if (!node) return;
+    node.style.setProperty("--ambient-scale", "1");
+    const natural = { width: node.offsetWidth, height: node.offsetHeight };
+    node.style.removeProperty("--ambient-scale");
+    const zoom =
+      Number(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--text-scale",
+        ),
+      ) || 1;
+    setScale(
+      ambientTypeScale(
+        metres,
+        {
+          width: document.documentElement.clientWidth / zoom,
+          height: document.documentElement.clientHeight / zoom,
+        },
+        natural,
+      ),
+    );
+  }, [beneath, metres, place, shown]);
+
   return (
     <div
+      ref={readoutRef}
       // Keyed on the basemap rather than on the theme, the way the county
       // lines are. The clock is drawn straight onto the map with nothing
       // behind it, so what it has to stay legible against is whatever the
@@ -92,16 +141,8 @@ export function AmbientReadout({
           transform: `translate(${at.x}px, ${at.y}px)`,
           opacity: ambientOpacity(idleMs),
           // One number for the whole readout, which the stylesheet multiplies
-          // each line by. Measured against the window rather than the screen:
-          // this view fills whatever window it is in, and a clock running off
-          // the edge is less readable than one that is slightly too small.
-          "--ambient-scale": ambientTypeScale(
-            metres,
-            { width: window.innerWidth, height: window.innerHeight },
-            // The lines as they will be drawn, because the longest of them is
-            // what runs out of room first and it is the quietest one.
-            { clock: shown, place, source: beneath },
-          ),
+          // each line by.
+          "--ambient-scale": scale,
         } as CSSProperties
       }
     >

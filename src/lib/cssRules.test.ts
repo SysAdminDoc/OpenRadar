@@ -59,15 +59,19 @@ function properties(rule: Rule): Map<string, string> {
  */
 const LITERALS_WITH_A_REASON: Array<{ selector: string; reason: string }> = [
   {
-    selector: ":root",
-    reason: "The palettes themselves, and the ambient washes over the rail.",
+    // Not a bare `:root`, which would take every rule in the responsive half
+    // of the file with it: fifty-eight of them begin `:root[data-narrow…]`.
+    // The palettes themselves need no entry, being custom properties, which
+    // are not read here at all.
+    selector: ":root[data-ambient",
+    reason: "The three washes the weather puts over the rail.",
   },
   {
     selector: ".legend-ramp",
     reason: "A ramp is the reading's own colours, which no theme may reach.",
   },
   {
-    selector: ".skewt-",
+    selector: ".skewt",
     reason:
       "The diagram's own ink: the adiabats, the mixing lines, the two traces.",
   },
@@ -83,7 +87,8 @@ const LITERALS_WITH_A_REASON: Array<{ selector: string; reason: string }> = [
   },
   {
     selector: ".status-dot",
-    reason: "Answering or quiet, which is a reading of a source.",
+    reason:
+      "A hairline around a dot that is otherwise drawn in tokens, and it has a light counterpart of its own beside it.",
   },
   {
     selector: ".capture-bar",
@@ -107,7 +112,7 @@ const LITERALS_WITH_A_REASON: Array<{ selector: string; reason: string }> = [
   {
     selector: ".command-bar",
     reason:
-      "The rail defines its own ink tokens, which everything in it then reads; the ambient washes over it are the same family.",
+      "The rail's own ground, which is the same dark in both themes on purpose: everything in it is drawn against that rather than against the reader's chosen surface, and the rule above it reasons about the contrast.",
   },
   {
     selector: ".command-scroll-region",
@@ -115,7 +120,8 @@ const LITERALS_WITH_A_REASON: Array<{ selector: string; reason: string }> = [
   },
   {
     selector: ".surface-panel",
-    reason: "The shadow a panel casts, which is not a colour anybody reads.",
+    reason:
+      "The shadow a panel casts, which is not a colour anybody reads. Reaches the panel's own parts as well, which are drawn in tokens today.",
   },
   {
     selector: ".fatal-error__mark",
@@ -169,7 +175,9 @@ describe("the stylesheet says what the browser does", () => {
   it("has no declaration a later rule with the same selector already sets", () => {
     const groups = new Map<string, Rule[]>();
     for (const rule of all) {
-      const key = `${context(rule)}||${rule.selector}`;
+      // Whitespace flattened: `.a,.b` and `.a, .b` select the same elements,
+      // and which of the two a rule is written as is prettier's decision.
+      const key = `${context(rule)}||${rule.selector.replace(/\s+/g, " ")}`;
       groups.set(key, [...(groups.get(key) ?? []), rule]);
     }
     expect(groups.size).toBeGreaterThan(400);
@@ -177,16 +185,21 @@ describe("the stylesheet says what the browser does", () => {
     const beaten: string[] = [];
     for (const list of groups.values()) {
       if (list.length < 2) continue;
-      const later = properties(list.at(-1)!);
-      for (const earlier of list.slice(0, -1)) {
-        for (const [property, value] of properties(earlier)) {
-          // An important declaration wins from wherever it is written, which
-          // is the one case where the earlier rule is the one being read.
-          if (value.includes("!important")) continue;
-          if (!later.has(property)) continue;
-          beaten.push(
-            `${earlier.selector} line ${earlier.source?.start?.line}: ${property} is set again at line ${list.at(-1)!.source?.start?.line}`,
-          );
+      // Every pair, rather than each against the last. A declaration killed
+      // by a duplicate in the middle of three is just as dead, and comparing
+      // only against the last of them cannot see it.
+      for (const [at, earlier] of list.entries()) {
+        for (const later of list.slice(at + 1)) {
+          const wins = properties(later);
+          for (const [property, value] of properties(earlier)) {
+            // An important declaration wins from wherever it is written,
+            // which is the one case where the earlier rule is the one read.
+            if (value.includes("!important")) continue;
+            if (!wins.has(property)) continue;
+            beaten.push(
+              `${earlier.selector} line ${earlier.source?.start?.line}: ${property} is set again at line ${later.source?.start?.line}`,
+            );
+          }
         }
       }
     }
@@ -266,9 +279,20 @@ describe("the stylesheet says what the browser does", () => {
       if (light.test(rule.selector) || light.test(context(rule))) continue;
       if (context(rule).includes("@keyframes")) continue;
       const first = rule.selector.split(",")[0].trim();
-      if (
-        LITERALS_WITH_A_REASON.some((one) => first.startsWith(one.selector))
-      ) {
+      // The named thing, or something belonging to it, rather than anything
+      // whose text happens to start the same way. Written as a bare prefix,
+      // the `:root` entry let through all fifty-eight rules beginning
+      // `:root[data-narrow~="680"]`, which is most of the responsive half of
+      // the file.
+      const belongs = (selector: string) => {
+        if (!first.startsWith(selector)) return false;
+        const rest = first.slice(selector.length);
+        // An entry naming an attribute is precise by construction, so it may
+        // end inside one; anything else has to end where a name ends.
+        if (selector.includes("[")) return true;
+        return rest === "" || /^[\s.:[>+~-]|^__/.test(rest);
+      };
+      if (LITERALS_WITH_A_REASON.some((one) => belongs(one.selector))) {
         continue;
       }
       unexplained.push(`${first} line ${rule.source?.start?.line}`);

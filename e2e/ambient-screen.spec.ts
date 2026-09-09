@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { routeWorkspace, stubHost, test } from "./support/fixtures";
 import { contrast } from "./support/contrast";
 
@@ -375,10 +375,6 @@ test("sizes its type from how far away the reader says the screen is", async ({
   const desk = (await clock.boundingBox())?.height ?? 0;
   expect(desk).toBeGreaterThan(0);
 
-  // Across a large room, which is the case the item asks about. Written as an
-  // init script rather than into storage: the helper above plants its own
-  // settings on every navigation, so anything written between two loads is
-  // overwritten by the second of them. Registered after it, so it runs after.
   await page.addInitScript(() => {
     const held = window.localStorage.getItem("openradar.settings") ?? "{}";
     window.localStorage.setItem(
@@ -391,21 +387,62 @@ test("sizes its type from how far away the reader says the screen is", async ({
   await expect(clock).toBeVisible();
 
   const far = (await clock.boundingBox())?.height ?? 0;
-  // Proportional to the distance, which is what holding an angle means. Read
-  // as a ratio rather than as a number of pixels, because the line box a
-  // browser gives a glyph is its own business.
   // Bigger by a good margin. Not the exact ratio the distance asks for: at
-  // this window size the longest line is what runs out of room first, so the
-  // answer is the window's rather than the geometry's, and which of the two
-  // binds is the unit test's business.
+  // this window size the room runs out first, so the answer is the window's
+  // rather than the geometry's, and which of the two binds is the unit
+  // test's business.
   expect(far / desk).toBeGreaterThan(3);
+  await expectInside(page, readout);
+});
 
-  // And it is still inside the window, which the geometry on its own cannot
-  // promise: it does not know how big the screen is.
+test("stays inside the window for a name as long as the panel allows", async ({
+  page,
+}) => {
+  // The case the first version got wrong. It bounded the size on a guess of
+  // half an em a character, and a place name like this one is neither half an
+  // em a character nor able to wrap, so it ran a hundred pixels off the right
+  // edge. The largest text size with it, because that is a zoom on the root:
+  // the window does not change and the room inside it does, and reading the
+  // window's own number put the readout three hundred and fifty pixels above
+  // the top.
+  await page.setViewportSize({ width: 1024, height: 680 });
+  await start(page);
+  await page.addInitScript(() => {
+    const held = window.localStorage.getItem("openradar.settings") ?? "{}";
+    const settings = JSON.parse(held) as Record<string, unknown>;
+    window.localStorage.setItem(
+      "openradar.settings",
+      JSON.stringify({
+        ...settings,
+        ambientMetres: 4,
+        textScale: 130,
+        watch: {
+          ...(settings.watch as Record<string, unknown>),
+          name: "Chargoggagoggmanchauggagoggchaubunagungamaugg",
+        },
+      }),
+    );
+  });
+  await page.reload();
+  await enter(page);
+  const readout = page.locator("[data-ambient-readout]");
+  await expect(readout).toBeVisible();
+  // The name is on screen, which is what makes this a readout rather than a
+  // clock, and all of it is inside the window.
+  await expect(readout).toContainText("Chargoggagogg");
+  await expectInside(page, readout);
+});
+
+/** Nothing of the readout is outside the window it is drawn in. */
+async function expectInside(page: Page, readout: Locator) {
   const box = await readout.boundingBox();
+  const room = await page.evaluate(() => ({
+    width: document.documentElement.clientWidth,
+    height: document.documentElement.clientHeight,
+  }));
   expect(box).not.toBeNull();
   expect(box!.x).toBeGreaterThanOrEqual(0);
   expect(box!.y).toBeGreaterThanOrEqual(0);
-  expect(box!.x + box!.width).toBeLessThanOrEqual(1024);
-  expect(box!.y + box!.height).toBeLessThanOrEqual(680);
-});
+  expect(box!.x + box!.width).toBeLessThanOrEqual(room.width + 1);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(room.height + 1);
+}

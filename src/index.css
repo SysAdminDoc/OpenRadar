@@ -3262,10 +3262,11 @@ input[type="range"]:disabled {
   /* The bar is a fixed dark surface in both themes, which is a decision the
      system has just overruled.
 
-     Written through `:root` for the weight rather than the reading. A media
-     query adds no specificity, so this block was losing its background to a
-     later plain `.command-bar` in source order and the reader who asked for
-     high contrast got the app's dark bar anyway. */
+     Written through `:root` for the weight, to match the button below, which
+     needs it. This one does not: the forced-colours adjustment overrides a
+     background whatever the author wrote, so the bar comes out on the
+     system's canvas either way. Measured in the engine this app ships on
+     before saying so. */
   :root .command-bar {
     --command-ink: CanvasText;
     --command-ink-muted: CanvasText;

@@ -135,44 +135,35 @@ export const AMBIENT_DISTANCES = [0.6, 1.5, 2.5, 4] as const;
  * twice the size. One is the default, so a reader who never opens the setting
  * sees exactly what they saw before.
  *
- * Bounded by the window, because the geometry does not know how big the
- * screen is. A person four metres from a 1024 by 680 window is asking for
- * type that would not fit in it, and a clock running off the edge is less
- * readable than one that is slightly too small.
+ * Bounded by the room it has, because the geometry does not know how big the
+ * screen is. The bound is measured rather than estimated: the first version
+ * counted characters at half an em each, and a watch place called
+ * "Chargoggagoggmanchauggagoggchaubunagungamaugg" ran a hundred pixels off
+ * the right edge while sixteen characters of Japanese stood a hundred and
+ * forty above the top. A glyph is not half an em, and in some scripts it is
+ * not close.
  *
- * The bound is measured against the lines that will actually be drawn rather
- * than against the clock alone. The longest line is the quietest one, the
- * source and the age, and at a distance it is what runs out of room first: a
- * first attempt bounded on the clock let that line wrap into four, and the
- * readout stood four hundred pixels above the top of the window.
+ * `natural` is what the readout comes to at its design size, which the view
+ * measures before it sizes anything.
  */
 export function ambientTypeScale(
   metres: number,
-  viewport: { width: number; height: number },
-  lines: { clock: string; place: string; source: string },
+  room: { width: number; height: number },
+  natural: { width: number; height: number },
 ): number {
   const wanted = Math.max(1, metres / DEFAULT_AMBIENT_METRES);
-  // A glyph runs to about half its size in this face, and the clock's are
-  // tabular, which is a little wider.
-  const widest = Math.max(
-    lines.clock.length * 0.55 * AMBIENT_CLOCK_PX,
-    lines.place.length * 0.5 * AMBIENT_PLACE_PX,
-    lines.source.length * 0.5 * AMBIENT_SMALLEST_PX,
-    1,
-  );
-  const across = (viewport.width - AMBIENT_INSET_PX * 2) / widest;
-  // The three lines scale; the gaps between them, the way out and the bottom
-  // inset do not, so those come off the top before the rest is divided. The
-  // clock sets its own line height at 1 and the two lines under it take the
-  // page's, which is what makes a sum of the raw sizes too small by a fifth.
-  const tall =
-    AMBIENT_CLOCK_PX +
-    (lines.place ? AMBIENT_PLACE_PX * AMBIENT_LINE_HEIGHT : 0) +
-    AMBIENT_SMALLEST_PX * AMBIENT_LINE_HEIGHT;
+  // The gaps between the lines, the way out and the inset do not scale, so
+  // they come off the room before the rest is divided by what does.
+  const across =
+    (room.width - AMBIENT_INSET_PX * 2) / Math.max(1, natural.width);
   const down =
-    (viewport.height - AMBIENT_INSET_PX - AMBIENT_LEAVE_PX - AMBIENT_GAPS_PX) /
-    tall;
-  return Math.max(1, Math.min(wanted, across, down));
+    (room.height - AMBIENT_INSET_PX - AMBIENT_LEAVE_PX - AMBIENT_GAPS_PX) /
+    Math.max(1, natural.height);
+  const fits = Math.min(wanted, across, down);
+  // Never below the size it was drawn at, and never a number that is not one:
+  // a scale of `NaN` reaches the stylesheet as an invalid `calc` and takes
+  // every line of the readout with it.
+  return Number.isFinite(fits) ? Math.max(1, fits) : 1;
 }
 
 /** How far the readout sits from the corner, and how tall its way out is. */
@@ -180,5 +171,3 @@ const AMBIENT_INSET_PX = 32;
 const AMBIENT_LEAVE_PX = 52;
 /** The gaps between the three lines, which do not scale with the type. */
 const AMBIENT_GAPS_PX = 4;
-/** What the two lines under the clock take from the page. */
-const AMBIENT_LINE_HEIGHT = 1.45;
