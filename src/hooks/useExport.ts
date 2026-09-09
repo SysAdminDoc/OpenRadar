@@ -460,10 +460,14 @@ export function useExport(options: {
       // sidecar is the file left behind: a picture goes into a message or a
       // document on its own, and a week later nobody can say which radar,
       // which volume or which minute it is of. A PNG has carried text for
-      // this since 1996; a WebM, an MP4 and a GIF have nowhere to put it and
-      // come back from here unchanged.
+      // this since 1996; a WebM, an MP4 and a GIF have nowhere to put it.
+      //
+      // Asked of the name before the blob is read. `withPngText` gives a
+      // video back untouched, but only after the whole thing has been copied
+      // into memory for it to look at eight bytes, and `saveFile` then copies
+      // it again: a loop is tens of megabytes and this ran on every one.
       let picture = blob;
-      if (written !== null) {
+      if (written !== null && name.endsWith(".png")) {
         try {
           const bytes = new Uint8Array(await blob.arrayBuffer());
           const inside = withPngText(bytes, PROVENANCE_KEYWORD, written);

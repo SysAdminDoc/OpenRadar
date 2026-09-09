@@ -99,11 +99,35 @@ function endOf(bytes: Uint8Array): number | null {
     const length = view.getUint32(at);
     const type = String.fromCharCode(...bytes.subarray(at + 4, at + 8));
     if (type === "IEND") return at;
+    // A length read as an unsigned thirty-two bit number cannot walk
+    // backwards, so the only way out here is off the end: a download that
+    // stopped part way through is not a file to add a chunk to.
     const next = at + 12 + length;
-    if (next <= at || next > bytes.length) return null;
+    if (next > bytes.length) return null;
     at = next;
   }
   return null;
+}
+
+/**
+ * Whether a keyword is one the format allows.
+ *
+ * One to seventy-nine Latin-1 characters, which is the specification's own
+ * limit and was documented above while nothing checked it: a four hundred
+ * byte keyword, an empty one and a keyword written in Japanese all produced a
+ * file, and the last of them reads back as mojibake in every viewer. The
+ * constant this ships with is twenty ASCII characters, so what this catches
+ * is the next one somebody adds.
+ */
+function usableKeyword(keyword: string): boolean {
+  return (
+    keyword.length >= 1 &&
+    keyword.length <= 79 &&
+    [...keyword].every((character) => {
+      const code = character.charCodeAt(0);
+      return code >= 32 && code <= 255 && !(code >= 127 && code <= 160);
+    })
+  );
 }
 
 /**
@@ -119,6 +143,7 @@ export function withPngText(
   keyword: string,
   text: string,
 ): Uint8Array {
+  if (!usableKeyword(keyword)) return bytes;
   const end = endOf(bytes);
   if (end === null) return bytes;
   const added = chunk("iTXt", textData(keyword, text));

@@ -150,6 +150,23 @@ describe("the record inside the picture", () => {
     expect(withPngText(cut, PROVENANCE_KEYWORD, record)).toBe(cut);
   });
 
+  it("refuses a keyword the format does not allow", () => {
+    // One to seventy-nine Latin-1 characters, which was documented and not
+    // checked: an empty keyword, a four hundred byte one and one written in
+    // Japanese all produced a file, and the last reads back as mojibake in
+    // every viewer because the field is Latin-1 while the text beside it is
+    // UTF-8. The picture comes back untouched rather than carrying a chunk
+    // nothing can read.
+    const png = tinyPng();
+    for (const bad of ["", "k".repeat(80), "気象レーダー", "with\nnewline"]) {
+      expect(withPngText(png, bad, record), JSON.stringify(bad)).toBe(png);
+    }
+    // And the boundary on the good side, so the limit is a limit rather than
+    // a refusal of everything.
+    expect(withPngText(png, "k".repeat(79), record)).not.toBe(png);
+    expect(withPngText(png, "Créditos", record)).not.toBe(png);
+  });
+
   it("carries text that is not ASCII", () => {
     // `iTXt` is the UTF-8 one of the three text chunks, which is why it is the
     // one used: a place name in the record is whatever the reader's catalogue
