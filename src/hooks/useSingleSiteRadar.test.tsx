@@ -8,7 +8,11 @@ import {
 } from "../lib/level2";
 import type { Level2ProductId, SweepImage } from "../lib/level2";
 import { DEFAULT_SETTINGS, type RadarSettings } from "../lib/settings";
-import { isTdwrStation, TDWR_RANGE_KM } from "../lib/radarKinds";
+import {
+  isTdwrStation,
+  TDWR_LONG_RANGE_KM,
+  TDWR_RANGE_KM,
+} from "../lib/radarKinds";
 import { log } from "../lib/log";
 import { providerHealth, resetHealth } from "../lib/providers/health";
 
@@ -164,6 +168,27 @@ const DISCS: Record<
   },
 };
 
+/**
+ * The same site's corners at the long range product's reach.
+ *
+ * Scaled off the base disc rather than written out, so the two stay the same
+ * circle around the same radar however the base entry moves.
+ */
+function longRange(station: string) {
+  const disc = DISCS[station];
+  const grow = TDWR_LONG_RANGE_KM / TDWR_RANGE_KM;
+  const lon = (disc.west + disc.east) / 2;
+  const lat = (disc.south + disc.north) / 2;
+  const wide = ((disc.east - disc.west) / 2) * grow;
+  const tall = ((disc.north - disc.south) / 2) * grow;
+  return {
+    west: lon - wide,
+    east: lon + wide,
+    south: lat - tall,
+    north: lat + tall,
+  };
+}
+
 function sweepFor(
   station: string,
   product: Level2ProductId,
@@ -207,8 +232,18 @@ function sweepFor(
     ...(isTdwrStation(station)
       ? {
           radar: "TDWR" as const,
-          rangeKm: TDWR_RANGE_KM,
-          gateKm: 0.15,
+          // Its two products are two discs, and the fixture said they were
+          // one: every terminal sweep claimed 88.8 kilometres of reach on 150
+          // metre bins whichever product was asked for. That is the lie that
+          // let a record holding one product's ground be handed to the other
+          // without a single case going red.
+          ...(product === "long-range-reflectivity"
+            ? {
+                rangeKm: TDWR_LONG_RANGE_KM,
+                gateKm: 0.3,
+                ...longRange(station),
+              }
+            : { rangeKm: TDWR_RANGE_KM, gateKm: 0.15 }),
           siteName: "Atlanta, GA",
           live: false,
           liveTilts: 0,
@@ -758,6 +793,74 @@ describe("choosing a site", () => {
     // The old site's sweep must not still be drawn under a label naming it.
     expect(result.current.sweep).toBeNull();
     expect(result.current.active).toBe(false);
+  });
+
+  it("measures each terminal product against its own disc", async () => {
+    // A terminal radar has two reaches: 88.8 kilometres in 150 metre bins for
+    // its base products and 417 in 300 metre ones for the long range one. The
+    // record that says how far the box may narrow held one entry per station,
+    // so whichever product loaded first lent its ground to the other. The
+    // long range product measured against the base disc stopped four steps
+    // in where it has bins for thirty-two, and a base product measured
+    // against the long range disc went to a sixty-fourth of ground it was not
+    // being drawn over, which is four times deeper than the fixed sixteenth
+    // this whole rule replaced.
+    const base = String(sweepDetailBox(DISCS.TATL, [-84.26, 33.65], 13, 1440));
+    const long = String(
+      sweepDetailBox(
+        { ...DISCS.TATL, ...longRange("TATL"), rangeKm: 417, gateKm: 0.3 },
+        [-84.26, 33.65],
+        13,
+        1440,
+      ),
+    );
+    fetchArchiveSweep.mockImplementation(
+      async (station, _at, product, tilt, within) => ({
+        ...sweepFor(station, product, tilt),
+        volume: `box:${String(within)}`,
+        collected: "2021-12-10T03:15:00.000Z",
+        source: {
+          kind: "archive" as const,
+          label: "NOAA NEXRAD Level III (TDWR)",
+          url: null,
+        },
+      }),
+    );
+
+    // The long range product first, so its disc is the one in hand.
+    const { result, rerender } = renderHook(
+      (props: { product: Level2ProductId }) =>
+        useSingleSiteRadar(
+          options({
+            center: [-84.26, 33.65],
+            zoom: 13,
+            radar: { station: "TATL", product: props.product, live: false },
+          }),
+        ),
+      {
+        initialProps: {
+          product: "long-range-reflectivity" as Level2ProductId,
+        },
+      },
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("TATL"));
+    await act(async () => {
+      await result.current.openArchive("tatl", "2021-12-10T03:15:00.000Z");
+    });
+    await waitFor(() =>
+      expect(result.current.sweep?.volume, "the long range product").toBe(
+        `box:${long}`,
+      ),
+    );
+
+    // And back to a base product, which must be measured on 88.8 kilometres
+    // and not on the 417 still in the record.
+    rerender({ product: "reflectivity" });
+    await waitFor(() =>
+      expect(result.current.sweep?.volume, "a base product").toBe(
+        `box:${base}`,
+      ),
+    );
   });
 
   it("narrows to the gate on screen, not the one that arrived first", async () => {

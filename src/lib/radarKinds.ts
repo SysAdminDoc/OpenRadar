@@ -96,6 +96,26 @@ export function radarCapabilities(
 }
 
 /**
+ * How far a given product reaches, in kilometres.
+ *
+ * Known before anything is asked for, which is the point of it. A terminal
+ * radar's base products cover 88.8 kilometres and its long range one 417, so
+ * "this station's reach" is not a fact about a station: two of its products
+ * draw two different discs. A record that held one reach for a station handed
+ * one product's ground to the other, and what is measured against that ground
+ * is how far the box may narrow.
+ */
+export function reachKm(
+  station: string | null | undefined,
+  product: Level2ProductId,
+): number {
+  const can = radarCapabilities(station);
+  return product === "long-range-reflectivity" && can.longRangeKm !== null
+    ? can.longRangeKm
+    : can.rangeKm;
+}
+
+/**
  * The product to ask a station for, given the one the reader chose.
  *
  * Reflectivity is what every radar has, so a product this one does not have
