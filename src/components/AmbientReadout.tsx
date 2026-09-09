@@ -106,9 +106,11 @@ export function AmbientReadout({
     const node = readoutRef.current;
     if (!node) return;
     const measure = () => {
-      // The three lines, not the whole readout: the way out is a fixed
-      // forty-four pixels and does not scale, so a box holding it is not
-      // linear in the scale and cannot be divided by one.
+      // The three lines, not the whole readout: the way out is a fixed size
+      // and does not scale, so a box holding it is not linear in the scale
+      // and cannot be divided by one. What it comes to, forty-four pixels of
+      // button and the eight above it, is `AMBIENT_LEAVE_PX`, which the rule
+      // subtracts from the room and a test holds against the stylesheet.
       const lines = [...node.children].filter(
         (child) => child !== leaveRef.current,
       );

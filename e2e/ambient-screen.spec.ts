@@ -433,16 +433,15 @@ test("stays inside the window for a name as long as the panel allows", async ({
   await expectInside(page, readout);
 });
 
-test("keeps its size when the clock ticks and when the window changes", async ({
-  page,
-}) => {
-  // Two ways the first version lost it. The size was written onto the element
-  // and taken off again inside the measurement, so the next time the sum came
-  // out the same React had no reason to write it back and the readout fell to
-  // the stylesheet's own value: a minute of the clock was enough. And the sum
-  // moved out of the render into an effect that nothing re-ran on a resize,
-  // where before it had been corrected by accident.
-  await page.setViewportSize({ width: 1440, height: 900 });
+/**
+ * The full-screen view at four metres, entered with a wound clock.
+ *
+ * Two cases share it, and they are two cases rather than one with two halves:
+ * written as one, a failure in the clock scenario aborted the run before the
+ * resize scenario executed at all, so the second thing was only ever checked
+ * on a build where the first already worked.
+ */
+async function enterFarAway(page: Page) {
   // Before the page loads, so the workspace's own minute timer is the one
   // being wound forward rather than a real minute of waiting.
   await page.clock.install({ time: new Date("2026-09-09T18:00:30Z") });
@@ -461,15 +460,21 @@ test("keeps its size when the clock ticks and when the window changes", async ({
   const readout = page.locator("[data-ambient-readout]");
   const clock = readout.locator("strong");
   await expect(clock).toBeVisible();
-  const sized = (await clock.boundingBox())?.height ?? 0;
-  expect(sized).toBeGreaterThan(60);
-  const said = await clock.textContent();
+  // Bigger than the stylesheet's own forty-six pixels, which is what it falls
+  // back to when the size is lost.
+  expect((await clock.boundingBox())?.height ?? 0).toBeGreaterThan(60);
+  return { readout, clock };
+}
 
-  // A minute of it, which rewrites the time and the age beside it and so runs
-  // the measurement again on the same answer. The first version wrote the
-  // size onto the element and took it off again while measuring, so the same
+test("keeps its size when the clock ticks", async ({ page }) => {
+  // A minute of it rewrites the time and the age beside it, which runs the
+  // measurement again on the same answer. The first version wrote the size
+  // onto the element and took it off again while measuring, so the same
   // answer twice meant React had no reason to write it back and the readout
   // fell to the stylesheet's own value: desk size, on a wall.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const { clock } = await enterFarAway(page);
+  const said = await clock.textContent();
   await page.clock.fastForward("02:00");
   await expect
     .poll(() => clock.textContent(), { message: "the clock never moved on" })
@@ -478,9 +483,14 @@ test("keeps its size when the clock ticks and when the window changes", async ({
     (await clock.boundingBox())?.height ?? 0,
     "the readout fell back to its desk size",
   ).toBeGreaterThan(60);
+});
 
-  // And a window dragged narrow, where it used to stand six hundred pixels
-  // off the right edge.
+test("comes back inside a window dragged narrow", async ({ page }) => {
+  // The sum moved out of the render into an effect that nothing re-ran on a
+  // resize, where before it had been corrected by accident. A window dragged
+  // narrow left the readout six hundred pixels off the right edge.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const { readout } = await enterFarAway(page);
   await page.setViewportSize({ width: 760, height: 460 });
   await expect
     .poll(
