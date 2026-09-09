@@ -186,10 +186,20 @@ test("puts three models beside each other for the same hours", async ({
     ).toBeVisible();
   }
 
-  // The readings are each model's own, on the hour they belong to.
+  // The readings are each model's own, on the hour they belong to, in the
+  // reader's units.
+  //
+  // These read 26 and 29 until 2026-09-08, which are the fixture's own
+  // Celsius. The app opens imperial and labels this block °F, so what the
+  // case actually pinned was a Celsius number under a Fahrenheit label:
+  // the service answers in whatever it was asked for and the panel used to
+  // print that through. 26°C is 79°F and 29°C is 84°F, and the label is
+  // asserted with them, because the numbers alone cannot say which of the
+  // two the panel thinks it is showing.
   const gfs = temperature.getByRole("row").filter({ hasText: "GFS" });
-  await expect(gfs).toContainText("26");
-  await expect(gfs).toContainText("29");
+  await expect(gfs).toContainText("79");
+  await expect(gfs).toContainText("84");
+  await expect(temperature).toContainText("°F");
 
   // Two degrees apart on a three degree range is agreement worth saying.
   await expect(temperature).toHaveAttribute("data-spread", /0\.\d\d/);
@@ -484,9 +494,13 @@ test("says when each model last ran and how far it has moved since", async ({
   await expect(panel.locator(".guidance-change")).toHaveCount(0);
   await panel.getByRole("checkbox", { name: /Compare with yesterday/ }).check();
   await expect(panel.locator(".guidance-change").first()).toBeVisible();
+  // A degree Celsius warmer than yesterday is nearly two Fahrenheit, and the
+  // panel is imperial. This read "+1" until 2026-09-08 for the same reason
+  // the readings above did: the change was the fixture's Celsius, printed
+  // under a Fahrenheit label.
   await expect(
     panel.locator('.guidance-change[data-direction="up"]').first(),
-  ).toContainText("+1");
+  ).toContainText("+2");
 });
 
 test("says nothing about a run nobody could ask for", async ({ page }) => {
