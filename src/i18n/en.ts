@@ -27,7 +27,7 @@ export const en = {
   "export.cardBody":
     "The map exactly as it is now, with the frame time, the radar source, and the credits burned into the corner.",
   "export.note":
-    "Both go straight to your downloads folder, and a small JSON file lands beside each one saying which source every frame came from. Nothing is uploaded.",
+    "They go straight to your downloads folder, and a small JSON file lands beside each one saying which source every frame came from. Nothing is uploaded.",
   "export.dataHeading": "The readings behind the picture",
   "export.dataNote":
     "A picture is a colour per number, and a colour cannot be compared with a rain gauge. These write the numbers instead, each with a JSON sidecar naming the source, the time, the units and anything done to the readings. Colour tables and display thresholds are not applied.",
@@ -918,13 +918,13 @@ export const en = {
   "layers.qpeHourDetail": "How much has fallen in the last hour",
   "layer.qpeDay": "Rain, Past Day",
   "layer.counties": "Counties",
-  "layer.night": "Day and night",
+  "layer.night": "Day and Night",
   "layers.nightDetail":
     "A wash over the half of the world the sun is not on, worked out here rather than fetched. It follows the frame you are looking at, so scrubbing back or replaying an old storm shows where the sun was then, and it sits under everything else on the map.",
-  "layer.gaugeQpe": "Rain, gauge corrected",
-  "layer.unitStreamflow": "Modelled runoff",
-  "layer.ffgThreeHour": "Flash flood guidance, 3 h",
-  "layer.ffgHour": "Flash flood guidance, 1 h",
+  "layer.gaugeQpe": "Rain, Gauge Corrected",
+  "layer.unitStreamflow": "Modelled Runoff",
+  "layer.ffgThreeHour": "Flash Flood Guidance, 3 h",
+  "layer.ffgHour": "Flash Flood Guidance, 1 h",
   "layers.qpeDayDetail": "How much has fallen since this time yesterday",
   "counties.failed": "The county outlines could not be read.",
   "layers.countiesDetail":
@@ -967,7 +967,7 @@ export const en = {
   "layers.spcDiscussionsDetail":
     "What forecasters are watching right now, an hour or two ahead of any warning",
   "spc.serviceStatus": "The Storm Prediction Center service {answer}.",
-  "wpc.serviceStatus": "The Weather Prediction Center {answer}",
+  "wpc.serviceStatus": "The Weather Prediction Center service {answer}.",
   "wpc.eroTitle": "Excessive rainfall outlook",
   "wpc.wssiTitle": "Winter storm severity index",
   "wpc.validWindow": "Valid {window}",
@@ -1039,7 +1039,7 @@ export const en = {
   "panel.search": "Search",
   "panel.alerts": "Alerts",
   "panel.tropical": "Tropical",
-  "panel.history": "Storm history",
+  "panel.history": "Storm History",
   "panel.route": "Route",
   "panel.forecast": "Forecast",
   "panel.export": "Export",
@@ -1049,7 +1049,7 @@ export const en = {
   "panel.settings": "Settings",
   "panel.more": "Diagnostics",
   "panel.radarProducts": "Radar Products",
-  "panel.nearby": "Nearby weather",
+  "panel.nearby": "Nearby Weather",
   "keywords.nearby":
     "accessible screen reader words distance bearing storms near",
   "nearby.eyebrow": "Radar as words",
@@ -1365,7 +1365,7 @@ export const en = {
   "mrms.cappiReflectivity": "Merged reflectivity at a height",
   "mrms.cappiRhohv": "Merged correlation at a height",
   "mrms.cappiZdr": "Merged differential reflectivity at a height",
-  "layer.cappi": "Merged grid at a height",
+  "layer.cappi": "Merged Grid at a Height",
   "layer.cappiDetail":
     "One height of the national grid the composite is built from, rather than the whole column at once. Where the hail core is, not how big the hail is.",
   "layers.cappiField": "Which field",
@@ -1616,7 +1616,7 @@ export const en = {
   "chrome.tiltLoop": "{degrees}° TILT · VOLUME {index} OF {count}, {time}",
   "chrome.levelTwoLate": "NOT HEARD FROM FOR {age}",
   "chrome.tiltDealiased": "{degrees}° TILT · UNFOLDED",
-  "chrome.nextPiece": "NEXT PIECE IN {seconds} S",
+  "chrome.nextPiece": "NEXT VOLUME IN {seconds} S",
   "chrome.volumeEnds": "ENDS {time}",
   "chrome.tiltLive": "{degrees}° TILT · LIVE, {seconds} SEC OLD",
   "chrome.tiltLiveDealiased":

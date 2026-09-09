@@ -34,7 +34,7 @@ export const fr: Catalogue = {
   "export.cardBody":
     "La carte exactement telle qu'elle est, avec l'heure de l'image, la source radar et les mentions gravées dans le coin.",
   "export.note":
-    "Les deux vont directement dans votre dossier de téléchargements, et un petit fichier JSON accompagne chacun en indiquant d'où vient chaque image. Rien n'est téléversé.",
+    "Ils vont directement dans votre dossier de téléchargements, et un petit fichier JSON accompagne chacun en indiquant d'où vient chaque image. Rien n'est téléversé.",
   "export.dataHeading": "Les mesures derrière l'image",
   "export.dataNote":
     "Une image est une couleur par valeur, et une couleur ne se compare pas à un pluviomètre. Ceci écrit plutôt les valeurs, chacune avec un fichier JSON qui nomme la source, l'heure, les unités et tout ce qui a été fait aux mesures. Les tables de couleurs et les seuils d'affichage ne sont pas appliqués.",
@@ -994,7 +994,7 @@ export const fr: Catalogue = {
   "layers.spcDiscussionsDetail":
     "Ce que les prévisionnistes surveillent en ce moment, une heure ou deux avant toute alerte",
   "spc.serviceStatus": "Le service du Storm Prediction Center {answer}.",
-  "wpc.serviceStatus": "Le Weather Prediction Center {answer}",
+  "wpc.serviceStatus": "Le service du Weather Prediction Center {answer}.",
   "wpc.eroTitle": "Prévision de pluies excessives",
   "wpc.wssiTitle": "Indice de sévérité des tempêtes hivernales",
   "wpc.validWindow": "Valable {window}",
@@ -1662,7 +1662,7 @@ export const fr: Catalogue = {
   "chrome.tiltLoop": "ANGLE {degrees}° · VOLUME {index} SUR {count}, {time}",
   "chrome.levelTwoLate": "SANS NOUVELLES DEPUIS {age}",
   "chrome.tiltDealiased": "ANGLE {degrees}° · DÉPLIÉ",
-  "chrome.nextPiece": "PROCHAIN MORCEAU DANS {seconds} S",
+  "chrome.nextPiece": "PROCHAIN VOLUME DANS {seconds} S",
   "chrome.volumeEnds": "FIN {time}",
   "chrome.tiltLive": "ANGLE {degrees}° · DIRECT, IL Y A {seconds} S",
   "chrome.tiltLiveDealiased":

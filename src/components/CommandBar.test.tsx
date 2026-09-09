@@ -32,7 +32,7 @@ describe("the surfaces the rail can reach", () => {
     // forecaster comes to this app for. A palette entry is not a way in for
     // somebody who does not already know the word.
     const { getByRole } = railed();
-    for (const name of ["Nearby weather", "Sounding"]) {
+    for (const name of ["Nearby Weather", "Sounding"]) {
       expect(getByRole("button", { name }), name).toBeTruthy();
     }
   });

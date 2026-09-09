@@ -270,29 +270,6 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
 
 ### P3
 
-- [ ] AUD-295 (P3): Microcopy consistency sweep
-      Category: ux
-      Where: `src/i18n/en.ts` and the two translations
-      Problem: Small things a reader notices without naming: (1) trailing periods on `*Detail` strings are a coin flip, 52 with and 62 without, with adjacent rows differing (`layers.countiesDetail` between `qpeDayDetail` and `precipTypeDetail`; `satellite.geocolorDetail` beside `redVisibleDetail`), while `*Body` is 42 of 42 with; (2) layer and panel names mix Title Case ("Storm Cells", "Map Type", "Wind Profile", 44 of them) with sentence case ("Rain, gauge corrected", "Storm history", "Nearby weather"); (3) `radar.archiveReading` is the only in-progress line ending in "..."; (4) "WDTD" appears twice (`layers.lightningJumpWindowDetail` L467, `azShearLevel.midNote` L1143) and is the one acronym no reader would know; (5) the isotherm labels use a hyphen and no degree sign (`-10 C`, L476-477, L486-487) where `satellite.cleanIrLegend` L880 uses `−92 to +57 °C`; (6) `layers.note` L1200 says the same thing twice; (7) `es.ts:698` says "Nivel II" where every other Spanish string keeps "Level II"; (8) the file header at L7-10 forbids positional placeholders and 21 `radar.error.*`, `bundle.error.*`, `dataExport.error.*` keys use `{0}`/`{1}`.
-      Evidence: A pass over all 1,683 keys on 2026-09-04; es and fr mirror en exactly on periods (0 mismatches) so the rule chosen has to be applied three times.
-      Fix: Decide "one-sentence fragment: no period; two or more sentences: periods", sweep the details; Title Case for `layer.*` and `panel.*` names, sentence case for everything else; drop the dots; "NWS training guidance" for WDTD; `−10 °C`; rewrite `layers.note`; "Level II" in es; named parameters for the 21 keys with the Rust `parts()` callers updated.
-      Acceptance: A gate in `coverage.test.ts` that asserts the period rule over `*Detail` and refuses `{0}`-style placeholders; the es/fr parity test still passes.
-      Confidence: Verified
-      Effort: M
-
-### Unaudited, needs a pass
-
-
-## Audit Findings, 2026-09-05 (evening)
-
-Read-only audit of `a9407d4` (v0.11.0). Baseline at that commit, all green: `npm run check` 200 files / 1956 passed / 39 skipped, lint 0 errors 1 pre-existing warning (`react-refresh/only-export-components`), 1308 exports all named, coverage 67.1 / 62.17 / 63.39 / 68.29, every bundle inside budget (the settings chunk is 12 kB gzip against 14, so the `check:bundle` failure `AUD-272` carried is gone); `cargo fmt --check` clean, `cargo clippy --all-targets` clean, `cargo test` 466 passed / 31 ignored; `npx playwright test` 690 passed / 2 skipped in 16.7 minutes, exit 0, but with 184 `[Unhandled rejection]` lines in the page console of a green run (`AUD-332`); `gitleaks` 447 commits clean; `npm audit` 0 with and without dev; `cargo audit` 0 vulnerabilities and the 17 documented allowances; `grype` the one documented Linux-only `glib` Medium. The GitHub tracker holds zero issues and zero pull requests, open or closed, and discussions are disabled, so there was nothing to take in from reporters. Every P2 below was measured in a running browser rather than read, and handed to a fresh-context refutation pass. Items are numbered on from `AUD-318`.
-
-Where this pass dug: the six commits of 2026-09-05 that landed after the last refutation pass (the day-and-night wash, the display hold, the MRMS smoothing and zoom ceiling, the level2 split, the legend keys), the native command surface and the three URI schemes, the light theme with Layers, Settings, Diagnostics, the command list and the full-screen view open in a real browser at 1440x900 and at the 1024x680 minimum, and the rail at both sizes.
-
-### P2
-
-### P3
-
 - [ ] AUD-327 (P3): Settings files desktop and character controls under "Appearance", and puts language, units and clock last
       Category: ux
       Where: `src/panels/SettingsPanel.tsx:168` (the Appearance section, which runs to about `:520` and holds theme, accent, weather on the chrome, the full-screen view and its screen hold, the tray icon, Start with Windows, close-to-tray, the glance window, the wallpaper, calm mode, curiosities, catch-up, on-this-date and the seasonal look), `:540` Language, `:576` Backup, `:619` Units, `:648` Clock, `:674` Text size, `:698` Radar, `:819` Camera.
@@ -523,7 +500,7 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
 ### Notes on existing items
 
 - `AUD-333`: the three cell-stroke lines it cites have moved to `src/components/MapViewport.tsx:1245`, `:1260` and `:1294`; the file's own light-basemap reasoning at `:608-618` is applied to `COUNTY_LANE` at `:969` and still not to `CELL_LANE`, and the same shape is at `:1491` (`#e2e8f0` track default) and `:1571` (`#eff6ff` placefile point stroke). The error-state half of the item was observed on 2026-09-08 for Alerts, Nearby, Tropical, History, Route, Guidance, Sounding, Tides, Forecast and Search with each panel's host refused, answering 503 and answering 429, in both themes; what it found is `AUD-425` and `AUD-426`, and the rest read correctly.
-- `AUD-295`: its note that `packs.error.httpStatus` and `radar.error.httpStatus` "end in a bare status" is out of date; `nativeError.ts` now replaces the status with a `serviceAnswer` verb phrase, which is `AUD-414`. The three strings in `AUD-417` and the terminology in `AUD-416` are additions to its list, not repeats. Two more for its list, seen in the running window on 2026-09-08: `forecast.rainNow` ("{value} {unit} now", `en.ts:348`) renders "0.00 in now" under imperial, where the abbreviation for inches reads as the preposition; and the loop export buttons read "Export loop (WebM) (3 frames)", two bracketed clauses in a row.
+- `AUD-295` (drained 2026-09-09, the parts it did not carry): the period rule, the numbered placeholders, the Title Case names and the six specific strings it listed are done and gated. What it collected in its notes and this pass did not take on, because each needs a decision rather than a sweep: `toast.bundleMissing` has no plural block; `settings.watching` prints raw coordinates where the toast beside it names the place; `toast.placesFull` has no next step where the settings string for the same condition does; `search.none` and `journal.noneMatch` are dead ends beside `history.none` and `palette.none`, which coach; `toast.notABackupBody` refers to "the button beside it"; and terminology still runs two ways for colour table and palette, loop and animation, site and station, and the watched place. Worth a new item when somebody is deciding the wording rather than applying a rule.
 - `AUD-370`: `scripts/build-counties.mjs` (94 statements, 0 per cent) is a third script with no test; the one rule it carries, refusing an output over a megabyte, is the kind the item's fix pins for the other two.
 - `AUD-272`: `src/panels/MapOptionsPanels.tsx` no longer exists; it was split into `LayersPanel.tsx` (1,440 lines), `SettingsPanel.tsx` (900), `WatchSection.tsx` (825) and the sections beside them, which is the panel half of the item done. `src/App.tsx` is 3,138 lines on 2026-09-08 against the 2,814 the item measured and the 1,500 it asks for, so the other half has moved the wrong way. `AUD-423` is the same shape in `settings.ts`.
 
