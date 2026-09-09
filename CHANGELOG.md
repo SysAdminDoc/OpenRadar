@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.13.0
 
+- Settings reads in an order that matches what the things are. "Appearance" used to head fourteen rows of which four were about looks: Start with Windows, the tray icon, close to tray and the glance window are about the desktop, and calm mode, curiosities, catch-up and on this date are the playful set. Meanwhile the language, the units and the clock, the three a new reader wants first, sat below the record, the packs and the storage row. There are four headings now, in the order you would look for them: Reading, Appearance, Desktop, Character. Nothing was removed and nothing changed what it does.
+
 - Three surfaces stopped blurring for readers who ask their system for more contrast. The panel, the timeline, the legend, the zoom buttons and the command rail already flattened themselves; the toast, the tool readout under the cursor and the product legend beside the map did not, and stayed translucent over whatever was behind them. Measured in the engine the app ships on, all eight are flat now, in both layouts and under a Windows contrast theme as well.
 
 - A saved picture carries its own record now, not just the file beside it. Every export already wrote a JSON record naming the radar, the volume and the minute behind every frame, and the picture is the one that gets sent on: pasted into a message, dropped into a document, and a week later nobody can say what it is of. A PNG now holds the same document inside it, in the text chunk the format has had for this since 1996. The file beside it stays. Loops have nowhere to put it and are unchanged.
