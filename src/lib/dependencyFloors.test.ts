@@ -25,10 +25,15 @@ const FLOORS: Array<{ name: string; least: string; why: string }> = [
   },
 ];
 
-/** A version as three numbers, so 6.10.0 sorts above 6.9.0 rather than under. */
+/**
+ * A version as three numbers, so 6.10.0 sorts above 6.9.0 rather than under.
+ *
+ * A prerelease is refused rather than read as its release: `6.8.0-alpha.1`
+ * matched a `6.8.0` floor while carrying none of what the floor is for.
+ */
 function parts(version: string): [number, number, number] {
-  const found = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
-  expect(found, `${version} is not a version`).not.toBeNull();
+  const found = /^(\d+)\.(\d+)\.(\d+)$/.exec(version.trim());
+  expect(found, `${version} is not a released version`).not.toBeNull();
   return [Number(found![1]), Number(found![2]), Number(found![3])];
 }
 
@@ -59,9 +64,23 @@ describe("what the app needs a dependency to be at least", () => {
         declared.dependencies?.[name] ?? declared.devDependencies?.[name];
       expect(range, `${name} is not in package.json`).toBeTruthy();
       expect(atLeast(range.replace(/^[\^~]/, ""), least), `${why}`).toBe(true);
-      const installed = locked.packages[`node_modules/${name}`]?.version;
-      expect(installed, `${name} is not in the lockfile`).toBeTruthy();
-      expect(atLeast(installed!, least), why).toBe(true);
+      const inLock = locked.packages[`node_modules/${name}`]?.version;
+      expect(inLock, `${name} is not in the lockfile`).toBeTruthy();
+      expect(atLeast(inLock!, least), why).toBe(true);
+      // And what is on disk, which is the copy the build actually bundles.
+      // A tree can sit at a lockfile it has not installed: `npm ci` at an
+      // older lock and then a checkout forward leaves both files saying the
+      // right thing and `node_modules` a version behind, and everything this
+      // ships comes from `node_modules`.
+      const onDisk = (
+        JSON.parse(
+          readFileSync(
+            join(root, "node_modules", name, "package.json"),
+            "utf8",
+          ),
+        ) as { version: string }
+      ).version;
+      expect(atLeast(onDisk, least), `${why} (installed ${onDisk})`).toBe(true);
     });
   }
 });
