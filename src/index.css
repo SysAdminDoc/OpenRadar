@@ -1675,7 +1675,38 @@ input[type="range"]:disabled {
 }
 
 .toggle-row strong {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
   font-size: 12px;
+}
+
+/* What a layer's source is doing, beside its name. Quiet by default, because
+   the ordinary answer is that everything is fine and a row of green badges
+   over forty-seven switches is noise; the two states worth looking at carry
+   their own colour. It shrinks before the name does. */
+.layer-state {
+  overflow: hidden;
+  flex: 0 1 auto;
+  color: var(--muted);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Keyed on the state the row publishes rather than on a second class saying
+   the same thing, so there is one place the state is written down. */
+.layer-state[data-layer-state$=":failed"] {
+  color: var(--danger);
+}
+
+.layer-state[data-layer-state$=":stale"] {
+  color: var(--warning);
 }
 
 .toggle-row small {

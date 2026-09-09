@@ -346,13 +346,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
 
 ### P3
 
-- [ ] AUD-345 (P3): Say fresh, fetching, stale or failed on every layer row, with an age
-      Why: Feed loss is the complaint of the season: two paid apps lost their feed on 2026-09-03, five radars were down at once in July, and a Windy reader watched months of rain the radar did not show. HookEcho answered it on 2026-09-05 with fresh, fetching, stale, failed and waiting plus a compact age on every network layer row, a popover with attempts and the last error, and stale imagery kept on screen marked degraded. The app knows all of that per adapter and shows it in Diagnostics and the legend; the Layers panel, where a reader switches a layer on and wonders why nothing changed, says nothing.
-      Evidence: https://github.com/d4vid87/hookecho/pull/306 (merged 2026-09-05); https://community.windy.com/topic/44326/weather-radar-constantly-malfunctioning ; `src/hooks/useOverlays.ts` (per-adapter status), `src/panels/LayersPanel.tsx` (no status text on any row), `src/lib/providers/health.ts`.
-      Touches: `src/panels/LayersPanel.tsx` (a small state and age per row, from the snapshot the hook already holds), `src/hooks/useOverlays.ts` (expose the state), `src/i18n/*`, `e2e/layers.spec.ts`. Pair with `AUD-328`, which regroups the same rows.
-      Acceptance: A row whose adapter failed says so with the last error in a popover, a stale row says how old, a fetching row says so; a Playwright test fails one adapter's route and reads the row; the pseudolocale clipping test covers the new text.
-      Complexity: M
-
 - [ ] AUD-344 (P3): Replay a day through the watch rules and list what would have fired
       Why: Ten watched places carry arrival, lightning and warning rules, and the only way to know what they would have said on 2011-04-27 is to have been there. HookEcho shipped "alert-rule backtests run in the browser" on 2026-08-31. The app has the archive warnings and reports for any day, the replayed lightning window, the rules, and the sentences; a backtest is those four joined and told to a panel instead of a toast.
       Evidence: https://github.com/d4vid87/hookecho/releases/tag/v0.12.0-beta.2 ; `src/lib/archiveWarnings.ts`, `src/hooks/useAlertWatch.ts`, `useApproachWatch.ts`, `useLightningWatch.ts`, `src/lib/approach.ts`; `AUD-216` (the replayed day's outlook and reports).

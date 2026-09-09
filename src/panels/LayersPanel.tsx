@@ -32,7 +32,13 @@ import {
 import { useEffect, useRef } from "react";
 import { PanelShell } from "../components/PanelShell";
 import { rangeFill } from "../lib/rangeFill";
-import { formatHeight } from "../lib/units";
+import { formatAge, formatHeight } from "../lib/units";
+import {
+  overlayStatus,
+  type OverlayHealth,
+  type OverlayStates,
+} from "../hooks/useOverlays";
+import { OVERLAY_ADAPTERS } from "../lib/overlays";
 import {
   CUBE_LEVELS,
   cubeLevelFeet,
@@ -151,6 +157,15 @@ const OVERLAY_LAYERS: Array<{
   { key: "tropical", overlayId: "tropical", labelKey: "layer.tropical" },
 ];
 
+/** The one word each state is said in. */
+const HEALTH_WORD: Record<OverlayHealth, StringKey> = {
+  fresh: "layers.stateFresh",
+  fetching: "layers.stateFetching",
+  stale: "layers.stateStale",
+  failed: "layers.stateFailed",
+  waiting: "layers.stateWaiting",
+};
+
 const SATELLITE_NAMES: Record<Spacecraft, StringKey> = {
   east: "satellite.east",
   west: "satellite.west",
@@ -167,6 +182,15 @@ interface LayersPanelProps {
    * silently looks like a quiet afternoon.
    */
   layerNotes?: Partial<Record<keyof LayerSettings, string | null>>;
+  /**
+   * What each network-backed layer is doing, for the rows that have a source.
+   *
+   * Read here rather than passed in row by row, because this panel already
+   * holds the one map from a switch to the adapter behind it.
+   */
+  overlayStates?: OverlayStates;
+  /** Now, for the age beside a row. Passed in so the panel does not tick. */
+  now?: number;
   /** How solid each overlay is drawn, as a fraction of its own design. */
   overlayOpacity: Record<string, number>;
   onOverlayOpacity: (opacity: Record<string, number>) => void;
@@ -518,6 +542,8 @@ const LAYER_OPTIONS: Array<{
 export function LayersPanel({
   layers,
   layerNotes,
+  overlayStates,
+  now,
   overlayOpacity,
   onOverlayOpacity,
   overlayOrder,
@@ -585,6 +611,22 @@ export function LayersPanel({
         (entry) => entry.overlayId === overlayId && layers[entry.key],
       ),
   );
+  /**
+   * The word for what a switched-on layer is doing, and how old its picture
+   * is. Nothing for a layer that is off, and nothing for one with no source
+   * of its own: the grids, the sweep and the reader's own files all answer
+   * somewhere else.
+   */
+  const statusOf = (key: keyof LayerSettings) => {
+    if (!layers[key] || !overlayStates || now === undefined) return null;
+    const entry = OVERLAY_LAYERS.find((one) => one.key === key);
+    const adapter = OVERLAY_ADAPTERS.find((one) => one.id === entry?.overlayId);
+    if (!entry || !adapter) return null;
+    const state = overlayStates[adapter.id];
+    if (!state) return null;
+    return overlayStatus(state, adapter.refreshMs, now);
+  };
+
   const labelFor = (overlayId: string): StringKey =>
     OVERLAY_LAYERS.find((entry) => entry.overlayId === overlayId)?.labelKey ??
     "layer.weatherAlerts";
@@ -597,31 +639,54 @@ export function LayersPanel({
       className="surface-panel--left"
     >
       <div className="setting-list">
-        {LAYER_OPTIONS.map(({ key, labelKey, detailKey, icon: Icon }) => (
-          <label className="toggle-row" key={key}>
-            <Icon size={19} />
-            <span>
-              <strong>{t(labelKey)}</strong>
-              {/* What went wrong, where the reader switched it on. A layer
+        {LAYER_OPTIONS.map(({ key, labelKey, detailKey, icon: Icon }) => {
+          const status = statusOf(key);
+          return (
+            <label className="toggle-row" key={key}>
+              <Icon size={19} />
+              <span>
+                <strong>
+                  {t(labelKey)}
+                  {/* What the source is doing, where the switch is. A reader
+                    who turns a layer on and sees nothing cannot otherwise
+                    tell a quiet afternoon from a service that is down, and
+                    the two places that do know are the diagnostics panel and
+                    the legend, neither of which is here. */}
+                  {status ? (
+                    <em
+                      className="layer-state"
+                      data-layer-state={`${key}:${status.health}`}
+                    >
+                      {t(HEALTH_WORD[status.health])}
+                      {status.health !== "waiting" &&
+                      status.health !== "fetching" &&
+                      status.ageSeconds !== null
+                        ? ` ${formatAge(status.ageSeconds / 60)}`
+                        : ""}
+                    </em>
+                  ) : null}
+                </strong>
+                {/* What went wrong, where the reader switched it on. A layer
                   that fails silently looks like a quiet afternoon, which for
                   a layer somebody might act on is the worst thing it could
                   look like. */}
-              {layers[key] && layerNotes?.[key] ? (
-                <small className="toggle-row__note">{layerNotes[key]}</small>
-              ) : (
-                <small>{t(detailKey)}</small>
-              )}
-            </span>
-            <input
-              type="checkbox"
-              checked={layers[key]}
-              onChange={(event) =>
-                onLayers({ ...layers, [key]: event.target.checked })
-              }
-            />
-            <i className="toggle-track" aria-hidden="true" />
-          </label>
-        ))}
+                {layers[key] && layerNotes?.[key] ? (
+                  <small className="toggle-row__note">{layerNotes[key]}</small>
+                ) : (
+                  <small>{t(detailKey)}</small>
+                )}
+              </span>
+              <input
+                type="checkbox"
+                checked={layers[key]}
+                onChange={(event) =>
+                  onLayers({ ...layers, [key]: event.target.checked })
+                }
+              />
+              <i className="toggle-track" aria-hidden="true" />
+            </label>
+          );
+        })}
       </div>
       <div className="settings-section" data-grid-smoothing>
         <div className="settings-section__title">

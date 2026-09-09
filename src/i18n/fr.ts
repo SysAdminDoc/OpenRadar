@@ -1246,6 +1246,11 @@ export const fr: Catalogue = {
   "mapType.flat": "Plate",
   "mapType.globe": "Globe",
   "layers.eyebrow": "Information visible",
+  "layers.stateFresh": "à jour",
+  "layers.stateFetching": "vérification",
+  "layers.stateStale": "ancien",
+  "layers.stateFailed": "sans réponse",
+  "layers.stateWaiting": "en attente",
   "layers.title": "Couches",
   "layers.alertsDetail": "Veilles et alertes officielles",
   "layers.earthquakesDetail":

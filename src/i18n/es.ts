@@ -1234,6 +1234,11 @@ export const es: Catalogue = {
   "mapType.flat": "Plano",
   "mapType.globe": "Globo",
   "layers.eyebrow": "Información visible",
+  "layers.stateFresh": "al día",
+  "layers.stateFetching": "consultando",
+  "layers.stateStale": "antiguo",
+  "layers.stateFailed": "sin respuesta",
+  "layers.stateWaiting": "esperando",
   "layers.title": "Capas",
   "layers.alertsDetail": "Vigilancias y avisos oficiales",
   "layers.earthquakesDetail":

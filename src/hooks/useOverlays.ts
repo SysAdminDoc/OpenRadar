@@ -24,6 +24,8 @@ export interface OverlayState {
   error: string | null;
   /** What the layer drew without, when it drew something. See `OverlayData`. */
   partial: string | null;
+  /** Whether a request for this layer is out right now. */
+  fetching: boolean;
   /**
    * Which question this answers.
    *
@@ -42,8 +44,60 @@ export const IDLE_OVERLAY: OverlayState = {
   fetchedAt: null,
   error: null,
   partial: null,
+  fetching: false,
   variant: "",
 };
+
+/** What a layer is doing, in the one word a reader needs for it. */
+export type OverlayHealth =
+  "fresh" | "fetching" | "stale" | "failed" | "waiting";
+
+export interface OverlayStatus {
+  health: OverlayHealth;
+  /** How old the snapshot on the map is, or null when there is not one. */
+  ageSeconds: number | null;
+  /** What went wrong, for the state that has something to say. */
+  error: string | null;
+}
+
+/**
+ * What a switched-on layer is doing, from the snapshot the hook already holds.
+ *
+ * A reader switches a layer on, sees nothing, and has no way to tell an
+ * afternoon with no earthquakes in it from a service that is down. Diagnostics
+ * knows, and the legend knows, and neither is where somebody is looking when
+ * they have just pressed the switch.
+ *
+ * Stale is measured against the layer's own cadence rather than one number for
+ * all of them: these run from half a minute to six hours apart, so any fixed
+ * threshold is either always stale or never. A snapshot that has outlived two
+ * of its own refreshes is one that missed at least one.
+ *
+ * A failure with a snapshot still on the map is failed rather than stale: the
+ * older news is the reason it is still drawn, and what the reader needs is the
+ * reason it stopped.
+ */
+export function overlayStatus(
+  state: OverlayState,
+  refreshMs: number,
+  now: number,
+): OverlayStatus {
+  const ageSeconds =
+    state.fetchedAt === null
+      ? null
+      : Math.max(0, Math.round((now - state.fetchedAt) / 1000));
+  if (state.error) {
+    return { health: "failed", ageSeconds, error: state.error };
+  }
+  if (state.fetching) {
+    return { health: "fetching", ageSeconds, error: null };
+  }
+  if (state.fetchedAt === null) {
+    return { health: "waiting", ageSeconds: null, error: null };
+  }
+  const stale = now - state.fetchedAt > refreshMs * 2;
+  return { health: stale ? "stale" : "fresh", ageSeconds, error: null };
+}
 
 const POLL_MS = 30_000;
 /** Fetch half a viewport past the edges so a short pan needs no new request. */
@@ -214,6 +268,13 @@ export function useOverlays(
           bounds: box,
           variant: asking,
         });
+        // Said as it starts rather than worked out from the absence of an
+        // answer: a layer with nothing on the map yet and a layer whose
+        // request is out look the same from the snapshot alone.
+        setStates((current) => ({
+          ...current,
+          [adapter.id]: { ...current[adapter.id], fetching: true },
+        }));
         void adapter
           .fetchData(box, controller.signal, choices)
           .then((data) => {
@@ -237,6 +298,7 @@ export function useOverlays(
                 fetchedAt: Date.now(),
                 error: null,
                 partial: data.partial ?? null,
+                fetching: false,
                 variant: asking,
               },
             }));
@@ -285,16 +347,32 @@ export function useOverlays(
                       // be replaced, and the error is the newer statement.
                       // Keeping both would leave a note about an answer
                       // nobody has.
-                      { ...held, error: message, partial: null }
+                      {
+                        ...held,
+                        error: message,
+                        partial: null,
+                        fetching: false,
+                      }
                     : { ...IDLE_OVERLAY, error: message, variant: asking },
               };
             });
           })
           .finally(() => {
             // A newer request may already own the slot.
-            if (requests.get(adapter.id)?.controller === controller) {
-              requests.delete(adapter.id);
-            }
+            if (requests.get(adapter.id)?.controller !== controller) return;
+            requests.delete(adapter.id);
+            // Here as well as in the two answers above, because the third way
+            // out is an abort: it returns before either of them, and a
+            // cancelled request would otherwise leave the row saying it was
+            // still asking for as long as the layer stayed on.
+            setStates((current) =>
+              current[adapter.id].fetching
+                ? {
+                    ...current,
+                    [adapter.id]: { ...current[adapter.id], fetching: false },
+                  }
+                : current,
+            );
           });
       }
     };
