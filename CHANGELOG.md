@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.13.0
 
+- Three surfaces stopped blurring for readers who ask their system for more contrast. The panel, the timeline, the legend, the zoom buttons and the command rail already flattened themselves; the toast, the tool readout under the cursor and the product legend beside the map did not, and stayed translucent over whatever was behind them. Measured in the engine the app ships on, all eight are flat now, in both layouts and under a Windows contrast theme as well.
+
 - A saved picture carries its own record now, not just the file beside it. Every export already wrote a JSON record naming the radar, the volume and the minute behind every frame, and the picture is the one that gets sent on: pasted into a message, dropped into a document, and a week later nobody can say what it is of. A PNG now holds the same document inside it, in the text chunk the format has had for this since 1996. The file beside it stays. Loops have nowhere to put it and are unchanged.
 
 - The volume behind the picture can be saved, not just the readings taken out of it. A reader who found the sweep that matters could export a picture, a CSV or a GeoTIFF and not the Archive II object itself, so the case could not be reopened here or handed to another tool. It saves under the bucket's own name, byte for byte, with a provenance file beside it carrying the object's checksum. A terminal radar's Level III product saves the same way.
