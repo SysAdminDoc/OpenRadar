@@ -24,7 +24,6 @@ import {
   appendJournalRow,
   journalRows,
   setJournalWriting,
-  pictureDataUrl,
   thumbnailFrom,
 } from "./lib/journal";
 import { catchUpFrom, type CatchUp } from "./lib/catchUp";
@@ -58,23 +57,13 @@ import {
   lightningBody,
   lightningTitle,
 } from "./hooks/useLightningWatch";
-import {
-  loadAlertSound,
-  keepSoundPath,
-  setAlertSound,
-  setAlertVolume,
-  SOUND_EXTENSIONS,
-} from "./lib/sound";
+import { useAlertSound } from "./hooks/useAlertSound";
+import { useGlanceWindow } from "./hooks/useGlanceWindow";
 import {
   setCloseToTray,
   setGlanceOnTop,
   setTrayEnabled,
-  glanceIsShowing,
-  observedMsFrom,
   setTrayCopy,
-  setTrayHazard,
-  whenGlanceOpens,
-  writeGlance,
 } from "./lib/tray";
 import {
   restoreWallpaper,
@@ -86,14 +75,7 @@ import { useDisplayAwake } from "./hooks/useDisplayAwake";
 import { useWelcomeHint } from "./hooks/useWelcomeHint";
 import { mrmsTimeFor, useMrmsOverlays } from "./hooks/useMrmsOverlays";
 import { COUNTY_VINTAGE, loadCounties } from "./lib/counties";
-import {
-  crashReportAvailable,
-  lastCrash as lastCrashDump,
-  lastWebviewReport,
-  rememberWebviewVersion,
-  webviewVersion,
-  type CrashRecord,
-} from "./lib/crashReport";
+import { useNativeReports } from "./hooks/useNativeReports";
 import { useLightning } from "./hooks/useLightning";
 import { usePalette } from "./hooks/usePalette";
 import { useWind } from "./hooks/useWind";
@@ -131,11 +113,7 @@ import { isTdwrStation, supportedProduct } from "./lib/radarKinds";
 import { level2Available } from "./lib/level2";
 import { pairingById } from "./lib/alertPairings";
 import { featureBounds } from "./lib/overlays";
-import {
-  alertId,
-  WATCH_FAILURES_BEFORE_SAYING,
-  type WatchAlert,
-} from "./lib/watch";
+import { alertId, type WatchAlert } from "./lib/watch";
 
 /**
  * How long the map is left alone after the reader last moved it.
@@ -181,7 +159,6 @@ import {
   withPaletteAssigned,
   withoutPalette,
 } from "./lib/palette";
-import { isDesktopRuntime } from "./lib/runtime";
 import {
   APP_VERSION,
   noteWorkspaceDrawn,
@@ -388,6 +365,7 @@ export default function App() {
   // The workspace is up, which is the whole of what the count is about: a
   // start that never got this far is the one worth standing an arrangement
   // down for.
+  const latestDrawn = useLatestReply();
   useEffect(() => {
     if (!hydrated) return;
     // After the map has drawn, not when the settings parsed. Everything this
@@ -396,14 +374,12 @@ export default function App() {
     // the projection has to show. Reported at hydration, the mark was gone
     // before any of them existed, and a workspace that died on its first
     // frame every time was never once counted.
-    let live = true;
+    const reply = latestDrawn();
     void mapRef.current?.onceIdle().then(() => {
-      if (live) void noteWorkspaceDrawn();
+      if (reply.current()) void noteWorkspaceDrawn();
     });
-    return () => {
-      live = false;
-    };
-  }, [hydrated]);
+    return reply.close;
+  }, [hydrated, latestDrawn]);
 
   // Two starts that did not finish, and the arrangement stood down for this
   // one. Said out loud with the one press that puts it back, because a
@@ -553,70 +529,10 @@ export default function App() {
     listingHeld,
   });
 
-  // What the last run left behind, when it ended abnormally. Asked once, at
-  // start-up: the answer cannot change while this process is alive, because
-  // the only thing that writes one is this process dying.
-  const [lastCrash, setLastCrash] = useState<CrashRecord | null>(null);
-  /**
-   * The newest report the WINDOW left, and which Chromium is drawing.
-   *
-   * Read once beside the crash dump and on the same terms: neither can change
-   * while this process is alive, and neither leaves the machine.
-   */
-  const [lastWebviewCrash, setLastWebviewCrash] = useState<CrashRecord | null>(
-    null,
-  );
-  /**
-   * Undefined until it has been asked, which the report writes as unknown.
-   * Null means there is no native runtime, which is the browser preview, and
-   * a native window that will not say its version rejects rather than
-   * answering null: the two are different things and the report says which.
-   */
-  const [webviewRuntime, setWebviewRuntime] = useState<
-    string | null | undefined
-  >(undefined);
-  // Asked in every runtime, unlike the two crash lookups: the browser preview
-  // has an answer here and it is "there is no native runtime".
-  const latestRuntime = useLatestReply();
-  useEffect(() => {
-    const reply = latestRuntime();
-    void webviewVersion()
-      .then((version) => {
-        rememberWebviewVersion(version);
-        if (reply.current()) setWebviewRuntime(version);
-      })
-      .catch(() => {
-        // The runtime would not say. Left undefined, which the report writes
-        // as unknown rather than as a failure a reader has to act on.
-      });
-    return () => {
-      reply.close();
-    };
-  }, [latestRuntime]);
-  const latestWebviewCrash = useLatestReply();
-  useEffect(() => {
-    if (!crashReportAvailable()) return;
-    const reply = latestWebviewCrash();
-    void lastWebviewReport()
-      .then((found) => {
-        if (reply.current()) setLastWebviewCrash(found);
-      })
-      .catch(() => {
-        // No folder is the ordinary state: it exists once the runtime has had
-        // something to report.
-      });
-    void lastCrashDump()
-      .then((found) => {
-        if (reply.current()) setLastCrash(found);
-      })
-      .catch(() => {
-        // Nothing to say is the ordinary state, and a report that cannot be
-        // read is not itself worth a line in the log.
-      });
-    return () => {
-      reply.close();
-    };
-  }, [latestWebviewCrash]);
+  // What the machine has to say about the last run, for the report a
+  // reader sends in. Three questions asked once at start-up, none of whose
+  // answers can change while this process is alive.
+  const { lastCrash, lastWebviewCrash, webviewRuntime } = useNativeReports();
 
   // Whether the county outlines are on the map, as opposed to switched on.
   // The file is a megabyte read on demand and it can fail; a report listing a
@@ -682,85 +598,18 @@ export default function App() {
     setJournalWriting(settings.journal);
   }, [settings.journal]);
 
-  useEffect(() => {
-    setAlertVolume(settings.alertVolume);
-  }, [settings.alertVolume]);
-
-  /**
-   * Asks for a sound file of the reader's own.
-   *
-   * The path is what is kept. Whether it can actually be used is decided by
-   * the effect below, in one place, so a file that stops working later is
-   * reported the same way as one that never worked.
-   */
-  const chooseAlertSound = useCallback(async () => {
-    if (!isDesktopRuntime()) {
-      // Said rather than swallowed. A button that does nothing at all is the
-      // one thing worse than a button that fails.
-      pushToast({
-        title: translate("alerts.soundFileFailed"),
-        detail: translate("journal.desktopOnly"),
-      });
-      return;
-    }
-    try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      const chosen = await open({
-        multiple: false,
-        filters: [{ name: "Audio", extensions: SOUND_EXTENSIONS }],
-      });
-      if (typeof chosen !== "string") return;
-      applySettings({ ...settingsRef.current, alertSoundPath: chosen });
-    } catch (failure) {
-      pushToast({
-        title: translate("alerts.soundFileFailed"),
-        // Not `failure.message`. A file the dialog or the decoder refused
-        // throws the engine's own words, in English whatever language the
-        // app is in, and this goes straight into a toast.
-        detail: failureSentence(failure, translate("alerts.soundFile.decode")),
-      });
-    }
-  }, [applySettings, pushToast, settingsRef]);
+  // The reader's own alert sound, and how loud it is played. Both are
+  // settings the native side has to be told about rather than read.
+  const chooseAlertSound = useAlertSound({
+    volume: settings.alertVolume,
+    path: settings.alertSoundPath,
+    settingsRef,
+    onSettings: applySettings,
+    pushToast,
+  });
 
   // One token per effect run, so an answer that arrives after a newer
-  // question is recognised and dropped. Shared by every effect below that
-  // reads something and writes what it gets back.
-  // One per effect: a single counter shared between them would mean each
-  // effect that started invalidated whichever sibling was still waiting.
-  const latestSound = useLatestReply();
-  const latestGlance = useLatestReply();
   const latestWallpaper = useLatestReply();
-
-  // Read once, when the path changes. A file that has moved away, grown too
-  // big or stopped being audio is reported here and the built-in kit answers
-  // instead, rather than a warning arriving in silence.
-  useEffect(() => {
-    const path = settings.alertSoundPath;
-    setAlertSound(path);
-    if (!path) return;
-    // Guarded, because choosing a second file while the first is still being
-    // read used to let the older answer land last: it cleared the sound that
-    // had just loaded and blamed a file the reader had already replaced.
-    const reply = latestSound();
-    void loadAlertSound(path).then((answer) => {
-      if (!reply.current() || answer.ok) return;
-      setAlertSound(null);
-      pushToast({
-        title: translate("alerts.soundFileFailed"),
-        detail: translate(`alerts.soundFile.${answer.reason}`),
-      });
-      // Said once, then stop naming it.
-      if (keepSoundPath(answer.reason)) return;
-      applySettings({ ...settingsRef.current, alertSoundPath: null });
-    });
-    return reply.close;
-  }, [
-    settings.alertSoundPath,
-    pushToast,
-    applySettings,
-    settingsRef,
-    latestSound,
-  ]);
 
   const journalFrame = useCallback(async () => {
     const canvas = mapRef.current?.canvas();
@@ -826,105 +675,20 @@ export default function App() {
     void setGlanceOnTop(settings.glanceOnTop);
   }, [settings.glanceOnTop]);
 
-  // The icon says one thing: whether a warning stands at a place the reader
-  // named. Not how many, not what the app is doing.
-  useEffect(() => {
-    if (settings.tray) {
-      // A watch that has stopped hearing back says so under the icon.
-      // Not in its colour: the colour means weather, and an amber dot
-      // for "the app is having trouble" would compete with that.
-      void setTrayHazard(
-        overlays.alertActive,
-        overlays.watchFailing < WATCH_FAILURES_BEFORE_SAYING,
-      );
-    }
-  }, [overlays.alertActive, overlays.watchFailing, settings.tray]);
-
-  // Whether the small window is actually open. Asked on the clock rather
-  // than assumed, because it can be opened from the tray menu, which the
-  // workspace never hears about.
-  const [glanceOpen, setGlanceOpen] = useState(false);
-  useEffect(() => {
-    const reply = latestGlance();
-    void glanceIsShowing().then((showing) => {
-      if (reply.current()) setGlanceOpen(showing);
-    });
-    return reply.close;
-  }, [clock, settings.tray, latestGlance]);
-  // The poll is once a minute, which is fine for noticing the window has gone
-  // and far too slow for noticing it arrived: opened from the tray menu, the
-  // reader watched a small window with words and no map. The window says so
-  // itself now, and the write below runs on the same render.
-  useEffect(() => {
-    let stop: (() => void) | null = null;
-    let alive = true;
-    // Letting go of a listener is asynchronous and it can fail, which is the
-    // part that took a while to see. `unlisten` from the event plugin returns
-    // a promise and reaches into `window.__TAURI_EVENT_PLUGIN_INTERNALS__` to
-    // do its work, so on a page without that object it rejects rather than
-    // throwing where the caller stands. Calling it as a bare statement drops
-    // that promise on the floor, which is where fifty of a green run's
-    // unhandled rejections came from. Both calls are chained now.
-    const release = (unlisten: () => void | Promise<void>) => {
-      void Promise.resolve()
-        .then(() => unlisten())
-        .catch(() => {
-          // Nothing to do and nobody to tell. The listener is going away with
-          // the page either way, and a preview has no bridge to let go of.
-        });
-    };
-    void whenGlanceOpens(() => setGlanceOpen(true))
-      .then((unlisten) => {
-        if (alive) {
-          stop = unlisten;
-          return;
-        }
-        // Unmounted before the listener was registered, so let it go at once.
-        release(unlisten);
-      })
-      .catch(() => {
-        // No bridge to listen through, which is every browser preview.
-      });
-    return () => {
-      alive = false;
-      if (stop) release(stop);
-    };
-  }, []);
-  // With no tray there is no way to have opened it, whatever the last answer
-  // was. Derived rather than written back, so the answer arriving late cannot
-  // undo the switch.
-  const glanceShowing = settings.tray && glanceOpen;
-
-  /**
-   * What the small window shows, handed over rather than drawn again.
-   *
-   * A second live map would be a second WebGL context and a few hundred
-   * megabytes for a window whose whole job is one glance, so the workspace
-   * puts the frame it has already drawn where that window can read it. On the
-   * clock, because that window is asking on a clock of its own.
-   */
-  useEffect(() => {
-    if (!settings.tray) return;
-    void (async () => {
-      // The picture only when there is a window to look at it. Reading the
-      // map back, rescaling it and encoding a PNG once a minute is real work,
-      // and the tray is on by default, so every reader was paying it for a
-      // window most of them have never opened. The words are cheap and go
-      // either way, so the window has something to show the moment it opens.
-      const canvas = glanceShowing ? mapRef.current?.canvas() : null;
-      const picture = canvas ? await thumbnailFrom(canvas) : null;
-      await writeGlance({
-        place: settings.watch.name?.trim() ?? "",
-        warning: overlays.alertActive,
-        headline: overlays.announcement.text,
-        picture: picture ? pictureDataUrl(picture) : "",
-        observedMs: observedMsFrom(timeline.newestObserved),
-        source: timeline.sourceLabel ?? "",
-        at: Date.now(),
-      });
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clock, glanceShowing, overlays.alertActive, settings.tray]);
+  // The tray icon, the small window, and what that window shows. Whether
+  // it is open cannot be known from here, because the tray menu opens it
+  // and the workspace never hears about that.
+  useGlanceWindow({
+    tray: settings.tray,
+    place: settings.watch.name?.trim() ?? "",
+    clock,
+    alertActive: overlays.alertActive,
+    watchFailing: overlays.watchFailing,
+    headline: overlays.announcement.text,
+    observed: timeline.newestObserved,
+    sourceLabel: timeline.sourceLabel,
+    canvas: () => mapRef.current?.canvas() ?? null,
+  });
 
   // What the window looks like: the built-in look, a theme the reader
   // loaded, and the season, in that order of who asked for what. A warning in
