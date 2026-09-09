@@ -1,6 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { expectClean } from "./support/axe";
-import { fakeDesktop, routeWorkspace } from "./support/fixtures";
+import { fakeDesktop, routeWorkspace, test } from "./support/fixtures";
 
 /**
  * What the app is holding on disk, and giving it back.

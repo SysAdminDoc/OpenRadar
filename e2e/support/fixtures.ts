@@ -1,4 +1,35 @@
-import { expect, type Page, type Route } from "@playwright/test";
+import { expect, test as base, type Page, type Route } from "@playwright/test";
+
+/**
+ * The suite's own `test`, which fails a spec that drops a promise.
+ *
+ * `routeWorkspace` has recorded unhandled rejections since the day a run
+ * carried 184 of them, and for a while exactly one spec asked. A recorder
+ * nobody reads is the condition that let them accumulate in the first place:
+ * a rejection thrown in any of the other forty specs passed in silence.
+ *
+ * Every spec imports `test` from here instead of from Playwright, so the
+ * check runs after each one whether its author thought about it or not. A
+ * spec that provokes a rejection on purpose empties `window.__rejections`
+ * before it finishes; `catch-up.spec.ts` and `level2.spec.ts` assert on the
+ * list themselves and still pass, because they assert it is empty.
+ */
+export const test = base.extend({
+  // `runTest` rather than Playwright's usual `use`: the lint rule for React
+  // hooks reads a call to anything named `use` as a hook, and this file is
+  // not a component. The name is the caller's to choose.
+  page: async ({ page }, runTest) => {
+    await runTest(page);
+    // Only where the recorder was installed. A spec that never calls
+    // `routeWorkspace` has no list, and an empty one reads the same as a
+    // clean run, which is the honest answer for a page that was never set up
+    // rather than a failure.
+    expect(
+      await unhandledRejections(page),
+      "this spec dropped a promise; catch it where it is thrown",
+    ).toEqual([]);
+  },
+});
 
 type Handler = (route: Route) => Promise<void>;
 

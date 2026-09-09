@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./support/fixtures";
 
 /**
  * The small window that answers "is it about to rain" without the workspace.

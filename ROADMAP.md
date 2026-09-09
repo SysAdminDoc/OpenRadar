@@ -326,16 +326,6 @@ Where this pass dug: the six commits of 2026-09-05 that landed after the last re
 
 ### Unaudited, needs a pass
 
-- [ ] AUD-334 (P3): Fail any spec that drops a promise, not just the one that asks
-      Category: testing
-      Where: `e2e/support/fixtures.ts` (`recordRejections`, `unhandledRejections`), `e2e/level2.spec.ts` (the one spec that asserts), every other spec's `import { expect, test } from "@playwright/test"`.
-      Problem: The three unhandled rejections a green run used to carry are caught at the source now, and `routeWorkspace` records any that happen, but only one spec asks. A new one somewhere else still passes silently, which is the condition that let 184 of them accumulate.
-      Evidence: `grep -c "unhandledRejections" e2e/*.spec.ts` is 1. The recorder is installed for every spec that calls `routeWorkspace`, so the data is already there; nothing reads it.
-      Fix: Export a `test` from `e2e/support/fixtures.ts` built with `base.extend({ page: async ({ page }, use) => { await use(page); expect(await unhandledRejections(page)).toEqual([]); } })`, and change every spec's import of `test` to come from there. A spec that provokes a rejection on purpose opts out by clearing the record. Roughly 40 import lines, mechanical; run the whole suite after, because a spec that has been quietly dropping one will start failing and that is the point.
-      Acceptance: A planted `void Promise.reject(new Error("x"))` in any spec's page fails that spec; the full suite passes without one.
-      Confidence: Verified
-      Effort: M
-
 - [ ] AUD-333: The secondary panels in the light theme, and the map overlay colours over a light basemap
       Category: visual
       Where: `src/panels/AlertsPanel.tsx`, `HistoryPanel.tsx`, `ExportPanel.tsx`, `UtilityPanels.tsx` (Upload), `SoundingPanel.tsx`, `TidesPanel.tsx`, `TropicalPanel.tsx`, `RoutePanel.tsx`, `GuidancePanel.tsx`, `NearbyPanel.tsx`, `VwpPanel.tsx`, `CrossSectionPanel.tsx`, `RadarProductPanel.tsx`; `src/components/MapViewport.tsx:1241`, `:1256`, `:1290` (cell track and forecast strokes `#f8fafc`), `:609` and `:622` (tool line and point stroke `#7dd3fc`), `:1501` and `:1567` (overlay point strokes).

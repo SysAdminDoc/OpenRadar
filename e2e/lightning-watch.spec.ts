@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
-import { fakeDesktop, routeWorkspace } from "./support/fixtures";
+import { expect } from "@playwright/test";
+import { fakeDesktop, routeWorkspace, test } from "./support/fixtures";
 
 /**
  * Lightning near a place somebody watches.

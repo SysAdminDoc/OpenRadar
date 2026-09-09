@@ -1,9 +1,10 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { expectClean } from "./support/axe";
 import {
   routeWorkspace,
   smokeKml,
   stubHost,
+  test,
   transparentPng,
   unhandledRejections,
   wearsTheApp,

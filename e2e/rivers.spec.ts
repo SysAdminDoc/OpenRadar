@@ -1,5 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-import { routeWorkspace } from "./support/fixtures";
+import { expect, type Page } from "@playwright/test";
+import { routeWorkspace, test } from "./support/fixtures";
 
 // River gauges are the hazard radar cannot see: what the water near the storm
 // reads now, and what the forecast office expects it to reach. The service is

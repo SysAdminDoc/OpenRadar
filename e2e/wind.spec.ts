@@ -1,5 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-import { routeWorkspace } from "./support/fixtures";
+import { expect, type Page } from "@playwright/test";
+import { routeWorkspace, test } from "./support/fixtures";
 
 /** A tiny field, enough for the layer to have something to animate. */
 const FIELD = {

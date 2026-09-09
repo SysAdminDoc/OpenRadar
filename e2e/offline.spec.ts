@@ -1,8 +1,9 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import {
   ridgeCapabilities,
   routeWorkspace,
   stubHost,
+  test,
 } from "./support/fixtures";
 import { en } from "../src/i18n/en";
 

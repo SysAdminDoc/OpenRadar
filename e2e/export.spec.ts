@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
-import { routeWorkspace } from "./support/fixtures";
+import { expect } from "@playwright/test";
+import { routeWorkspace, test } from "./support/fixtures";
 
 test.beforeEach(async ({ page }) => {
   await routeWorkspace(page);
