@@ -191,6 +191,9 @@ export const es: Catalogue = {
   "alerts.sound": "Reproducir un sonido",
   "alerts.soundDetail":
     "Un tono corto cuando un aviso nuevo o elevado llega al punto vigilado",
+  "alerts.voice": "Leerlo en voz alta",
+  "alerts.voiceDetail":
+    "El mismo aviso hablado, después del tono, con las voces que Windows tenga instaladas",
   "alerts.impact.considerable": "daños considerables",
   "alerts.impact.destructive": "destructivo",
   "alerts.impact.catastrophic": "catastrófico",

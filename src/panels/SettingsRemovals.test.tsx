@@ -109,6 +109,7 @@ function place(id: string, name: string): AppSettings["watchPlaces"][number] {
     radiusMiles: 25,
     minSeverity: "severe",
     sound: false,
+    voice: false,
     quietHours: DEFAULT_SETTINGS.watch.quietHours,
   };
 }

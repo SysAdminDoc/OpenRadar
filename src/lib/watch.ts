@@ -51,6 +51,19 @@ export interface WatchSettings {
   minSeverity: AlertSeverity;
   /** Whether an announcement also makes a sound. */
   sound: boolean;
+  /**
+   * Whether an announcement is also read aloud.
+   *
+   * Off until asked for, and the one form of this a reader away from the
+   * screen can take in. The tone says something has happened; this says
+   * which warning, where, and how far away.
+   *
+   * Optional, like `kinds` and `quietHours` beside it: a settings file
+   * written before this build has no answer, and the answer it must be read
+   * as is off. Nothing this app can do is more startling than a machine
+   * that starts talking, so it is never on because nobody said.
+   */
+  voice?: boolean;
   quietHours?: QuietHours;
   /**
    * Which kinds of alert this place cares about, when it cares about fewer

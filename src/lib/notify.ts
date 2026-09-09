@@ -24,6 +24,8 @@
  * remembered answer is only needed for the case that tri-state calls
  * `default` while the native side still says no.
  */
+import { locale } from "../i18n";
+
 export type NotifyPermission = "granted" | "refused" | "unasked";
 
 let lastAnswer: NotifyPermission = "unasked";
@@ -80,4 +82,63 @@ export async function announceOnDesktop(
   if (!granted) return false;
   sendNotification({ title, body });
   return true;
+}
+
+/**
+ * What is waiting to be read aloud, newest sentence per place.
+ *
+ * A queue rather than a call. `speechSynthesis.speak` starts a second
+ * utterance over the first, and three warnings landing in one poll would be
+ * three voices reading three county names at once, which is worse than any
+ * one of them alone.
+ *
+ * Keyed, and the key is the places the alert reached. A second warning for
+ * the same place replaces the first while it is still waiting: somebody
+ * whose watch has been upgraded to a warning wants the warning, not both in
+ * the order they arrived.
+ */
+const waiting: Array<{ key: string; sentence: string }> = [];
+let saying = false;
+
+/**
+ * Reads a sentence aloud, in the language the catalogue is in.
+ *
+ * Silent where there is no speech engine at all, which is a browser preview
+ * with the API switched off and every test that has not asked for one.
+ */
+export function speak(sentence: string, key: string): void {
+  if (!globalThis.speechSynthesis || !globalThis.SpeechSynthesisUtterance) {
+    return;
+  }
+  const at = waiting.findIndex((one) => one.key === key);
+  if (at === -1) waiting.push({ key, sentence });
+  else waiting[at] = { key, sentence };
+  sayNext();
+}
+
+function sayNext(): void {
+  if (saying || !waiting.length) return;
+  const engine = globalThis.speechSynthesis;
+  // The voice list fills asynchronously and speaking before it has is
+  // silent. WebView2 offers the machine's SAPI voices and nothing else:
+  // Microsoft disabled its cloud Natural voices there by design, so this is
+  // whatever Windows has installed and it may take a moment to say so.
+  if (engine.getVoices().length === 0) {
+    engine.addEventListener("voiceschanged", () => sayNext(), { once: true });
+    return;
+  }
+  const next = waiting.shift();
+  if (!next) return;
+  const said = new globalThis.SpeechSynthesisUtterance(next.sentence);
+  said.lang = locale();
+  saying = true;
+  // Both, because an engine that fails partway through leaves the queue
+  // stopped otherwise and nothing is ever read again this run.
+  const done = () => {
+    saying = false;
+    sayNext();
+  };
+  said.onend = done;
+  said.onerror = done;
+  engine.speak(said);
 }
