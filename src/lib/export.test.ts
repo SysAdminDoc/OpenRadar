@@ -253,6 +253,32 @@ describe("the keys burned into an exported picture", () => {
     }
   });
 
+  it("keeps the cut inside the room on a picture too small for a space", () => {
+    // The trim stops when the head is empty, so on a very small picture the
+    // remaining " …" was still over the limit and the invariant broke at the
+    // one size nothing else checks: measured at 56 pixels, a cut line of 13.8
+    // against a room of 8, while every other line was inside it.
+    const every = Array.from({ length: 300 }, () => "il").join(" ");
+    for (const width of [56, 62, 80, 120]) {
+      const { canvas, inked } = recording(width, 180);
+      drawFrame(canvas, canvas, {
+        lines: ["2026-09-08 21:00Z"],
+        attribution: every,
+      });
+      const room = width - 12 * 4;
+      if (room <= 0) continue;
+      const context = canvas.getContext("2d") as unknown as {
+        measureText: (text: string) => { width: number };
+      };
+      const cut = inked.find((one) => one.line.includes("…"));
+      if (!cut) continue;
+      expect(
+        context.measureText(cut.line).width,
+        `${width}px: the cut line is wider than the room`,
+      ).toBeLessThanOrEqual(room);
+    }
+  });
+
   it("shrinks the type before it drops a word of the credit", () => {
     // Which of the three answers the item offered. A credit is the one part
     // of a caption nobody should be reading a shortened version of, so the

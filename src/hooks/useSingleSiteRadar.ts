@@ -586,9 +586,12 @@ export function useSingleSiteRadar(options: {
         ? [motionSpeed, motionFrom]
         : null;
     const holding = heldRef.current.get(compareKey);
-    if (holding) {
+    if (holding?.image) {
       // Same as the scrubber above: a read has to move the entry, or the
-      // pane a reader keeps comparing against is the one shed first.
+      // pane a reader keeps comparing against is the one shed first. Only a
+      // held picture counts as a use: an entry with no image is a note that
+      // a volume arrived, and moving that to the front protects an empty
+      // slot from eviction ahead of a picture somebody is looking at.
       heldRef.current.delete(compareKey);
       heldRef.current.set(compareKey, holding);
     }
@@ -613,10 +616,17 @@ export function useSingleSiteRadar(options: {
       .then((next) => {
         if (!held) {
           fetchingRef.current.delete(compareKey);
+          // The arrival time an entry already carries is kept. The newest
+          // volume is noted as arrived the moment it is listed, with no
+          // picture, and this pane fetches that same volume whenever the
+          // offset lands on it: overwriting the time said the volume was
+          // delivered when the compare pane happened to ask, and that time
+          // is what an export writes into its record as `fetchedAt`.
+          const arrivedAt = heldRef.current.get(compareKey)?.arrivedAt;
           heldRef.current.delete(compareKey);
           heldRef.current.set(compareKey, {
             image: next,
-            arrivedAt: Date.now(),
+            arrivedAt: arrivedAt ?? Date.now(),
           });
           heldRef.current = trimHeld(heldRef.current, loopVolumes * 2);
         }
@@ -1428,8 +1438,15 @@ export function useSingleSiteRadar(options: {
         // the expensive half and the answer is true about that volume
         // whatever the scrubber has moved on to; discarding it because the
         // reader moved first meant almost nothing was ever cached.
+        // Same as the compare pane: the arrival time an entry already
+        // carries is kept, because the newest volume is noted as arrived when
+        // it is listed and an export writes that time as `fetchedAt`.
+        const arrived = heldRef.current.get(key)?.arrivedAt;
         heldRef.current.delete(key);
-        heldRef.current.set(key, { image: next, arrivedAt: Date.now() });
+        heldRef.current.set(key, {
+          image: next,
+          arrivedAt: arrived ?? Date.now(),
+        });
         heldRef.current = trimHeld(heldRef.current, loopVolumes * 2);
         if (!reply.current() || request !== requestRef.current) return;
         setSweep(next);
