@@ -270,6 +270,63 @@ describe("choosing a site", () => {
     }
   });
 
+  it("counts the ask failing outright, on the same run", async () => {
+    // A volume in progress that could not be read reached the Diagnostics
+    // row; the command failing outright reached the log and the map and
+    // nothing else. So the worse of the two failures left the Level II source
+    // saying it had answered a minute ago, which is the row a reader copies
+    // into a bug report.
+    resetHealth();
+    const warned: string[] = [];
+    const warn = vi.spyOn(log, "warn").mockImplementation((_area, line) => {
+      warned.push(String(line));
+    });
+    try {
+      fetchSweep.mockRejectedValue(
+        new Error("the Level II host refused the connection"),
+      );
+      const { result, rerender } = renderHook(
+        (props: { tilt: number }) =>
+          useSingleSiteRadar(
+            options({ radar: { tilt: props.tilt, live: true } }),
+          ),
+        { initialProps: { tilt: 0 } },
+      );
+      await waitFor(() =>
+        expect(
+          providerHealth().find((one) => one.id === "level2")?.lastError,
+        ).toBe("the Level II host refused the connection"),
+      );
+      expect(result.current.sweep).toBeNull();
+      expect(
+        providerHealth().find((one) => one.id === "level2")
+          ?.consecutiveFailures,
+      ).toBe(1);
+      // One line about it, not two: this path already wrote its own.
+      expect(
+        warned.filter((line) => line.includes("refused the connection")),
+      ).toHaveLength(1);
+
+      // The two kinds of failure are one run. A feed that alternates between
+      // refusing the ask and answering with a volume it could not read is not
+      // recovering between them.
+      fetchSweep.mockImplementation(async (station, product, tilt) => ({
+        ...sweepFor(station.toUpperCase(), product, tilt),
+        liveFailed: "the chunk bucket refused the connection",
+      }));
+      rerender({ tilt: 1 });
+      await waitFor(() =>
+        expect(
+          providerHealth().find((one) => one.id === "level2")
+            ?.consecutiveFailures,
+        ).toBe(2),
+      );
+    } finally {
+      warn.mockRestore();
+      resetHealth();
+    }
+  });
+
   it("counts a live feed that keeps failing, and says so on the second", async () => {
     // The picture is the last finished volume whether the site is between
     // volumes or its chunks cannot be reached at all, and the age beside the
