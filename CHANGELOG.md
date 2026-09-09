@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.12.0
 
+- The Layers panel is grouped under seven headings instead of one list of forty-six switches. Warnings and hazards, from the radar, rain and flooding, lightning, sky and air, reference, your own files. Finding "Rain or Snow" used to mean reading past thirty rows, and the command list was the only place the same switches were sorted by what they are.
+
 - Every switched-on layer says what its source is doing, on the row that switches it. Up to date, checking, old with how old, waiting, or not answering with the reason underneath. Before this, a layer you turned on that drew nothing looked the same whether the afternoon was quiet or the service was down, and the two places that knew the difference were the diagnostics panel and the legend, neither of which is where you are looking a second after pressing the switch. Old is measured against each layer's own refresh, since they run from half a minute to six hours apart.
 
 - The radius each watched place is judged against can be drawn on the map. Your rules fire when a warning, a storm or a lightning flash comes within a distance of a place you watch, and nothing on the map showed that distance, so "within ten miles" was a number in a settings panel rather than something you could see. Switch it on under Watch and each place gets a dashed ring at its own radius, labelled once with the distance in the units you read in. Off by default, and left out of an exported picture.

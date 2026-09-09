@@ -303,17 +303,6 @@ Where this pass dug: the six commits of 2026-09-05 that landed after the last re
       Confidence: Verified
       Effort: M
 
-- [ ] AUD-328 (P3): Forty-seven layer switches in one unbroken list
-      Note 2026-09-07: Pair with AUD-345, which puts a fresh, stale or failed state and an age on the same rows.
-      Category: ux
-      Where: `src/panels/LayersPanel.tsx:234` (`LAYER_OPTIONS`), `:600` (rendered as one list), `:627` (the first section title, after all of them).
-      Problem: The Layers panel opens on 47 switches with no heading between Weather Alerts and Custom Overlay: hazards, the MRMS hail family, rainfall, flood guidance, lightning, satellite, wind and the reader's own files run together in the order they were added. Finding "Rain or Snow" means reading past thirty rows; the command list, which sorts by kind, is the only grouped view of them.
-      Evidence: The panel's accessibility snapshot on 2026-09-05: 47 checkboxes as siblings under one container, the first `settings-section__title` being "How the national grids are drawn".
-      Fix: Give each `LAYER_OPTIONS` entry a `group` (Hazards, Radar-derived, Rain and flood, Lightning, Sky, Reference, Your files) and render a `settings-section__title` per group, collapsed state remembered in settings; keep switch order within a group. Pair with `AUD-271`, whose search box filters across groups.
-      Acceptance: The panel shows the seven headings; `LayersPanel.test.tsx` asserts every option belongs to a group and every group renders; the pseudolocale clipping test covers the headings.
-      Confidence: Verified
-      Effort: M
-
 - [ ] AUD-330 (P3): `mrms.rs` is 6,237 lines with three test modules inside it
       Category: maintainability
       Where: `src-tauri/src/mrms.rs` (6,237 lines; `#[cfg(test)]` at `:109`, `:2418` and `:2673`; 85 functions).
