@@ -664,6 +664,15 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             }
             times={props.vwpTimes}
             read={props.readVwp}
+            // Turns single site on and keeps the product the reader is
+            // already looking at, which is the same action the palette runs
+            // and the same one the product panel's own switch does.
+            onHoldSite={() =>
+              props.onCommand({
+                kind: "product",
+                product: settings.radar.product,
+              })
+            }
             onClose={onClose}
           />
         </LazyPanel>
@@ -676,6 +685,12 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           key={`${props.sectionLine.from.lon},${props.sectionLine.from.lat},${props.sectionLine.to.lon},${props.sectionLine.to.lat}`}
           line={props.sectionLine}
           take={props.singleSite?.crossSection ?? null}
+          onHoldSite={() =>
+            props.onCommand({
+              kind: "product",
+              product: settings.radar.product,
+            })
+          }
           onClose={onClose}
         />
       ) : null}

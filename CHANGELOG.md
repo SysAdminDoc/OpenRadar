@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.12.0
 
+- The Wind Profile and Cross-section panels offer a way to do the thing they ask for. Both need a single radar site held, and both used to say so in one sentence and leave you to find the switch, which is in a different panel. Each now ends that sentence with a button that holds the nearest radar. The wind panel does not offer it when the map is already held on a past day, because holding a site is not the answer to that one.
+
 - A Canadian or German warning office that cannot be reached is named, instead of the map simply showing no warnings there. The alerts layer draws American, Canadian and German warnings together, and when one of the two foreign services was down its warnings were quietly left out: over Ontario during an outage you saw a clear map, which reads as good news rather than as missing news. The layer now says which office did not answer and keeps everything else drawn.
 
 - Diagnostics says when a held radar’s live feed has stopped answering. A single site draws the volume the radar is sweeping now over the last one it finished, and when the live half cannot be read the picture quietly falls back to the finished volume. That is the right picture, but it looks exactly like a radar that is simply between volumes, so a feed that had been unreachable for hours read as one that was briefly behind. The source list now carries a row for it with the reason and how many times running.

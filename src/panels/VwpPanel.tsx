@@ -161,6 +161,14 @@ interface VwpPanelProps {
    * hold one is wrong advice under a map that plainly has one held.
    */
   quiet?: "noSite" | "historical";
+  /**
+   * Holds the nearest site, for a reader the panel has just told to.
+   *
+   * The panel names a precondition and had no way to meet it: the controls
+   * are in the radar product panel and on the map, and a reader who came
+   * here to read the wind was left to find them.
+   */
+  onHoldSite?: () => void;
   /** The volume times the loop is showing, newest last. */
   times: string[];
   /** Asks the native side, or null in a browser preview. */
@@ -173,6 +181,7 @@ export function VwpPanel({
   quiet = "noSite",
   times,
   read,
+  onHoldSite,
   onClose,
 }: VwpPanelProps) {
   const t = useT();
@@ -224,11 +233,20 @@ export function VwpPanel({
       className="surface-panel--right"
     >
       {!read || !station ? (
-        <p className="empty-copy">
+        <div className="empty-copy">
           {/* Written out rather than built on a suffix: the coverage gate
               refuses a key assembled from a variable. */}
-          {quiet === "historical" ? t("vwp.historical") : t("vwp.needsSite")}
-        </p>
+          <p>
+            {quiet === "historical" ? t("vwp.historical") : t("vwp.needsSite")}
+          </p>
+          {/* Only for the silence a reader can do something about. Under a
+              map held on another day, holding a site is not the answer. */}
+          {quiet !== "historical" && onHoldSite ? (
+            <button type="button" onClick={onHoldSite}>
+              {t("vwp.holdSite")}
+            </button>
+          ) : null}
+        </div>
       ) : answer === null ? (
         <div className="panel-loading">
           <LoaderCircle className="spin" size={16} />

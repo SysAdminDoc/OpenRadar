@@ -514,6 +514,7 @@ export const es: Catalogue = {
   "vwp.title": "Perfil de viento",
   "vwp.loading": "Leyendo el viento en los volúmenes",
   "vwp.failedTitle": "No se pudo leer el perfil de viento",
+  "vwp.holdSite": "Fijar el radar más cercano",
   "vwp.needsSite":
     "Fija un solo radar y esto lee su propio viento, altura por altura.",
   "vwp.noData": "ND",
@@ -1128,6 +1129,7 @@ export const es: Catalogue = {
   "section.eyebrow": "Volumen Level II",
   "section.title": "Corte vertical",
   "section.cutting": "Cortando el volumen a lo largo de la línea",
+  "section.holdSite": "Fijar el radar más cercano",
   "section.noSite": "Acércate sobre un sitio NEXRAD para cortar su volumen.",
   "section.noUnit": "sin unidad",
   "section.imageAlt":

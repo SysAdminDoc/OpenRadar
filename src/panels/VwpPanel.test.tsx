@@ -190,4 +190,40 @@ describe("the panel while the loop moves on", () => {
     );
     await waitFor(() => expect(asked).toEqual(["KDMX", "KTLX"]));
   });
+
+  it("offers a way to hold a site to the reader it asks to hold one", () => {
+    // The panel named a precondition and gave no way to meet it: 69 pixels of
+    // sentence in a 756 pixel panel, with the control that would satisfy it
+    // in another panel.
+    const holdSite = vi.fn();
+    render(
+      <VwpPanel
+        station={null}
+        times={[]}
+        read={vi.fn()}
+        onHoldSite={holdSite}
+        onClose={vi.fn()}
+      />,
+    );
+    screen.getByRole("button", { name: en["vwp.holdSite"] }).click();
+    expect(holdSite).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not offer it under a map already held on another day", () => {
+    // Holding a site is not the answer to that silence, and offering it
+    // would be the same wrong advice the sentence itself avoids.
+    render(
+      <VwpPanel
+        station={null}
+        quiet="historical"
+        times={[]}
+        read={vi.fn()}
+        onHoldSite={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: en["vwp.holdSite"] }),
+    ).toBeNull();
+  });
 });
