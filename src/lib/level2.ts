@@ -527,7 +527,7 @@ export function sweepDetailBox(
   disc: { west: number; south: number; east: number; north: number },
   center: [number, number],
   zoom: number,
-  windowPx: number,
+  windowSpanPx: number,
 ): [west: number, south: number, east: number, north: number] | null {
   if (!Number.isFinite(zoom) || zoom < DISC_IS_ENOUGH_BELOW_ZOOM) return null;
   const wide = disc.east - disc.west;
@@ -564,9 +564,22 @@ export function sweepDetailBox(
   // have. Halving keeps it a power of two, which keeps the snap grids of
   // neighbouring zooms nested and a held frame reachable; falling to one step
   // means the whole disc, which is what `null` says.
-  const half = Number.isFinite(windowPx)
-    ? (Math.max(0, windowPx) / 2) * (360 / (512 * 2 ** Math.floor(zoom)))
-    : 0;
+  //
+  // The longer side of the window, not its width, and the two axes reduce to
+  // one test rather than needing their own. A disc is `tall / cos(latitude)`
+  // wide and a degree of latitude is `cos(latitude)` of a degree of longitude
+  // on screen, so the cosine cancels and the latitude condition is the
+  // longitude one with the height put in. Checking width alone left a
+  // portrait window bare above and below: measured at a Key West disc, zoom
+  // 10 and 1080 by 1920, the box cleared the width exactly and left 265
+  // pixels of the height uncovered.
+  //
+  // A window that cannot be measured is treated as one too big to narrow for,
+  // because the wrong answer in that direction is a whole disc rather than a
+  // hole in the picture.
+  const half = Number.isFinite(windowSpanPx)
+    ? (Math.max(0, windowSpanPx) / 2) * (360 / (512 * 2 ** Math.floor(zoom)))
+    : Infinity;
   while (steps > 1 && wide / (4 * steps) < half) steps /= 2;
   if (steps <= 1) return null;
   // Half the box, which is both what the corners are measured from and the

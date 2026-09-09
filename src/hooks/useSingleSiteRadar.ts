@@ -196,11 +196,12 @@ export function useSingleSiteRadar(options: {
   center: [number, number];
   zoom: number;
   /**
-   * How wide the map is drawn, in CSS pixels.
+   * The longest side of the window the map is drawn in, in CSS pixels.
    *
    * Whether a box covers what the reader can see depends on the window as
-   * much as on the zoom, and on a low-latitude disc more than either. See
-   * `sweepDetailBox`.
+   * much as on the zoom, and on a low-latitude disc more than either. The
+   * longer side rather than the width, because the two axes reduce to one
+   * test; see `sweepDetailBox`.
    */
   windowPx: number;
   pageVisible: boolean;
