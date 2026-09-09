@@ -703,6 +703,89 @@ describe("historical volumes", () => {
     ).toBeGreaterThan(beforeAgain);
   });
 
+  it("puts a file on screen even if a held box is served while it loads", async () => {
+    // Both an explicit open and a box served out of the hold move the request
+    // counter, so a stale answer cannot repaint the map. The hold's move
+    // landed between an open taking its number and its answer arriving: the
+    // picker closed, the file was read, and the picture was thrown away as
+    // stale. `openLocal` returns false for that, which is also what a
+    // cancelled dialog looks like, so nothing was said and the press appeared
+    // to do nothing.
+    const { result, rerender } = renderHook(
+      (props: { center: [number, number] }) =>
+        useSingleSiteRadar(options({ ...props, zoom: 12 })),
+      { initialProps: { center: [-96.2, 41.7] as [number, number] } },
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+
+    await act(async () => {
+      await result.current.openArchive("kdmx", "2021-12-10T03:15:00.000Z");
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const visit = async (at: [number, number]) => {
+      rerender({ center: at });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+    };
+
+    // Somewhere else and back, so the first box is in the hold and panning to
+    // it is served from memory rather than fetched.
+    await visit([-95.4, 41.7]);
+    await visit([-96.2, 41.7]);
+
+    // The file the reader picks, held open until the pan that hits the hold
+    // has been served.
+    let handOver: (() => void) | null = null;
+    pickArchiveFile.mockResolvedValue("C:/volumes/picked_KTLX");
+    fetchLocalSweep.mockImplementation(
+      (_path: string, product: Level2ProductId, tilt: number) =>
+        new Promise((resolve) => {
+          handOver = () =>
+            resolve({
+              ...sweepFor("KTLX", product, tilt),
+              collected: "2013-05-20T20:56:00.000Z",
+              source: { kind: "local", label: "picked", url: null },
+            });
+        }),
+    );
+
+    // Deliberately not wrapped in one `act`. A `rerender` inside an outer
+    // `act` defers its commit until that act settles, so the effect ran after
+    // the file had already answered and the race never happened: a probe on
+    // the request counter showed the answer landing first every time.
+    // `rerender` wraps itself, so calling it between the two awaits is what
+    // puts the hold branch in the middle of the open.
+    const opening = result.current.openLocal();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(handOver, "the file was never read").not.toBeNull();
+
+    const before = fetchArchiveSweep.mock.calls.length;
+    rerender({ center: [-95.4, 41.7] });
+    expect(
+      fetchArchiveSweep.mock.calls.length,
+      "the pan was fetched rather than served from the hold",
+    ).toBe(before);
+
+    let picked: boolean | undefined;
+    await act(async () => {
+      handOver?.();
+      picked = await opening;
+    });
+    expect(picked, "the open reported failure").toBe(true);
+
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KTLX"));
+    expect(
+      result.current.mode,
+      "the file the reader picked was dropped for a box out of memory",
+    ).toBe("local");
+  });
+
   it("holds an archived box it has already drawn, the way the loop does", async () => {
     // The scrubber has kept its frames since it was written and this path
     // never learned to: it compared one string and kept nothing, so panning

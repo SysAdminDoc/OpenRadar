@@ -768,6 +768,19 @@ export function useSingleSiteRadar(options: {
 
   // A reply that arrives after the view has moved on must not be drawn.
   const requestRef = useRef(0);
+  /**
+   * The request number of an open the reader asked for, while it is in
+   * flight, or null.
+   *
+   * `activateHistorical` takes a number before it fetches and drops its
+   * answer if the number has moved on. Serving a box out of the hold moves
+   * it, to stop a fetch the reader has panned past from repainting, and that
+   * landed between an open taking its number and its answer arriving: the
+   * picker closed, the file was read, and the picture was thrown away as
+   * stale. `openLocal` returns false for that, which is also what a cancelled
+   * dialog looks like, so nothing was said and the press did nothing.
+   */
+  const openingRef = useRef<number | null>(null);
   const historicalRequestRef = useRef<string | null>(null);
 
   /**
@@ -869,6 +882,7 @@ export function useSingleSiteRadar(options: {
   const activateHistorical = useCallback(
     async (source: HistoricalSource): Promise<boolean> => {
       const request = ++requestRef.current;
+      openingRef.current = request;
       setLoading(true);
       try {
         const asked = historicalWithin(source);
@@ -924,6 +938,9 @@ export function useSingleSiteRadar(options: {
         setError(message);
         return false;
       } finally {
+        // Only this open's own mark, so a second press that overtook this one
+        // keeps its protection rather than having it cleared underneath it.
+        if (openingRef.current === request) openingRef.current = null;
         if (request === requestRef.current) setLoading(false);
       }
     },
@@ -1112,7 +1129,10 @@ export function useSingleSiteRadar(options: {
       historicalHeldRef.current.delete(key);
       historicalHeldRef.current.set(key, already);
       historicalRequestRef.current = key;
-      requestRef.current += 1;
+      // Not while an open the reader asked for is waiting on an answer. That
+      // press outranks a box being served out of memory, and taking the
+      // request number from under it is what dropped the file they chose.
+      if (openingRef.current === null) requestRef.current += 1;
       setSweep(already.image);
       setError(null);
       setLoading(false);
