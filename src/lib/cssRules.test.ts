@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import postcss, { type Rule } from "postcss";
 import selectorParser from "postcss-selector-parser";
@@ -733,10 +733,20 @@ describe("the stylesheet says what the browser does", () => {
     // The glance window is its own document with its own stylesheet, so its
     // blurs have to be turned off by its own blocks. It has none today, which
     // is the point: the gate is here before the first one is.
-    const sheets = [
-      ["index.css", css],
-      ["glance.css", readFileSync(join(ROOT, "glance.css"), "utf8")],
-    ] as const;
+    // Every stylesheet the app has, found rather than listed. A list of two
+    // is a list that goes stale the first time somebody adds a third, and a
+    // gate that reads two of three sheets says nothing about the third while
+    // reading as though it covers the app.
+    //
+    // `backdrop-filter` and its prefixed spelling only. A plain `filter:
+    // blur()` blurs the element rather than what is behind it, which is a
+    // decorative effect on a picture and not a translucent surface a warning
+    // has to read through, so it is a different question with a different
+    // answer and does not belong in this list.
+    const sheets = readdirSync(ROOT)
+      .filter((name) => name.endsWith(".css"))
+      .map((name) => [name, readFileSync(join(ROOT, name), "utf8")] as const);
+    expect(sheets.length, "no stylesheet was read").toBeGreaterThan(1);
     expect(blursIn(css).size).toBeGreaterThan(4);
 
     for (const [name, sheet] of sheets) {
