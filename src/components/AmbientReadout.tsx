@@ -105,25 +105,53 @@ export function AmbientReadout({
   useLayoutEffect(() => {
     const node = readoutRef.current;
     if (!node) return;
-    node.style.setProperty("--ambient-scale", "1");
-    const natural = { width: node.offsetWidth, height: node.offsetHeight };
-    node.style.removeProperty("--ambient-scale");
-    const zoom =
-      Number(
-        getComputedStyle(document.documentElement).getPropertyValue(
-          "--text-scale",
+    const measure = () => {
+      // The three lines, not the whole readout: the way out is a fixed
+      // forty-four pixels and does not scale, so a box holding it is not
+      // linear in the scale and cannot be divided by one.
+      const lines = [...node.children].filter(
+        (child) => child !== leaveRef.current,
+      );
+      if (!lines.length) return;
+      const boxes = lines.map((line) => line.getBoundingClientRect());
+      const root = getComputedStyle(document.documentElement);
+      const zoom = Number(root.getPropertyValue("--text-scale")) || 1;
+      // The size in force, asked of the element rather than remembered: what
+      // the boxes were measured at is whatever the browser is drawing them
+      // at, and holding a copy of it in a ref meant reading that ref during
+      // render, which is the one place a ref does not belong.
+      const sized =
+        Number(getComputedStyle(node).getPropertyValue("--ambient-scale")) || 1;
+      // Divided by the size in force and by the zoom, which gives what the
+      // lines come to at their design size in the layout's own pixels. The
+      // first version wrote a scale of one onto the node, measured, and took
+      // it off again, which React then had no reason to write back: the same
+      // answer twice is not a state change, so the readout fell to the
+      // stylesheet's own value and collapsed to desk size on the next minute
+      // of the clock.
+      const at = sized * zoom;
+      const natural = {
+        width: Math.max(...boxes.map((box) => box.width)) / at,
+        height: boxes.reduce((sum, box) => sum + box.height, 0) / at,
+      };
+      setScale(
+        ambientTypeScale(
+          metres,
+          {
+            width: document.documentElement.clientWidth / zoom,
+            height: document.documentElement.clientHeight / zoom,
+          },
+          natural,
         ),
-      ) || 1;
-    setScale(
-      ambientTypeScale(
-        metres,
-        {
-          width: document.documentElement.clientWidth / zoom,
-          height: document.documentElement.clientHeight / zoom,
-        },
-        natural,
-      ),
-    );
+      );
+    };
+    measure();
+    // And again when the window changes size, which the first version did not
+    // do: it read the window during render, so a resize corrected it by
+    // accident, and moving the sum into an effect took that away. A window
+    // dragged narrow left the readout six hundred pixels off the edge.
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
   }, [beneath, metres, place, shown]);
 
   return (
