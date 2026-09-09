@@ -196,14 +196,21 @@ function needsIn(words) {
  * 2026-09-08, but the mechanism was wrong.
  */
 export function unmetNeeds(needs, crates) {
-  // A component separator, a prerelease marker or build metadata all end a
-  // version component. `needs nexrad-model 1.0.0` has to hold against
-  // 1.0.0-rc.2, and `needs ndk-sys 0.6.0` against 0.6.0+11769913; both shapes
-  // are in this repository's own lock. Only a digit continuing the number is
-  // a different version, which is what `0.2` against 0.22.1 was.
+  // A component separator or build metadata ends a version component:
+  // `needs glib 0.18` has to hold against 0.18.5, and `needs ndk-sys 0.6.0`
+  // against 0.6.0+11769913, and both shapes are in this repository's own
+  // lock. Only a digit continuing the number is a different version, which is
+  // what `0.2` against 0.22.1 was.
+  //
+  // Not a prerelease marker. `needs nexrad-model 1.0.0` held against
+  // 1.0.0-rc.2, so a crate moving off a release candidate onto the release
+  // the allowance was written against never re-opened it, which is the one
+  // move that changes whether the reason still stands. A candidate is named
+  // in full, `needs nexrad-model 1.0.0-rc.2`, and matches by equality; naming
+  // the line, `needs nexrad-model 1.0`, still covers both on purpose.
   const holds = (version, wanted) =>
     version === wanted ||
-    (version.startsWith(wanted) && ".-+".includes(version[wanted.length]));
+    (version.startsWith(wanted) && ".+".includes(version[wanted.length]));
   return needs.filter(
     (one) =>
       !crates.some(

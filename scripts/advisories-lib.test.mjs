@@ -228,10 +228,9 @@ describe("what an allowance rests on", () => {
         [{ name: "base64", version: "0.22.1" }],
       ),
     ).toEqual([]);
-    // A release candidate and a build stamp are inside their own version, not
-    // past it. Both shapes are in this repository's lock, and a boundary rule
-    // that only accepted a full stop would have voided those allowances the
-    // next time somebody wrote the whole version out.
+    // Naming the line covers the candidates on it, which is what an allowance
+    // about a pre-1.0 crate usually means, and a build stamp is not a
+    // different version at all. Both shapes are in this repository's lock.
     expect(
       unmetNeeds(
         [{ crate: "nexrad-model", version: "1.0" }],
@@ -240,14 +239,30 @@ describe("what an allowance rests on", () => {
     ).toEqual([]);
     expect(
       unmetNeeds(
+        [{ crate: "ndk-sys", version: "0.6.0" }],
+        [{ name: "ndk-sys", version: "0.6.0+11769913" }],
+      ),
+    ).toEqual([]);
+    // But naming the release does not cover a candidate for it. This asserted
+    // the opposite until 2026-09-09, and the assertion was wrong: 1.0.0-rc.2
+    // and 1.0.0 are different code, and the one move that changes whether an
+    // allowance's reason still stands is the crate leaving the version it was
+    // written against. Held the old way, a crate could go from the candidate
+    // to the release without the allowance ever re-opening.
+    //
+    // The worry the old assertion was written under is met a different way:
+    // an allowance that rests on a candidate names it in full and matches by
+    // equality, and one that rests on the line names the line, as above.
+    expect(
+      unmetNeeds(
         [{ crate: "nexrad-model", version: "1.0.0" }],
         [{ name: "nexrad-model", version: "1.0.0-rc.2" }],
       ),
-    ).toEqual([]);
+    ).toHaveLength(1);
     expect(
       unmetNeeds(
-        [{ crate: "ndk-sys", version: "0.6.0" }],
-        [{ name: "ndk-sys", version: "0.6.0+11769913" }],
+        [{ crate: "nexrad-model", version: "1.0.0-rc.2" }],
+        [{ name: "nexrad-model", version: "1.0.0-rc.2" }],
       ),
     ).toEqual([]);
   });
