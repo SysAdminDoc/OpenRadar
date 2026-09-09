@@ -33,6 +33,7 @@ const sweep: SweepImage = {
   unplacedShare: 0,
   live: false,
   liveTilts: 0,
+  liveFailed: null,
   nextChunkAt: null,
   volumeEndsAt: null,
   stormMotion: null,

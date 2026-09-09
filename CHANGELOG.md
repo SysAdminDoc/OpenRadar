@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.12.0
 
+- Diagnostics says when a held radar’s live feed has stopped answering. A single site draws the volume the radar is sweeping now over the last one it finished, and when the live half cannot be read the picture quietly falls back to the finished volume. That is the right picture, but it looks exactly like a radar that is simply between volumes, so a feed that had been unreachable for hours read as one that was briefly behind. The source list now carries a row for it with the reason and how many times running.
+
 - Forgetting the source history can be undone. Diagnostics keeps a record of what every data source did on this machine today, and the button that clears it was the one removal in the app with no way back: press it to tidy the report before sending it and you had thrown away the thing the report is about. It now offers the record back, and anything that happened while the offer was on screen is kept rather than being written over.
 
 - A single radar is drawn over as much ground as your window can show, on every radar in the network. The sweep is one picture over the site's whole reach, so as you zoom in the app spends those same pixels on less ground to keep the detail up. How far it can go depends on the window and on the radar: a 460 kilometre circle is wider in degrees at the Canadian border than it is over Florida, and a terminal radar at an airport covers a fifth of the area. That was one fixed rule for every site, tuned against a radar in Iowa, so on more than half the network it narrowed further than the window could show and left bare map around the picture. Each site now narrows as far as its own circle and your own window allow, and no further.

@@ -8,6 +8,8 @@ import {
 } from "../lib/level2";
 import type { Level2ProductId, SweepImage } from "../lib/level2";
 import { DEFAULT_SETTINGS, type RadarSettings } from "../lib/settings";
+import { log } from "../lib/log";
+import { providerHealth, resetHealth } from "../lib/providers/health";
 
 const nearestSite =
   vi.fn<(lon: number, lat: number) => Promise<string | null>>();
@@ -113,6 +115,7 @@ function sweepFor(
     unplacedShare: 0,
     live: false,
     liveTilts: 0,
+    liveFailed: null,
     nextChunkAt: null,
     volumeEndsAt: null,
     stormMotion: null,
@@ -210,6 +213,77 @@ afterEach(() => {
 });
 
 describe("choosing a site", () => {
+  it("counts a live feed that keeps failing, and says so on the second", async () => {
+    // The picture is the last finished volume whether the site is between
+    // volumes or its chunks cannot be reached at all, and the age beside the
+    // sweep reads the same either way. The reason used to reach a debug line
+    // in the native log and nothing a reader could open, so a feed that had
+    // been down for hours looked exactly like one that was briefly behind.
+    resetHealth();
+    const warned: string[] = [];
+    const warn = vi.spyOn(log, "warn").mockImplementation((_area, line) => {
+      warned.push(String(line));
+    });
+    try {
+      fetchSweep.mockImplementation(async (station, product, tilt) => ({
+        ...sweepFor(station.toUpperCase(), product, tilt),
+        liveFailed: "the chunk bucket refused the connection",
+      }));
+      const { result, rerender } = renderHook(
+        (props: { tilt: number }) =>
+          useSingleSiteRadar(
+            options({ radar: { tilt: props.tilt, live: true } }),
+          ),
+        { initialProps: { tilt: 0 } },
+      );
+      await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+
+      // One failure is ordinary and says nothing.
+      expect(
+        providerHealth().find((one) => one.id === "level2")
+          ?.consecutiveFailures,
+      ).toBe(1);
+      expect(warned.filter((line) => line.includes("times running"))).toEqual(
+        [],
+      );
+
+      // A second in a row is a run, and that is what reaches the log.
+      rerender({ tilt: 1 });
+      await waitFor(() =>
+        expect(
+          providerHealth().find((one) => one.id === "level2")
+            ?.consecutiveFailures,
+        ).toBe(2),
+      );
+      const said = warned.filter((line) => line.includes("times running"));
+      expect(said).toHaveLength(1);
+      expect(said[0]).toContain("the chunk bucket refused the connection");
+
+      // And the row Diagnostics reads carries the reason and the count.
+      const record = providerHealth().find((one) => one.id === "level2");
+      expect(record?.lastError).toBe("the chunk bucket refused the connection");
+
+      // A live volume that reads clears it, so a site that recovers stops
+      // being described as failing.
+      fetchSweep.mockImplementation(async (station, product, tilt) =>
+        sweepFor(station.toUpperCase(), product, tilt),
+      );
+      rerender({ tilt: 2 });
+      await waitFor(() =>
+        expect(
+          providerHealth().find((one) => one.id === "level2")
+            ?.consecutiveFailures,
+        ).toBe(0),
+      );
+      expect(
+        providerHealth().find((one) => one.id === "level2")?.lastError,
+      ).toBeNull();
+    } finally {
+      warn.mockRestore();
+      resetHealth();
+    }
+  });
+
   it("drops the site when the view leaves every site's coverage", async () => {
     const { result, rerender } = renderHook(
       (props: { center: [number, number] }) =>

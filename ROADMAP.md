@@ -604,12 +604,6 @@ Tenth research pass, at `beae469`. Everything below came from the third refutati
   Complexity: S
 
 
-- [ ] AUD-460 (P3): A live scan that keeps failing is logged at debug and reaches nothing a reader can open
-  Why: when the chunk bucket cannot be listed or a live volume cannot be assembled, the command logs the reason at debug and hands back the finished volume, which is the right picture to show. The age beside the sweep climbs, so a reader can see it is behind; what nobody can see is why, or that it has been failing for hours rather than once. Omastorm's first live-polling report had a poller sit silent for four hours, and the incidental finding there was that the failure left no trace to read afterwards. Diagnostics here lists source health per adapter and says nothing about the live Level II path.
-  Evidence: `src-tauri/src/level2/commands.rs:113-118` (the debug line and the fallback); https://github.com/wesleygrimes/omastorm/pull/7 (2026-09-08); `src/panels/UtilityPanels.tsx` (the Diagnostics source list, which has no Level II live row).
-  Touches: `src-tauri/src/level2/commands.rs` (warn after the second consecutive failure for a station, with the count), `src-tauri/src/level2/mod.rs` (a per-station consecutive-failure count the sweep answer carries), `src/lib/level2.ts` (the field on `SweepImage`), `src/panels/UtilityPanels.tsx` (a Level II live row: last success, consecutive failures, last reason), `src/i18n/*`.
-  Acceptance: two failed live scans in a row for one station produce one warn line and a Diagnostics row that says so; a success resets it; the row is covered by the pseudolocale clipping test.
-  Complexity: S
 
 ### Notes on existing items
 

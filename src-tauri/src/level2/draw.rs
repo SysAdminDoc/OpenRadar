@@ -443,6 +443,9 @@ pub(crate) fn draw_sweep(
         tilt_index,
         live: live.is_some(),
         live_tilts: live.as_ref().map_or(0, |one| one.tilts),
+        // Filled in by the caller, which is where the scan is attempted and
+        // so the only place that knows why it did not answer.
+        live_failed: None,
         next_chunk_at: live.as_ref().and_then(|one| one.next_chunk_at.clone()),
         volume_ends_at: live.as_ref().and_then(|one| one.ends_at.clone()),
         collected: collected.to_rfc3339(),

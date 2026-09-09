@@ -54,6 +54,7 @@ function sweepOf(live: boolean): SweepImage {
     unplacedShare: 0,
     live,
     liveTilts: live ? 3 : 0,
+    liveFailed: null,
     nextChunkAt: null,
     volumeEndsAt: null,
     stormMotion: null,
