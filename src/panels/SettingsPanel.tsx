@@ -345,29 +345,34 @@ export function SettingsPanel({
           <span>{t("settings.appearance")}</span>
           <small>{t("settings.appliesNow")}</small>
         </div>
-        <div
-          className="segmented-control segmented-control--full"
-          role="group"
-          aria-label={t("settings.theme")}
-        >
-          <button
-            type="button"
-            className={settings.theme === "dark" ? "is-active" : ""}
-            aria-pressed={settings.theme === "dark"}
-            disabled={forcedColours}
-            onClick={() => onSettings({ ...settings, theme: "dark" })}
+        <div className="settings-field">
+          <span>
+            <strong>{t("settings.theme")}</strong>
+          </span>
+          <div
+            className="segmented-control segmented-control--full"
+            role="group"
+            aria-label={t("settings.theme")}
           >
-            {t("settings.dark")}
-          </button>
-          <button
-            type="button"
-            className={settings.theme === "light" ? "is-active" : ""}
-            aria-pressed={settings.theme === "light"}
-            disabled={forcedColours}
-            onClick={() => onSettings({ ...settings, theme: "light" })}
-          >
-            {t("settings.light")}
-          </button>
+            <button
+              type="button"
+              className={settings.theme === "dark" ? "is-active" : ""}
+              aria-pressed={settings.theme === "dark"}
+              disabled={forcedColours}
+              onClick={() => onSettings({ ...settings, theme: "dark" })}
+            >
+              {t("settings.dark")}
+            </button>
+            <button
+              type="button"
+              className={settings.theme === "light" ? "is-active" : ""}
+              aria-pressed={settings.theme === "light"}
+              disabled={forcedColours}
+              onClick={() => onSettings({ ...settings, theme: "light" })}
+            >
+              {t("settings.light")}
+            </button>
+          </div>
         </div>
         {/* A contrast theme repaints everything in the system's own colours,
             so neither of those buttons would draw anything. Said out loud
