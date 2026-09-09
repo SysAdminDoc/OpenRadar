@@ -616,12 +616,6 @@ Eleventh research pass, at `8c19165`, an hour after the tenth. It ran the headle
 
 ### P3
 
-- [ ] AUD-463 (P3): Wind Profile and Cross-section open to a sentence naming a precondition and no control for meeting it
-  Why: both panels, opened from the rail with no site held, show one paragraph in a 756 px panel and nothing else: "Hold a single radar site and this reads its own wind, height by height." and the cross-section's "Zoom in over a NEXRAD site to slice its volume." The reader is told what has to be true and given no way to make it true from where they are, and the Upload panel in the same shell shows the pattern that works: an icon, a title, a sentence, and the one button that starts the thing. The controls exist elsewhere (the product panel's single-site switch and station list; the map's zoom); the empty state only has to reach them.
-  Evidence: headless captures `dark-chromium-vwp.png` (69 px of content in 756) and `dark-chromium-section.png` (55 px), against `dark-chromium-upload.png` (icon, title, sentence, "Choose a file"), 2026-09-08; `src/i18n/en.ts:495-496` (`vwp.needsSite`), `src/panels/VwpPanel.tsx` and `src/panels/CrossSectionPanel.tsx` (the empty branches), `src/panels/UtilityPanels.tsx:45-70` (`UploadPanel`, the pattern), `src/components/PanelSurfaces.tsx:211,309` (`onCommand`, the runner the palette already uses) and `src/App.tsx:2512-2516` (the `surface: "radar-product"` action, which opens the product panel).
-  Touches: `src/panels/VwpPanel.tsx` and `src/panels/CrossSectionPanel.tsx` (an empty-state block in the Upload shape: icon, the existing sentence, and a button that opens the radar product panel with the single-site switch focused, or flies the map to the nearest site at the single-site zoom; both reach `App.tsx` through the `onCommand` prop `PanelSurfaces` already hands the palette, so no new plumbing), `src/i18n/*` (the button label), the two panels' tests (the button is present in the empty state and absent once a site is held), `e2e/wind.spec.ts` or `e2e/level2.spec.ts` (pressing it from the empty state ends with a site held).
-  Acceptance: each empty state has one button; pressing it leaves the reader holding a site or looking at the nearest one at the single-site zoom; the button is gone when the panel has data; the pseudolocale clipping test covers the label.
-  Complexity: M
 
 
 

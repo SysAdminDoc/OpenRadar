@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CrossSectionPanel } from "./CrossSectionPanel";
 import type { CrossSection } from "../lib/crossSection";
+import { en } from "../i18n/en";
 
 const line = {
   from: { lon: -94.1, lat: 41.6 },
@@ -181,5 +182,44 @@ describe("the panel a slice is read in", () => {
       expect(screen.getByText(/Velocity \(m\/s\)/)).toBeTruthy(),
     );
     expect(screen.queryByText(/Reflectivity \(dBZ\)/)).toBeNull();
+  });
+
+  it("offers a way to hold a site when there is none to cut", async () => {
+    // The panel named a precondition and gave no way to meet it: 55 pixels of
+    // sentence in a 756 pixel panel, with the controls that would satisfy it
+    // in another panel and on the map. The Upload panel in the same shell has
+    // always ended its empty state with the one button that starts the thing.
+    const holdSite = vi.fn();
+    render(
+      <CrossSectionPanel
+        line={line}
+        take={null}
+        onHoldSite={holdSite}
+        onClose={() => {}}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: en["section.holdSite"] });
+    button.click();
+    expect(holdSite).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not offer it once there is a volume to cut", async () => {
+    // The positive control: a button that is always there is not an empty
+    // state, it is a control in the wrong place.
+    render(
+      <CrossSectionPanel
+        line={line}
+        take={async () => sliceOf()}
+        onHoldSite={() => {}}
+        onClose={() => {}}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.queryByText(en["section.noSite"])).toBeNull(),
+    );
+    expect(
+      screen.queryByRole("button", { name: en["section.holdSite"] }),
+    ).toBeNull();
   });
 });

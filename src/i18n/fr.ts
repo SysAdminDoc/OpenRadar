@@ -521,6 +521,7 @@ export const fr: Catalogue = {
   "vwp.title": "Profil du vent",
   "vwp.loading": "Lecture du vent dans les volumes",
   "vwp.failedTitle": "Le profil du vent n'a pas pu être lu",
+  "vwp.holdSite": "Garder le radar le plus proche",
   "vwp.needsSite":
     "Fixez un seul radar et ceci lit son propre vent, hauteur par hauteur.",
   "vwp.noData": "ND",
@@ -1139,6 +1140,7 @@ export const fr: Catalogue = {
   "section.eyebrow": "Volume Level II",
   "section.title": "Coupe verticale",
   "section.cutting": "Découpe du volume le long de la ligne",
+  "section.holdSite": "Garder le radar le plus proche",
   "section.noSite":
     "Rapprochez-vous d'un site NEXRAD pour trancher son volume.",
   "section.noUnit": "sans unité",

@@ -497,6 +497,7 @@ export const en = {
   "vwp.title": "Wind Profile",
   "vwp.loading": "Reading the wind out of the volumes",
   "vwp.failedTitle": "The wind profile could not be read",
+  "vwp.holdSite": "Hold the nearest radar",
   "vwp.needsSite":
     "Hold a single radar site and this reads its own wind, height by height.",
   "vwp.noData": "ND",
@@ -1109,6 +1110,7 @@ export const en = {
   "section.eyebrow": "Level II volume",
   "section.title": "Cross-section",
   "section.cutting": "Cutting the volume along the line",
+  "section.holdSite": "Hold the nearest radar",
   "section.noSite": "Zoom in over a NEXRAD site to slice its volume.",
   "section.noUnit": "no unit",
   "section.imageAlt":

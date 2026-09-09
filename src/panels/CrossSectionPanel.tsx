@@ -23,12 +23,15 @@ interface CrossSectionPanelProps {
   line: { from: GeoPoint; to: GeoPoint };
   /** How to cut the volume, or null when there is no site to cut. */
   take: ((from: GeoPoint, to: GeoPoint) => Promise<CrossSection>) | null;
+  /** Holds the nearest site, for a reader the panel has just told to. */
+  onHoldSite?: () => void;
   onClose: () => void;
 }
 
 export function CrossSectionPanel({
   line,
   take,
+  onHoldSite,
   onClose,
 }: CrossSectionPanelProps) {
   const t = useT();
@@ -71,7 +74,19 @@ export function CrossSectionPanel({
       onClose={onClose}
       className="surface-panel--right"
     >
-      {!take ? <p className="source-note">{t("section.noSite")}</p> : null}
+      {!take ? (
+        <div className="empty-copy">
+          <p>{t("section.noSite")}</p>
+          {/* The panel named a precondition and gave no way to meet it. The
+              controls are in the radar product panel and on the map, and a
+              reader who came here to cut a volume was left to find them. */}
+          {onHoldSite ? (
+            <button type="button" onClick={onHoldSite}>
+              {t("section.holdSite")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {loading ? (
         <p className="source-note">
