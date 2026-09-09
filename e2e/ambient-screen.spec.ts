@@ -433,6 +433,67 @@ test("stays inside the window for a name as long as the panel allows", async ({
   await expectInside(page, readout);
 });
 
+test("keeps its size when the clock ticks and when the window changes", async ({
+  page,
+}) => {
+  // Two ways the first version lost it. The size was written onto the element
+  // and taken off again inside the measurement, so the next time the sum came
+  // out the same React had no reason to write it back and the readout fell to
+  // the stylesheet's own value: a minute of the clock was enough. And the sum
+  // moved out of the render into an effect that nothing re-ran on a resize,
+  // where before it had been corrected by accident.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // Before the page loads, so the workspace's own minute timer is the one
+  // being wound forward rather than a real minute of waiting.
+  await page.clock.install({ time: new Date("2026-09-09T18:00:30Z") });
+  await start(page);
+  // After the helper's own, which plants its settings on every navigation:
+  // anything written before it is overwritten by it.
+  await page.addInitScript(() => {
+    const held = window.localStorage.getItem("openradar.settings") ?? "{}";
+    window.localStorage.setItem(
+      "openradar.settings",
+      JSON.stringify({ ...JSON.parse(held), ambientMetres: 4 }),
+    );
+  });
+  await page.reload();
+  await enter(page);
+  const readout = page.locator("[data-ambient-readout]");
+  const clock = readout.locator("strong");
+  await expect(clock).toBeVisible();
+  const sized = (await clock.boundingBox())?.height ?? 0;
+  expect(sized).toBeGreaterThan(60);
+  const said = await clock.textContent();
+
+  // A minute of it, which rewrites the time and the age beside it and so runs
+  // the measurement again on the same answer. The first version wrote the
+  // size onto the element and took it off again while measuring, so the same
+  // answer twice meant React had no reason to write it back and the readout
+  // fell to the stylesheet's own value: desk size, on a wall.
+  await page.clock.fastForward("02:00");
+  await expect
+    .poll(() => clock.textContent(), { message: "the clock never moved on" })
+    .not.toBe(said);
+  expect(
+    (await clock.boundingBox())?.height ?? 0,
+    "the readout fell back to its desk size",
+  ).toBeGreaterThan(60);
+
+  // And a window dragged narrow, where it used to stand six hundred pixels
+  // off the right edge.
+  await page.setViewportSize({ width: 760, height: 460 });
+  await expect
+    .poll(
+      async () => {
+        const box = await readout.boundingBox();
+        return box ? Math.round(box.x + box.width) : 0;
+      },
+      { message: "the readout stayed the size the larger window allowed" },
+    )
+    .toBeLessThanOrEqual(760);
+  await expectInside(page, readout);
+});
+
 /** Nothing of the readout is outside the window it is drawn in. */
 async function expectInside(page: Page, readout: Locator) {
   const box = await readout.boundingBox();

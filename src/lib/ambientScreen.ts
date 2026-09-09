@@ -143,8 +143,10 @@ export const AMBIENT_DISTANCES = [0.6, 1.5, 2.5, 4] as const;
  * forty above the top. A glyph is not half an em, and in some scripts it is
  * not close.
  *
- * `natural` is what the readout comes to at its design size, which the view
- * measures before it sizes anything.
+ * `natural` is what the readout's three lines come to at their design size,
+ * which the view measures from what is on screen. The way out below them is a
+ * fixed size and is counted here rather than measured, along with the gaps
+ * and the inset, all of which stay where they are whatever the type does.
  */
 export function ambientTypeScale(
   metres: number,

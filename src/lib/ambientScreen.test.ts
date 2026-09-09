@@ -168,8 +168,13 @@ describe("type for a screen that is looked at rather than worked at", () => {
     // every line of the readout with it.
     expect(ambientTypeScale(Number.NaN, DESK, NATURAL)).toBe(1);
     expect(ambientTypeScale(4, { width: 0, height: 0 }, NATURAL)).toBe(1);
-    expect(ambientTypeScale(4, DESK, { width: 0, height: 0 })).toBeGreaterThan(
-      0,
+    // Nothing measured yet is not a reason to shrink: with no lines to fit,
+    // the room binds on nothing and the geometry's own answer stands. Written
+    // as the number rather than as "more than nothing", which the floor of one
+    // satisfies whatever the rule does.
+    expect(ambientTypeScale(4, DESK, { width: 0, height: 0 })).toBeCloseTo(
+      4 / DEFAULT_AMBIENT_METRES,
+      6,
     );
   });
 });
