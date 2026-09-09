@@ -1292,6 +1292,19 @@ export function useSingleSiteRadar(options: {
         // is a code the page has its own wording for.
         const message = sweepErrorText(failure);
         log.warn("radar", `${station}: ${message}`);
+        // The whole ask failing is at least as bad as a volume in progress
+        // that could not be read, and only the second of those reached the
+        // Diagnostics row: the Level II source went on saying it had answered
+        // a minute ago while the map said it could not be reached at all.
+        // Same gate and same per-station run as the reading above, so a feed
+        // that alternates between the two still counts as one run. No second
+        // log line: this path already wrote one above.
+        if (radar.live && !isTdwrStation(station)) {
+          const runs = liveRunsRef.current;
+          const run = (runs.get(station) ?? 0) + 1;
+          runs.set(station, run);
+          recordFailure("level2", message, Date.now(), run);
+        }
         // The previous sweep is a different product, tilt, or moment. Leaving
         // it drawn under a label that now says something else is worse than
         // handing the map back to the mosaic.
