@@ -31,7 +31,11 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const size of SIZES) {
-  test(`hides what the streamer operates and keeps what a viewer needs at ${size.name} @ownViewport`, async ({
+  // Not tagged `@ownViewport`, though it does resize: the workspace is
+  // loaded by `beforeEach` at the project's own width and only widened
+  // afterwards, so the two projects walk different paths to the same size.
+  // Excluding it from `compact` would drop the load-narrow-then-widen one.
+  test(`hides what the streamer operates and keeps what a viewer needs at ${size.name}`, async ({
     page,
   }) => {
     await page.setViewportSize({ width: size.width, height: size.height });
