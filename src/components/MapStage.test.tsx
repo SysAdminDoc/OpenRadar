@@ -182,3 +182,20 @@ describe("the rule the panes call", () => {
     expect(nightMoment(Number.NaN, CLOCK)).toBe(CLOCK);
   });
 });
+
+describe("what both panes are told about", () => {
+  it("lets either pane report that the wind layer would not build", () => {
+    // The two panes hold their own GL contexts, so one can lose a shader the
+    // other built. Wired to the primary alone, a failure on the compare pane
+    // took the layer out of that pane and left the switch on, which is the
+    // map reading as a calm afternoon: the exact failure the handler exists
+    // to prevent, in the half of the stage nobody wired up.
+    const panes = mount({ dualPane: true });
+    expect(panes).toHaveLength(2);
+    for (const pane of panes) {
+      expect(typeof pane.onWindUndrawable).toBe("function");
+    }
+    // The same handler, so the workspace hears the same thing from either.
+    expect(panes[0].onWindUndrawable).toBe(panes[1].onWindUndrawable);
+  });
+});
