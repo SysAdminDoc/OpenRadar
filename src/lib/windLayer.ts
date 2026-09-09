@@ -334,7 +334,7 @@ export function createWindLayer(
       // The draw shader is built the first time, because its prelude comes
       // from MapLibre and depends on the projection in force.
       //
-      // Guarded like the two in `onAdd`, and for a stronger reason: this one
+      // Guarded like the one in `onAdd`, and for a stronger reason: this one
       // is concatenated with MapLibre's own prelude, so it is the program
       // whose source varies by engine version and by projection, which is
       // exactly the "builds on one card and not the next" case. Unguarded it

@@ -42,7 +42,7 @@ import {
   speedUnit,
 } from "../lib/units";
 import { formatNumber, translate, useT } from "../i18n";
-import { framesPerSecond } from "../lib/radar";
+import { loopSpeedLabel } from "../lib/radar";
 import { formatDistanceKm } from "../lib/units";
 
 /**
@@ -247,11 +247,7 @@ export function RadarProductPanel({
         <div>
           <Gauge size={17} />
           <span>
-            <strong>
-              {t("radar.speedValue", {
-                count: formatNumber(framesPerSecond(radar.animationSpeed), 1),
-              })}
-            </strong>
+            <strong>{loopSpeedLabel(radar.animationSpeed)}</strong>
             <small>{t("radar.speed")}</small>
           </span>
         </div>
