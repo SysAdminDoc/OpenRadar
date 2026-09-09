@@ -142,6 +142,43 @@ describe("guidance model selection", () => {
   });
 });
 
+describe("a forecast column in a system nothing here can convert", () => {
+  it("is labelled with what it is really in", async () => {
+    // The service answers in what the request asked for or in its own
+    // default, and both of those are converted as the reply is read. A token
+    // outside those six is carried through untouched, values and all, because
+    // nothing here knows what it means, and the column was still headed from
+    // this app's own vocabulary: 299 kelvin drawn under a heading reading °C
+    // is a lethal day drawn as a mild one.
+    vi.spyOn(guidance, "fetchGuidance").mockResolvedValue({
+      point: { lat: 32.78, lon: -96.8 },
+      models: ["gfs_seamless", "ecmwf_ifs025", "icon_seamless"],
+      readings: [
+        {
+          variable: "temperature_2m",
+          unit: "K",
+          spread: 0,
+          hours: [
+            { time: Date.parse("2026-09-09T18:00:00Z"), values: [299, 300, 0] },
+          ],
+        },
+      ],
+    });
+    render(
+      <GuidancePanel point={{ lat: 32.78, lon: -96.8 }} onClose={() => {}} />,
+    );
+
+    // The heading says K, which is the service's own token and the only true
+    // thing available to say about a column nobody here understands.
+    const said = await screen.findByText(/they (agree|disagree), in/);
+    expect(said.textContent).toContain("in K");
+    // And it does not say the unit the app would have used for the same
+    // variable, which is what it used to say.
+    expect(said.textContent).not.toContain("°C");
+    expect(said.textContent).not.toContain("°F");
+  });
+});
+
 describe("route fallback classification", () => {
   const start = {
     id: 1,

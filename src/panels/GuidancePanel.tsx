@@ -10,9 +10,11 @@ import {
   fetchModelRuns,
   modelsThatAnswered,
   runIsStale,
+  expectedUnitToken,
   variableUnit,
   type Guidance,
   type GuidanceModelId,
+  type GuidanceReading,
   type GuidanceVariable,
   type ModelRun,
 } from "../lib/guidance";
@@ -37,6 +39,29 @@ function show(variable: GuidanceVariable, value: number): string {
   return variable === "precipitation"
     ? formatNumber(value, 1)
     : formatNumber(Math.round(value), 0);
+}
+
+/**
+ * What to call a column of numbers.
+ *
+ * This app's own word for the unit while the reading is in the system the
+ * request asked for, which is every reply anybody has seen: the service
+ * answers in what it was asked for or in its own default, and both of those
+ * are converted as the reply is read.
+ *
+ * The service's own token when it is not. A reply in a system nothing here
+ * can convert is carried through untouched, values and all, and labelling
+ * that from this app's vocabulary would put a Kelvin number under a heading
+ * reading °C. The token is the service's spelling rather than this app's,
+ * which is the point: it is the only true thing available to say about a
+ * column nobody here understands.
+ */
+function columnUnit(reading: GuidanceReading): string {
+  const asked = expectedUnitToken(reading.variable);
+  if (asked !== null && reading.unit === asked) {
+    return variableUnit(reading.variable);
+  }
+  return reading.unit || variableUnit(reading.variable);
 }
 
 export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
@@ -299,12 +324,8 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
                   </span>
                   <small>
                     {spread > 0.35
-                      ? t("guidance.disagree", {
-                          unit: variableUnit(reading.variable),
-                        })
-                      : t("guidance.agree", {
-                          unit: variableUnit(reading.variable),
-                        })}
+                      ? t("guidance.disagree", { unit: columnUnit(reading) })
+                      : t("guidance.agree", { unit: columnUnit(reading) })}
                   </small>
                 </div>
                 {/* The table is wider than the panel when nine columns of

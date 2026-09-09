@@ -152,9 +152,9 @@ const CONVERSIONS: Record<string, ((value: number) => number) | undefined> = {
  * calls a hot day drawn as a lethal one. The column is converted now.
  *
  * A token outside the six is left alone, values and all, because nothing here
- * knows what it means. `AUD-446` is what decides how that column should be
- * labelled; it has never been observed, since the service answers in what the
- * request asked for or in its own default, and both are in the table.
+ * knows what it means. The column is then labelled from this field rather
+ * than from the app's own vocabulary, which is the only true thing available
+ * to say about it: see `columnUnit` in `GuidancePanel`.
  */
 function intoAsked(
   answered: string,
@@ -194,7 +194,7 @@ export interface GuidanceReading {
    * of this app's vocabulary and never looks here, so an unconverted reply
    * would put every number a conversion away from its own label. The one
    * case where this is not the asked-for token is a system nothing here can
-   * convert, which is `AUD-446`.
+   * convert, and the panel labels that column from here instead.
    */
   unit: string;
   hours: GuidanceHour[];
