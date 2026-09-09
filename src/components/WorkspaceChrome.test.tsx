@@ -240,12 +240,12 @@ describe("the legend over a live sweep", () => {
         liveClock: at,
       }),
     );
-    expect(screen.getByText(/NEXT PIECE IN 8 S/)).toBeTruthy();
+    expect(screen.getByText(/NEXT VOLUME IN 8 S/)).toBeTruthy();
     // The end of the volume, and not the next piece over again. Three
     // minutes apart on purpose, because a legend that printed the piece time
     // under the volume's heading would read as a volume ending in eight
     // seconds and nothing about the line would say otherwise.
-    const line = screen.getByText(/NEXT PIECE IN 8 S/).textContent ?? "";
+    const line = screen.getByText(/NEXT VOLUME IN 8 S/).textContent ?? "";
     expect(line).toContain(`ENDS ${formatClock(at + 190_000)}`);
     expect(line).not.toContain(`ENDS ${formatClock(at + 8_000)}`);
   });
@@ -264,7 +264,7 @@ describe("the legend over a live sweep", () => {
         liveClock: at,
       }),
     );
-    expect(screen.queryByText(/NEXT PIECE/)).toBeNull();
+    expect(screen.queryByText(/NEXT VOLUME/)).toBeNull();
     // And the age it already had is still there.
     expect(screen.getByText(/LIVE, 37 SEC OLD/)).toBeTruthy();
   });
@@ -278,7 +278,7 @@ describe("the legend over a live sweep", () => {
         liveClock: Date.parse(COLLECTED) + 37_000,
       }),
     );
-    expect(screen.queryByText(/NEXT PIECE/)).toBeNull();
+    expect(screen.queryByText(/NEXT VOLUME/)).toBeNull();
   });
 
   it("says nothing about being live when the sweep is not", () => {

@@ -27,7 +27,7 @@ export const es: Catalogue = {
   "export.cardBody":
     "El mapa tal como está ahora, con la hora del cuadro, la fuente del radar y los créditos grabados en la esquina.",
   "export.note":
-    "Los dos van directo a tu carpeta de descargas, y junto a cada uno queda un archivo JSON pequeño que dice de qué fuente salió cada fotograma. No se sube nada.",
+    "Van directo a tu carpeta de descargas, y junto a cada uno queda un archivo JSON pequeño que dice de qué fuente salió cada fotograma. No se sube nada.",
   "export.dataHeading": "Los datos detrás de la imagen",
   "export.dataNote":
     "Una imagen es un color por cada número, y un color no se puede comparar con un pluviómetro. Esto guarda los números, cada uno con un archivo JSON al lado que nombra la fuente, la hora, las unidades y lo que se les haya hecho. No se aplican tablas de color ni umbrales de visualización.",
@@ -986,7 +986,7 @@ export const es: Catalogue = {
   "layers.spcDiscussionsDetail":
     "Lo que los meteorólogos vigilan ahora mismo, una o dos horas antes de cualquier aviso",
   "spc.serviceStatus": "El servicio del Storm Prediction Center {answer}.",
-  "wpc.serviceStatus": "El Weather Prediction Center {answer}",
+  "wpc.serviceStatus": "El servicio del Weather Prediction Center {answer}.",
   "wpc.eroTitle": "Pronóstico de lluvia excesiva",
   "wpc.wssiTitle": "Índice de severidad de tormenta invernal",
   "wpc.validWindow": "Vigente {window}",
@@ -1645,7 +1645,7 @@ export const es: Catalogue = {
     "ELEVACIÓN {degrees}° · VOLUMEN {index} DE {count}, {time}",
   "chrome.levelTwoLate": "SIN NOTICIAS DESDE HACE {age}",
   "chrome.tiltDealiased": "ELEVACIÓN {degrees}° · DESPLEGADA",
-  "chrome.nextPiece": "SIGUIENTE PARTE EN {seconds} S",
+  "chrome.nextPiece": "SIGUIENTE VOLUMEN EN {seconds} S",
   "chrome.volumeEnds": "TERMINA {time}",
   "chrome.tiltLive": "ELEVACIÓN {degrees}° · EN VIVO, HACE {seconds} S",
   "chrome.tiltLiveDealiased":
