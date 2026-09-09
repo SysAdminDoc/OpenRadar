@@ -620,6 +620,13 @@ Eleventh research pass, at `8c19165`, an hour after the tenth. It ran the headle
 
 
 
+- [ ] AUD-469 (P3): The hook harness never drives a terminal radar through the live sweep path
+  Why: `useSingleSiteRadar.test.tsx` can hold a terminal radar (`result.current.station` becomes `TATL`) but no sweep ever lands for it, so the live refresh effect's body never runs and nothing after `fetchSweep` resolves is exercised. That path is real in the app: the live effect deliberately does not skip a TDWR the way the volume-listing effect does. It cost a test on 2026-09-09: a case asserting a terminal radar records nothing about the Level II chunk feed passed with the guard removed, because the block it guards was never reached, and the case was deleted rather than shipped vacuous. Every future change to what the live path does per radar kind has the same hole under it.
+  Evidence: found while draining the refutation of `fb881c7` on 2026-09-09. A `console.log` in the recording block, run against a case holding `TATL` and then `KDMX`, printed one line and it was `KDMX`. `src/hooks/useSingleSiteRadar.ts` (the live refresh effect, which has no `isTdwrStation` guard of its own, against `:721` where the listing effect does), `src/hooks/useSingleSiteRadar.test.tsx` (`sweepFor`, which builds a WSR-88D sweep, and the `fetchSweep` mock).
+  Touches: `src/hooks/useSingleSiteRadar.test.tsx` (find why the sweep does not land for a TDWR id and give the fixture whatever it needs, most likely a `radar: "TDWR"` sweep with the terminal products and range; then restore the deleted case), `src/lib/radarKinds.ts` only if the fixture needs a site the table does not carry.
+  Acceptance: a case holding a terminal radar reaches a drawn sweep for it; the restored case asserting nothing is recorded about the Level II chunk feed fails when the `isTdwrStation` guard is removed.
+  Complexity: S
+
 ### Notes on existing items
 
 - `AUD-295`: four more for its list, all seen in the headless captures of 2026-09-08. The Guidance footer reads "read 0 min ago" at zero minutes (`guidance.answeredFor`, `en.ts:2124`; a "just now" branch in `formatAge`, or the same handling the timeline's age chip has). A warning card headed EXTREME reads "Issued unknown · expires unknown" when the feed omits both times (`alerts.unknownTime`, `en.ts:91`); on a life-safety card the two unknowns should be one sentence or none. The radar product panel shows Opacity twice, as a chip at the top and as a slider 200 px below, with the chip putting the value above the label and the sliders putting it to the right. The Guidance blocks' right-aligned "they disagree, in °F" and "in inches" read as sentence remnants and could carry their subject ("Models disagree, in °F").

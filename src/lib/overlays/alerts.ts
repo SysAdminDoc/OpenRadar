@@ -19,6 +19,8 @@ import {
 import { ecccUrl, parseEcccAlerts, reachesCanada } from "./ecccAlerts";
 import { dwdUrl, parseDwdWarnings, reachesGermany } from "./dwdWarnings";
 import { language } from "../../i18n";
+import { log } from "../log";
+import { failureSentence } from "../serviceAnswer";
 import { pairingFor } from "../alertPairings";
 import { highContrastRequested } from "../displayPreference";
 
@@ -419,6 +421,7 @@ async function ecccFeatures(
     // reader over Ontario during an outage was shown a map with no Canadian
     // warnings on it and nothing to say the source had not answered, which
     // is wrong data rather than missing data.
+    log.warn("overlay", `ECCC warnings: ${failureSentence(failure)}`);
     return null;
   }
 }
@@ -444,6 +447,7 @@ async function dwdFeatures(
   } catch (failure) {
     // Same terms as the Canadian source above.
     if (aborted(failure)) throw failure;
+    log.warn("overlay", `DWD warnings: ${failureSentence(failure)}`);
     return null;
   }
 }

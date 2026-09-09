@@ -31,11 +31,7 @@ import {
 } from "../lib/dataExport";
 import type { RadarSettings } from "../lib/settings";
 import { useLatestReply } from "./useLatestReply";
-import {
-  providerHealth,
-  recordFailure,
-  recordSuccess,
-} from "../lib/providers/health";
+import { recordFailure, recordSuccess } from "../lib/providers/health";
 
 export interface SingleSiteState {
   /** The sweep on the map, or null while the mosaic is still the picture. */
@@ -767,6 +763,15 @@ export function useSingleSiteRadar(options: {
   }, [listingHeld, loopVolumes, pageVisible, station, wanted]);
 
   // A reply that arrives after the view has moved on must not be drawn.
+  /**
+   * How many live scans have failed in a row, per station.
+   *
+   * The chunk bucket is a different one for each radar, so the run belongs to
+   * the station rather than to the one health record the Diagnostics row
+   * shows. Kept across a switch away and back, which is what makes a feed
+   * that has been down for hours reach a second failure at all.
+   */
+  const liveRunsRef = useRef<Map<string, number>>(new Map());
   const requestRef = useRef(0);
   /**
    * The request number of an open the reader asked for, while it is in
@@ -1234,23 +1239,33 @@ export function useSingleSiteRadar(options: {
         // Whether the volume in progress could be read, which the picture
         // itself cannot say: a site between volumes and a site whose chunks
         // cannot be reached both come back as the last finished volume, and
-        // the age beside the sweep looks the same. Recorded against a source
-        // of its own so Diagnostics counts the run of them and the second in
-        // a row reaches the log, rather than a feed going quiet for hours
-        // with nothing to read afterwards.
-        if (radar.live) {
+        // the age beside the sweep looks the same.
+        //
+        // Counted per station, because a chunk bucket is per radar. One
+        // shared count said a site had failed twice running when it had
+        // failed once and the reader had stepped over from another that had
+        // also failed, and that sentence is what goes into the log a reader
+        // copies into a bug report. It also let a healthy site clear a
+        // failing one's run, so a feed that had been down for hours never
+        // reached a second failure if the reader kept stepping away and back.
+        //
+        // Not for a terminal radar: it has no chunk feed, its sweep carries
+        // no failure by construction, and recording a success for it claimed
+        // the Level II bucket had answered when it was never asked.
+        if (radar.live && !isTdwrStation(station)) {
+          const runs = liveRunsRef.current;
           if (next.liveFailed) {
-            recordFailure("level2", next.liveFailed);
-            const failing = providerHealth().find(
-              (one) => one.id === "level2",
-            )?.consecutiveFailures;
-            if ((failing ?? 0) >= 2) {
+            const run = (runs.get(station) ?? 0) + 1;
+            runs.set(station, run);
+            recordFailure("level2", next.liveFailed, Date.now(), run);
+            if (run >= 2) {
               log.warn(
                 "radar",
-                `${station}: no live volume ${failing} times running: ${next.liveFailed}`,
+                `${station}: no live volume ${run} times running: ${next.liveFailed}`,
               );
             }
           } else {
+            runs.set(station, 0);
             recordSuccess("level2", next.liveTilts);
           }
         }

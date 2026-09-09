@@ -2833,7 +2833,12 @@ export default function App() {
                     : archiveWarnings.coverage === "partial"
                       ? translate("replay.warningsPartial")
                       : null))
-                : overlays.states.alerts.error,
+                : // A foreign office that did not answer is worth saying for the
+                  // same reason the second reports source is: the map is
+                  // missing that country's warnings and looks exactly like a
+                  // country that has none.
+                  (overlays.states.alerts.error ??
+                  overlays.states.alerts.partial),
               spcOutlooks:
                 overlays.states.spcOutlooks.error ??
                 overlays.states.spcOutlooks.partial,
