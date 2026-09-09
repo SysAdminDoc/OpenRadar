@@ -213,6 +213,63 @@ afterEach(() => {
 });
 
 describe("choosing a site", () => {
+  it("counts a failing live feed per station, not across them", async () => {
+    // One record serves the Diagnostics row, and letting it count for itself
+    // meant the run belonged to whatever the reader last looked at. KDMX
+    // failing once then KTLX failing once said "KTLX ... 2 times running",
+    // which is a false sentence in the line a reader copies into a bug
+    // report. A healthy site also zeroed a failing one's run, so a feed down
+    // for hours never reached a second failure if the reader kept stepping
+    // away and back.
+    resetHealth();
+    const warned: string[] = [];
+    const warn = vi.spyOn(log, "warn").mockImplementation((_area, line) => {
+      warned.push(String(line));
+    });
+    try {
+      fetchSweep.mockImplementation(async (station, product, tilt) => ({
+        ...sweepFor(station.toUpperCase(), product, tilt),
+        liveFailed: `${station.toUpperCase()} chunk bucket refused`,
+      }));
+      const { result, rerender } = renderHook(
+        (props: { station: string }) =>
+          useSingleSiteRadar(
+            options({ radar: { live: true, station: props.station } }),
+          ),
+        { initialProps: { station: "KDMX" } },
+      );
+      await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+
+      // A different site, failing once. Its own first failure, not a second.
+      rerender({ station: "KTLX" });
+      await waitFor(() => expect(result.current.sweep?.station).toBe("KTLX"));
+      expect(
+        warned.filter((line) => line.includes("times running")),
+        "a station was blamed for another station's failure",
+      ).toEqual([]);
+      expect(
+        providerHealth().find((one) => one.id === "level2")
+          ?.consecutiveFailures,
+      ).toBe(1);
+
+      // Back to the first, whose own run resumes and reaches two.
+      rerender({ station: "KDMX" });
+      await waitFor(() =>
+        expect(
+          providerHealth().find((one) => one.id === "level2")
+            ?.consecutiveFailures,
+        ).toBe(2),
+      );
+      const said = warned.filter((line) => line.includes("times running"));
+      expect(said).toHaveLength(1);
+      expect(said[0]).toContain("KDMX");
+      expect(said[0]).toContain("2 times running");
+    } finally {
+      warn.mockRestore();
+      resetHealth();
+    }
+  });
+
   it("counts a live feed that keeps failing, and says so on the second", async () => {
     // The picture is the last finished volume whether the site is between
     // volumes or its chunks cannot be reached at all, and the age beside the

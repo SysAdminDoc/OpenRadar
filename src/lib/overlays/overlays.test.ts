@@ -1,3 +1,8 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+/** `src/`, so the workspace file can be read for what it wires up. */
+const ROOT = join(import.meta.dirname, "..", "..");
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import {
@@ -989,5 +994,27 @@ describe("a foreign warning office that does not answer", () => {
     await expect(
       alertsOverlay.fetchData!(canada, undefined, DEFAULT_OVERLAY_CHOICES),
     ).rejects.toThrow(/abort/i);
+  });
+
+  it("hands the alerts layer its partial note, not only its error", () => {
+    // The office name was written into `partial` and the workspace passed
+    // only `error` for this layer, unlike the outlooks and the storm reports
+    // beside it, so naming the office changed nothing a reader could see.
+    // Read out of `App.tsx` rather than rendered, because reaching this needs
+    // the whole workspace and what went wrong was one missing `?? partial`.
+    const source = readFileSync(join(ROOT, "App.tsx"), "utf8");
+    const notes = source.slice(
+      source.indexOf("layerNotes={{"),
+      source.indexOf("stormCells: stormCells.error"),
+    );
+    expect(notes, "the layerNotes block moved").toContain("weatherAlerts");
+    const alerts = notes.slice(
+      notes.indexOf("weatherAlerts"),
+      notes.indexOf("spcOutlooks"),
+    );
+    expect(
+      alerts,
+      "the alerts layer drops the note saying which office did not answer",
+    ).toContain("alerts.partial");
   });
 });

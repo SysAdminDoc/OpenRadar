@@ -186,11 +186,22 @@ export function recordFailure(
   id: ProviderId,
   message: string,
   now = Date.now(),
+  /**
+   * How many failures in a row this is, for a caller that counts its own.
+   *
+   * One record serves each source, and that is right for a mosaic provider,
+   * which is one host. The Level II live feed is a different chunk bucket per
+   * radar, so its run belongs to the station rather than to the record: left
+   * to count for itself, this said a site had failed twice running when it
+   * had failed once and the reader had merely stepped over from another that
+   * had also failed. Omitted, it counts as it always has.
+   */
+  run?: number,
 ) {
   const record = entry(id);
   record.lastFailure = now;
   record.lastError = message;
-  record.consecutiveFailures += 1;
+  record.consecutiveFailures = run ?? record.consecutiveFailures + 1;
   remember(record, false, message);
   announce();
 }
