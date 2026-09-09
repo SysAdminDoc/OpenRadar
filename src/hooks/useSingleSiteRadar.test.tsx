@@ -49,6 +49,25 @@ const fetchLocalSweep =
 const pickArchiveFile = vi.fn<() => Promise<string | null>>();
 const recentVolumeTimes =
   vi.fn<(station: string, count: number) => Promise<number[]>>();
+const exportVolumeFile =
+  vi.fn<(request: { station: string; volume: string }) => Promise<unknown>>();
+
+// The desktop answer, because every data export is guarded on it and jsdom is
+// a browser: left alone, `dataExportAvailable()` is false here and the whole
+// family of guards below is unreachable, so a case about which of them offers
+// what would pass against any answer at all.
+vi.mock("../lib/dataExport", async () => {
+  const actual =
+    await vi.importActual<typeof import("../lib/dataExport")>(
+      "../lib/dataExport",
+    );
+  return {
+    ...actual,
+    dataExportAvailable: () => true,
+    exportVolumeFile: (request: { station: string; volume: string }) =>
+      exportVolumeFile(request),
+  };
+});
 
 vi.mock("../lib/level2", async () => {
   const actual =
@@ -218,6 +237,8 @@ beforeEach(() => {
   pickArchiveFile.mockReset();
   recentVolumeTimes.mockReset();
   recentVolumeTimes.mockResolvedValue([]);
+  exportVolumeFile.mockReset();
+  exportVolumeFile.mockResolvedValue({});
   nearestSite.mockResolvedValue("KDMX");
   fetchSweep.mockImplementation(async (station, product, tilt, live) => ({
     ...sweepFor(station, product, tilt),
@@ -377,6 +398,69 @@ describe("choosing a site", () => {
     // so the branch's own source was never read.
     expect(result.current.sweep?.source.label).toContain("Level III");
     expect(result.current.sweep?.siteName).toBe("Atlanta, GA");
+  });
+
+  it("saves the object the picture was decoded from, by its own name", async () => {
+    // A picture, a CSV and a GeoTIFF are all this app's account of the volume.
+    // The volume is what another tool reopens, and it was the one thing a
+    // reader who had found the sweep that matters could not keep.
+    const { result } = renderHook(() =>
+      useSingleSiteRadar(options({ radar: { station: "KDMX" } })),
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+    const save = result.current.saveVolume;
+    expect(save, "no way to save the volume on screen").not.toBeNull();
+    await act(async () => {
+      await save?.();
+    });
+    // The key off the sweep on screen rather than the station and a moment:
+    // asked for again a minute later, "the newest volume at KDMX" can be a
+    // different file, and a copy of a volume that is not the one being looked
+    // at is the whole of what this has to rule out.
+    expect(exportVolumeFile).toHaveBeenCalledWith({
+      station: "KDMX",
+      volume: result.current.sweep?.volume,
+    });
+  });
+
+  it("saves a terminal radar's product the same way", async () => {
+    // It publishes a Level III product rather than a volume, and the object
+    // is just as much the thing a case study is reopened from.
+    const { result } = renderHook(() =>
+      useSingleSiteRadar(options({ radar: { live: true, station: "TATL" } })),
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("TATL"));
+    await act(async () => {
+      await result.current.saveVolume?.();
+    });
+    expect(exportVolumeFile).toHaveBeenCalledWith({
+      station: "TATL",
+      volume: result.current.sweep?.volume,
+    });
+  });
+
+  it("does not offer to save a file the reader opened themselves", async () => {
+    // Its key is a hash of the bytes rather than a bucket object, and they
+    // have the file already: there is nothing to fetch and nowhere to fetch
+    // it from.
+    pickArchiveFile.mockResolvedValue("C:/storms/KDMX20260830_092159_V06");
+    fetchLocalSweep.mockImplementation(async () => ({
+      ...sweepFor("KDMX", "reflectivity", 0),
+      volume: "local:0123456789abcdef",
+      source: { kind: "local" as const, label: "a file", url: null },
+    }));
+    const { result } = renderHook(() =>
+      useSingleSiteRadar(options({ radar: { station: "KDMX" } })),
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+    // The control: a fetched volume is offered, so what the assertion below
+    // reads is the file rather than the guard never being reached.
+    expect(result.current.saveVolume).not.toBeNull();
+    await act(async () => {
+      await result.current.openLocal();
+    });
+    await waitFor(() => expect(result.current.mode).toBe("local"));
+    expect(result.current.saveVolume).toBeNull();
   });
 
   it("offers a terminal radar none of the things it has no volume for", async () => {

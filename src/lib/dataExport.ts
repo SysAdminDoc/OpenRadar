@@ -43,6 +43,18 @@ export interface SweepDataRequest {
   path?: string | null;
 }
 
+/**
+ * Which volume to save, by the name the bucket published it under.
+ *
+ * The key rather than a station and a moment: it is what the sweep on screen
+ * already carries and it names one object exactly, so a save a minute after
+ * the picture was drawn cannot come back with a newer volume.
+ */
+export interface VolumeFileRequest {
+  station: string;
+  volume: string;
+}
+
 export interface GridDataRequest {
   product: string;
   /** Seconds since the epoch, as the timeline holds them. */
@@ -72,6 +84,14 @@ export async function exportSweepData(
 ): Promise<DataExportReport> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<DataExportReport>("export_sweep_data", { request });
+}
+
+/** The volume behind the picture, saved as the bucket published it. */
+export async function exportVolumeFile(
+  request: VolumeFileRequest,
+): Promise<DataExportReport> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<DataExportReport>("export_volume_file", { request });
 }
 
 export async function exportGridData(

@@ -28,6 +28,7 @@ import { loopKey, trimHeld, volumeForTime } from "../lib/siteLoop";
 import {
   dataExportAvailable,
   exportSweepData,
+  exportVolumeFile,
   type DataExportReport,
 } from "../lib/dataExport";
 import type { RadarSettings } from "../lib/settings";
@@ -125,6 +126,15 @@ export interface SingleSiteState {
    * Null when there is no sweep to write.
    */
   exportValues: (() => Promise<DataExportReport>) | null;
+  /**
+   * Saves the volume behind the picture as the bucket published it.
+   *
+   * Not the readings and not a picture: the object itself, which is what a
+   * case study is reopened from and the one thing a reader who had found the
+   * sweep that matters could not keep. Null when the volume on screen came
+   * off the reader's own disk, because they already have it.
+   */
+  saveVolume: (() => Promise<DataExportReport>) | null;
 }
 
 /** A site's whole reach, in the corners the native side answers with. */
@@ -1111,6 +1121,16 @@ export function useSingleSiteRadar(options: {
     sweep,
   ]);
 
+  // The object the picture was decoded from, saved unaltered. The key comes
+  // off the sweep on screen rather than being asked for again by station and
+  // moment: "the newest volume at KDMX" a minute later can be a different
+  // file, and a copy of a volume that is not the one being looked at is the
+  // one outcome this exists to rule out.
+  const saveVolume = useCallback(() => {
+    const key = sweep?.volume ?? "";
+    return exportVolumeFile({ station: sweep?.station ?? "", volume: key });
+  }, [sweep]);
+
   const resumeRecent = useCallback(() => {
     requestRef.current += 1;
     historicalRequestRef.current = null;
@@ -1574,6 +1594,18 @@ export function useSingleSiteRadar(options: {
         (historicalSource?.kind === "local" || station)
           ? writeValues
           : null,
+      // A terminal radar's Level III product saves the same way a volume
+      // does, so this one is offered for both. Never for a file off the
+      // reader's own disk: its key is a hash of the bytes rather than a
+      // bucket object, and they have the file already.
+      saveVolume:
+        showing &&
+        current !== null &&
+        dataExportAvailable() &&
+        historicalSource?.kind !== "local" &&
+        current.source.kind !== "local"
+          ? saveVolume
+          : null,
     };
   }, [
     arrivedAt,
@@ -1592,6 +1624,7 @@ export function useSingleSiteRadar(options: {
     radar.tilt,
     drawnVolume,
     resumeRecent,
+    saveVolume,
     scrubbedBack,
     shownVolume,
     station,
