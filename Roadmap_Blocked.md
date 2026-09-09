@@ -27,7 +27,7 @@ https://vlab.noaa.gov/documents/17140588/0/Winter_dBZ_snow_squalls.cmap/04c4c5ed
 https://vlab.noaa.gov/documents/17140588/0/V_snow_squalls.cmap/8d177a80-...
 ```
 
-Fetched live on 2026-09-09, both answer HTTP 200 with `text/html` and about 95 KB of VLab's sign-in page rather than a `.cmap`: 66 occurrences of "Login" in the reflectivity response and none of the binary the name promises. The description page itself is open; the two artefacts are not. Dropping the `?version=` query and fetching the bare document path gives the same login page.
+Fetched live on 2026-09-09, both answer HTTP 200 with `text/html` and about 97 KB of VLab's sign-in page rather than a `.cmap`: the response is titled `Login - Virtual Lab` and says "login" 162 times, and none of the binary the name promises is in it. The description page itself is open; the two artefacts are not. Three other routes were tried and are recorded here so nobody repeats them: the bare document path and the `?version=` query both give the same login page, the classic Liferay `get_file?uuid=` endpoint is gated the same way, and the `/documents/d/` form answers 404. The Internet Archive has no capture of the colour-tables page at all, and an authenticated GitHub code search for either filename returns nothing.
 
 **Not doable here.** The item's whole content is those two files. What is on the open page is a sentence about the two thresholds and a screenshot, which is enough to describe the tables and nowhere near enough to reproduce them: a colour table is a list of stops, and inventing one and calling it the office's would be shipping a made-up NWS product under the office's name. The acceptance says the legend names them, which is precisely the claim that would then be false.
 
