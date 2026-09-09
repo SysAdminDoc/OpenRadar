@@ -927,8 +927,12 @@ export async function noteWorkspaceDrawn(): Promise<void> {
  * Written and then reloaded, the same as the crash screen's Reset layout,
  * because a theme, a colour table and a saved view are all applied as the
  * window opens: putting them back into the settings this window is already
- * running on would leave the map where it is and the chrome as it was. The
- * count is cleared first, or the reload stands the workspace down again.
+ * running on would leave the map where it is and the chrome as it was.
+ *
+ * The count goes first, or the window that comes back is stood down again.
+ * The write is second and it is only about the switches: a plain session that
+ * saved anything wrote its own positions over the reader's. The theme is
+ * never in that write, because it is never taken out of the file.
  */
 export async function restoreArrangement(): Promise<void> {
   const stored = plainFrom;
