@@ -7,7 +7,9 @@ import { es } from "../i18n/es";
 import { ensureLanguage, setLanguage } from "../i18n";
 import {
   SINGLE_SITE_MIN_ZOOM,
+  SWEEP_RASTER_PX,
   beamHeightFeet,
+  finestDetailSteps,
   sweepDetailBox,
   isLevel2Product,
   isSingleSiteViewport,
@@ -54,6 +56,7 @@ const sweep: SweepImage = {
   volume: "2026/08/30/KDMX/KDMX20260830_092159_V06",
   radar: "WSR-88D",
   rangeKm: 230,
+  gateKm: 0.25,
   source: {
     kind: "recent",
     label: "NOAA NEXRAD Level II",
@@ -340,7 +343,16 @@ describe("how much ground the sweep is drawn over", () => {
   // east of 41.7 north the great circle lands 2.7696 degrees along. A
   // fixture narrower than the real disc makes the coverage case below
   // stricter than the app has to be.
-  const disc = { west: -96.55, south: 39.63, east: -91.01, north: 43.77 };
+  // A WSR-88D's own numbers beside its corners: 230 kilometres of reach in
+  // quarter kilometre gates, which is what says how far the box may narrow.
+  const disc = {
+    west: -96.55,
+    south: 39.63,
+    east: -91.01,
+    north: 43.77,
+    rangeKm: 230,
+    gateKm: 0.25,
+  };
   const centre: [number, number] = [-93.78, 41.7];
   const wide = disc.east - disc.west;
   // The widest window the browser suite runs at. Whether a box covers what a
@@ -478,6 +490,8 @@ describe("how much ground the sweep is drawn over", () => {
           south: 39.6,
           east: -93.75 + wide / 2,
           north: 43.8,
+          rangeKm: 230,
+          gateKm: 0.25,
         };
         for (const zoom of [10, 11, 12, 13, 14, 18]) {
           const box = sweepDetailBox(site, [-93.75, 41.7], zoom, window);
@@ -528,6 +542,8 @@ describe("how much ground the sweep is drawn over", () => {
       south: at - tall / 2,
       east: -81.8 + wide / 2,
       north: at + tall / 2,
+      rangeKm: 230,
+      gateKm: 0.25,
     };
     for (const [across, down] of [
       [1080, 1920],
@@ -569,14 +585,75 @@ describe("how much ground the sweep is drawn over", () => {
       if (at > 0)
         expect(span, `zoom ${10 + at}`).toBeCloseTo(spans[at - 1] / 2, 9);
     }
-    // And a floor, because 28 metres a pixel is already nine times finer than
+    // And a floor, because 28 metres a pixel is already six times finer than
     // a gate and there is nothing left to resolve. A sixteenth exactly, named
     // rather than compared to whatever the last span happened to be: the
     // ceiling is the promise, and the level it is first reached at moves if
     // the exponent ever does.
+    //
+    // A sixteenth for this radar, which is the point of the case below: the
+    // number here is what 230 kilometres of reach in quarter kilometre gates
+    // comes to, not a constant every radar shares.
     expect(spans.at(-1)!).toBeCloseTo(wide / 16, 9);
     const deepest = sweepDetailBox(disc, centre, 18, windowPx);
     expect(deepest![2] - deepest![0]).toBeCloseTo(wide / 16, 9);
+  });
+
+  it("stops where the sweep runs out of gate, not where the disc does", () => {
+    // The ceiling used to be a sixteenth of whatever disc was underneath,
+    // and its reasoning was written against one radar. A share knows nothing
+    // about what is in the data: the same sixteenth is nine pixels a gate on
+    // a WSR-88D and thirteen a bin on a terminal radar's base products, where
+    // the last halvings each bought a fetch, a decode and a 1,024 square
+    // render to interpolate between bins that were already resolved. At the
+    // other end it was too shallow, because the long range product reaches
+    // 417 kilometres in 300 metre bins and still had detail past a sixteenth.
+    //
+    // These three are the rule. They are also what holds the one number in it
+    // that is a choice: six pixels a gate is the only whole number that gives
+    // all three of these answers, so moving it either way reddens one of
+    // them. Five would take the long range product back to a sixteenth and
+    // seven would give the terminal base product back the halving it has no
+    // bins for.
+    expect(finestDetailSteps(230, 0.25), "WSR-88D").toBe(16);
+    expect(finestDetailSteps(88.8, 0.15), "TDWR base products").toBe(8);
+    expect(finestDetailSteps(417, 0.3), "TDWR long range").toBe(32);
+
+    // A legacy volume in kilometre gates is a quarter of the picture and
+    // says so. Nothing about the disc changed; what changed is what is in it.
+    expect(finestDetailSteps(230, 1), "a legacy 1 km volume").toBe(4);
+
+    // A sweep that did not say gets the ceiling the old constant was. The
+    // wrong answer in the other direction is a reader's picture taken away
+    // over a field that failed to arrive.
+    for (const missing of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(finestDetailSteps(230, missing), String(missing)).toBe(16);
+      expect(finestDetailSteps(missing, 0.25), String(missing)).toBe(16);
+    }
+
+    // And the box really follows it rather than the two agreeing on paper: a
+    // terminal radar's base disc stops at an eighth where the WSR-88D above
+    // stops at a sixteenth, at the same zoom and the same window.
+    const terminal = {
+      west: -85.2202,
+      south: 32.8492,
+      east: -83.3037,
+      north: 34.4446,
+      rangeKm: 88.8,
+      gateKm: 0.15,
+    };
+    const across = terminal.east - terminal.west;
+    const deepest = sweepDetailBox(terminal, [-84.26, 33.65], 18, 1024);
+    expect(deepest![2] - deepest![0]).toBeCloseTo(across / 8, 9);
+  });
+
+  it("draws its pixels over the box the native side really rasters", () => {
+    // The whole rule is metres a pixel, and the pixels are the native side's.
+    // A raster that changed size there would move every answer above without
+    // touching a line of this file.
+    expect(/const IMAGE_SIZE: usize = (\d+);/.exec(level2Source())?.[1]).toBe(
+      String(SWEEP_RASTER_PX),
+    );
   });
 
   it("gives the same box for every camera inside one zoom level", () => {
@@ -675,7 +752,7 @@ describe("how much ground the sweep is drawn over", () => {
     // A disc with no size at all is not a box to draw over.
     expect(
       sweepDetailBox(
-        { west: 1, south: 1, east: 1, north: 1 },
+        { west: 1, south: 1, east: 1, north: 1, rangeKm: 230, gateKm: 0.25 },
         centre,
         12,
         windowPx,

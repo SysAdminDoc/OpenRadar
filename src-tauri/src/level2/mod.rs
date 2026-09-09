@@ -294,6 +294,15 @@ pub struct SweepImage {
     pub radar: &'static str,
     /// How far this picture reaches from the site, in kilometres.
     pub range_km: f64,
+    /// How long one gate or bin is, in kilometres.
+    ///
+    /// The finest thing in the picture. Carried because the view decides how
+    /// far to narrow the box it asks for next, and the honest limit is where
+    /// a pixel is finer than this rather than a share of whatever disc
+    /// happens to be underneath: a quarter kilometre gate over a 460
+    /// kilometre disc and a 150 metre bin over a 177 kilometre one run out of
+    /// detail at different depths, and a share cannot tell them apart.
+    pub gate_km: f64,
 }
 
 #[derive(Debug, Clone, Serialize)]

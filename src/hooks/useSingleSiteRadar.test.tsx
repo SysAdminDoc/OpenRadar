@@ -110,13 +110,45 @@ vi.mock("../lib/level2", async () => {
  * own west edge, so the same camera on two of these produces two different
  * boxes. That difference is what the assertions read.
  */
+// The reach and the gate travel with the corners, because how far the box may
+// be narrowed is now read off the sweep rather than taken as a share of the
+// disc, and a terminal radar's 150 metre bins run out of detail at a
+// different depth than a quarter kilometre gate does.
 const DISCS: Record<
   string,
-  { west: number; south: number; east: number; north: number }
+  {
+    west: number;
+    south: number;
+    east: number;
+    north: number;
+    rangeKm: number;
+    gateKm: number;
+  }
 > = {
-  KDMX: { west: -96.5, south: 39.6, east: -91, north: 43.8 },
-  KTLX: { west: -96.1, south: 39.4, east: -90.6, north: 43.6 },
-  KVNX: { west: -95.7, south: 39.2, east: -90.2, north: 43.4 },
+  KDMX: {
+    west: -96.5,
+    south: 39.6,
+    east: -91,
+    north: 43.8,
+    rangeKm: 230,
+    gateKm: 0.25,
+  },
+  KTLX: {
+    west: -96.1,
+    south: 39.4,
+    east: -90.6,
+    north: 43.6,
+    rangeKm: 230,
+    gateKm: 0.25,
+  },
+  KVNX: {
+    west: -95.7,
+    south: 39.2,
+    east: -90.2,
+    north: 43.4,
+    rangeKm: 230,
+    gateKm: 0.25,
+  },
   // Atlanta's terminal radar, at its own reach rather than a WSR-88D's: 88.8
   // km against 230, which is what makes it a different instrument rather than
   // a differently named one. Without an entry here the fixture threw on the
@@ -127,6 +159,8 @@ const DISCS: Record<
     south: 32.8492,
     east: -83.3037,
     north: 34.4446,
+    rangeKm: TDWR_RANGE_KM,
+    gateKm: 0.15,
   },
 };
 
@@ -174,6 +208,7 @@ function sweepFor(
       ? {
           radar: "TDWR" as const,
           rangeKm: TDWR_RANGE_KM,
+          gateKm: 0.15,
           siteName: "Atlanta, GA",
           live: false,
           liveTilts: 0,
@@ -186,6 +221,7 @@ function sweepFor(
       : {
           radar: "WSR-88D" as const,
           rangeKm: 230,
+          gateKm: 0.25,
           siteName: "Des Moines, IA",
           live: false,
           liveTilts: 0,
@@ -722,6 +758,68 @@ describe("choosing a site", () => {
     // The old site's sweep must not still be drawn under a label naming it.
     expect(result.current.sweep).toBeNull();
     expect(result.current.active).toBe(false);
+  });
+
+  it("narrows to the gate on screen, not the one that arrived first", async () => {
+    // How far the box may narrow is now read off the sweep rather than taken
+    // as a share of the disc, which means it is a property of the moment and
+    // not of the site: an archive volume from before super resolution carries
+    // its reflectivity on kilometre gates and its velocity on quarter
+    // kilometre ones. The site's reach is learned once, from the one answer
+    // that covered the whole disc. The gate cannot be, or a reader who
+    // switched product would keep whichever ceiling happened to land first.
+    let gateKm = 1;
+    fetchSweep.mockImplementation(async (station, product, tilt) => ({
+      ...sweepFor(station, product, tilt),
+      gateKm,
+    }));
+    fetchArchiveSweep.mockImplementation(
+      async (station, _at, product, tilt, within) => ({
+        ...sweepFor(station, product, tilt),
+        gateKm,
+        // Which box this picture was drawn for, so the assertion names the
+        // one on screen rather than counting calls.
+        volume: `box:${String(within)}`,
+        collected: "2021-12-10T03:15:00.000Z",
+        source: {
+          kind: "archive" as const,
+          label: "NOAA NEXRAD Level II archive",
+          url: null,
+        },
+      }),
+    );
+
+    const at: [number, number] = [-93.7, 41.7];
+    const coarse = String(
+      sweepDetailBox({ ...DISCS.KDMX, gateKm: 1 }, at, 13, 1440),
+    );
+    const fine = String(
+      sweepDetailBox({ ...DISCS.KDMX, gateKm: 0.25 }, at, 13, 1440),
+    );
+    // A quarter of the disc against a sixteenth. Without this the two boxes
+    // could be equal and the case would pass on nothing.
+    expect(coarse).not.toBe(fine);
+
+    const { result } = renderHook(() =>
+      useSingleSiteRadar(options({ center: at, zoom: 13 })),
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+    await act(async () => {
+      await result.current.openArchive("kdmx", "2021-12-10T03:15:00.000Z");
+    });
+    // Kilometre gates, so four steps and no more.
+    await waitFor(() =>
+      expect(result.current.sweep?.volume).toBe(`box:${coarse}`),
+    );
+
+    // The same site, the same camera, a moment on quarter kilometre gates.
+    gateKm = 0.25;
+    await act(async () => {
+      await result.current.openArchive("kdmx", "2021-12-10T03:16:00.000Z");
+    });
+    await waitFor(() =>
+      expect(result.current.sweep?.volume).toBe(`box:${fine}`),
+    );
   });
 
   it("does not read the volume again when the map moves within one site", async () => {

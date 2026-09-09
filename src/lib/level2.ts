@@ -177,6 +177,8 @@ export interface SweepImage {
   radar: RadarKind;
   /** How far the picture reaches from the site, in kilometres. */
   rangeKm: number;
+  /** How long one gate or bin is, in kilometres. The finest thing in it. */
+  gateKm: number;
 }
 
 /**
@@ -544,14 +546,60 @@ export function sweepCorners(
 export const DISC_IS_ENOUGH_BELOW_ZOOM = 10;
 
 /**
- * How far the box may be narrowed, as a fraction of the disc.
- *
- * A sixteenth of a 460 kilometre box is 29 kilometres over 1,024 pixels, or
- * 28 metres a pixel. That is nine times finer than a gate is long, so there
- * is nothing left in the data to resolve past it and a narrower box would be
- * spending fetches on interpolation.
+ * How many pixels across the box the native side draws, which is `IMAGE_SIZE`
+ * in `src-tauri/src/level2/mod.rs`. Held against it by a test.
  */
-export const FINEST_DETAIL_STEPS = 16;
+export const SWEEP_RASTER_PX = 1024;
+
+/**
+ * How many pixels a gate has to be worth before there is nothing left in it.
+ *
+ * The ceiling used to be a share of the disc, a sixteenth, and its reasoning
+ * was written against one radar: a sixteenth of a 460 kilometre disc is 28
+ * metres a pixel against a 250 metre gate, so nine pixels a gate, and there
+ * is plainly nothing left to resolve past that. But a share knows nothing
+ * about what is underneath it. A terminal radar's base products cover 177.6
+ * kilometres in the same 1,024 pixels, so a sixteenth of that disc is 11
+ * metres a pixel against a 150 metre bin, and the last halvings were buying a
+ * fetch, a decode and a 1,024 square render each to interpolate between bins
+ * that were already resolved. The same share was too shallow at the other
+ * end: the long range product reaches 417 kilometres in 300 metre bins and
+ * still had detail in it at the sixteenth.
+ *
+ * So the ceiling is a resolution now, and this is the only number in it that
+ * is a choice rather than a measurement. Three real radars bound it, and six
+ * is the only whole number all three leave standing:
+ *
+ * - Below 4.46 a WSR-88D loses its last halving, and the whole point was that
+ *   it is no worse off than it was.
+ * - Below 5.90 the long range product loses the depth it has bins for.
+ * - Above 6.92 a terminal base product keeps a halving it has no bins for,
+ *   which is the reason the rule changed at all.
+ *
+ * The three bounds are asserted as the three answers in `level2.test.ts`
+ * rather than described there, so moving this in either direction reddens
+ * rather than quietly costing a reader depth or costing them a fetch.
+ */
+export const PIXELS_ACROSS_A_GATE = 6;
+
+/**
+ * How far the box may be narrowed for a sweep that carries these numbers.
+ *
+ * A power of two, because the snap grids of neighbouring zooms have to nest
+ * for a held frame to stay reachable. One means the whole disc is as far as
+ * it goes.
+ */
+export function finestDetailSteps(rangeKm: number, gateKm: number): number {
+  // A sweep that does not say how long its gates are gets the old fixed
+  // ceiling. Answering "as deep as you like" to a missing number would spend
+  // fetches on nothing, and answering "the whole disc" would take a reader's
+  // picture away over a field that failed to arrive.
+  const real = (value: number) => Number.isFinite(value) && value > 0;
+  if (!real(rangeKm) || !real(gateKm)) return 16;
+  const wanted =
+    (PIXELS_ACROSS_A_GATE * 2 * rangeKm) / (SWEEP_RASTER_PX * gateKm);
+  return Math.max(1, 2 ** Math.ceil(Math.log2(wanted)));
+}
 
 /**
  * The box to draw the sweep over for a reader at this zoom, or null for the
@@ -575,7 +623,15 @@ export const FINEST_DETAIL_STEPS = 16;
  * a loop worth holding.
  */
 export function sweepDetailBox(
-  disc: { west: number; south: number; east: number; north: number },
+  disc: {
+    west: number;
+    south: number;
+    east: number;
+    north: number;
+    /** The two the sweep carries, which say where the detail runs out. */
+    rangeKm: number;
+    gateKm: number;
+  },
   center: [number, number],
   zoom: number,
   windowSpanPx: number,
@@ -593,10 +649,11 @@ export function sweepDetailBox(
   // Doubling from two at the threshold. That is a quarter of the resolution
   // the screen could show, deliberately: the same pixels have to cover the
   // window as well as resolve it, and the box the reader is guaranteed is a
-  // quarter of what is asked for. Past a sixteenth the ceiling holds, because
-  // a quarter kilometre gate has nothing finer in it to draw.
+  // quarter of what is asked for. The ceiling holds where a pixel has run out
+  // of gate to resolve, which is this sweep's own number rather than a share
+  // of the disc: see `finestDetailSteps`.
   let steps = Math.min(
-    FINEST_DETAIL_STEPS,
+    finestDetailSteps(disc.rangeKm, disc.gateKm),
     2 ** (Math.floor(zoom) - DISC_IS_ENOUGH_BELOW_ZOOM + 1),
   );
   // And then only as far as this disc and this window allow.

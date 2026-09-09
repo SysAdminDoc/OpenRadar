@@ -465,6 +465,7 @@ pub(crate) fn draw_sweep(
         },
         radar: WSR88D,
         range_km: MAX_RANGE_KM,
+        gate_km: chosen.field.gate_interval_km(),
     })
 }
 
