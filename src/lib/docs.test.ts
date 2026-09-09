@@ -107,6 +107,30 @@ describe("the pages a reader is pointed at", () => {
       );
     }
   });
+  it("describes the update check the app actually makes", () => {
+    // The README said updates were checked "only when you ask it to" long
+    // after the hook started asking on its own: an hour after launch and once
+    // a day after that, added because the West Palm Beach radar was dark for
+    // thirty-three days in every installed copy while the fix sat on the
+    // release page. Nothing downloads unasked, which is the promise
+    // SECURITY.md makes and the one that matters, but a privacy-first app
+    // understating what it does over the network is wrong in the one
+    // direction it cannot afford.
+    //
+    // Held to the hook rather than to a sentence: while those two timers
+    // exist, the README has to say the app asks on its own, and if they are
+    // ever taken out this fails until the README follows.
+    const hook = read("src/hooks/useUpdates.ts");
+    const readme = read("README.md");
+    const asksOnItsOwn =
+      hook.includes("FIRST_QUIET_CHECK_MS") &&
+      hook.includes("QUIET_CHECK_EVERY_MS");
+    expect(asksOnItsOwn, "the quiet check has moved or gone").toBe(true);
+    expect(readme).not.toMatch(/checks for them only when you ask/i);
+    expect(readme).toMatch(/an hour after it starts and once a day after that/);
+    // And the half that is still true has to keep being said.
+    expect(readme).toMatch(/[Nn]othing is downloaded/);
+  });
 });
 
 describe("what the repository root holds", () => {
