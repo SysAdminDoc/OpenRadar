@@ -2202,6 +2202,8 @@ export const en = {
   "weather.incomplete": "The forecast came back with pieces missing.",
   "route.noRoad": "No road route connects those two places.",
   "wind.noDraw": "The wind layer could not be drawn on this graphics card.",
+  "wind.noDrawBody":
+    "It has been switched off. Nothing else on the map is affected, and the switch will try again.",
   "tool.drawHint": "Click the map to draw a path",
   "tool.startHint": "Select the start point",
   "tool.endHint": "Select the end point",

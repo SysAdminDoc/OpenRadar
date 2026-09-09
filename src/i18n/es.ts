@@ -2247,6 +2247,8 @@ export const es: Catalogue = {
   "route.noRoad": "Ninguna carretera conecta esos dos lugares.",
   "wind.noDraw":
     "La capa de viento no se pudo dibujar en esta tarjeta gráfica.",
+  "wind.noDrawBody":
+    "Se ha desactivado. Nada más del mapa se ve afectado, y el interruptor lo intentará de nuevo.",
   "tool.drawHint": "Toca el mapa para trazar un camino",
   "tool.startHint": "Elige el punto de inicio",
   "tool.endHint": "Elige el punto final",

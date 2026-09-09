@@ -2271,6 +2271,8 @@ export const fr: Catalogue = {
   "route.noRoad": "Aucune route ne relie ces deux endroits.",
   "wind.noDraw":
     "La couche de vent n'a pas pu être dessinée sur cette carte graphique.",
+  "wind.noDrawBody":
+    "Elle a été désactivée. Rien d'autre sur la carte n'est touché, et le bouton réessaiera.",
   "tool.drawHint": "Cliquez la carte pour tracer un chemin",
   "tool.startHint": "Choisissez le point de départ",
   "tool.endHint": "Choisissez le point d'arrivée",
