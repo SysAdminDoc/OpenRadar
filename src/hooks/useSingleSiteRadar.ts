@@ -15,6 +15,7 @@ import {
   SWEEP_REFRESH_MS,
   sweepDetailBox,
   sweepErrorText,
+  sweepSourceFailed,
   type SiteInReach,
   type SweepImage,
 } from "../lib/level2";
@@ -616,17 +617,17 @@ export function useSingleSiteRadar(options: {
       .then((next) => {
         if (!held) {
           fetchingRef.current.delete(compareKey);
-          // The arrival time an entry already carries is kept. The newest
-          // volume is noted as arrived the moment it is listed, with no
-          // picture, and this pane fetches that same volume whenever the
-          // offset lands on it: overwriting the time said the volume was
-          // delivered when the compare pane happened to ask, and that time
-          // is what an export writes into its record as `fetchedAt`.
-          const arrivedAt = heldRef.current.get(compareKey)?.arrivedAt;
+          // Now, not whatever time the entry already carried. The only
+          // entries that carry one into here are the picture-less notes the
+          // listing writes, and a note that a volume exists is not delivery
+          // of its bytes: `useExport` reads this as `fetchedAt` and reports a
+          // cache age for anything that arrived before the walk began, so
+          // keeping the listing time described a picture that came off the
+          // network mid-walk as one the disk cache had served.
           heldRef.current.delete(compareKey);
           heldRef.current.set(compareKey, {
             image: next,
-            arrivedAt: arrivedAt ?? Date.now(),
+            arrivedAt: Date.now(),
           });
           heldRef.current = trimHeld(heldRef.current, loopVolumes * 2);
         }
@@ -1298,8 +1299,15 @@ export function useSingleSiteRadar(options: {
         // a minute ago while the map said it could not be reached at all.
         // Same gate and same per-station run as the reading above, so a feed
         // that alternates between the two still counts as one run. No second
-        // log line: this path already wrote one above.
-        if (radar.live && !isTdwrStation(station)) {
+        // log line: this path already wrote one above. Only a failure that is
+        // the feed: a tilt the site's VCP does not have comes back through
+        // here too, and blaming the source for an ask it cannot satisfy put a
+        // failing Level II row in front of a reader whose feed was fine.
+        if (
+          radar.live &&
+          !isTdwrStation(station) &&
+          sweepSourceFailed(failure)
+        ) {
           const runs = liveRunsRef.current;
           const run = (runs.get(station) ?? 0) + 1;
           runs.set(station, run);
@@ -1451,14 +1459,12 @@ export function useSingleSiteRadar(options: {
         // the expensive half and the answer is true about that volume
         // whatever the scrubber has moved on to; discarding it because the
         // reader moved first meant almost nothing was ever cached.
-        // Same as the compare pane: the arrival time an entry already
-        // carries is kept, because the newest volume is noted as arrived when
-        // it is listed and an export writes that time as `fetchedAt`.
-        const arrived = heldRef.current.get(key)?.arrivedAt;
+        // Same as the compare pane: the time the bytes arrived, which is
+        // now, and never the time a listing noted the volume existed.
         heldRef.current.delete(key);
         heldRef.current.set(key, {
           image: next,
-          arrivedAt: arrived ?? Date.now(),
+          arrivedAt: Date.now(),
         });
         heldRef.current = trimHeld(heldRef.current, loopVolumes * 2);
         if (!reply.current() || request !== requestRef.current) return;

@@ -344,10 +344,16 @@ describe("what the Diagnostics panel calls a source", () => {
     // live", and the panel writes labels through unchanged, so a reader in
     // Spanish or French had two English phrases sitting in a column of eight
     // proper nouns. A name needs no catalogue entry; a phrase does.
+    // Casing is what separates the two here, and it is not a general rule:
+    // it catches a common noun appended in the ordinary way, which is what
+    // both of these were, and it would miss a capitalised one. The
+    // connectives are allowed because a real name can carry one, as in
+    // "Bureau of Meteorology".
+    const joining = new Set(["of", "and", "de", "du", "der", "the"]);
     for (const source of DIAGNOSTIC_SOURCES) {
       const common = source.label
         .split(" ")
-        .filter((word) => /^[a-z]+$/.test(word));
+        .filter((word) => /^[a-z]+$/.test(word) && !joining.has(word));
       expect(common, `${source.label} is a phrase, not a name`).toEqual([]);
     }
   });
