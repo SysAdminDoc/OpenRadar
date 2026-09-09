@@ -623,12 +623,6 @@ Eleventh research pass, at `8c19165`, an hour after the tenth. It ran the headle
   Acceptance: each empty state has one button; pressing it leaves the reader holding a site or looking at the nearest one at the single-site zoom; the button is gone when the panel has data; the pseudolocale clipping test covers the label.
   Complexity: M
 
-- [ ] AUD-466 (P3): A file picked while a held box is being served is silently dropped
-  Why: the held-box branch of the historical effect bumps `requestRef` so a fetch the reader has moved past cannot repaint the map. That counter is shared with `activateHistorical`, which takes its own number before it fetches and returns `false` when the number has moved. So a reader who opens a file from the dialog while a pan is being served out of the hold for the previous source gets nothing: the picker closed, the file was read, and the answer was thrown away as stale. Nothing is said, because `openLocal` returning `false` is also what a cancelled dialog looks like. The window is narrow, one render between the hold being served and the answer landing, and the outcome is a reader pressing Open twice and wondering why the first press did nothing.
-  Evidence: found by an adversarial pass over `1998d82..182a6e0` on 2026-09-09. `src/hooks/useSingleSiteRadar.ts` (the `already` branch's `requestRef.current += 1`, and `activateHistorical`'s `if (request !== requestRef.current) return false`), `src/hooks/useSingleSiteRadar.ts` (`openLocal`, which cannot tell a dropped answer from a cancelled dialog). Pre-existing rather than introduced by the commits reviewed.
-  Touches: `src/hooks/useSingleSiteRadar.ts` (a counter for the effect's own fetches separate from the one an explicit open takes, or an open that outranks a hold rather than being outranked by it), `src/hooks/useSingleSiteRadar.test.tsx` (a case that serves a held box and opens a file in the same tick and asserts the file is what ends up on screen).
-  Acceptance: opening a file while a held box is being served puts that file on screen; the overtaken-fetch case still passes, so the counter still stops a stale answer repainting; the new case fails when the open is made to lose the race again.
-  Complexity: M
 
 
 
