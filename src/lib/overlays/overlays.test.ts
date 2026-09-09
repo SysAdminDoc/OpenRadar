@@ -924,3 +924,70 @@ describe.runIf(LIVE)("against the live warnings service", () => {
     }
   }, 30_000);
 });
+
+describe("a foreign warning office that does not answer", () => {
+  // Over Ontario, so the Canadian source is asked.
+  const canada = { west: -84, south: 43, east: -78, north: 47 };
+  const american = JSON.stringify({ features: [] });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("says which office was not reached rather than drawing no warnings", async () => {
+    // The catch returned an empty list, so a refused connection, an outage
+    // and a genuinely quiet afternoon were the same answer: a complete list
+    // with no Canadian warnings in it. A reader over Ontario during an
+    // outage was shown a map that said there was nothing to worry about.
+    vi.stubGlobal("fetch", async (url: string) => {
+      if (String(url).includes("weather.gc.ca")) {
+        throw new TypeError("Failed to fetch");
+      }
+      return new Response(american, { status: 200 });
+    });
+
+    const data = await alertsOverlay.fetchData!(
+      canada,
+      undefined,
+      DEFAULT_OVERLAY_CHOICES,
+    );
+    expect(
+      data.partial,
+      "the layer said nothing about the office",
+    ).toBeTruthy();
+    expect(String(data.partial)).toContain("Environment and Climate Change");
+  });
+
+  it("says nothing at all when the office answers and has no warnings", async () => {
+    // The positive control. Without it the case above passes against a layer
+    // that claims an outage every time, which would be its own wrong answer.
+    vi.stubGlobal("fetch", async (url: string) => {
+      if (String(url).includes("weather.gc.ca")) {
+        return new Response(JSON.stringify({ features: [] }), { status: 200 });
+      }
+      return new Response(american, { status: 200 });
+    });
+
+    const data = await alertsOverlay.fetchData!(
+      canada,
+      undefined,
+      DEFAULT_OVERLAY_CHOICES,
+    );
+    expect(data.partial ?? null).toBeNull();
+  });
+
+  it("lets a cancelled request go back up rather than reporting it", async () => {
+    // An abort is the workspace or the browser cancelling, not an answer.
+    // Swallowed into an empty list it became a country with no warnings.
+    vi.stubGlobal("fetch", async (url: string) => {
+      if (String(url).includes("weather.gc.ca")) {
+        throw new DOMException("The user aborted a request.", "AbortError");
+      }
+      return new Response(american, { status: 200 });
+    });
+
+    await expect(
+      alertsOverlay.fetchData!(canada, undefined, DEFAULT_OVERLAY_CHOICES),
+    ).rejects.toThrow(/abort/i);
+  });
+});

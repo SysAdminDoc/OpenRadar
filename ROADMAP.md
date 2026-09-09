@@ -631,12 +631,6 @@ Eleventh research pass, at `8c19165`, an hour after the tenth. It ran the headle
   Complexity: M
 
 
-- [ ] AUD-468 (P3): A cancelled request to the Canadian or German warning source is reported as no warnings
-  Why: `alerts.ts` wraps each of the two foreign sources in a bare `catch { return []; }`, so an abort, a refused connection and a genuinely empty answer are all the same thing: an empty list, merged into the layer as a complete answer. A reader looking at Ontario during a navigation, a connection reset or an outage is shown a map with no Canadian warnings on it and nothing saying the source was not reached, which is wrong data rather than missing data. `spc.ts` has the same shape and at least surfaces it through `missedHatching`. The storm reports were given the two-part abort test in `fbc3f74`; these were left as they were.
-  Evidence: found by an adversarial pass over `9f57fb1..3225232` on 2026-09-09. `src/lib/overlays/alerts.ts` (the two bare catches around the ECCC and DWD fetches), `src/lib/overlays/spc.ts` (the same shape with a report), `src/lib/overlays/reports.ts` (the guard as it should be), `src/hooks/useOverlays.ts` (which now drops an `AbortError` rather than telling the reader about it, so a rethrow here is safe).
-  Touches: `src/lib/overlays/alerts.ts` (rethrow an abort; for anything else, keep returning an empty list but carry which office went unanswered), `src/lib/overlays/alerts.test.ts` (a case per source: an abort propagates, a refused connection leaves the layer saying which office was not reached rather than claiming none had warnings).
-  Acceptance: an `AbortError` from either foreign source propagates rather than resolving as an empty list; a refused connection leaves the layer able to say which office was not reached; a genuinely empty answer is still an empty list and says nothing; each case fails when its catch is put back.
-  Complexity: M
 
 ### Notes on existing items
 

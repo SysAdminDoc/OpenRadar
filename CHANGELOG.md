@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.12.0
 
+- A Canadian or German warning office that cannot be reached is named, instead of the map simply showing no warnings there. The alerts layer draws American, Canadian and German warnings together, and when one of the two foreign services was down its warnings were quietly left out: over Ontario during an outage you saw a clear map, which reads as good news rather than as missing news. The layer now says which office did not answer and keeps everything else drawn.
+
 - Diagnostics says when a held radar’s live feed has stopped answering. A single site draws the volume the radar is sweeping now over the last one it finished, and when the live half cannot be read the picture quietly falls back to the finished volume. That is the right picture, but it looks exactly like a radar that is simply between volumes, so a feed that had been unreachable for hours read as one that was briefly behind. The source list now carries a row for it with the reason and how many times running.
 
 - Forgetting the source history can be undone. Diagnostics keeps a record of what every data source did on this machine today, and the button that clears it was the one removal in the app with no way back: press it to tidy the report before sending it and you had thrown away the thing the report is about. It now offers the record back, and anything that happened while the offer was on screen is kept rather than being written over.

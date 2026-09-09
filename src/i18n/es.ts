@@ -478,6 +478,11 @@ export const es: Catalogue = {
   "route.failed": "Revisa los dos lugares e inténtalo de nuevo.",
   "route.placeMissing": "No se encontró uno de esos lugares.",
   "alerts.failed": "El servicio meteorológico {answer}.",
+  "alerts.officeMissing":
+    "No se pudo contactar con {office}, así que sus avisos no están en el mapa.",
+  "alerts.officeEccc": "Environment and Climate Change Canada",
+  "alerts.officeDwd": "Deutscher Wetterdienst",
+  "alerts.officeUnanswered": "la oficina no respondió",
   "earthquakes.failed": "El servicio de sismos del USGS {answer}.",
   "smoke.failed": "El análisis de humo de la NOAA {answer}.",
   "tropical.failed": "El National Hurricane Center {answer}.",
