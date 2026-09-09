@@ -327,6 +327,49 @@ describe("choosing a site", () => {
     }
   });
 
+  it("does not blame the feed for an ask it cannot satisfy", async () => {
+    // Every failure comes back through the same catch, including the ones
+    // that are not about the source at all: a tilt the site's VCP does not
+    // have, a file over the size limit, a station that is not a NEXRAD. The
+    // source answered perfectly in all three, and marking it as failing puts
+    // a wrong sentence in the row a reader copies into a bug report and in
+    // the incident ring behind it.
+    resetHealth();
+    const warn = vi.spyOn(log, "warn").mockImplementation(() => {});
+    try {
+      fetchSweep.mockRejectedValue({
+        code: "noSweep",
+        args: ["KDMX", "Velocity"],
+      });
+      const { result, rerender } = renderHook(
+        (props: { tilt: number }) =>
+          useSingleSiteRadar(
+            options({ radar: { tilt: props.tilt, live: true } }),
+          ),
+        { initialProps: { tilt: 0 } },
+      );
+      await waitFor(() => expect(result.current.error).not.toBeNull());
+      expect(
+        providerHealth().find((one) => one.id === "level2"),
+        "the feed was blamed for a tilt the site does not sweep",
+      ).toBeUndefined();
+
+      // The positive control, through the same path: a source that really
+      // did not answer still reaches the row.
+      fetchSweep.mockRejectedValue({ code: "httpUnreachable", args: [] });
+      rerender({ tilt: 1 });
+      await waitFor(() =>
+        expect(
+          providerHealth().find((one) => one.id === "level2")
+            ?.consecutiveFailures,
+        ).toBe(1),
+      );
+    } finally {
+      warn.mockRestore();
+      resetHealth();
+    }
+  });
+
   it("counts a live feed that keeps failing, and says so on the second", async () => {
     // The picture is the last finished volume whether the site is between
     // volumes or its chunks cannot be reached at all, and the age beside the
@@ -1688,6 +1731,35 @@ describe("the pane that compares", () => {
     // A volume neither pane asked for was never fetched, and saying when it
     // arrived would be an invention.
     expect(result.current.arrivedAt(VOLUMES[1])).toBeNull();
+  });
+
+  it("times a volume from when its picture arrived, not when it was listed", async () => {
+    // The newest volume is noted the moment the listing names it, with no
+    // picture yet, and a pane can fetch that same volume much later. Carrying
+    // the listing time onto the picture made `useExport` write a cache age
+    // for bytes that had just come off the network: it reports one for
+    // anything that arrived before the walk began, and the record's own type
+    // says a cache age means the disk served it. A delivery time a few
+    // seconds late is a smaller wrong answer than a cache hit that never
+    // happened.
+    const { result, rerender } = renderHook(
+      (props: Parameters<typeof useSingleSiteRadar>[0]) =>
+        useSingleSiteRadar(props),
+      { initialProps: options({}) },
+    );
+    await waitFor(() =>
+      expect(result.current.arrivedAt(VOLUMES[2])).not.toBeNull(),
+    );
+    const listed = result.current.arrivedAt(VOLUMES[2])!;
+
+    // Long enough that a wrong answer cannot be mistaken for a right one.
+    await new Promise((done) => setTimeout(done, 25));
+    rerender(options({ compareTime: VOLUMES[2] }));
+    await waitFor(() => expect(result.current.compare.sweep).not.toBeNull());
+    expect(
+      result.current.arrivedAt(VOLUMES[2]),
+      "the picture was stamped with the moment the listing named it",
+    ).toBeGreaterThan(listed);
   });
 
   it("keeps each picture's own arrival, not the newest fetch's", async () => {

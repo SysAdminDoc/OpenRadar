@@ -253,6 +253,41 @@ describe("the keys burned into an exported picture", () => {
     }
   });
 
+  it("cuts the caption at a word and never at a letter", () => {
+    // Trailing whitespace comes off the head, or the cut reads as a gap
+    // rather than as a cut. Written as `/s+$/` for one commit it did neither
+    // job: the spaces stayed where they were, and because the line runs on
+    // every cut whether or not anything was trimmed, the last letter came off
+    // any word ending in a plural. A credit ending in `reports` was drawn as
+    // `report …` on a line with room for all of it, and a capitalised source
+    // beside it kept its own.
+    const every = Array.from({ length: 300 }, () => "gusts").join(" ");
+    let checked = 0;
+    // Widths where the wrap leaves the last kept line enough slack for the
+    // marker, so nothing has to come off the head at all. Every other width
+    // trims mid-word on purpose, and a plural cut short by the trim is
+    // indistinguishable there from one cut short for nothing.
+    for (const width of [140, 190, 250, 330]) {
+      const { canvas, inked } = recording(width, 180);
+      drawFrame(canvas, canvas, {
+        lines: ["2026-09-08 21:00Z"],
+        attribution: every,
+      });
+      const cut = inked.find((one) => one.line.includes("…"));
+      if (!cut?.line.startsWith("gusts")) continue;
+      checked += 1;
+      expect(cut.line, `${width}px: two spaces read as a gap`).not.toContain(
+        "  ",
+      );
+      const words = cut.line.replace(/\s*…$/, "").trim().split(/\s+/);
+      expect(
+        words.filter((word) => word !== "gusts"),
+        `${width}px: a word was cut short`,
+      ).toEqual([]);
+    }
+    expect(checked, "no width produced a cut line to read").toBeGreaterThan(0);
+  });
+
   it("keeps the cut inside the room on a picture too small for a space", () => {
     // The trim stops when the head is empty, so on a very small picture the
     // remaining " …" was still over the limit and the invariant broke at the
@@ -266,7 +301,6 @@ describe("the keys burned into an exported picture", () => {
         attribution: every,
       });
       const room = width - 12 * 4;
-      if (room <= 0) continue;
       const context = canvas.getContext("2d") as unknown as {
         measureText: (text: string) => { width: number };
       };

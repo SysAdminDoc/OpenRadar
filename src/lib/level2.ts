@@ -427,6 +427,38 @@ export function liveAgeSeconds(sweep: SweepImage, now: number): number | null {
 }
 
 /**
+ * Which failures are the feed being down rather than the ask being impossible.
+ *
+ * Both come back from the same command. A tilt the site's VCP does not have,
+ * a file over the size limit, a station that is not a NEXRAD: those are the
+ * ask, and the source answered perfectly. Recording one against the Level II
+ * source marks it as failing, twice running, in the Diagnostics row a reader
+ * copies into a bug report, and writes it into the incident ring.
+ */
+const SOURCE_DOWN = new Set([
+  "httpStatus",
+  "httpUnreachable",
+  "httpRefused",
+  "httpTooLarge",
+  "badListing",
+  "decode",
+]);
+
+/**
+ * Whether a failure says the radar feed could not be reached or read.
+ *
+ * A failure with no code of its own counts: `sweepErrorText` answers for it
+ * with "The radar site did not answer", and the health record has to say the
+ * same thing the reader was told.
+ */
+export function sweepSourceFailed(failure: unknown): boolean {
+  if (!failure || typeof failure !== "object" || !("code" in failure)) {
+    return true;
+  }
+  return SOURCE_DOWN.has(String((failure as { code?: unknown }).code));
+}
+
+/**
  * What the native side said went wrong, in the reader's own language.
  *
  * The command rejects with a code, the parts of the message, and the English
