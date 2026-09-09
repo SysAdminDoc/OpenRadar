@@ -589,7 +589,14 @@ export function useSingleSiteRadar(options: {
       motionSpeed !== null && motionFrom !== null
         ? [motionSpeed, motionFrom]
         : null;
-    const held = heldRef.current.get(compareKey)?.image ?? null;
+    const holding = heldRef.current.get(compareKey);
+    if (holding) {
+      // Same as the scrubber above: a read has to move the entry, or the
+      // pane a reader keeps comparing against is the one shed first.
+      heldRef.current.delete(compareKey);
+      heldRef.current.set(compareKey, holding);
+    }
+    const held = holding?.image ?? null;
     if (!held && fetchingRef.current.has(compareKey)) return;
     if (!held) fetchingRef.current.add(compareKey);
     void (
@@ -610,6 +617,7 @@ export function useSingleSiteRadar(options: {
       .then((next) => {
         if (!held) {
           fetchingRef.current.delete(compareKey);
+          heldRef.current.delete(compareKey);
           heldRef.current.set(compareKey, {
             image: next,
             arrivedAt: Date.now(),
@@ -1346,14 +1354,21 @@ export function useSingleSiteRadar(options: {
       within,
     });
 
-    const already = heldRef.current.get(key)?.image;
-    if (already) {
+    const held = heldRef.current.get(key);
+    if (held?.image) {
+      // Back to the end of the map, so `trimHeld` sheds what has gone longest
+      // unwanted rather than what arrived first. `Map` does not reorder on a
+      // read, so a reader working between two volumes lost the two they were
+      // using; this map also answers `arrivedAt`, so the export caption lost
+      // the arrival time with the picture.
+      heldRef.current.delete(key);
+      heldRef.current.set(key, held);
       // Including the spinner. A fetch left in flight by the previous frame
       // has already been closed as a reply, so its `finally` will not
       // clear this, and a reader scrubbing over volumes they have already
       // seen kept a spinner that never stopped.
       requestRef.current += 1;
-      setSweep(already);
+      setSweep(held.image);
       setDrawnVolume(shownVolume);
       setError(null);
       setLoading(false);
@@ -1378,6 +1393,7 @@ export function useSingleSiteRadar(options: {
         // the expensive half and the answer is true about that volume
         // whatever the scrubber has moved on to; discarding it because the
         // reader moved first meant almost nothing was ever cached.
+        heldRef.current.delete(key);
         heldRef.current.set(key, { image: next, arrivedAt: Date.now() });
         heldRef.current = trimHeld(heldRef.current, loopVolumes * 2);
         if (!reply.current() || request !== requestRef.current) return;

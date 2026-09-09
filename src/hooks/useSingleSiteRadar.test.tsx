@@ -1279,6 +1279,64 @@ describe("the loop, and what is not part of it", () => {
     await waitFor(() => expect(result.current.drawnVolume).toBe(VOLUMES[0]));
   });
 
+  it("keeps the loop volume a reader keeps returning to", async () => {
+    // The same defect `AUD-454` fixed in the historical hold, in the map the
+    // loop uses. `trimHeld` sheds by insertion order and a `Map` read does
+    // not reorder, so a reader working between two volumes lost the two they
+    // were using. This map also answers `arrivedAt`, which the export caption
+    // reads, so an eviction took the arrival time out of the written record
+    // as well as costing the fetch.
+    //
+    // The hold is bounded at twice the loop length, so a loop of one keeps
+    // two: three distinct boxes are enough to make it shed.
+    const base = {
+      ...options({
+        zoom: 12,
+        showingTime: VOLUMES[0] + 60_000,
+        radar: { loopVolumes: 1 },
+      }),
+    };
+    const { result, rerender } = renderHook(
+      (props: Parameters<typeof useSingleSiteRadar>[0]) =>
+        useSingleSiteRadar(props),
+      { initialProps: { ...base, center: [-96.2, 41.7] as [number, number] } },
+    );
+    await waitFor(() => expect(result.current.drawnVolume).toBe(VOLUMES[0]));
+
+    const visit = async (at: [number, number]) => {
+      rerender({ ...base, center: at });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+    };
+    const asks = () => fetchArchiveSweep.mock.calls.length;
+
+    // A second box, then back to the first, which is the touch that has to
+    // move it to the front of the queue.
+    const beforeSecond = asks();
+    await visit([-95.4, 41.7]);
+    expect(asks(), "the second box was not a fetch of its own").toBeGreaterThan(
+      beforeSecond,
+    );
+    const beforeBack = asks();
+    await visit([-96.2, 41.7]);
+    expect(asks(), "the first box was never held").toBe(beforeBack);
+
+    // A third box, which pushes one entry out of a hold that keeps two.
+    await visit([-94.7, 41.7]);
+
+    // The one just used must be the one still there, and its arrival time
+    // must have survived with it.
+    const beforeLast = asks();
+    await visit([-96.2, 41.7]);
+    expect(asks(), "the volume in use was the volume evicted").toBe(beforeLast);
+    expect(
+      result.current.arrivedAt(VOLUMES[0]),
+      "the arrival time went with the eviction",
+    ).not.toBeNull();
+  });
+
   it("stops re-listing while a loop is being written out", async () => {
     // A refresh answers with the LAST N volumes, so one landing mid-walk
     // pushes the oldest out of the list. A saved loop of thirty volumes runs
