@@ -109,7 +109,31 @@ describe("where a description ends", () => {
   // The three catalogues agree on it exactly, which is what makes it a rule
   // rather than a preference: the translations mirror the original's
   // punctuation everywhere, so the decision only has to be made once.
-  const boundary = /[.!?]\s+[A-ZÀ-Ü0-9]/;
+  /**
+   * Whether a description is more than one sentence.
+   *
+   * A stop, a space, and something a sentence can start with, which is a
+   * capital or a digit: "100% means the rain has met it" is a sentence and
+   * "0.5 degrees" is not two.
+   *
+   * The stop must not be an abbreviation's. Spanish writes the United States
+   * "EE. UU.", and reading the first of those periods as a sentence end made
+   * one catalogue see two sentences in a fragment the other two saw one in,
+   * which is the one place the three disagreed about the rule. A stop
+   * directly after one or two capitals on their own is an abbreviation.
+   */
+  const spelledOut = (value: string) =>
+    value.replace(/(^|\s)([A-ZÀ-Ü]{1,2})\./g, "$1$2");
+  const moreThanOne = (value: string) =>
+    /[.!?]\s+[A-ZÀ-Ü0-9]/.test(spelledOut(value));
+
+  /**
+   * Whether a description ends in a full stop.
+   *
+   * The same abbreviation from the other end: the period at the end of "solo
+   * EE. UU." belongs to a word, not to a sentence.
+   */
+  const stops = (value: string) => spelledOut(value).trimEnd().endsWith(".");
 
   for (const [copy, name] of [
     [en, "en"],
@@ -122,9 +146,8 @@ describe("where a description ends", () => {
         // A plural block carries its own punctuation inside the arms, where
         // the rule cannot see the end of the sentence.
         if (/\{[a-z]+, plural/.test(value)) continue;
-        const many = boundary.test(value);
-        expect(value.trimEnd().endsWith("."), `${name} ${key}: ${value}`).toBe(
-          many,
+        expect(stops(value), `${name} ${key}: ${value}`).toBe(
+          moreThanOne(value),
         );
       }
     });
