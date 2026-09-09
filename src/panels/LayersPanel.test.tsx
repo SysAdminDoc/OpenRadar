@@ -533,3 +533,57 @@ describe("what a layer's own source is doing", () => {
     expect(container.querySelector('[data-layer-state^="hail:"]')).toBeNull();
   });
 });
+
+describe("the seven headings the switches are read under", () => {
+  it("puts every switch under one of them, and renders all seven", () => {
+    // Forty-six switches ran together in the order they were added, so
+    // finding one meant reading past thirty rows. A group nobody put a switch
+    // in is a heading over nothing; a switch in no group is one that would
+    // vanish from the panel, which is worse than the list it replaced.
+    const { container } = render(panel({}));
+    const headings = [...container.querySelectorAll("[data-layer-group]")].map(
+      (node) => node.getAttribute("data-layer-group"),
+    );
+    expect(headings).toEqual([
+      "hazards",
+      "radar",
+      "water",
+      "sky2",
+      "sky",
+      "reference",
+      "yours",
+    ]);
+    for (const group of headings) {
+      const rows = container.querySelectorAll(
+        `[data-layer-group="${group}"] .toggle-row`,
+      );
+      expect(rows.length, `${group} has no switches`).toBeGreaterThan(0);
+    }
+    // And nothing was lost on the way: every switch the panel used to show
+    // is still on it, counted rather than named.
+    expect(
+      container.querySelectorAll(".setting-list .toggle-row"),
+    ).toHaveLength(46);
+  });
+
+  it("names each heading in the reader's own language", () => {
+    render(panel({}));
+    expect(screen.getByText(en["layers.groupHazards"])).toBeTruthy();
+    expect(screen.getByText(en["layers.groupYours"])).toBeTruthy();
+  });
+
+  it("files a switch where its answer comes from", () => {
+    // Three anchors rather than the whole table, which would only be the
+    // source written twice. What this catches is a switch filed somewhere a
+    // reader would never look for it, which the counting above cannot see.
+    const { container } = render(panel({}));
+    const groupOf = (key: string) =>
+      container
+        .querySelector(`[data-layer="${key}"]`)
+        ?.closest("[data-layer-group]")
+        ?.getAttribute("data-layer-group") ?? null;
+    expect(groupOf("weatherAlerts")).toBe("hazards");
+    expect(groupOf("lightningFlashes")).toBe("sky2");
+    expect(groupOf("customOverlay")).toBe("yours");
+  });
+});
