@@ -75,8 +75,12 @@ fn count(path: &Path) -> u32 {
 
 /// The workspace saying it has drawn.
 ///
-/// The mark goes at once. From here on this launch counts as one that
-/// reached a window, whatever happens to the process afterwards.
+/// The mark goes at once. From here on this launch counts as one that reached
+/// a window, whatever happens to the process afterwards. The workspace says
+/// this once the map has painted rather than once its settings have parsed:
+/// the theme, the colour table a product is drawn with and the camera the
+/// projection has to show are all applied after that, and they are three of
+/// the things this exists to catch.
 #[tauri::command]
 pub fn workspace_drawn() {
     clean_exit();
@@ -108,12 +112,11 @@ pub fn unclean_starts() -> u32 {
 #[tauri::command]
 pub fn clear_unclean_starts() {
     *STARTS.lock().unwrap_or_else(|held| held.into_inner()) = 0;
-    let path = PATH.lock().unwrap_or_else(|held| held.into_inner()).clone();
-    if let Some(path) = path {
-        if let Err(error) = std::fs::write(&path, "0") {
-            log::warn!("OpenRadar could not clear its unclean count: {error}");
-        }
-    }
+    // The mark goes rather than being written back as a zero. This is asked
+    // for by a reader pressing a button in a window that has drawn, so the
+    // launch is already one that got there; writing a zero put the mark back
+    // and made the next crash the first of two rather than the second.
+    clean_exit();
 }
 
 #[cfg(test)]
@@ -157,14 +160,17 @@ mod tests {
         assert_eq!(unclean_starts(), 0);
 
         // And the reader putting their arrangement back starts the count
-        // again without pretending this run has finished.
+        // again. The window they pressed the button in is one that drew, so
+        // the mark goes with the count: written back as a zero instead, the
+        // next start read it as a run that had not finished and one crash
+        // stood the workspace down where it should have taken two.
         init(&dir);
         assert_eq!(unclean_starts(), 1);
         clear_unclean_starts();
         assert_eq!(unclean_starts(), 0);
-        assert!(dir.join(SENTINEL).exists(), "this run stopped being marked");
+        assert!(!dir.join(SENTINEL).exists());
         init(&dir);
-        assert_eq!(unclean_starts(), 1);
+        assert_eq!(unclean_starts(), 0);
     }
 
     #[test]

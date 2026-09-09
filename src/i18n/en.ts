@@ -2216,6 +2216,9 @@ export const en = {
   "app.settingsRestored": "Your settings were put back",
   "app.settingsRestoredBody":
     "The settings file could not be read, so the last good copy went back in its place. Anything changed since then is gone.",
+  "app.settingsLocked": "Your settings file is in use",
+  "app.settingsLockedBody":
+    "The settings file could not be read and could not be moved aside, so this window opened plain and the next one will too. Close whatever has the file open, then start OpenRadar again.",
   "app.settingsUnreadable": "Your settings could not be read",
   "app.settingsUnreadableBody":
     "The settings file was damaged and there was no copy to go back to, so this window opened plain. The file it could not read has been kept.",

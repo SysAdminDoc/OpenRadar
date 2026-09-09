@@ -2284,6 +2284,9 @@ export const fr: Catalogue = {
   "app.settingsRestored": "Vos réglages ont été rétablis",
   "app.settingsRestoredBody":
     "Le fichier de réglages était illisible, la dernière bonne copie a donc repris sa place. Ce qui a changé depuis est perdu.",
+  "app.settingsLocked": "Le fichier de réglages est utilisé",
+  "app.settingsLockedBody":
+    "Le fichier de réglages n'a pas pu être lu ni écarté, cette fenêtre s'est donc ouverte sans rien et la suivante fera pareil. Fermez ce qui garde le fichier ouvert, puis relancez OpenRadar.",
   "app.settingsUnreadable": "Vos réglages n'ont pas pu être lus",
   "app.settingsUnreadableBody":
     "Le fichier de réglages était abîmé et il n'y avait aucune copie, cette fenêtre s'est donc ouverte sans rien. Le fichier illisible a été conservé.",

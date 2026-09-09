@@ -55,6 +55,14 @@ pub struct Recovery {
     /// Whether the copy went back in its place, or the workspace is opening
     /// on the defaults because there was no copy to go back to.
     pub restored: bool,
+    /// Whether the unreadable file is still in place.
+    ///
+    /// True means it could be neither renamed nor removed, because something
+    /// else has it open. Worth telling the reader apart from the rest: it is
+    /// the one case where every launch from here on ends the same way until
+    /// they do something about it, and the one where a good copy is sitting
+    /// beside it unused.
+    pub stuck: bool,
 }
 
 /// Points the backup at a directory. Called once, at startup.
@@ -82,10 +90,16 @@ fn readable(path: &Path) -> bool {
     let Ok(bytes) = std::fs::read(path) else {
         return false;
     };
-    matches!(
-        serde_json::from_slice::<serde_json::Value>(&bytes),
-        Ok(serde_json::Value::Object(_))
-    )
+    let Ok(serde_json::Value::Object(document)) =
+        serde_json::from_slice::<serde_json::Value>(&bytes)
+    else {
+        return false;
+    };
+    // And it has to hold what the store keeps. An object on its own is too
+    // weak: an empty one passes, loads as a workspace with nothing in it, and
+    // the next save would copy it forward as the last good copy, destroying
+    // the real one.
+    document.contains_key("settings")
 }
 
 /// Puts a readable settings file back in place, if the live one is not.
@@ -118,6 +132,7 @@ fn recover(dir: &Path) -> Option<Recovery> {
             return Some(Recovery {
                 kept_at: live.display().to_string(),
                 restored: false,
+                stuck: true,
             });
         }
     }
@@ -135,6 +150,7 @@ fn recover(dir: &Path) -> Option<Recovery> {
     Some(Recovery {
         kept_at: kept.display().to_string(),
         restored,
+        stuck: false,
     })
 }
 
@@ -175,8 +191,12 @@ pub fn settings_keep_previous() -> bool {
 pub fn settings_recovered() -> Option<Recovery> {
     let mut asked = ASKED.lock().unwrap_or_else(|held| held.into_inner());
     if !*asked {
-        *asked = true;
+        // Latched only once there is somewhere to look. Set before the check,
+        // a question that arrived before `init` had a directory, or after it
+        // failed to make one, would mark the recovery as done and it would
+        // never be tried again for the life of the process.
         if let Some(dir) = dir() {
+            *asked = true;
             *RECOVERED.lock().unwrap_or_else(|held| held.into_inner()) = recover(&dir);
         }
     }
@@ -257,6 +277,7 @@ mod tests {
 
         let recovery = recover(&dir).expect("a recovery");
         assert!(recovery.restored);
+        assert!(!recovery.stuck);
         let back = std::fs::read_to_string(dir.join(LIVE)).expect("the settings");
         assert!(back.contains("Casa"), "{back}");
         let kept = std::fs::read_to_string(dir.join(KEPT)).expect("the unreadable file");
@@ -278,12 +299,60 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
+    fn a_file_that_cannot_be_moved_says_so() {
+        // The one case where every launch from here on ends the same way
+        // until the reader closes whatever has the file open, and the one
+        // where the copy beside it is still good. Told apart from the rest,
+        // because the sentence for the rest is wrong about both halves here.
+        let dir = scratch("locked");
+        good(&dir, "Casa");
+        assert!(keep(&dir));
+        std::fs::write(dir.join(LIVE), "{oh dear").expect("a torn file");
+        // Held open, which on Windows refuses both the rename and the
+        // removal. That is the real shape of this: a backup tool, an editor
+        // or a virus scanner with the file open at the moment of the launch.
+        use std::os::windows::fs::OpenOptionsExt;
+        let held = std::fs::OpenOptions::new()
+            .read(true)
+            // Shared with nobody, which is how a backup tool or a scanner
+            // holds a file it is reading. Windows then refuses both the
+            // rename and the removal, which is the case being described.
+            .share_mode(0)
+            .open(dir.join(LIVE))
+            .expect("the torn file");
+        // A directory in the way of the name it would be renamed to, so the
+        // rename fails on any platform that would have allowed it.
+        std::fs::create_dir_all(dir.join(KEPT)).expect("something in the way");
+
+        let recovery = recover(&dir).expect("a recovery");
+        assert!(recovery.stuck);
+        assert!(!recovery.restored);
+        // And the file is still there, which is what makes it the same story
+        // on every launch.
+        assert!(dir.join(LIVE).exists());
+        drop(held);
+    }
+
+    #[test]
     fn a_file_that_parses_to_a_list_is_not_settings() {
         // `serde_json` reads `[]` and `3` happily. Either one loads into a
         // store with nothing in it, which is the loss this is here to stop.
         let dir = scratch("shape");
         std::fs::write(dir.join(LIVE), "[]").expect("a list");
         assert!(recover(&dir).is_some());
+    }
+
+    #[test]
+    fn an_object_with_nothing_of_ours_in_it_is_not_settings() {
+        // The narrower shape. An empty object parses, loads as a workspace
+        // with nothing in it, and would then be copied forward as the last
+        // good one, which destroys the copy that could have put the reader
+        // back. Same for a file of somebody else's that landed on the name.
+        let dir = scratch("empty");
+        std::fs::write(dir.join(LIVE), "{}").expect("an empty object");
+        assert!(recover(&dir).is_some());
+        assert!(!readable(&dir.join(KEPT)));
     }
 
     #[test]

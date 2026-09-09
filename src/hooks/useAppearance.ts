@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { applyTheme, type WorkspaceTheme } from "../lib/theme";
 import { drawnOverLight } from "../lib/mapStyles";
+import { startedPlain } from "../lib/settings";
 import {
   occasionOn,
   occasionTheme,
@@ -70,7 +71,13 @@ export function useAppearance(
   // through a pan.
   const declined = occasion ? settings.occasions.declined[occasion] : undefined;
   const wanted = useMemo<WorkspaceTheme | null>(() => {
-    if (settings.workspaceTheme) return settings.workspaceTheme;
+    // Stood down for a window that opened plain after two starts that never
+    // reached one. The theme stays in the settings file: it is a document the
+    // reader imported, and taking it out of the file to switch it off would
+    // mean the first thing they changed wrote it away for good.
+    if (settings.workspaceTheme && !startedPlain()) {
+      return settings.workspaceTheme;
+    }
     if (alertActive || !occasion || !settings.occasions.enabled) return null;
     if (declined === year) return null;
     return occasionTheme(

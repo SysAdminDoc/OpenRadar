@@ -915,7 +915,11 @@ describe("a settings document that will not parse", () => {
       read.watchPlaces.map((place) => place.name),
       "the reader's places did not come back",
     ).toEqual(["Casa"]);
-    expect(settingsRecovery()).toEqual({ keptAt: KEPT, restored: true });
+    expect(settingsRecovery()).toEqual({
+      keptAt: KEPT,
+      restored: true,
+      stuck: false,
+    });
     expect(window.localStorage.getItem(KEPT)).toBe(stored("Casa").slice(0, 40));
     // And the live document is readable again, so the next launch is quiet.
     expect(looksLikeSettings(window.localStorage.getItem(LIVE) ?? "")).toBe(
@@ -928,7 +932,11 @@ describe("a settings document that will not parse", () => {
 
     const read = await readSettings();
     expect(read.watchPlaces).toEqual([]);
-    expect(settingsRecovery()).toEqual({ keptAt: KEPT, restored: false });
+    expect(settingsRecovery()).toEqual({
+      keptAt: KEPT,
+      restored: false,
+      stuck: false,
+    });
     // Kept, because somebody who edited it by hand wants to see what they
     // wrote. Out of the way, because leaving it in place means every launch
     // from here on reads the same unreadable document.
@@ -964,6 +972,25 @@ describe("a settings document that will not parse", () => {
     expect(read.watchPlaces.map((place) => place.name)).toEqual(["Casa"]);
     expect(settingsRecovery()).toBeNull();
     expect(window.localStorage.getItem(KEPT)).toBeNull();
+  });
+
+  it("refuses a document with nothing of ours in it, and never copies it forward", async () => {
+    // An object on its own is too weak a rule. `{}` and a GeoJSON collection
+    // both parse, both load as a workspace with nothing in it, and the next
+    // save would copy either of them forward as the last good copy,
+    // destroying the one that could have put the reader back.
+    window.localStorage.setItem(PREVIOUS, stored("Casa"));
+    window.localStorage.setItem(LIVE, '{"type":"FeatureCollection"}');
+
+    const read = await readSettings();
+    expect(read.watchPlaces.map((place) => place.name)).toEqual(["Casa"]);
+    expect(settingsRecovery()?.restored).toBe(true);
+
+    // And a save from here keeps the good copy, because what was live was
+    // never readable settings.
+    window.localStorage.setItem(LIVE, '{"type":"FeatureCollection"}');
+    await saveSettings(normalizeSettings(JSON.parse(stored("Trabajo"))));
+    expect(window.localStorage.getItem(PREVIOUS)).toContain("Casa");
   });
 
   it("says nothing on an ordinary load", async () => {
@@ -1027,7 +1054,12 @@ describe("opening plain after two starts that did not finish", () => {
       settings.workspaceTheme,
       "the fixture lost its theme",
     ).not.toBeNull();
-    expect(plain.workspaceTheme).toBeNull();
+    // The theme stays in the settings. It is the whole document the reader
+    // imported and this value is what goes into the file the moment they
+    // change anything, so taking it out here would have written it away for
+    // good; the workspace stands it down for the session instead. Asserted
+    // the other way round for a day, which is the defect.
+    expect(plain.workspaceTheme).toEqual(settings.workspaceTheme);
     expect(plain.occasions.enabled).toBe(false);
     expect(plain.ambient).toBe(false);
     expect(plain.paletteAssignments).toEqual({});
