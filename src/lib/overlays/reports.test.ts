@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { en } from "../../i18n/en";
 import { es } from "../../i18n/es";
 import { fr } from "../../i18n/fr";
@@ -843,5 +843,59 @@ describe("what a reader is told when neither source answers", () => {
       fetched.mockRestore();
       setLanguage("en");
     }
+  });
+});
+
+describe("a first source that gives up part way", () => {
+  const bounds = { west: -100, south: 35, east: -90, north: 45 };
+  const choices = {} as Parameters<
+    NonNullable<typeof stormReportsOverlay.fetchData>
+  >[2];
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("does not ask the second host when the browser aborted the first", async () => {
+    // The guard read the workspace's own signal, which is raised when the
+    // workspace changes its mind. A navigation or a connection reset aborts
+    // the fetch without that signal ever being raised, so those fell through
+    // and spent up to five more pages on the second host for an answer
+    // nobody is waiting for.
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", (url: string) => {
+      asked.push(String(url));
+      return Promise.reject(
+        new DOMException("The user aborted a request.", "AbortError"),
+      );
+    });
+
+    await expect(
+      stormReportsOverlay.fetchData!(bounds, undefined, choices),
+    ).rejects.toThrow(/abort/i);
+    expect(asked, "the second host was asked anyway").toHaveLength(1);
+    expect(asked[0]).toContain("mesonet.agron.iastate.edu");
+  });
+
+  it("still falls through to the second host when the first is down", async () => {
+    // The positive control. Without it the case above passes against an
+    // adapter that never asks the second host at all, which would be a
+    // layer that goes blank the day the archive goes out.
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", (url: string) => {
+      asked.push(String(url));
+      if (asked.length === 1) {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ features: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    });
+
+    await stormReportsOverlay.fetchData!(bounds, undefined, choices);
+    expect(asked.length, "the second host was never asked").toBeGreaterThan(1);
   });
 });

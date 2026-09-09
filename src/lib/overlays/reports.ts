@@ -382,7 +382,18 @@ export const stormReportsOverlay: OverlayAdapter = {
       // An aborted request is the workspace changing its mind, not a source
       // that is down, and asking the second one for it would be a request
       // nobody wants and an answer nobody reads.
-      if (signal?.aborted) throw error;
+      //
+      // The failure as well as the signal. A navigation or a connection reset
+      // aborts a fetch without the workspace's own signal ever being raised,
+      // so reading the signal alone let those fall through to the second host
+      // and spend up to five more pages on an answer nobody is waiting for.
+      // `smoke.ts` has read the failure since it was written.
+      if (
+        signal?.aborted ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        throw error;
+      }
       // Through `failureSentence` rather than straight off the error. This
       // string is interpolated into `reports.serviceStatus` below and thrown
       // as a plain `Error`, which `failureSentence` passes through verbatim
