@@ -29,6 +29,7 @@ import {
 import { OVERLAY_ADAPTERS } from "../lib/overlays";
 import type { OverlayId } from "../lib/overlays";
 import { en } from "../i18n/en";
+import { ensureLanguage, setLanguage } from "../i18n";
 import type { WorkspaceOverlayFile } from "../lib/workspaceOverlays";
 import type { GaugeQpePeriod } from "../lib/gaugeQpe";
 import type { AzShearLevel, RotationPeriod } from "../lib/rotationTrack";
@@ -71,6 +72,7 @@ function panel(overrides: {
   onOrderSaid?: (said: string) => void;
   overlayStates?: OverlayStates;
   now?: number;
+  openedToFind?: boolean;
 }) {
   return (
     <LayersPanel
@@ -135,6 +137,7 @@ function panel(overrides: {
       onSurgeCategory={vi.fn()}
       smoothGrids={false}
       onSmoothGrids={vi.fn()}
+      openedToFind={overrides.openedToFind}
       onClose={vi.fn()}
     />
   );
@@ -617,5 +620,123 @@ describe("the seven headings the switches are read under", () => {
     expect(groupOf("weatherAlerts")).toBe("hazards");
     expect(groupOf("lightningFlashes")).toBe("lightning");
     expect(groupOf("customOverlay")).toBe("yours");
+  });
+});
+
+describe("finding a layer by what it is called", () => {
+  // Forty-six switches under seven headings, and the box is the way in for
+  // somebody who knows the word and not the heading. What it filters on is
+  // the catalogue, which every row already carries: the label the row shows
+  // and the note under it, translated. So the check reads the rendered rows
+  // rather than a list written here, and a layer added tomorrow is covered
+  // the day it is added.
+  afterEach(async () => {
+    setLanguage("en");
+    await act(async () => {
+      await ensureLanguage("en");
+    });
+  });
+
+  /** Lowercased and stripped of accents, the way the matcher reads a word. */
+  const fold = (text: string) =>
+    text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "");
+
+  const rows = () =>
+    Array.from(document.querySelectorAll<HTMLElement>("[data-layer]"));
+
+  /** What one row says for itself: its label and the note under it. */
+  const words = (row: HTMLElement) =>
+    fold(
+      `${row.querySelector("strong")?.textContent ?? ""} ${
+        row.querySelector("small")?.textContent ?? ""
+      }`,
+    );
+
+  // By role alone: the panel has one box, and its name is in the reader's
+  // language rather than in English.
+  const type = (value: string) =>
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value } });
+
+  for (const [which, word] of [
+    ["en", "lightning"],
+    ["es", "rayos"],
+    ["fr", "foudre"],
+  ] as const) {
+    it(`leaves only the rows that mention it, in ${which}`, async () => {
+      await act(async () => {
+        await ensureLanguage(which);
+      });
+      setLanguage(which);
+      render(panel({}));
+      const all = rows().length;
+      expect(all).toBeGreaterThan(20);
+
+      type(word);
+      const left = rows();
+      // Something went and something stayed, or the assertion below is a
+      // sentence about an empty list.
+      expect(left.length).toBeGreaterThan(0);
+      expect(left.length).toBeLessThan(all);
+      for (const row of left) {
+        expect(words(row), row.getAttribute("data-layer") ?? "").toContain(
+          fold(word),
+        );
+      }
+      // The one every reader means by the word, named rather than counted.
+      expect(
+        document.querySelector('[data-layer="lightningDensity"]'),
+      ).toBeTruthy();
+    });
+  }
+
+  it("puts everything back when the box is emptied", () => {
+    render(panel({ layers: { lightningDensity: true } }));
+    const all = rows().length;
+    const sections = document.querySelectorAll(".settings-section").length;
+
+    type("lightning");
+    expect(rows().length).toBeLessThan(all);
+    expect(document.querySelectorAll(".settings-section").length).toBeLessThan(
+      sections,
+    );
+
+    type("");
+    expect(rows().length).toBe(all);
+    expect(document.querySelectorAll(".settings-section").length).toBe(
+      sections,
+    );
+  });
+
+  it("keeps the section a switch owns beside the switch", () => {
+    // The window on the lightning density reads as part of that row rather
+    // than as a row of its own, so it follows its switch through the filter.
+    // Filtering the switches and leaving their settings behind was the first
+    // shape of this and it left four headings on screen for a search that
+    // matched one.
+    render(panel({ layers: { lightningDensity: true, satellite: true } }));
+    expect(document.querySelector("[data-satellite-band]")).toBeTruthy();
+    type("lightning");
+    expect(document.querySelector("[data-lightning-window]")).toBeTruthy();
+    expect(document.querySelector("[data-satellite-band]")).toBeNull();
+  });
+
+  it("says so rather than going blank when nothing is called that", () => {
+    render(panel({}));
+    type("biscuits");
+    expect(rows()).toHaveLength(0);
+    expect(screen.getByText(en["layers.findNone"])).toBeTruthy();
+  });
+
+  it("takes the cursor only when the palette asked to find one", () => {
+    // A reader who pressed the rail button came to press a switch, and a
+    // cursor parked in a text box costs them a keystroke to get out of.
+    const { unmount } = render(panel({}));
+    expect(document.activeElement?.id).not.toBe("layers-find");
+    unmount();
+    render(panel({ openedToFind: true }));
+    expect(document.activeElement?.id).toBe("layers-find");
   });
 });

@@ -5715,6 +5715,7 @@ input[type="range"]:disabled {
    to themselves, and `.select-row select` already had its own copy of it. */
 .settings-field input,
 .settings-field select,
+.settings-find input,
 .journal-filter input,
 .journal-filter select,
 .journal-note-edit textarea,
@@ -5731,6 +5732,28 @@ input[type="range"]:disabled {
   font: inherit;
   font-size: 13px;
   min-width: 0;
+}
+
+/* The way into forty-six switches for somebody who knows what the layer is
+   called rather than which heading it lives under. Above the first heading,
+   because it acts on all seven of them. */
+.settings-find {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-find__label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Said where the first heading would have been, so the panel is never blank
+   with no account of why. */
+.settings-find__none {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 /* The shape of a setting that takes a control rather than a switch. Mirrors

@@ -123,6 +123,9 @@ export const es: Catalogue = {
   "alertType.fire": "Incendio",
   "alertType.heat": "Calor",
   "alertType.other": "Todo lo demás",
+  "layers.find": "Busca una capa",
+  "layers.findNone":
+    "Aquí ninguna capa se llama así. La barra de comandos busca en el resto de la aplicación.",
   "layers.order": "Qué capa queda encima",
   "layers.orderDetail":
     "Los avisos siempre quedan por encima, porque un aviso es alguien diciéndote que te resguardes",
@@ -1206,6 +1209,7 @@ export const es: Catalogue = {
   "keywords.export": "guardar imagen video compartir",
   "keywords.upload": "importar cargar paleta colores",
   "keywords.layers": "capas interruptores mostrar ocultar",
+  "keywords.findLayer": "buscar filtrar capa encontrar",
   "keywords.mapType": "mapa base estilo tema terreno",
   "keywords.settings": "opciones preferencias configurar",
   "keywords.more": "estado salud registro version actualizar fuentes",
