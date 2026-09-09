@@ -68,7 +68,7 @@ import {
 import { TEXT_SCALES } from "./units";
 import type { ClockZone, TextScale, UnitSystem } from "./units";
 
-export const APP_VERSION = "0.12.0";
+export const APP_VERSION = "0.13.0";
 
 import { ALERT_TYPES, type AlertType } from "./alertTypes";
 import {

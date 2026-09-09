@@ -1,6 +1,6 @@
 # Changelog
 
-## OpenRadar v0.12.0
+## OpenRadar v0.13.0
 
 - Sites with the new supplemental base tilt are read at it. Build 24.1 gave some radars an extra cut at 0.3 degrees, below the 0.5 every site has always started at, and the lower one is what the radar repeats while it is on. The picker now names it and the lowest tilt draws it, and where such a site publishes a hydrometeor classification of its own for that cut, that is the one read. A site without the build is unaffected.
 
