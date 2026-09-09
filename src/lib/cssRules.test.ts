@@ -48,23 +48,68 @@ const SWALLOWED_BY: Record<string, string[]> = {
   "background-image": ["background"],
   "background-position": ["background"],
   "background-size": ["background"],
+  "background-repeat": ["background"],
+  // `border` resets the width, the style and the colour of all four sides,
+  // and the image. It does NOT reset the radius, which was in this table and
+  // was wrong: `#a{border-radius:8px} #a{border:0}` leaves the radius
+  // standing, and this file writes a radius 119 times against 104 borders.
   "border-color": ["border"],
   "border-style": ["border"],
   "border-width": ["border"],
-  "border-radius": ["border"],
+  "border-top": ["border"],
+  "border-right": ["border"],
+  "border-bottom": ["border"],
+  "border-left": ["border"],
   "font-size": ["font"],
   "font-weight": ["font"],
   "font-family": ["font"],
+  "font-style": ["font"],
   "line-height": ["font"],
   "flex-basis": ["flex"],
   "flex-grow": ["flex"],
   "flex-shrink": ["flex"],
+  "flex-direction": ["flex-flow"],
+  "flex-wrap": ["flex-flow"],
   "grid-template-columns": ["grid-template", "grid"],
   "grid-template-rows": ["grid-template", "grid"],
+  "grid-row": ["grid-area"],
+  "grid-column": ["grid-area"],
   top: ["inset"],
   right: ["inset"],
   bottom: ["inset"],
   left: ["inset"],
+  "margin-top": ["margin"],
+  "margin-right": ["margin"],
+  "margin-bottom": ["margin"],
+  "margin-left": ["margin"],
+  "padding-top": ["padding"],
+  "padding-right": ["padding"],
+  "padding-bottom": ["padding"],
+  "padding-left": ["padding"],
+  "align-items": ["place-items"],
+  "justify-items": ["place-items"],
+  "align-content": ["place-content"],
+  "justify-content": ["place-content"],
+  "outline-color": ["outline"],
+  "outline-style": ["outline"],
+  "outline-width": ["outline"],
+  "animation-name": ["animation"],
+  "animation-duration": ["animation"],
+  "animation-timing-function": ["animation"],
+  "animation-delay": ["animation"],
+  "animation-iteration-count": ["animation"],
+  "animation-fill-mode": ["animation"],
+  "transition-property": ["transition"],
+  "transition-duration": ["transition"],
+  "transition-timing-function": ["transition"],
+  "transition-delay": ["transition"],
+  "list-style-type": ["list-style"],
+  "list-style-position": ["list-style"],
+  "list-style-image": ["list-style"],
+  "text-decoration-line": ["text-decoration"],
+  "text-decoration-color": ["text-decoration"],
+  "text-decoration-style": ["text-decoration"],
+  "mask-image": ["mask"],
   "overflow-x": ["overflow"],
   "overflow-y": ["overflow"],
   "row-gap": ["gap"],
@@ -82,20 +127,50 @@ function taken(property: string, wins: Map<string, string>): boolean {
 /**
  * How hard a selector is to beat, as the three counts the cascade uses.
  *
- * Enough to answer "does this later rule win", which is all that is asked of
- * it: a media query adds nothing of its own, so a later plain rule that ties
- * or beats the one inside the block takes the declaration.
+ * The first version of this was never reached: it was only ever asked whether
+ * a selector beat a prefix extension of itself, where the answer is yes
+ * whatever the counts say, so it could be wrong in four places and nothing
+ * noticed. It decides real questions now, so it is written to the
+ * specification and held to it by a case list below.
+ *
+ * `:where()` contributes nothing and takes its contents with it. `:not()`,
+ * `:is()` and `:has()` contribute their argument, which is exact for one
+ * argument and an over-count for a list, where the specification takes the
+ * largest. This file has six `:not()`, each with a single argument, and no
+ * `:is`, `:where` or `:has` at all, so the list case cannot arise here; it is
+ * written down rather than left to be found later. A pseudo-element counts as
+ * a type selector rather than as nothing.
  */
 function weight(selector: string): [number, number, number] {
   const bare = selector
+    // An escaped character is not the thing it looks like.
     .replace(/\\./g, "")
-    .replace(/::[a-z-]+/g, " ")
-    .replace(/:(?:not|is|where)\(/g, " (");
+    // Pseudo-elements first, or the pseudo-class pass below would take the
+    // second colon and leave the name behind. Each becomes a type selector.
+    .replace(/::[a-z-]+(?:\([^)]*\))?/g, " e")
+    .replace(/:where\([^)]*\)/g, " ")
+    .replace(/:(?:not|is|has)\(([^)]*)\)/g, " $1 ");
   return [
     (bare.match(/#[\w-]+/g) ?? []).length,
-    (bare.match(/\.[\w-]+|\[[^\]]*\]|:[a-z-]+/g) ?? []).length,
+    (bare.match(/\.[\w-]+|\[[^\]]*\]|:[a-z-]+(?:\([^)]*\))?/g) ?? []).length,
     (bare.match(/(^|[\s>+~(,])[a-z][\w-]*/g) ?? []).length,
   ];
+}
+
+/**
+ * The element a selector is about, which is its last compound.
+ *
+ * `.app-shell .command-bar` and `:root[data-narrow~="680"] .command-bar` are
+ * both rules about command bars; everything in front only says which ones. So
+ * two rules that share a subject are two rules about one kind of element, and
+ * the later of them can take a declaration from the earlier.
+ */
+function subject(selector: string): string {
+  const compounds = selector
+    .replace(/\s*[>+~]\s*/g, " ")
+    .trim()
+    .split(/\s+/);
+  return compounds[compounds.length - 1] ?? selector;
 }
 
 /** Whether the second selector wins a tie or better against the first. */
@@ -244,6 +319,49 @@ describe("the stylesheet says what the browser does", () => {
   const css = readFileSync(join(ROOT, "index.css"), "utf8");
   const all = rules(css);
 
+  it("counts a selector's weight the way the cascade does", () => {
+    // Held against the specification rather than against this file. The first
+    // version of `weight` was only ever asked whether a selector beat a
+    // prefix extension of itself, where the answer is yes whatever the counts
+    // are, so four mistakes in it were invisible. It decides now.
+    const cases: Array<[string, [number, number, number]]> = [
+      ["div", [0, 0, 1]],
+      [".a", [0, 1, 0]],
+      ["#a", [1, 0, 0]],
+      // A pseudo-element is a type selector, not nothing.
+      ["a::before", [0, 0, 2]],
+      ["::-webkit-scrollbar", [0, 0, 1]],
+      // `:where` contributes nothing at all, and its contents go with it.
+      [".a:where(.b.c.d)", [0, 1, 0]],
+      // `:not` and `:has` contribute their argument.
+      [".a:not(.b)", [0, 2, 0]],
+      [".a:has(.b)", [0, 2, 0]],
+      // The pair the media gate has to tell apart, which is what sent it
+      // looking: the second of these was taking the first and neither the
+      // string comparison nor the suffix one could see it.
+      [":root .surface-panel", [0, 2, 0]],
+      [':root[data-narrow~="680"] .surface-panel', [0, 3, 0]],
+      // And two more this file really carries.
+      ['.command-button[aria-pressed="true"]', [0, 2, 0]],
+      [".status-list span:not(.status-dot)", [0, 2, 1]],
+    ];
+    for (const [selector, want] of cases) {
+      expect(weight(selector), selector).toEqual(want);
+    }
+    // What the gate asks of it: a later rule that ties takes the declaration
+    // and a weaker one does not.
+    expect(beats(".a .b", ".b")).toBe(true);
+    expect(beats(".b", ".b")).toBe(true);
+    expect(beats("div.b", ".a.b")).toBe(false);
+    expect(beats("[data-x] .b", "#a .b")).toBe(false);
+    // And the subject, which is what says two rules are about one element.
+    expect(subject(':root[data-narrow~="680"] .surface-panel')).toBe(
+      ".surface-panel",
+    );
+    expect(subject(".a > .b + .c ~ .d")).toBe(".d");
+    expect(subject(".toast")).toBe(".toast");
+  });
+
   it("has no declaration a later rule with the same selector already sets", () => {
     const groups = new Map<string, Rule[]>();
     for (const rule of all) {
@@ -295,32 +413,41 @@ describe("the stylesheet says what the browser does", () => {
     // just as completely as another `.command-bar` would, and reads as a
     // different rule. Same elements, then weight, is the question the
     // browser asks.
+    // Its second version compared whole selectors as a suffix, which is only
+    // a little wider and missed the case the first repair created: raising a
+    // rule to `:root .surface-panel` put it past the plain rules and left it
+    // losing to `:root[data-narrow~="680"] .surface-panel`, which neither
+    // equals it nor ends with it. What two rules share when one can take from
+    // the other is the element they select, which is the last compound;
+    // everything in front only says which of those elements, and the weight
+    // settles the rest.
     const parts = (rule: Rule) =>
       rule.selector.split(",").map((one) => one.replace(/\s+/g, " ").trim());
-    /** Whether `later` reaches everything `mine` does, at a weight that wins. */
-    const overrides = (later: Rule, mine: Rule) =>
-      parts(mine).some((one) =>
-        parts(later).some(
-          (other) =>
-            (other === one || other.endsWith(` ${one}`)) && beats(other, one),
-        ),
-      );
     const plain = all.filter((rule) => !context(rule));
     const beaten: string[] = [];
     for (const [at, rule] of all.entries()) {
       const inside = context(rule);
       if (!/@media|@supports/.test(inside)) continue;
       const mine = properties(rule);
-      for (const later of plain) {
-        if (all.indexOf(later) < at) continue;
-        if (!overrides(later, rule)) continue;
-        const wins = properties(later);
-        for (const [property, value] of mine) {
-          if (value.includes("!important")) continue;
-          if (!taken(property, wins)) continue;
-          beaten.push(
-            `${inside} ${rule.selector} line ${rule.source?.start?.line}: ${property} is taken by line ${later.source?.start?.line}`,
+      // One selector of the block's list at a time. Reported per rule, a
+      // block naming six things was reported as beaten six times over
+      // whichever one of them really was, and `.toast` was named four times
+      // by lines that do not select a toast at all.
+      for (const one of parts(rule)) {
+        for (const later of plain) {
+          if (all.indexOf(later) < at) continue;
+          const takes = parts(later).some(
+            (other) => subject(other) === subject(one) && beats(other, one),
           );
+          if (!takes) continue;
+          const wins = properties(later);
+          for (const [property, value] of mine) {
+            if (value.includes("!important")) continue;
+            if (!taken(property, wins)) continue;
+            beaten.push(
+              `${inside} ${one} line ${rule.source?.start?.line}: ${property} is taken by line ${later.source?.start?.line}`,
+            );
+          }
         }
       }
     }

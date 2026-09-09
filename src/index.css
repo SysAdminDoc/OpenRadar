@@ -197,7 +197,6 @@ a {
   z-index: 50;
   display: flex;
   color: var(--command-ink);
-  scrollbar-width: thin;
 }
 
 /* The weather where the reader watches, on the chrome and nowhere else.
@@ -3192,17 +3191,20 @@ input[type="range"]:disabled {
     --command-ink-faint: #a4b0c2;
   }
 
-  /* Through `:root`, which a media query cannot supply on its own: the flat
-     layout at the bottom of this file sets the same thing on each of these
-     unconditionally and later, so written plainly none of this was read. It
-     says the same thing today and it is a different promise, so it has to
-     hold on its own. */
-  :root .surface-panel,
-  :root .radar-timeline,
-  :root .radar-legend,
-  :root .zoom-controls,
-  :root .command-bar {
-    backdrop-filter: none;
+  /* Marked important rather than out-weighted. The flat layout at the bottom
+     of this file turns the same blur off on each of these unconditionally and
+     later, so written plainly none of this was read; raising it through
+     `:root` only moved it past the plain rules and left it losing to the
+     narrow-layout ones, which are more specific still. This is the same
+     promise the focus ring below makes and it is made the same way: a reader
+     who asked the system for more contrast does not get a translucent
+     surface, whatever else the file says. */
+  .surface-panel,
+  .radar-timeline,
+  .radar-legend,
+  .zoom-controls,
+  .command-bar {
+    backdrop-filter: none !important;
   }
 }
 
@@ -3288,15 +3290,15 @@ input[type="range"]:disabled {
     outline: 1px solid Highlight;
   }
 
-  /* Nothing translucent survives a repaint legibly. Through `:root` for the
-     same reason as the block above. */
-  :root .surface-panel,
-  :root .radar-timeline,
-  :root .radar-legend,
-  :root .zoom-controls,
-  :root .command-bar,
-  :root .toast {
-    backdrop-filter: none;
+  /* Nothing translucent survives a repaint legibly. Important for the same
+     reason as the block above. */
+  .surface-panel,
+  .radar-timeline,
+  .radar-legend,
+  .zoom-controls,
+  .command-bar,
+  .toast {
+    backdrop-filter: none !important;
   }
 
   /* The focus ring in the system's own colour, which is the one thing a
