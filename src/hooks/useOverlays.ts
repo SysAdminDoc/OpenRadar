@@ -358,13 +358,18 @@ export function useOverlays(
             });
           })
           .finally(() => {
-            // A newer request may already own the slot.
-            if (requests.get(adapter.id)?.controller !== controller) return;
-            requests.delete(adapter.id);
-            // Here as well as in the two answers above, because the third way
-            // out is an abort: it returns before either of them, and a
-            // cancelled request would otherwise leave the row saying it was
-            // still asking for as long as the layer stayed on.
+            // Only our own, since a newer request may already own the slot.
+            if (requests.get(adapter.id)?.controller === controller) {
+              requests.delete(adapter.id);
+            }
+            // Cleared unless somebody else is asking now. Written as "do I
+            // still own the slot" it was dead in the one case it was added
+            // for: every abort takes the entry out before the promise
+            // settles, so the owner check was false exactly when a cancelled
+            // request needed clearing, and the row read as still asking until
+            // the layer's next refresh came round, which for the winter
+            // severity layer is twenty minutes.
+            if (requests.has(adapter.id)) return;
             setStates((current) =>
               current[adapter.id].fetching
                 ? {
@@ -411,12 +416,18 @@ export function useOverlays(
     const visible = {} as OverlayStates;
     for (const adapter of OVERLAY_ADAPTERS) {
       const state = states[adapter.id];
-      visible[adapter.id] =
+      const answers =
         enabled[adapter.id] &&
         state.variant === variantOf(adapter, choices) &&
-        coversViewport(adapter, state, viewport)
-          ? state
-          : IDLE_OVERLAY;
+        coversViewport(adapter, state, viewport);
+      // Whether a request is out survives an answer that is not the one being
+      // asked for. Four of these layers never carry an empty variant, so
+      // their very first request was hidden behind the idle state and the row
+      // said it was waiting rather than asking, which is the one distinction
+      // the row exists to make.
+      visible[adapter.id] = answers
+        ? state
+        : { ...IDLE_OVERLAY, fetching: state.fetching };
     }
     return visible;
   }, [enabled, states, viewport, choices]);

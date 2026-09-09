@@ -268,14 +268,14 @@ const LAYER_GROUPS: Array<{ id: LayerGroup; labelKey: StringKey }> = [
   { id: "hazards", labelKey: "layers.groupHazards" },
   { id: "radar", labelKey: "layers.groupRadar" },
   { id: "water", labelKey: "layers.groupWater" },
-  { id: "sky2", labelKey: "layers.groupLightning" },
+  { id: "lightning", labelKey: "layers.groupLightning" },
   { id: "sky", labelKey: "layers.groupSky" },
   { id: "reference", labelKey: "layers.groupReference" },
   { id: "yours", labelKey: "layers.groupYours" },
 ];
 
 type LayerGroup =
-  "hazards" | "radar" | "water" | "sky2" | "sky" | "reference" | "yours";
+  "hazards" | "radar" | "water" | "lightning" | "sky" | "reference" | "yours";
 
 const LAYER_OPTIONS: Array<{
   key: keyof LayerSettings;
@@ -545,21 +545,21 @@ const LAYER_OPTIONS: Array<{
   },
   {
     key: "lightningDensity",
-    group: "sky2",
+    group: "lightning",
     labelKey: "layer.lightningDensity",
     detailKey: "layers.lightningDensityDetail",
     icon: Zap,
   },
   {
     key: "lightningForecast",
-    group: "sky2",
+    group: "lightning",
     labelKey: "layer.lightningForecast",
     detailKey: "layers.lightningForecastDetail",
     icon: Zap,
   },
   {
     key: "lightningJump",
-    group: "sky2",
+    group: "lightning",
     labelKey: "layer.lightningJump",
     detailKey: "layers.lightningJumpDetail",
     icon: Zap,
@@ -580,7 +580,7 @@ const LAYER_OPTIONS: Array<{
   },
   {
     key: "lightningFlashes",
-    group: "sky2",
+    group: "lightning",
     labelKey: "layer.lightningFlashes",
     detailKey: "layers.lightningFlashesDetail",
     icon: Zap,
@@ -688,12 +688,21 @@ export function LayersPanel({
    */
   const statusOf = (key: keyof LayerSettings) => {
     if (!layers[key] || !overlayStates || now === undefined) return null;
+
     const entry = OVERLAY_LAYERS.find((one) => one.key === key);
     const adapter = OVERLAY_ADAPTERS.find((one) => one.id === entry?.overlayId);
     if (!entry || !adapter) return null;
     const state = overlayStates[adapter.id];
     if (!state) return null;
-    return overlayStatus(state, adapter.refreshMs, now);
+    const status = overlayStatus(state, adapter.refreshMs, now);
+    // A layer the workspace has decided not to ask for at all says why
+    // underneath: zoom in, or not while the map is held on another day.
+    // Nothing is in flight and nothing has arrived, so this would read as
+    // waiting, and a row saying "waiting" over a note saying "zoom in"
+    // contradicts itself on one line. A failure has a note too, and that one
+    // is the state and its reason agreeing.
+    if (status.health === "waiting" && layerNotes?.[key]) return null;
+    return status;
   };
 
   const labelFor = (overlayId: string): StringKey =>

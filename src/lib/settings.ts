@@ -947,17 +947,31 @@ export async function noteWorkspaceDrawn(): Promise<void> {
  */
 export async function restoreArrangement(): Promise<void> {
   const stored = plainFrom;
-  // The count first, or the window that comes back is stood down again.
+  if (stored) {
+    // What the reader has done since is theirs. The switches are what a plain
+    // start stood down and what a save during it wrote over; the theme was
+    // never taken out of the file, and the camera and anything else they
+    // changed in this window is where they left it.
+    const now = await readSettings().catch(() => null);
+    const written = await saveSettings(
+      now
+        ? { ...stored, workspaceTheme: now.workspaceTheme, camera: now.camera }
+        : stored,
+    ).then(
+      () => true,
+      () => false,
+    );
+    // Only then is the count cleared. Cleared first, a write that failed left
+    // the reader in a window that looks ordinary, running on the plain
+    // settings, with no toast and no way to ask again; leaving the count
+    // means the next window opens plain and offers them the press again.
+    if (!written) return;
+  }
   if (isDesktopRuntime()) {
     await invoke("clear_unclean_starts").catch(() => undefined);
   }
-  // Then the arrangement, because a plain session that saved anything wrote
-  // its own switch positions over the reader's. The theme is not among them:
-  // it is never taken out of the file, only stood down for the session.
-  if (stored) await saveSettings(stored).catch(() => undefined);
-  // `plainFrom` is deliberately left where it is. The page is going away, and
-  // a debounced write that fires between here and the navigation should carry
-  // the arrangement rather than the plain session's version of it.
+  // `plainFrom` is left where it is. The page is going away, and nothing
+  // reads it on the way out.
   window.location.reload();
 }
 

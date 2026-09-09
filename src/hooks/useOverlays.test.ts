@@ -379,3 +379,79 @@ describe("what a switched-on layer has to say for itself", () => {
     expect(overlayStatus(IDLE_OVERLAY, REFRESH, NOW).ageSeconds).toBeNull();
   });
 });
+
+describe("a request that was cancelled rather than answered", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** Every layer off but the one under test. */
+  function only(id: OverlayId): Record<OverlayId, boolean> {
+    const switches = {} as Record<OverlayId, boolean>;
+    for (const adapter of OVERLAY_ADAPTERS) switches[adapter.id] = false;
+    switches[id] = true;
+    return switches;
+  }
+
+  it("stops the row saying it is still asking", async () => {
+    // Every abort takes the request out of the map before the promise
+    // settles, so a settle that checked "do I still own the slot" returned
+    // before clearing anything, in exactly the case it was written for. The
+    // row then read as asking until the layer's next refresh came round,
+    // which for the wildfire layer is ten minutes and for the winter severity
+    // one is twenty.
+    const NEAR = { west: -122.5, south: 37.5, east: -122.0, north: 38.0 };
+    const AWAY = { west: -100.0, south: 40.0, east: -99.5, north: 40.5 };
+    let asked = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation((async (
+      _url: string,
+      init?: { signal?: AbortSignal },
+    ) => {
+      asked += 1;
+      if (asked === 1) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ features: [] }),
+        } as Response;
+      }
+      // Every later one hangs until it is cancelled, which is what a request
+      // for somewhere the reader has left does.
+      return new Promise<Response>((_, refuse) => {
+        init?.signal?.addEventListener("abort", () =>
+          refuse(new DOMException("aborted", "AbortError")),
+        );
+      });
+    }) as unknown as typeof fetch);
+
+    const view = renderHook<
+      ReturnType<typeof useOverlays>,
+      { bounds: OverlayBounds }
+    >(
+      ({ bounds }) =>
+        useOverlays(only("wildfires"), bounds, DEFAULT_OVERLAY_CHOICES),
+      { initialProps: { bounds: NEAR } },
+    );
+    await waitFor(() =>
+      expect(view.result.current.wildfires.fetchedAt).not.toBeNull(),
+    );
+
+    // Away, which is a new request, and back before it lands, which cancels
+    // it and asks for nothing: what is already held covers where the reader
+    // is again.
+    view.rerender({ bounds: AWAY });
+    await waitFor(() => expect(asked).toBe(2));
+    expect(view.result.current.wildfires.fetching).toBe(true);
+    view.rerender({ bounds: NEAR });
+
+    await waitFor(() =>
+      expect(
+        view.result.current.wildfires.fetching,
+        "the row was left saying it was still asking",
+      ).toBe(false),
+    );
+    // And nothing was asked for on the way back, which is what makes this the
+    // cancelled case rather than a successor quietly covering for it.
+    expect(asked).toBe(2);
+  });
+});

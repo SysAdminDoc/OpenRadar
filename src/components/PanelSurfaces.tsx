@@ -179,8 +179,6 @@ interface PanelSurfacesProps {
    * in silence looks like a quiet afternoon.
    */
   layerNotes: Partial<Record<keyof LayerSettings, string | null>>;
-  /** Now, for the age beside a layer row that has a source of its own. */
-  now: number;
   clock: number;
   update: UpdateState;
   onUpdate: (() => void) | null;
@@ -347,7 +345,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             layers={settings.layers}
             layerNotes={props.layerNotes}
             overlayStates={overlays}
-            now={props.now}
+            now={props.clock}
             overlayOpacity={settings.overlayOpacity}
             onOverlayOpacity={props.onOverlayOpacity}
             overlayOrder={settings.overlayOrder}
