@@ -2038,6 +2038,11 @@ export const es: Catalogue = {
   "ambientScreen.awakeDetail":
     "Windows apaga un monitor con su propio temporizador, lo que no sirve de mucho para una vista pensada para dejarse puesta. Esto mantiene la pantalla encendida solo mientras se muestra la vista a pantalla completa, y la devuelve en cuanto sales. Solo en Windows.",
   "ambientScreen.idle": "Entrar sola después de",
+  "ambientScreen.distance": "Se lee desde",
+  "ambientScreen.distanceDesk": "Desde el escritorio",
+  "ambientScreen.distanceNear": "Un paso atrás",
+  "ambientScreen.distanceRoom": "Desde una sala pequeña",
+  "ambientScreen.distanceFar": "Desde una sala grande",
   "ambientScreen.idleOff": "Nunca",
   "ambientScreen.idleMinutes":
     "{minutes, plural, one {# minuto} other {# minutos}}",

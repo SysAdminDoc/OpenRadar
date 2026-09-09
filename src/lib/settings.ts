@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { AMBIENT_DISTANCES, DEFAULT_AMBIENT_METRES } from "./ambientScreen";
 import { isDesktopRuntime } from "./runtime";
 import { SPC_HAZARDS } from "./spcHazards";
 import type { SpcHazard } from "./spcHazards";
@@ -461,6 +462,15 @@ export interface AppSettings {
    */
   watchRings: boolean;
   /**
+   * How far the reader is from the screen the full-screen view is on, in
+   * metres.
+   *
+   * The view is meant to be read across a room and its type was drawn for a
+   * desk. One number, because the rest is geometry: an angle held constant is
+   * a size proportional to the distance.
+   */
+  ambientMetres: number;
+  /**
    * Which GOES-East view the satellite layer draws.
    *
    * GeoColor by default, which is the picture people expect. The infrared
@@ -790,6 +800,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   followNewWarnings: false,
   watchRings: false,
+  ambientMetres: DEFAULT_AMBIENT_METRES,
   satelliteBand: "geocolor",
   approach: DEFAULT_APPROACH,
   lightningWatch: DEFAULT_LIGHTNING_RULE,
@@ -1962,6 +1973,11 @@ export function normalizeSettings(value: unknown): AppSettings {
       DEFAULT_SETTINGS.followNewWarnings,
     ),
     watchRings: bool(raw.watchRings, DEFAULT_SETTINGS.watchRings),
+    ambientMetres: (AMBIENT_DISTANCES as readonly number[]).includes(
+      Number(raw.ambientMetres),
+    )
+      ? Number(raw.ambientMetres)
+      : DEFAULT_SETTINGS.ambientMetres,
     // Read from the old key too, which held the same two band names before
     // the satellite stopped being part of the choice. A file written by any
     // build before 2026-09-03 keeps the view its reader picked.

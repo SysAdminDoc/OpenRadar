@@ -12,7 +12,8 @@ import { useForcedColours } from "../hooks/useClock";
 import { IncidentPackManager } from "./IncidentPackManager";
 import { StorageSection } from "./StorageSection";
 import type { UndoableRemoval } from "../components/ToastHost";
-import { formatNumber, LANGUAGES, useT } from "../i18n";
+import { formatNumber, LANGUAGES, useT, type StringKey } from "../i18n";
+import { AMBIENT_DISTANCES } from "../lib/ambientScreen";
 import { loopSpeedLabel } from "../lib/radar";
 import { themeAccent, themeFromAccent } from "../lib/theme";
 import type { AmbientState } from "../hooks/useAmbient";
@@ -90,6 +91,20 @@ interface SettingsPanelProps {
  * on screen is the only honest choice, so `theme.test.ts` holds these two in
  * step with the stylesheet.
  */
+/**
+ * What each viewing distance is called.
+ *
+ * Written out rather than built from the number: the catalogue gate refuses a
+ * key assembled from a variable, and a distance is a place in a room rather
+ * than a measurement anybody takes.
+ */
+const AMBIENT_DISTANCE_WORDS: Record<string, StringKey> = {
+  "0.6": "ambientScreen.distanceDesk",
+  "1.5": "ambientScreen.distanceNear",
+  "2.5": "ambientScreen.distanceRoom",
+  "4": "ambientScreen.distanceFar",
+};
+
 const BUILT_IN_ACCENT: Record<AppSettings["theme"], string> = {
   dark: "#4bc0ff",
   light: "#0879b8",
@@ -314,6 +329,26 @@ export function SettingsPanel({
               {[5, 15, 30, 60].map((minutes) => (
                 <option key={minutes} value={String(minutes)}>
                   {t("ambientScreen.idleMinutes", { minutes })}
+                </option>
+              ))}
+            </select>
+          </label>
+          {/* The view is meant to be read across a room and its type was
+              drawn for a desk. One number, because the rest is geometry. */}
+          <label className="settings-field">
+            <span>{t("ambientScreen.distance")}</span>
+            <select
+              value={String(settings.ambientMetres)}
+              onChange={(event) =>
+                onSettings({
+                  ...settings,
+                  ambientMetres: Number(event.target.value),
+                })
+              }
+            >
+              {AMBIENT_DISTANCES.map((metres) => (
+                <option key={metres} value={String(metres)}>
+                  {t(AMBIENT_DISTANCE_WORDS[String(metres)])}
                 </option>
               ))}
             </select>

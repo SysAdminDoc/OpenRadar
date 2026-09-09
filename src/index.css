@@ -3120,6 +3120,10 @@ input[type="range"]:disabled {
  * are invisible to a person and matter to a panel left on all night.
  */
 .ambient-readout {
+  /* One at a desk, which is what the type was drawn for. The view writes the
+     reader's own distance over this; defined here so the stylesheet stands on
+     its own and a fallback is never the value somebody is reading. */
+  --ambient-scale: 1;
   position: absolute;
   left: 32px;
   bottom: 32px;
@@ -3149,19 +3153,22 @@ input[type="range"]:disabled {
   text-shadow: 0 1px 6px rgba(255, 255, 255, 0.85);
 }
 
+/* Every line is drawn at the size it was designed at, times what the reader's
+   distance from the screen asks for. One at a desk, which is what it was, and
+   proportional to the distance after that. */
 .ambient-readout strong {
-  font-size: 46px;
+  font-size: calc(46px * var(--ambient-scale));
   font-weight: 300;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
 .ambient-readout span {
-  font-size: 17px;
+  font-size: calc(17px * var(--ambient-scale));
 }
 
 .ambient-readout small {
-  font-size: 13px;
+  font-size: calc(13px * var(--ambient-scale));
   color: #a9b6c6;
 }
 

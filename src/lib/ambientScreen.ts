@@ -93,3 +93,92 @@ export function drift(elapsedMs: number): { x: number; y: number } {
 export function ambientOpacity(idleMs: number): number {
   return idleMs >= DIM_AFTER_MS ? DIM_OPACITY : 1;
 }
+
+/**
+ * The angle a glyph should subtend for a display somebody reads at a glance.
+ *
+ * Nineteen arcminutes is the human-factors figure for a screen that is looked
+ * at rather than worked at. It is an angle, so it says nothing about a font
+ * size until a distance is named: the same nineteen arcminutes is thirteen
+ * pixels on a desk and ninety on a wall four metres away.
+ */
+export const GLANCE_ARCMINUTES = 19;
+
+/**
+ * The smallest line in the readout, as the stylesheet draws it.
+ *
+ * Held against `index.css` by a test rather than trusted, because the whole
+ * rule below is anchored on it.
+ */
+export const AMBIENT_SMALLEST_PX = 13;
+export const AMBIENT_CLOCK_PX = 46;
+export const AMBIENT_PLACE_PX = 17;
+
+/**
+ * How far away the type was drawn for.
+ *
+ * Not a guess: it is the distance at which the smallest line subtends the
+ * nineteen arcminutes above. A CSS pixel is a 96th of an inch by definition,
+ * so thirteen of them are 3.44 mm, and 3.44 mm subtends nineteen arcminutes
+ * at 622 mm. Rounded to six-tenths of a metre, which is a person at a desk.
+ */
+export const DEFAULT_AMBIENT_METRES = 0.6;
+
+/** The distances the setting offers, in metres. */
+export const AMBIENT_DISTANCES = [0.6, 1.5, 2.5, 4] as const;
+
+/**
+ * How much bigger the readout has to be to be read from a given distance.
+ *
+ * Linear in the distance, which is what holding an angle constant means for
+ * anything small enough that the tangent is the angle: at twice the distance,
+ * twice the size. One is the default, so a reader who never opens the setting
+ * sees exactly what they saw before.
+ *
+ * Bounded by the window, because the geometry does not know how big the
+ * screen is. A person four metres from a 1024 by 680 window is asking for
+ * type that would not fit in it, and a clock running off the edge is less
+ * readable than one that is slightly too small.
+ *
+ * The bound is measured against the lines that will actually be drawn rather
+ * than against the clock alone. The longest line is the quietest one, the
+ * source and the age, and at a distance it is what runs out of room first: a
+ * first attempt bounded on the clock let that line wrap into four, and the
+ * readout stood four hundred pixels above the top of the window.
+ */
+export function ambientTypeScale(
+  metres: number,
+  viewport: { width: number; height: number },
+  lines: { clock: string; place: string; source: string },
+): number {
+  const wanted = Math.max(1, metres / DEFAULT_AMBIENT_METRES);
+  // A glyph runs to about half its size in this face, and the clock's are
+  // tabular, which is a little wider.
+  const widest = Math.max(
+    lines.clock.length * 0.55 * AMBIENT_CLOCK_PX,
+    lines.place.length * 0.5 * AMBIENT_PLACE_PX,
+    lines.source.length * 0.5 * AMBIENT_SMALLEST_PX,
+    1,
+  );
+  const across = (viewport.width - AMBIENT_INSET_PX * 2) / widest;
+  // The three lines scale; the gaps between them, the way out and the bottom
+  // inset do not, so those come off the top before the rest is divided. The
+  // clock sets its own line height at 1 and the two lines under it take the
+  // page's, which is what makes a sum of the raw sizes too small by a fifth.
+  const tall =
+    AMBIENT_CLOCK_PX +
+    (lines.place ? AMBIENT_PLACE_PX * AMBIENT_LINE_HEIGHT : 0) +
+    AMBIENT_SMALLEST_PX * AMBIENT_LINE_HEIGHT;
+  const down =
+    (viewport.height - AMBIENT_INSET_PX - AMBIENT_LEAVE_PX - AMBIENT_GAPS_PX) /
+    tall;
+  return Math.max(1, Math.min(wanted, across, down));
+}
+
+/** How far the readout sits from the corner, and how tall its way out is. */
+const AMBIENT_INSET_PX = 32;
+const AMBIENT_LEAVE_PX = 52;
+/** The gaps between the three lines, which do not scale with the type. */
+const AMBIENT_GAPS_PX = 4;
+/** What the two lines under the clock take from the page. */
+const AMBIENT_LINE_HEIGHT = 1.45;

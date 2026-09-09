@@ -1,8 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import { X } from "lucide-react";
 import { useT } from "../i18n";
 import { formatClock } from "../lib/units";
-import { ambientOpacity, drift } from "../lib/ambientScreen";
+import { ambientOpacity, ambientTypeScale, drift } from "../lib/ambientScreen";
 
 /**
  * What the second monitor says: the time, the place, the source, the age.
@@ -22,6 +22,7 @@ export function AmbientReadout({
   frameAgeMinutes,
   idleMs,
   overLight,
+  metres,
   onLeave,
 }: {
   /** Ticks once a minute, which is all a wall clock needs. */
@@ -33,6 +34,8 @@ export function AmbientReadout({
   idleMs: number;
   /** Whether the basemap under this is a light one. */
   overLight: boolean;
+  /** How far away the reader said the screen is, in metres. */
+  metres: number;
   onLeave: () => void;
 }) {
   const t = useT();
@@ -68,6 +71,13 @@ export function AmbientReadout({
   }, []);
 
   const at = drift(idleMs);
+  // Read once and drawn once, because the size of the type is worked out from
+  // how long these are.
+  const shown = formatClock(clock, { hour: "numeric", minute: "2-digit" });
+  const beneath =
+    frameAgeMinutes === null
+      ? source
+      : t("ambientScreen.age", { source, minutes: frameAgeMinutes });
   return (
     <div
       // Keyed on the basemap rather than on the theme, the way the county
@@ -77,23 +87,27 @@ export function AmbientReadout({
       className="ambient-readout"
       data-over-light={overLight ? "1" : undefined}
       data-ambient-readout
-      style={{
-        transform: `translate(${at.x}px, ${at.y}px)`,
-        opacity: ambientOpacity(idleMs),
-      }}
+      style={
+        {
+          transform: `translate(${at.x}px, ${at.y}px)`,
+          opacity: ambientOpacity(idleMs),
+          // One number for the whole readout, which the stylesheet multiplies
+          // each line by. Measured against the window rather than the screen:
+          // this view fills whatever window it is in, and a clock running off
+          // the edge is less readable than one that is slightly too small.
+          "--ambient-scale": ambientTypeScale(
+            metres,
+            { width: window.innerWidth, height: window.innerHeight },
+            // The lines as they will be drawn, because the longest of them is
+            // what runs out of room first and it is the quietest one.
+            { clock: shown, place, source: beneath },
+          ),
+        } as CSSProperties
+      }
     >
-      <strong>
-        {formatClock(clock, { hour: "numeric", minute: "2-digit" })}
-      </strong>
+      <strong>{shown}</strong>
       {place ? <span>{place}</span> : null}
-      <small>
-        {frameAgeMinutes === null
-          ? source
-          : t("ambientScreen.age", {
-              source,
-              minutes: frameAgeMinutes,
-            })}
-      </small>
+      <small>{beneath}</small>
       {/* The way out. The command bar this was reached from is one of the
           things the mode hides, so without this there is no way back that is
           not a keyboard shortcut, and this project does not have those. It
