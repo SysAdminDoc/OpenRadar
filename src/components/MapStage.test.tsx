@@ -60,6 +60,7 @@ function mount(
       satelliteAgeMinutes={null}
       overlays={{}}
       route={null}
+      watchRings={null}
       customOverlay={null}
       stormTrack={null}
       sweep={null}

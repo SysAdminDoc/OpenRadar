@@ -57,6 +57,12 @@ export const COUNTY_SOURCE_ID = "openradar-county-source";
 export const COUNTY_CASING_LAYER_ID = "openradar-county-casing";
 export const COUNTY_LAYER_ID = "openradar-county-line";
 export const COUNTY_LAYER_IDS = [COUNTY_CASING_LAYER_ID, COUNTY_LAYER_ID];
+export const WATCH_RING_LAYER_ID = "openradar-watch-ring";
+export const WATCH_RING_LABEL_LAYER_ID = "openradar-watch-ring-label";
+export const WATCH_RING_LAYER_IDS = [
+  WATCH_RING_LAYER_ID,
+  WATCH_RING_LABEL_LAYER_ID,
+];
 export const TOOL_LINE_LAYER_ID = "openradar-tool-line";
 export const TOOL_POINT_LAYER_ID = "openradar-tool-points";
 export const TRACK_LINE_LAYER_ID = "openradar-track-line";
@@ -233,6 +239,10 @@ export function layerStackOrder(overlays: readonly string[]): string[] {
     // nothing should hide them.
     ...CELL_LAYER_IDS,
     ROUTE_LAYER_ID,
+    // The reader's own radius, over everything a service published and under
+    // the tools they draw with. It is a line about their rules rather than
+    // about the weather, and it must not be able to hide a warning.
+    ...WATCH_RING_LAYER_IDS,
     ...TOOL_LAYER_IDS,
   ];
 }

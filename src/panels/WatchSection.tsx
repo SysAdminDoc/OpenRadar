@@ -474,6 +474,12 @@ export function WatchSection({
           onSettings({ ...settings, followNewWarnings })
         }
       />
+      <ToggleSetting
+        label={t("watch.showRings")}
+        detail={t("watch.showRingsDetail")}
+        checked={settings.watchRings}
+        onChange={(watchRings) => onSettings({ ...settings, watchRings })}
+      />
       <label className="range-row">
         <span>
           <strong>{t("settings.radius")}</strong>

@@ -1095,6 +1095,9 @@ export const en = {
   "watch.followNew": "Go to new warnings",
   "watch.followNewDetail":
     "Take the map to a warning as it arrives at a watched place. Moving the map yourself stops the flight, and stops the next one for a while.",
+  "watch.showRings": "Show the radius on the map",
+  "watch.showRingsDetail":
+    "Draw a ring around each watched place at the distance its rules use, so you can see which storms are inside it. Left off an exported picture.",
   "nearby.north": "north",
   "nearby.northeast": "northeast",
   "nearby.east": "east",

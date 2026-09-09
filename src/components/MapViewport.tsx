@@ -129,6 +129,8 @@ import {
   SURGE_LAYER_ID,
   SWEEP_LAYER_ID,
   TOOL_LINE_LAYER_ID,
+  WATCH_RING_LABEL_LAYER_ID,
+  WATCH_RING_LAYER_ID,
   TOOL_POINT_LAYER_ID,
   OVERLAY_SOURCE_PREFIX,
   TRACK_LINE_LAYER_ID,
@@ -156,6 +158,7 @@ const RADAR_SOURCE_ID = "openradar-radar-source";
 type RadarLane = "observed" | "forecast";
 const TOOL_SOURCE_ID = "openradar-tool-source";
 const ROUTE_SOURCE_ID = "openradar-route-source";
+const WATCH_RING_SOURCE_ID = "openradar-watch-ring-source";
 const TRACK_SOURCE_ID = "openradar-track-source";
 const CUSTOM_SOURCE_ID = "openradar-custom-source";
 
@@ -171,6 +174,11 @@ export interface MapViewportHandle {
   camera: () => CameraState | null;
   bounds: () => OverlayBounds | null;
   canvas: () => HTMLCanvasElement | null;
+  /**
+   * Takes the chrome an exported picture does not carry off the map, and
+   * paints it out, until it is turned back on.
+   */
+  setCapturing: (on: boolean) => void;
   /** Resolves once the map has finished drawing what it was given. */
   onceIdle: () => Promise<void>;
   /**
@@ -250,6 +258,15 @@ interface MapViewportProps {
   surgeCategory?: SurgeCategory | null;
   overlays?: Partial<Record<OverlayId, OverlayData | null>>;
   route?: Record<string, unknown> | null;
+  /**
+   * A ring around each watched place at the radius its rules are judged
+   * against, or null when the reader has not asked for them.
+   *
+   * Built by the workspace rather than here: the radius is the reader's, the
+   * label is in the units they are reading in, and this component has no
+   * business knowing what a watched place is.
+   */
+  watchRings?: Record<string, unknown> | null;
   /** Whether county and state lines are drawn. */
   counties?: boolean;
   /** A wash over the half of the world the sun is not on. */
@@ -402,6 +419,7 @@ function MapViewportInner(
     surgeCategory = null,
     overlays = {},
     route = null,
+    watchRings = null,
     counties = false,
     night = false,
     nightAt = 0,
@@ -504,6 +522,16 @@ function MapViewportInner(
   const surgeCategoryRef = useRef(surgeCategory);
   const overlaysRef = useRef(overlays);
   const routeRef = useRef(route);
+  const watchRingsRef = useRef(watchRings);
+  /**
+   * Whether the map is being read for a picture rather than looked at.
+   *
+   * The ring is chrome about the reader's own rules, so it does not belong in
+   * a picture they send somebody. Held here rather than driven by a prop
+   * because an export reads the canvas in the same tick it starts: a prop
+   * would still be waiting for React when the pixels were taken.
+   */
+  const capturingRef = useRef(false);
   // The bundled outlines, once they have been read, or null while the switch
   // is off and for as long as the read takes.
   const nightRef = useRef<Record<string, unknown> | null>(null);
@@ -1069,6 +1097,61 @@ function MapViewportInner(
     const map = mapRef.current;
     if (!map || !styleReadyRef.current) return;
     if (syncVectorLane(map, ROUTE_LANE, routeRef.current, under)) {
+      publishLayers();
+    }
+  };
+
+  const WATCH_RING_LANE: VectorLane = {
+    sourceId: WATCH_RING_SOURCE_ID,
+    layers: () => {
+      const overLight = isLightBasemap(mapStyle);
+      const ink = overLight ? "#1d4ed8" : "#93c5fd";
+      return [
+        {
+          id: WATCH_RING_LAYER_ID,
+          type: "line",
+          source: WATCH_RING_SOURCE_ID,
+          filter: ["==", ["geometry-type"], "LineString"],
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": ink,
+            "line-width": highContrastRef.current ? 2.6 : 1.6,
+            // Dashed, so a ring is never mistaken for a boundary somebody
+            // published or a warning polygon.
+            "line-dasharray": [3, 2],
+            "line-opacity": 0.9,
+          },
+        },
+        {
+          id: WATCH_RING_LABEL_LAYER_ID,
+          type: "symbol",
+          source: WATCH_RING_SOURCE_ID,
+          filter: ["==", ["geometry-type"], "Point"],
+          layout: {
+            "text-field": ["get", "label"],
+            "text-size": 11,
+            "text-offset": [0, -0.6],
+            "text-allow-overlap": false,
+          },
+          paint: {
+            "text-color": overLight ? "#0b1220" : "#e2e8f0",
+            "text-halo-color": overLight
+              ? "rgba(248, 250, 252, 0.9)"
+              : "rgba(9, 11, 16, 0.85)",
+            "text-halo-width": 1.5,
+          },
+        },
+      ];
+    },
+  };
+
+  const syncWatchRings = () => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    // Nothing while a picture is being taken, which takes the layers off
+    // rather than hiding them: the lane already knows how to come off.
+    const data = capturingRef.current ? null : watchRingsRef.current;
+    if (syncVectorLane(map, WATCH_RING_LANE, data, under)) {
       publishLayers();
     }
   };
@@ -1794,6 +1877,10 @@ function MapViewportInner(
     routeRef.current = next;
     syncRoute();
   });
+  useMapSync(watchRings, (next) => {
+    watchRingsRef.current = next;
+    syncWatchRings();
+  });
   // Read when the switch first goes on rather than at start-up: it is a
   // megabyte of outlines and most readers never turn it on. Kept afterwards,
   // so switching it off and on again costs nothing.
@@ -1940,6 +2027,15 @@ function MapViewportInner(
     },
     camera: () => (mapRef.current ? asCamera(mapRef.current) : null),
     canvas: () => mapRef.current?.getCanvas() ?? null,
+    setCapturing: (on: boolean) => {
+      if (capturingRef.current === on) return;
+      capturingRef.current = on;
+      syncWatchRings();
+      // Painted before the pixels are read. The canvas holds the last frame
+      // drawn, so taking a layer off without redrawing changes the style and
+      // not the picture.
+      mapRef.current?.redraw();
+    },
     onceIdle: async () => {
       // Let React flush the frame change and the map paint it before the wait
       // starts, or an idle already in flight resolves against the old frame.

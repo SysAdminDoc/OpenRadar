@@ -1114,6 +1114,9 @@ export const es: Catalogue = {
   "watch.followNew": "Ir a los avisos nuevos",
   "watch.followNewDetail":
     "Lleva el mapa a un aviso en cuanto llega a un lugar vigilado. Si mueves el mapa se detiene el vuelo, y el siguiente espera un rato.",
+  "watch.showRings": "Mostrar el radio en el mapa",
+  "watch.showRingsDetail":
+    "Dibuja un círculo alrededor de cada lugar vigilado a la distancia que usan sus reglas, para ver qué tormentas quedan dentro. No sale en las imágenes exportadas.",
   "nearby.north": "norte",
   "nearby.northeast": "noreste",
   "nearby.east": "este",
