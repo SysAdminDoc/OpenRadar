@@ -37,7 +37,10 @@ export interface SettingsState {
     next: AppSettings | ((now: AppSettings) => AppSettings),
   ) => void;
   updateCamera: (camera: CameraState) => void;
-  /** How wide the window is, in CSS pixels, kept current on resize. */
+  /**
+   * The window's longest side in CSS pixels, quantised, kept current on
+   * resize. What the sweep box measures its coverage against.
+   */
   viewportPx: number;
 }
 
@@ -47,6 +50,16 @@ export interface SettingsState {
  * place that can divide the viewport by the text scale.
  */
 const LAYOUT_WIDTHS = [1320, 980, 900, 680] as const;
+
+/**
+ * How coarsely the window is measured for the sweep box.
+ *
+ * The box is part of the loop key, so a measurement that moves with every
+ * pixel of a drag orphans held frames. The coverage rule is a step function
+ * of this, and 256 is well inside the smallest gap between its steps, so
+ * quantising costs nothing and stops a one-pixel drag from flipping the box.
+ */
+const VIEWPORT_STEP_PX = 256;
 
 export function useSettings(options: {
   onPersistError: () => void;
@@ -58,7 +71,11 @@ export function useSettings(options: {
   );
   const [hydrated, setHydrated] = useState(false);
   const [viewportPx, setViewportPx] = useState(() =>
-    typeof window === "undefined" ? 1440 : window.innerWidth,
+    typeof window === "undefined"
+      ? 1536
+      : Math.ceil(
+          Math.max(window.innerWidth, window.innerHeight) / VIEWPORT_STEP_PX,
+        ) * VIEWPORT_STEP_PX,
   );
   const settingsRef = useRef(settings);
   const saveTimerRef = useRef<number | null>(null);
@@ -212,12 +229,21 @@ export function useSettings(options: {
       const root = document.documentElement;
       if (under.length) root.dataset.narrow = under.join(" ");
       else delete root.dataset.narrow;
-      // The map's own width, undivided: the text scale grows the chrome and
-      // leaves the canvas in real pixels. `sweepDetailBox` needs it to decide
-      // whether a narrowed sweep still covers what the reader can see. Read
-      // off the same listener rather than a second one, because two listeners
-      // measuring one window is how they come to disagree.
-      setViewportPx(window.innerWidth);
+      // The map's own longest side, undivided: the text scale grows the chrome
+      // and leaves the canvas in real pixels, and `sweepDetailBox` reduces
+      // both axes to one test against the longer of them. Read off the same
+      // listener rather than a second one, because two listeners measuring
+      // one window is how they come to disagree.
+      //
+      // Rounded up to a multiple of this because it feeds the loop key
+      // through the sweep's box. Unrounded, every pixel of a window drag was
+      // a new React state, a re-render of the whole workspace, and, at a
+      // threshold, a different box: every held loop frame orphaned and
+      // re-fetched, ten megabytes at a time, with nothing to stop it flipping
+      // back on the next pixel. Rounding up rather than to nearest keeps the
+      // error on the side of covering more ground than the window needs.
+      const span = Math.max(window.innerWidth, window.innerHeight);
+      setViewportPx(Math.ceil(span / VIEWPORT_STEP_PX) * VIEWPORT_STEP_PX);
     };
     measure();
     window.addEventListener("resize", measure);

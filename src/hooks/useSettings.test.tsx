@@ -160,3 +160,53 @@ describe("a shared link opened in a browser", () => {
     expect(result.current.settings.radar.tilt).toBe(3);
   });
 });
+
+describe("the window the sweep box is measured against", () => {
+  const held = { width: window.innerWidth, height: window.innerHeight };
+  const size = (width: number, height: number) => {
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: width,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: height,
+    });
+    window.dispatchEvent(new Event("resize"));
+  };
+  afterEach(() => size(held.width, held.height));
+
+  it("reports the longer side, so a portrait window is not measured short", () => {
+    // The coverage rule reduces both axes to one test against the longer
+    // side. Reporting the width alone passed a portrait window while leaving
+    // it bare above and below: at a Key West disc, zoom 10 and 1080 by 1920,
+    // the width cleared and 265 pixels of height did not.
+    const { result } = renderHook(() =>
+      useSettings({ onPersistError: () => {} }),
+    );
+    act(() => size(1080, 1920));
+    expect(result.current.viewportPx).toBeGreaterThanOrEqual(1920);
+    act(() => size(1920, 1080));
+    expect(result.current.viewportPx).toBeGreaterThanOrEqual(1920);
+  });
+
+  it("moves in steps, so dragging an edge does not orphan held frames", () => {
+    // This feeds the sweep's box, which is part of the loop key. Unquantised,
+    // every pixel of a window drag was a new React state and a re-render of
+    // the whole workspace, and at a threshold a different box: every held
+    // frame orphaned and re-fetched, ten megabytes at a time, with nothing to
+    // stop it flipping back on the next pixel.
+    const { result } = renderHook(() =>
+      useSettings({ onPersistError: () => {} }),
+    );
+    act(() => size(1600, 900));
+    const settled = result.current.viewportPx;
+    for (const width of [1601, 1602, 1610, 1650, 1700]) {
+      act(() => size(width, 900));
+      expect(result.current.viewportPx, `${width} moved the box`).toBe(settled);
+    }
+    // And it does still follow a real change.
+    act(() => size(2600, 900));
+    expect(result.current.viewportPx).toBeGreaterThan(settled);
+  });
+});

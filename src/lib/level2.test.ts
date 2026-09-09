@@ -465,6 +465,11 @@ describe("how much ground the sweep is drawn over", () => {
         wide: 1.598 / Math.cos((41.7 * Math.PI) / 180),
       },
     ];
+    // Including a portrait window, whose height is the binding side. The
+    // longitude test alone left one bare above and below: at a Key West disc,
+    // zoom 10 and 1080 by 1920, the width cleared exactly and 265 pixels of
+    // the height did not. Passing the longer side is what reduces the two
+    // axes to this one test.
     for (const window of [1024, 1440, 1920, 2560, 3840]) {
       for (const { name, wide } of widths) {
         const site = {
@@ -498,6 +503,53 @@ describe("how much ground the sweep is drawn over", () => {
             )}px bare`,
           ).toBeGreaterThanOrEqual(halfWindow);
         }
+      }
+    }
+  });
+
+  it("covers a portrait window top to bottom as well as side to side", () => {
+    // The other axis. A disc is `tall / cos(latitude)` wide, and a degree of
+    // latitude is `cos(latitude)` of a degree of longitude on screen, so the
+    // cosine cancels and the latitude condition is the longitude one with the
+    // window's height put in. Checking the width alone therefore passed a
+    // portrait window while leaving it bare above and below: at a Key West
+    // disc, zoom 10 and 1080 by 1920, the width cleared exactly and 265 of
+    // the 1920 pixels of height did not.
+    //
+    // Passing the longer side is what reduces the two to one test, and this
+    // asserts both of them rather than trusting that reduction.
+    const at = 24.6;
+    const lat = (at * Math.PI) / 180;
+    const tall = 4.136;
+    const wide = tall / Math.cos(lat);
+    const site = {
+      west: -81.8 - wide / 2,
+      south: at - tall / 2,
+      east: -81.8 + wide / 2,
+      north: at + tall / 2,
+    };
+    for (const [across, down] of [
+      [1080, 1920],
+      [1920, 1080],
+      [1440, 2560],
+    ]) {
+      const span = Math.max(across, down);
+      for (const zoom of [10, 11, 12, 13]) {
+        const box = sweepDetailBox(site, [-81.8, at], zoom, span);
+        // The whole disc covers everything the radar has, so no box is fine.
+        if (box === null) continue;
+        const perPixel = 360 / (512 * 2 ** zoom);
+        // A quarter of the box either side, in each axis, against half the
+        // window in that axis. Latitude degrees are shorter on screen than
+        // longitude ones by the cosine, which is why the height carries it.
+        expect(
+          (box[2] - box[0]) / 4,
+          `${across} by ${down} at zoom ${zoom} is bare at the sides`,
+        ).toBeGreaterThanOrEqual((across / 2) * perPixel);
+        expect(
+          (box[3] - box[1]) / 4,
+          `${across} by ${down} at zoom ${zoom} is bare above and below`,
+        ).toBeGreaterThanOrEqual((down / 2) * perPixel * Math.cos(lat));
       }
     }
   });
