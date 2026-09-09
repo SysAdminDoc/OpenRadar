@@ -16,6 +16,25 @@ Found 2026-09-02, and confirmed live the same day: `https://github.com/SysAdminD
 
 Blocked on: the owner running that publish. When the live manifest matches the newest tag, this entry goes and the gate stays.
 
+## The snow-squall colour tables are behind a NOAA sign-in
+
+Found 2026-09-09. `AUD-349` asked for the two AWIPS colour tables the Warning Decision Training Division built for snow squalls, shipped as built-ins so a winter reader gets the office's own view with no file to find. The item is sound and the page is real: `https://vlab.noaa.gov/web/snow-squalls-and-snow-squall-warnings/radar-color-tables` describes both tables, says what they are for (reflectivity above 30 dBZ and radial velocity above 30 knots lit, everything else dimmed) and links the two files by name.
+
+The files themselves are not public. Both links point into VLab's document store:
+
+```
+https://vlab.noaa.gov/documents/17140588/0/Winter_dBZ_snow_squalls.cmap/04c4c5ed-...
+https://vlab.noaa.gov/documents/17140588/0/V_snow_squalls.cmap/8d177a80-...
+```
+
+Fetched live on 2026-09-09, both answer HTTP 200 with `text/html` and about 95 KB of VLab's sign-in page rather than a `.cmap`: 66 occurrences of "Login" in the reflectivity response and none of the binary the name promises. The description page itself is open; the two artefacts are not. Dropping the `?version=` query and fetching the bare document path gives the same login page.
+
+**Not doable here.** The item's whole content is those two files. What is on the open page is a sentence about the two thresholds and a screenshot, which is enough to describe the tables and nowhere near enough to reproduce them: a colour table is a list of stops, and inventing one and calling it the office's would be shipping a made-up NWS product under the office's name. The acceptance says the legend names them, which is precisely the claim that would then be false.
+
+Not attempted: a VLab account. It is an outward-facing registration under the owner's identity with NOAA, and creating one to scrape two files is not a call to make here.
+
+Blocked on: the files becoming reachable without a sign-in, or somebody with a VLab account fetching `Winter_dBZ_snow_squalls.cmap` and `V_snow_squalls.cmap` and putting them in the repository. Either one unblocks the item exactly as written; nothing else about it needs to change.
+
 ## The NetCDF reader recurses without bound, and only upstream can stop it
 
 Found 2026-08-31 by the `netcdf_flashes` fuzz target, in the first minutes of its first session. Two distinct findings on the GOES lightning path, both from files that pass the HDF5 magic check `decode_flashes` opens with, which is the last thing OpenRadar gets to look at before the reader takes over.

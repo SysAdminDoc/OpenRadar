@@ -312,13 +312,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
       Acceptance: Pick a replayed day and each watched place lists what it would have been told and when, in the reader's language, with nothing notified, nothing written to the record, and quiet hours shown as applied.
       Complexity: M
 
-- [ ] AUD-349 (P3): Snow-squall colour tables in the box
-      Why: The NWS trains forecasters on two AWIPS colour tables built for squalls, reflectivity over 30 dBZ and velocity over 30 kt lit and everything else dimmed, and publishes them. The app already holds up to twelve GRLevelX tables per product; shipping these two, named for what they are, gives the winter reader the office's own view with no file to find.
-      Evidence: https://vlab.noaa.gov/web/snow-squalls-and-snow-squall-warnings/radar-color-tables ; `src/lib/palette.ts`; the palette legend (`src/lib/legend.ts`).
-      Touches: `src-tauri/src/palette.rs` or `src/lib/palette.ts` (two built-in tables), the palette picker in `src/panels/RadarProductPanel.tsx`, `src/i18n/*`, the contrast gate the built-in ramps are held to.
-      Acceptance: The two tables appear in the picker, the legend names them, they pass the contrast test the other ramps pass, and the README's colour-table paragraph names them.
-      Complexity: S
-
 - [ ] AUD-355 (P3): Raise the toolchain floor and take the routine bumps
       Note 2026-09-07 (evening): add `maplibre-gl` 6.8.0 (2026-09-07: empty and HTTP 204 raster tiles render transparent instead of erroring, a throwing render task no longer freezes the map, `setTiles` no longer hands out stale URLs when `loadTile` runs in the same frame, `getCameraAltitude` no longer NaN under globe; the package shape is identical to 6.7.0 and the worker path is unchanged), TypeScript 5.9.3 (the last 5.x; `typescript-eslint` 8.70.0 still caps at `<6.1.0`), `sha2` 0.11.0 (see `AUD-380`), `image` 0.25.10, Playwright 1.63.0 (bundles Chromium 153, ahead of WebView2 152), `lucide-react` 1.42.0, `eslint` 10.10.0, `typescript-eslint` 8.70.0, `@types/node` 26.5.0. The acceptance gains one line: a 204 tile counts as empty and not as a failed fetch in `src/lib/providers/health.ts`, pinned by a test.
       Why: Tauri 2.12 carries an `msrv-1.90` change and the tree says `rust-version = 1.85` while stable is 1.98.1; a floor raised before the release forces it is a floor raised on a quiet day. Beside it: `@playwright/test` 1.63.0, `eslint` 10.10.0, `typescript-eslint` 8.70.0, `lucide-react` 1.42.0, `image` 0.25.10. TypeScript stays on 5.8: 7.0 ships no programmatic API until 7.1 and `typescript-eslint` caps at `<6.1.0`.
