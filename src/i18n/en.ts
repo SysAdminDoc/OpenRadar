@@ -1653,6 +1653,7 @@ export const en = {
   "fatal.copyRefused": "The clipboard refused",
   "fatal.copy": "Copy diagnostics",
   "panelChunk.loading": "Opening",
+  "panelChunk.loadingPanel": "Opening {title}",
   "panelChunk.eyebrow": "OpenRadar kept the map",
   "panelChunk.failed":
     "This panel is downloaded when you open it, and it could not be fetched. The map and everything else are still working. Reloading OpenRadar will try again.",
