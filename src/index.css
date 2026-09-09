@@ -1793,6 +1793,20 @@ input[type="range"]:disabled {
   border-bottom: 0;
 }
 
+/*
+ * A section that follows a button rather than another section.
+ *
+ * `.settings-section` carries its spacing below itself, so two of them sit
+ * apart by the lower one's padding, border and margin. The postcard block in
+ * the Export panel comes straight after four buttons, which supply none of
+ * that, so its heading sat 8 px under the last button and 26 px above its own
+ * paragraph: it read as a caption on the button rather than as the heading of
+ * what follows.
+ */
+.secondary-button + .settings-section {
+  margin-top: 24px;
+}
+
 .settings-section__title {
   display: flex;
   align-items: baseline;

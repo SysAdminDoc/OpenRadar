@@ -669,13 +669,6 @@ Eleventh research pass, at `8c19165`, an hour after the tenth. It ran the headle
   Acceptance: each empty state has one button; pressing it leaves the reader holding a site or looking at the nearest one at the single-site zoom; the button is gone when the panel has data; the pseudolocale clipping test covers the label.
   Complexity: M
 
-- [ ] AUD-464 (P3): The postcard heading in Export is spaced as a caption on the button above it
-  Why: "Send it to somebody" sits 8 px below the GIF button and 26 px above its own paragraph, so it reads as a label for the button rather than as the heading of the block that follows. `.settings-section` carries bottom padding, a bottom margin and a border and no top margin, so it is spaced from a section above it; here the element above is a button, and nothing supplies the gap.
-  Evidence: headless captures `dark-chromium-export.png` and `dark-compact-export.png` (2026-09-08), measured; `src/panels/ExportPanel.tsx:172-180` (four `export-button`s then `<div className="settings-section" data-postcard>`), `src/index.css:1744-1750` (`.settings-section`: `padding-bottom: 16px; margin-bottom: 15px; border-bottom` and no top spacing), `:1796-1801` (`.settings-section__title`, `margin-bottom: 5px`).
-  Touches: `src/index.css` (a top margin on `[data-postcard]`, or a rule that gives a `.settings-section` following an `.export-button` the same gap a section gets from the section above it), `e2e/export.spec.ts` (the heading's top is at least as far from the button above as from the paragraph below, measured with `boundingBox`).
-  Acceptance: the gap above the heading is no smaller than the gap below it in both projects and both themes; the export spec asserts it; nothing else in the panel moves.
-  Complexity: S
-
 - [ ] AUD-465 (P3): A storm-report fetch aborted by the browser rather than by the workspace falls through to the second source
   Why: the reports adapter treats an abort as the workspace changing its mind and rethrows, so the second host is not asked. The test is `if (signal?.aborted) throw error`, which reads the workspace's own signal. A browser-initiated abort, which is what a navigation or a connection reset produces, leaves that signal clear, so the adapter goes on to ask the second source for up to five pages nobody is waiting for. `smoke.ts` gets the same case right by reading the failure instead of the signal: `failure instanceof DOMException && failure.name === "AbortError"`.
   Evidence: found by an adversarial pass over `1998d82` on 2026-09-08 while `AUD-450` was being drained. `src/lib/overlays/reports.ts:381-385` (the guard), `src/lib/overlays/smoke.ts:178-180` (the shape that is right). Pre-existing rather than introduced by that commit.

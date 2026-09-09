@@ -205,3 +205,44 @@ test("writes the loop as a GIF that a picture viewer opens", async ({
   expect(bytes.byteLength).toBeLessThan(20 * 1024 * 1024);
   await expect(page.getByText(/.gif saved/)).toBeVisible();
 });
+
+test("gives the postcard heading to what it heads", async ({ page }) => {
+  // `.settings-section` carries its spacing below itself, so two of them sit
+  // apart by the lower one's padding, border and margin. This one comes
+  // straight after four export buttons, which supply none of that, so the
+  // heading sat 8 px under the last button and 26 px above its own paragraph
+  // and read as a caption on the button rather than as the heading of what
+  // follows. Measured rather than pinned to a number, because the gap that
+  // matters is the one relative to the other side.
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  const heading = page.getByText("Send it to somebody");
+  await expect(heading).toBeVisible();
+
+  const gaps = await page.evaluate(() => {
+    const title = [...document.querySelectorAll(".settings-section__title")]
+      .filter((node) => node.closest("[data-postcard]"))
+      .at(0);
+    if (!title) return null;
+    const section = title.closest("[data-postcard]")!;
+    const above = section.previousElementSibling;
+    const below = title.nextElementSibling;
+    if (!above || !below) return null;
+    const top = title.getBoundingClientRect().top;
+    return {
+      above: top - above.getBoundingClientRect().bottom,
+      below:
+        below.getBoundingClientRect().top -
+        title.getBoundingClientRect().bottom,
+    };
+  });
+
+  expect(gaps, "the postcard block is not laid out as expected").not.toBeNull();
+  // A heading belongs to what is under it, so the space above must be at
+  // least the space below.
+  expect(
+    gaps!.above,
+    `the heading sits ${Math.round(gaps!.above)}px under the button and ${Math.round(
+      gaps!.below,
+    )}px above its own text`,
+  ).toBeGreaterThanOrEqual(gaps!.below);
+});
