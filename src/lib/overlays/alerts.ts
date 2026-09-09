@@ -390,14 +390,21 @@ function timeLabel(value: unknown): string {
  * tornado warning over Oklahoma to an outage in Ottawa.
  */
 /**
- * Whether a failure is a cancelled request rather than a source that is down.
+ * Whether a failure is this caller's own cancellation.
  *
- * The workspace aborts when it changes its mind; the browser aborts on a
- * navigation or a connection reset, and that one leaves the workspace signal
- * clear, so the failure has to be read as well.
+ * Both halves are needed. The failure alone is not enough, because the
+ * browser raises the same one on a navigation or a connection reset, and a
+ * reset connection to a second country's service is that service being down,
+ * not the reader changing their mind. The signal alone is not enough either,
+ * because a fetch can lose in other ways once it is aborted. Only when the
+ * caller has actually cancelled is there nobody left to answer.
  */
-function aborted(failure: unknown): boolean {
-  return failure instanceof DOMException && failure.name === "AbortError";
+function aborted(failure: unknown, signal?: AbortSignal): boolean {
+  return (
+    signal?.aborted === true &&
+    failure instanceof DOMException &&
+    failure.name === "AbortError"
+  );
 }
 
 async function ecccFeatures(
@@ -412,10 +419,11 @@ async function ecccFeatures(
     if (!answer.ok) throw new Error(translate("alerts.officeUnanswered"));
     return parseEcccAlerts(await answer.json(), language().startsWith("fr"));
   } catch (failure) {
-    // An abort is the workspace or the browser cancelling, not an answer, so
-    // it goes back up rather than being reported as a country with no
-    // warnings in it.
-    if (aborted(failure)) throw failure;
+    // The reader having cancelled goes back up rather than being reported as
+    // a country with no warnings in it. A connection this end reset while the
+    // reader is still waiting is the office being unreachable, and throwing
+    // there took the American polygons down with the Canadian request.
+    if (aborted(failure, signal)) throw failure;
     // Everything else leaves the American polygons drawn and says which
     // office was not reached. Returning an empty list said the opposite: a
     // reader over Ontario during an outage was shown a map with no Canadian
@@ -446,7 +454,7 @@ async function dwdFeatures(
     return parseDwdWarnings(await answer.json());
   } catch (failure) {
     // Same terms as the Canadian source above.
-    if (aborted(failure)) throw failure;
+    if (aborted(failure, signal)) throw failure;
     log.warn("overlay", `DWD warnings: ${failureSentence(failure)}`);
     return null;
   }

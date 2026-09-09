@@ -981,19 +981,84 @@ describe("a foreign warning office that does not answer", () => {
     expect(data.partial ?? null).toBeNull();
   });
 
-  it("lets a cancelled request go back up rather than reporting it", async () => {
-    // An abort is the workspace or the browser cancelling, not an answer.
-    // Swallowed into an empty list it became a country with no warnings.
+  it("lets the reader's own cancellation go back up rather than reporting it", async () => {
+    // A cancelled request is not an answer. Swallowed into an empty list it
+    // became a country with no warnings.
+    // The reader moves on while the Canadian request is out, which is the
+    // sequence the workspace actually produces. Asserted through the signal
+    // rather than through the failure alone, because the browser raises the
+    // same failure on a reset connection.
+    const gone = new AbortController();
     vi.stubGlobal("fetch", async (url: string) => {
       if (String(url).includes("weather.gc.ca")) {
+        gone.abort();
         throw new DOMException("The user aborted a request.", "AbortError");
       }
       return new Response(american, { status: 200 });
     });
 
     await expect(
-      alertsOverlay.fetchData!(canada, undefined, DEFAULT_OVERLAY_CHOICES),
+      alertsOverlay.fetchData!(canada, gone.signal, DEFAULT_OVERLAY_CHOICES),
     ).rejects.toThrow(/abort/i);
+  });
+
+  it("keeps the American warnings when the Canadian connection resets", async () => {
+    // The browser raises AbortError on a reset connection too, with the
+    // reader still sitting there waiting. Reading that as a cancellation
+    // threw the whole layer away, so a dropped connection to Ottawa blanked
+    // the warnings over Michigan as well, and neither country's reader was
+    // told why.
+    vi.stubGlobal("fetch", async (url: string) => {
+      if (String(url).includes("weather.gc.ca")) {
+        throw new DOMException("The connection was reset.", "AbortError");
+      }
+      return new Response(
+        JSON.stringify({
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "Polygon",
+                coordinates: [
+                  [
+                    [-83, 44],
+                    [-82, 44],
+                    [-82, 45],
+                    [-83, 45],
+                    [-83, 44],
+                  ],
+                ],
+              },
+              properties: {
+                id: "urn:oid:2.49.0.1.840.0.reset",
+                event: "Tornado Warning",
+                severity: "Extreme",
+                headline: "Tornado Warning for Sanilac County",
+                description: "",
+                instruction: "",
+                sent: "2026-09-09T18:00:00Z",
+                expires: "2026-09-09T18:45:00Z",
+                areaDesc: "Sanilac, MI",
+                parameters: {},
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    });
+
+    const alive = new AbortController();
+    const data = await alertsOverlay.fetchData!(
+      canada,
+      alive.signal,
+      DEFAULT_OVERLAY_CHOICES,
+    );
+    expect(
+      data.features.length,
+      "the American warning went down with the Canadian request",
+    ).toBe(1);
+    expect(String(data.partial)).toContain("Environment and Climate Change");
   });
 
   it("hands the alerts layer its partial note, not only its error", () => {
