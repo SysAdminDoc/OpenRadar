@@ -37,6 +37,7 @@ import {
   timelineProvenance,
   type Provenance,
 } from "../lib/provenance";
+import { PROVENANCE_KEYWORD, withPngText } from "../lib/pngText";
 import { stepNow, stepsForVolumes } from "../lib/siteLoop";
 import type { SweepImage } from "../lib/level2";
 import {
@@ -426,31 +427,70 @@ export function useExport(options: {
 
   const finish = useCallback(
     async (name: string, blob: Blob) => {
-      const saved = await saveFile(name, blob);
-      // The record goes out after the picture and never in front of it. A
-      // sidecar that fails to write is a fact worth logging; a picture lost
-      // because its sidecar failed would be the export destroying the thing it
-      // was asked for.
       const drawn = [...drawnRef.current.entries()].map(([index, record]) => ({
         index,
         record,
       }));
       let recorded = true;
+      let written: string | null = null;
       if (drawn.length) {
         try {
-          const sidecar = provenanceDocument({
-            picture: name,
-            application: `OpenRadar ${APP_VERSION}`,
-            basemap: basemapCredit,
-            layers: overlayProvenance(),
-            writtenAt: Date.now(),
-            frames: drawn,
-          });
+          written = JSON.stringify(
+            provenanceDocument({
+              picture: name,
+              application: `OpenRadar ${APP_VERSION}`,
+              basemap: basemapCredit,
+              layers: overlayProvenance(),
+              writtenAt: Date.now(),
+              frames: drawn,
+            }),
+            null,
+            2,
+          );
+        } catch (failure) {
+          recorded = false;
+          log.warn(
+            "export",
+            failureSentence(failure, translate("export.failed")),
+          );
+        }
+      }
+
+      // The same record inside the picture, where it travels with it. The
+      // sidecar is the file left behind: a picture goes into a message or a
+      // document on its own, and a week later nobody can say which radar,
+      // which volume or which minute it is of. A PNG has carried text for
+      // this since 1996; a WebM, an MP4 and a GIF have nowhere to put it and
+      // come back from here unchanged.
+      let picture = blob;
+      if (written !== null) {
+        try {
+          const bytes = new Uint8Array(await blob.arrayBuffer());
+          const inside = withPngText(bytes, PROVENANCE_KEYWORD, written);
+          if (inside !== bytes) {
+            picture = new Blob([inside as BlobPart], { type: blob.type });
+          }
+        } catch (failure) {
+          // The picture is what was asked for and it is still whole. A record
+          // that could not be embedded is a log line, not a lost export, and
+          // the sidecar below is written either way.
+          log.warn(
+            "export",
+            failureSentence(failure, translate("export.failed")),
+          );
+        }
+      }
+
+      const saved = await saveFile(name, picture);
+      // The sidecar goes out after the picture and never in front of it. One
+      // that fails to write is a fact worth logging; a picture lost because
+      // its sidecar failed would be the export destroying the thing it was
+      // asked for.
+      if (written !== null) {
+        try {
           await saveFile(
             provenanceFileName(name),
-            new Blob([JSON.stringify(sidecar, null, 2)], {
-              type: "application/json",
-            }),
+            new Blob([written], { type: "application/json" }),
           );
         } catch (failure) {
           recorded = false;

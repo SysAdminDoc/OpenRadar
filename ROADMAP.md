@@ -312,13 +312,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
       Acceptance: Pick a replayed day and each watched place lists what it would have been told and when, in the reader's language, with nothing notified, nothing written to the record, and quiet hours shown as applied.
       Complexity: M
 
-- [ ] AUD-346 (P3): Write the provenance into the picture itself
-      Why: Every export writes a `-provenance.json` beside the picture, and the picture is the file that gets sent on, without the sidecar. PNG carries text chunks for exactly this, the `png` crate the exporter already uses exposes `add_itxt_chunk`, and a viewer or a script can then ask the picture what it is.
-      Evidence: `README.md` "What the export record holds"; `src-tauri/src/exports.rs` (no text chunk written); https://docs.rs/png/latest/png/struct.Encoder.html (`add_text_chunk`, `add_ztxt_chunk`, `add_itxt_chunk`, png 0.18.1).
-      Touches: `src/hooks/useExport.ts` and a new `src/lib/pngText.ts`, not `src-tauri/src/exports.rs`. Corrected 2026-09-07: the still is encoded by the browser and `save_export` only writes the bytes it is handed, so the `png` crate never sees the picture. The chunk has to go in on the frontend, where the blob and the provenance document are already in hand together, which means writing the `iTXt` chunk by hand: length, type, the keyword and the text, and a CRC-32 over both, inserted before `IEND`.
-      Acceptance: A PNG export carries the provenance JSON in an `iTXt` chunk that `pngcheck` or the test's own reader returns byte for byte equal to the sidecar; the sidecar stays.
-      Complexity: S
-
 - [ ] AUD-349 (P3): Snow-squall colour tables in the box
       Why: The NWS trains forecasters on two AWIPS colour tables built for squalls, reflectivity over 30 dBZ and velocity over 30 kt lit and everything else dimmed, and publishes them. The app already holds up to twelve GRLevelX tables per product; shipping these two, named for what they are, gives the winter reader the office's own view with no file to find.
       Evidence: https://vlab.noaa.gov/web/snow-squalls-and-snow-squall-warnings/radar-color-tables ; `src/lib/palette.ts`; the palette legend (`src/lib/legend.ts`).
