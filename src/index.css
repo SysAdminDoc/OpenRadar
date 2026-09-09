@@ -198,19 +198,8 @@ a {
   );
   position: absolute;
   z-index: 50;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: var(--command-height);
   display: flex;
-  align-items: stretch;
-  gap: 2px;
-  padding: 3px 7px;
   color: var(--command-ink);
-  background: rgba(31, 35, 41, 0.97);
-  border-top: 1px solid var(--border-strong);
-  box-shadow: 0 -10px 32px rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(22px) saturate(125%);
   /* Labels run longer in other languages, and a button that has slid off the
      end of the bar is a button nobody can press. The bar scrolls rather than
      hiding what does not fit. */
@@ -361,7 +350,6 @@ a {
   /* No shrinking: a squeezed group used to overlap its neighbour, which put
      one button on top of another and made the one underneath unclickable.
      The bar scrolls instead. */
-  flex: 0 0 auto;
 }
 
 .command-divider {
@@ -394,7 +382,6 @@ a {
 
 .command-button span {
   overflow: hidden;
-  max-width: 68px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3273,8 +3260,13 @@ input[type="range"]:disabled {
   }
 
   /* The bar is a fixed dark surface in both themes, which is a decision the
-     system has just overruled. */
-  .command-bar {
+     system has just overruled.
+
+     Written through `:root` for the weight rather than the reading. A media
+     query adds no specificity, so this block was losing its background to a
+     later plain `.command-bar` in source order and the reader who asked for
+     high contrast got the app's dark bar anyway. */
+  :root .command-bar {
     --command-ink: CanvasText;
     --command-ink-muted: CanvasText;
     --command-ink-faint: GrayText;
@@ -3290,8 +3282,10 @@ input[type="range"]:disabled {
   }
 
   /* Which one is active has to survive a repaint that flattens colour, so it
-     is said with a border as well. */
-  .command-button[aria-pressed="true"] {
+     is said with a border as well. Through `:root` for the same reason as
+     above: the border was being lost to a later plain rule and only the
+     outline was surviving, which made the comment half true. */
+  :root .command-button[aria-pressed="true"] {
     border-color: Highlight;
     outline: 1px solid Highlight;
   }
@@ -3561,7 +3555,6 @@ input[type="range"]:disabled {
 .product-legends {
   position: absolute;
   right: 16px;
-  bottom: 148px;
   z-index: 5;
   display: flex;
   flex-direction: column;
@@ -3582,7 +3575,7 @@ input[type="range"]:disabled {
   flex: 0 0 auto;
   padding: 7px 9px;
   color: var(--text);
-  background: var(--surface-raised, rgb(15 23 42 / 82%));
+  background: var(--surface-raised);
   border: 1px solid var(--border);
   border-radius: 8px;
   backdrop-filter: blur(9px);

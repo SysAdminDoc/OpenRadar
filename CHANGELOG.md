@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.12.0
 
+- A reader who asks Windows for high contrast gets it on the command bar. The block that hands the bar over to the system's own colours was written before a later rule that set the bar's background again, and a media query carries no extra weight, so the later one won: the bar stayed the app's dark surface and the active button lost the border that says which one it is. Both are put back.
+
 - The full-screen view sizes its own type from how far away you are. It is meant to be read across a room and its type was drawn for a desk, so there is now one setting under the second-monitor controls: a desk away, a step back, across a small room, across a large room. The rest is geometry. Nothing changes at the default, and the view will not ask for type its window cannot hold.
 
 - The Layers panel is grouped under seven headings instead of one list of forty-six switches. Warnings and hazards, from the radar, rain and flooding, lightning, sky and air, reference, your own files. Finding "Rain or Snow" used to mean reading past thirty rows, and the command list was the only place the same switches were sorted by what they are.
