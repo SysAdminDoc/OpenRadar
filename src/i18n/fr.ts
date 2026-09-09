@@ -51,23 +51,25 @@ export const fr: Catalogue = {
   "dataExport.megabytes": "{count} Mo",
   "dataExport.error.notDrawn":
     "Cette grille n'est pas sur la carte, donc il n'y a rien de décodé à écrire. Activez la couche et laissez-la se dessiner d'abord.",
-  "dataExport.error.noProduct": "Il n'existe aucun produit nommé {0}.",
+  "dataExport.error.noProduct": "Il n'existe aucun produit nommé {product}.",
   "dataExport.error.nothingInView":
     "La vue ne contient aucune partie de cette grille.",
   "dataExport.error.tooLarge":
-    "Cela ferait {0, plural, one {# relevé} other {# relevés}} dans un seul fichier. Zoomez pour que l'export couvre moins de terrain.",
+    "Cela ferait {count, plural, one {# relevé} other {# relevés}} dans un seul fichier. Zoomez pour que l'export couvre moins de terrain.",
   "dataExport.error.noFolder": "Il n'y a nulle part où écrire l'exportation.",
-  "dataExport.error.write": "L'exportation n'a pas pu être écrite : {0}",
-  "dataExport.error.gridUnknownProduct": "Il n'y a pas de grille appelée {0}.",
+  "dataExport.error.write": "L'exportation n'a pas pu être écrite : {reason}",
+  "dataExport.error.gridUnknownProduct":
+    "Il n'y a pas de grille appelée {product}.",
   "dataExport.error.gridBadListing":
     "La liste des grilles publiées n'a pas pu être lue.",
-  "dataExport.error.gridNoFrames": "Aucune grille {0} n'a encore été publiée.",
+  "dataExport.error.gridNoFrames":
+    "Aucune grille {product} n'a encore été publiée.",
   "dataExport.error.gridNotGrib": "Ce fichier n'est pas une grille GRIB2.",
   "dataExport.error.gridUnreadable":
     "Cette grille est empaquetée d'une façon que cette version ne lit pas.",
   "dataExport.error.gridNotDrawn": "La grille n'a pas pu être dessinée.",
   "dataExport.error.unknown": "L'exportation n'a pas pu être écrite.",
-  "dataExport.error.gridHttpStatus": "Le service de grilles {0}.",
+  "dataExport.error.gridHttpStatus": "Le service de grilles {answer}.",
   "dataExport.error.gridHttpUnreachable":
     "La grille n'a pas pu être récupérée. Vérifiez que cette machine est connectée.",
   "dataExport.error.gridHttpRefused":
@@ -287,7 +289,7 @@ export const fr: Catalogue = {
   "storage.clearFailedUnknown":
     "La raison n'est pas revenue. Le journal contient ce que la commande a dit.",
   "packs.error.tooManyTiles":
-    "Cette région demande {0, plural, one {# tuile} other {# tuiles}}, plus que ce que contient un paquet. Zoomez, ou prenez moins de niveaux.",
+    "Cette région demande {count, plural, one {# tuile} other {# tuiles}}, plus que ce que contient un paquet. Zoomez, ou prenez moins de niveaux.",
   "packs.error.diskCeiling":
     "Cela dépasserait la limite de disque que vous avez fixée. Supprimez un paquet, ou relevez la limite ci-dessus.",
   "packs.error.notFound": "Ce paquet n'est plus là.",
@@ -301,7 +303,7 @@ export const fr: Catalogue = {
     "Quelque chose a échoué sur cette machine et le téléchargement s'est arrêté. Le panneau Diagnostic en a le détail.",
   "packs.error.pausedOnExit":
     "Le téléchargement s'est mis en pause à la fermeture d'OpenRadar.",
-  "packs.error.httpStatus": "Le serveur de tuiles {0}.",
+  "packs.error.httpStatus": "Le serveur de tuiles {answer}.",
   "packs.error.httpUnreachable":
     "Le serveur de tuiles est resté muet. Vérifiez que cette machine est en ligne.",
   "packs.error.httpRefused":
@@ -452,20 +454,20 @@ export const fr: Catalogue = {
   "bundle.missingBoth":
     "{tiles, plural, one {# tuile} other {# tuiles}} et {warnings, plural, one {# flux d'alertes} other {# flux d'alertes}} ne figuraient pas dans le paquet.",
   "bundle.error.invalidRequest":
-    "Cette reprise ne peut pas être mise en paquet : {0}.",
+    "Cette reprise ne peut pas être mise en paquet : {reason}.",
   "bundle.error.tooManyTiles":
-    "La vue couvre {0, plural, one {# tuile} other {# tuiles}} sur toute la relecture. Zoomez, ou dézoomez, pour qu'elle en couvre moins.",
+    "La vue couvre {count, plural, one {# tuile} other {# tuiles}} sur toute la relecture. Zoomez, ou dézoomez, pour qu'elle en couvre moins.",
   "bundle.error.tooManyDocuments":
-    "La relecture demande {0, plural, one {# document} other {# documents}} à côté de la carte, plus qu'un paquet n'en contient.",
+    "La relecture demande {count, plural, one {# document} other {# documents}} à côté de la carte, plus qu'un paquet n'en contient.",
   "bundle.error.tooLarge": "Le paquet dépasserait 256 Mo.",
   "bundle.error.noFolder": "Il n'y a nulle part où écrire le paquet.",
-  "bundle.error.write": "Le paquet n'a pas pu être écrit : {0}",
-  "bundle.error.read": "Le paquet n'a pas pu être lu : {0}",
+  "bundle.error.write": "Le paquet n'a pas pu être écrit : {reason}",
+  "bundle.error.read": "Le paquet n'a pas pu être lu : {reason}",
   "bundle.error.notABundle":
     "Ce fichier n'est pas un paquet de reprise OpenRadar.",
   "bundle.error.newer":
     "Ce paquet a été fait par un OpenRadar plus récent. Mettez à jour pour l'ouvrir.",
-  "bundle.error.corrupt": "Ce paquet est endommagé : {0}",
+  "bundle.error.corrupt": "Ce paquet est endommagé : {reason}",
   "bundle.error.noView": "La carte n'a pas encore de vue à mettre en paquet.",
   "bundle.error.noFrames":
     "Ce paquet ne contient aucune image que cette version sait dessiner.",
@@ -803,32 +805,32 @@ export const fr: Catalogue = {
   "radar.classificationLabel": "Produit de classification des hydrométéores",
   "radar.classificationDetail":
     "Le produit Level III que lit la couche de classification des hydrométéores : l'angle le plus bas, ou le balayage hybride dans lequel tout le volume est lu",
-  "radar.error.unknownSite": "{0} n'est pas un site NEXRAD.",
+  "radar.error.unknownSite": "{station} n'est pas un site NEXRAD.",
   "radar.error.notWsr88d":
-    "{0} est le radar terminal d'un aéroport : il n'a ni volume Level II à lire, ni archive.",
+    "{station} est le radar terminal d'un aéroport : il n'a ni volume Level II à lire, ni archive.",
   "radar.error.noLongerListed":
-    "{0} ne figure plus sur la liste des radars du service météo. Il a pu être renommé ou retiré du réseau ; choisissez un autre site.",
+    "{station} ne figure plus sur la liste des radars du service météo. Il a pu être renommé ou retiré du réseau ; choisissez un autre site.",
   "radar.error.noVolume":
-    "Aucun volume radar n'a encore été publié pour {0} aujourd'hui ni hier.",
+    "Aucun volume radar n'a encore été publié pour {station} aujourd'hui ni hier.",
   "radar.error.badListing": "La liste des volumes n'a pas pu être lue.",
-  "radar.error.decode": "Le volume n'a pas pu être décodé : {0}",
-  "radar.error.noSweep": "{0} n'a aucun balayage {1} à cet angle.",
+  "radar.error.decode": "Le volume n'a pas pu être décodé : {reason}",
+  "radar.error.noSweep": "{station} n'a aucun balayage {product} à cet angle.",
   "radar.error.noStormMotion":
-    "Le vent à {0} n'a pas pu être lu, alors il n'y a rien à retirer de l'image.",
-  "radar.error.encode": "L'image n'a pas pu être dessinée : {0}",
-  "radar.error.invalidTime": "{0} n'est pas une date et une heure UTC.",
-  "radar.error.localRead": "Le fichier choisi n'a pas pu être lu : {0}",
+    "Le vent à {station} n'a pas pu être lu, alors il n'y a rien à retirer de l'image.",
+  "radar.error.encode": "L'image n'a pas pu être dessinée : {reason}",
+  "radar.error.invalidTime": "{at} n'est pas une date et une heure UTC.",
+  "radar.error.localRead": "Le fichier choisi n'a pas pu être lu : {reason}",
   "radar.error.localTooLarge": "Le fichier choisi dépasse 128 Mo.",
   "radar.error.outOfRange":
-    "Les deux extrémités d'une coupe verticale doivent être à portée de {0}.",
-  "radar.error.httpStatus": "Le service d'archives radar {0}.",
+    "Les deux extrémités d'une coupe verticale doivent être à portée de {station}.",
+  "radar.error.httpStatus": "Le service d'archives radar {answer}.",
   "radar.error.httpUnreachable":
     "Les archives radar sont restées muettes. Vérifiez que cette machine est en ligne.",
   "radar.error.httpRefused":
     "OpenRadar n'est pas allé chercher cela : l'adresse n'en est pas une qu'il a le droit d'atteindre.",
   "radar.error.httpTooLarge":
     "Les archives radar ont envoyé plus que ce qu'OpenRadar lit d'un coup.",
-  "bundle.error.httpStatus": "Le service de rediffusion {0}.",
+  "bundle.error.httpStatus": "Le service de rediffusion {answer}.",
   "bundle.error.httpUnreachable":
     "La rediffusion n'a pas pu être récupérée. Vérifiez que cette machine est en ligne.",
   "bundle.error.httpRefused":

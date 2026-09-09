@@ -23,19 +23,22 @@ describe("a counted failure from the native side", () => {
     // plural block cannot read: it would fall to the plural arm and print no
     // number at all.
     expect(nativeErrorParams("tooLarge", ["4300000"])).toEqual({
-      0: 4_300_000,
+      count: 4_300_000,
     });
-    expect(nativeErrorParams("tooManyTiles", [1])).toEqual({ 0: 1 });
+    expect(nativeErrorParams("tooManyTiles", [1])).toEqual({ count: 1 });
   });
 
   it("leaves alone the arguments that are not counts", () => {
     // A layout version and a station whose name happens to be digits are
     // machine values, and must come through exactly as they were.
+    // `unsupportedLayout` has no argument in its sentence, so nothing names
+    // one for it and it falls back to the number, which is the case the
+    // fallback exists for.
     expect(nativeErrorParams("unsupportedLayout", ["0031"])).toEqual({
       0: "0031",
     });
     expect(nativeErrorParams("tooLarge", ["not a number"])).toEqual({
-      0: "not a number",
+      count: "not a number",
     });
   });
 

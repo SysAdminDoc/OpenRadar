@@ -130,3 +130,22 @@ describe("where a description ends", () => {
     });
   }
 });
+
+describe("what a sentence calls the thing it is given", () => {
+  // The file's own header forbids a numbered placeholder and twenty-three
+  // strings used one. `{0}` says nothing about what will land there, so a
+  // translator moving a clause has to count the placeholders in the original
+  // to find out which is which, and a language that puts them the other way
+  // round has to keep the numbers straight while doing it.
+  for (const [copy, name] of [
+    [en, "en"],
+    [es, "es"],
+    [fr, "fr"],
+  ] as const) {
+    it(`names every argument a ${name} string takes`, () => {
+      for (const [key, value] of entries(copy)) {
+        expect(/\{\s*\d/.test(value), `${name} ${key}: ${value}`).toBe(false);
+      }
+    });
+  }
+});

@@ -45,24 +45,25 @@ export const es: Catalogue = {
   "dataExport.megabytes": "{count} MB",
   "dataExport.error.notDrawn":
     "Esa malla no está en el mapa, así que no hay nada decodificado que guardar. Activa la capa y deja que se dibuje primero.",
-  "dataExport.error.noProduct": "No existe ningún producto llamado {0}.",
+  "dataExport.error.noProduct": "No existe ningún producto llamado {product}.",
   "dataExport.error.nothingInView":
     "La vista no contiene ninguna parte de esa malla.",
   "dataExport.error.tooLarge":
-    "Serían {0, plural, one {# lectura} other {# lecturas}} en un solo archivo. Acerca el mapa para que la exportación abarque menos.",
+    "Serían {count, plural, one {# lectura} other {# lecturas}} en un solo archivo. Acerca el mapa para que la exportación abarque menos.",
   "dataExport.error.noFolder": "No hay dónde escribir la exportación.",
-  "dataExport.error.write": "No se pudo escribir la exportación: {0}",
-  "dataExport.error.gridUnknownProduct": "No existe una malla llamada {0}.",
+  "dataExport.error.write": "No se pudo escribir la exportación: {reason}",
+  "dataExport.error.gridUnknownProduct":
+    "No existe una malla llamada {product}.",
   "dataExport.error.gridBadListing":
     "No se pudo leer la lista de mallas publicadas.",
   "dataExport.error.gridNoFrames":
-    "Todavía no se ha publicado ninguna malla de {0}.",
+    "Todavía no se ha publicado ninguna malla de {product}.",
   "dataExport.error.gridNotGrib": "Ese archivo no es una malla GRIB2.",
   "dataExport.error.gridUnreadable":
     "Esa malla viene empaquetada de una forma que esta versión no lee.",
   "dataExport.error.gridNotDrawn": "No se pudo dibujar la malla.",
   "dataExport.error.unknown": "No se pudo escribir la exportación.",
-  "dataExport.error.gridHttpStatus": "El servicio de mallas {0}.",
+  "dataExport.error.gridHttpStatus": "El servicio de mallas {answer}.",
   "dataExport.error.gridHttpUnreachable":
     "No se pudo obtener la malla. Comprueba que este equipo tenga conexión.",
   "dataExport.error.gridHttpRefused":
@@ -281,7 +282,7 @@ export const es: Catalogue = {
   "storage.clearFailedUnknown":
     "No llegó el motivo. El registro tiene lo que dijo el comando.",
   "packs.error.tooManyTiles":
-    "Esa región necesita {0, plural, one {# tesela} other {# teselas}}, más de las que cabe en un paquete. Acércate o toma menos niveles de zoom.",
+    "Esa región necesita {count, plural, one {# tesela} other {# teselas}}, más de las que cabe en un paquete. Acércate o toma menos niveles de zoom.",
   "packs.error.diskCeiling":
     "Eso pasaría del límite de disco que fijaste. Borra un paquete o sube el límite de arriba.",
   "packs.error.notFound": "Ese paquete ya no está.",
@@ -294,7 +295,7 @@ export const es: Catalogue = {
   "packs.error.failed":
     "Algo falló en esta máquina y la descarga se detuvo. El panel de Diagnóstico tiene los detalles.",
   "packs.error.pausedOnExit": "La descarga se pausó cuando OpenRadar se cerró.",
-  "packs.error.httpStatus": "El servidor de teselas {0}.",
+  "packs.error.httpStatus": "El servidor de teselas {answer}.",
   "packs.error.httpUnreachable":
     "No se pudo llegar al servidor de teselas. Comprueba que esta máquina esté en línea.",
   "packs.error.httpRefused":
@@ -446,20 +447,21 @@ export const es: Catalogue = {
     "{count, plural, one {# fuente de avisos no estaba} other {# fuentes de avisos no estaban}} en la repetición, así que sus avisos pueden estar incompletos.",
   "bundle.missingBoth":
     "{tiles, plural, one {# tesela} other {# teselas}} y {warnings, plural, one {# fuente de avisos} other {# fuentes de avisos}} no estaban en la repetición.",
-  "bundle.error.invalidRequest": "Esta repetición no se puede empaquetar: {0}.",
+  "bundle.error.invalidRequest":
+    "Esta repetición no se puede empaquetar: {reason}.",
   "bundle.error.tooManyTiles":
-    "La vista abarca {0, plural, one {# tesela} other {# teselas}} a lo largo de la reproducción. Acerca o aleja el mapa para que abarque menos.",
+    "La vista abarca {count, plural, one {# tesela} other {# teselas}} a lo largo de la reproducción. Acerca o aleja el mapa para que abarque menos.",
   "bundle.error.tooManyDocuments":
-    "La reproducción pide {0, plural, one {# documento} other {# documentos}} junto al mapa, más de los que cabe en una repetición guardada.",
+    "La reproducción pide {count, plural, one {# documento} other {# documentos}} junto al mapa, más de los que cabe en una repetición guardada.",
   "bundle.error.tooLarge": "La repetición superaría los 256 MB.",
   "bundle.error.noFolder": "No hay dónde escribir la repetición.",
-  "bundle.error.write": "No se pudo escribir la repetición: {0}",
-  "bundle.error.read": "No se pudo leer la repetición: {0}",
+  "bundle.error.write": "No se pudo escribir la repetición: {reason}",
+  "bundle.error.read": "No se pudo leer la repetición: {reason}",
   "bundle.error.notABundle":
     "Ese archivo no es un paquete de repetición de OpenRadar.",
   "bundle.error.newer":
     "Esa repetición lo hizo un OpenRadar más nuevo. Actualiza para abrirlo.",
-  "bundle.error.corrupt": "Esa repetición está dañada: {0}",
+  "bundle.error.corrupt": "Esa repetición está dañada: {reason}",
   "bundle.error.noView": "El mapa aún no tiene una vista que empaquetar.",
   "bundle.error.noFrames":
     "Esa repetición no tiene cuadros que esta versión pueda dibujar.",
@@ -794,27 +796,28 @@ export const es: Catalogue = {
   "radar.classificationLabel": "Producto de clasificación de hidrometeoros",
   "radar.classificationDetail":
     "Qué producto de Nivel III lee la capa de clasificación de hidrometeoros: la elevación más baja, o el barrido híbrido en el que se lee todo el volumen",
-  "radar.error.unknownSite": "{0} no es un radar NEXRAD.",
+  "radar.error.unknownSite": "{station} no es un radar NEXRAD.",
   "radar.error.notWsr88d":
-    "{0} es el radar de terminal de un aeropuerto: no tiene volumen de Level II que leer ni archivo.",
+    "{station} es el radar de terminal de un aeropuerto: no tiene volumen de Level II que leer ni archivo.",
   "radar.error.noLongerListed":
-    "{0} ya no está en la lista de radares del servicio meteorológico. Puede que lo hayan renombrado o retirado de la red; elige otro sitio.",
+    "{station} ya no está en la lista de radares del servicio meteorológico. Puede que lo hayan renombrado o retirado de la red; elige otro sitio.",
   "radar.error.noVolume":
-    "No se ha publicado ningún volumen de {0} ni hoy ni ayer.",
+    "No se ha publicado ningún volumen de {station} ni hoy ni ayer.",
   "radar.error.badListing": "No se pudo leer el listado de volúmenes.",
-  "radar.error.decode": "No se pudo descodificar el volumen: {0}",
-  "radar.error.noSweep": "{0} no tiene barrido de {1} en esa inclinación.",
+  "radar.error.decode": "No se pudo descodificar el volumen: {reason}",
+  "radar.error.noSweep":
+    "{station} no tiene barrido de {product} en esa inclinación.",
   "radar.error.noStormMotion":
-    "No se pudo leer el viento en {0}, así que no hay nada que quitar de la imagen.",
-  "radar.error.encode": "No se pudo dibujar la imagen: {0}",
-  "radar.error.httpStatus": "El archivo de radar {0}.",
+    "No se pudo leer el viento en {station}, así que no hay nada que quitar de la imagen.",
+  "radar.error.encode": "No se pudo dibujar la imagen: {reason}",
+  "radar.error.httpStatus": "El archivo de radar {answer}.",
   "radar.error.httpUnreachable":
     "No se pudo llegar al archivo de radar. Comprueba que esta máquina esté en línea.",
   "radar.error.httpRefused":
     "OpenRadar no fue a buscar eso: la dirección no es una a la que se le permite llegar.",
   "radar.error.httpTooLarge":
     "El archivo de radar envió más de lo que OpenRadar lee de una vez.",
-  "bundle.error.httpStatus": "El servicio de repeticiones {0}.",
+  "bundle.error.httpStatus": "El servicio de repeticiones {answer}.",
   "bundle.error.httpUnreachable":
     "No se pudo obtener la repetición. Comprueba que esta máquina esté en línea.",
   "bundle.error.httpRefused":
@@ -822,11 +825,11 @@ export const es: Catalogue = {
   "bundle.error.httpTooLarge":
     "La repetición envió más de lo que OpenRadar lee de una vez.",
   "radar.error.unknown": "El radar no respondió.",
-  "radar.error.invalidTime": "{0} no es una fecha y hora UTC.",
-  "radar.error.localRead": "No se pudo leer el archivo seleccionado: {0}",
+  "radar.error.invalidTime": "{at} no es una fecha y hora UTC.",
+  "radar.error.localRead": "No se pudo leer el archivo seleccionado: {reason}",
   "radar.error.localTooLarge": "El archivo seleccionado supera los 128 MB.",
   "radar.error.outOfRange":
-    "Los dos extremos del corte tienen que estar dentro del alcance de {0}.",
+    "Los dos extremos del corte tienen que estar dentro del alcance de {station}.",
   "radar.dealiasForced":
     "La velocidad relativa a la tormenta tiene que desplegar primero, porque el viento que quita se lee del propio barrido",
   "radar.threshold": "Ocultar por debajo de",
