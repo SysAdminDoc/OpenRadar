@@ -1,6 +1,5 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { mrmsSource } from "../test/rustSource";
 import { MRMS_PRODUCT_IDS } from "./providers/mrms";
 import {
   CELL_LAYER_IDS,
@@ -150,17 +149,19 @@ describe("every grid the panel can switch on has a lane to draw in", () => {
   it("splits them the way the decoder does", () => {
     // Which grids are scattered cells and which cover the country is one
     // decision written in two languages: here it decides what is drawn over
-    // what, and in `mrms.rs` it decides whether a tile is sampled per pixel
-    // or walked cell by cell. Nothing else would notice them drifting,
+    // what, and in `mrms/tiles.rs` it decides whether a tile is sampled per
+    // pixel or walked cell by cell. Nothing else would notice them drifting,
     // because a scattered grid buried under a continuous field still draws.
     //
     // Read out of the Rust test that already writes the verdict per product,
     // the way `tiles.rs` is read by the sweep gate: the table itself is a
     // hundred lines of struct literals, and its verdicts are a list.
-    const rust = readFileSync(
-      join(import.meta.dirname, "..", "..", "src-tauri", "src", "mrms.rs"),
-      "utf8",
-    );
+    //
+    // Through the whole directory rather than one file, because `mrms.rs`
+    // became `mrms/` and the verdicts moved with the products they are
+    // about. A gate that names a file says the file moved rather than
+    // whether the two copies still agree.
+    const rust = mrmsSource();
     const verdicts = rust.slice(
       rust.indexOf("fn every_product_is_drawn_the_way_its_data_is_shaped"),
     );

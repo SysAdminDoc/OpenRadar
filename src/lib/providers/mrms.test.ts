@@ -1,6 +1,5 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { mrmsSource } from "../../test/rustSource";
 import {
   domainFor,
   frameLimit,
@@ -139,18 +138,7 @@ describe("MRMS tiles", () => {
     // anything past its own limit. Drifting apart does not fail: the map
     // simply goes blank at the zoom nobody tested, which is the deepest one
     // and the one somebody looking closely at a storm is at.
-    const native = readFileSync(
-      join(
-        import.meta.dirname,
-        "..",
-        "..",
-        "..",
-        "src-tauri",
-        "src",
-        "mrms.rs",
-      ),
-      "utf8",
-    );
+    const native = mrmsSource();
     const refused = /zoom > (\d+)\s*\{/.exec(native);
     expect(
       refused,
