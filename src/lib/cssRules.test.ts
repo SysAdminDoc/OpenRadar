@@ -35,6 +35,78 @@ function context(rule: Rule): string {
   return parts.join(" >> ");
 }
 
+/**
+ * The shorthand that swallows a longhand, for the families this file writes.
+ *
+ * `background-color` is gone the moment a later rule sets `background`, and
+ * comparing property names alone cannot see it: the two names are different
+ * and the declaration is just as dead. Only the families this stylesheet
+ * actually uses are here, because a table nobody reads is a table that rots.
+ */
+const SWALLOWED_BY: Record<string, string[]> = {
+  "background-color": ["background"],
+  "background-image": ["background"],
+  "background-position": ["background"],
+  "background-size": ["background"],
+  "border-color": ["border"],
+  "border-style": ["border"],
+  "border-width": ["border"],
+  "border-radius": ["border"],
+  "font-size": ["font"],
+  "font-weight": ["font"],
+  "font-family": ["font"],
+  "line-height": ["font"],
+  "flex-basis": ["flex"],
+  "flex-grow": ["flex"],
+  "flex-shrink": ["flex"],
+  "grid-template-columns": ["grid-template", "grid"],
+  "grid-template-rows": ["grid-template", "grid"],
+  top: ["inset"],
+  right: ["inset"],
+  bottom: ["inset"],
+  left: ["inset"],
+  "overflow-x": ["overflow"],
+  "overflow-y": ["overflow"],
+  "row-gap": ["gap"],
+  "column-gap": ["gap"],
+};
+
+/** Whether a later rule setting these properties kills this one. */
+function taken(property: string, wins: Map<string, string>): boolean {
+  if (wins.has(property)) return true;
+  return (SWALLOWED_BY[property] ?? []).some((shorthand) =>
+    wins.has(shorthand),
+  );
+}
+
+/**
+ * How hard a selector is to beat, as the three counts the cascade uses.
+ *
+ * Enough to answer "does this later rule win", which is all that is asked of
+ * it: a media query adds nothing of its own, so a later plain rule that ties
+ * or beats the one inside the block takes the declaration.
+ */
+function weight(selector: string): [number, number, number] {
+  const bare = selector
+    .replace(/\\./g, "")
+    .replace(/::[a-z-]+/g, " ")
+    .replace(/:(?:not|is|where)\(/g, " (");
+  return [
+    (bare.match(/#[\w-]+/g) ?? []).length,
+    (bare.match(/\.[\w-]+|\[[^\]]*\]|:[a-z-]+/g) ?? []).length,
+    (bare.match(/(^|[\s>+~(,])[a-z][\w-]*/g) ?? []).length,
+  ];
+}
+
+/** Whether the second selector wins a tie or better against the first. */
+function beats(later: string, earlier: string): boolean {
+  const [a, b, c] = weight(later);
+  const [x, y, z] = weight(earlier);
+  if (a !== x) return a > x;
+  if (b !== y) return b > y;
+  return c >= z;
+}
+
 /** Which properties a rule sets, ignoring the custom ones a theme reaches. */
 function properties(rule: Rule): Map<string, string> {
   const set = new Map<string, string>();
@@ -195,7 +267,10 @@ describe("the stylesheet says what the browser does", () => {
             // An important declaration wins from wherever it is written,
             // which is the one case where the earlier rule is the one read.
             if (value.includes("!important")) continue;
-            if (!wins.has(property)) continue;
+            // By the property's own name or by the shorthand that swallows
+            // it: `background-color` is gone once a later rule sets
+            // `background`, and the names never match.
+            if (!taken(property, wins)) continue;
             beaten.push(
               `${earlier.selector} line ${earlier.source?.start?.line}: ${property} is set again at line ${later.source?.start?.line}`,
             );
@@ -213,6 +288,23 @@ describe("the stylesheet says what the browser does", () => {
     // file: a reader who asked for high contrast got the app's dark bar and
     // an active button whose border was gone, with the rule that said
     // otherwise sitting right there in the file.
+    //
+    // The first version of this compared the two selectors as strings, which
+    // is the narrowest thing it could have done: a later
+    // `.app-shell .command-bar` takes the bar's background from the block
+    // just as completely as another `.command-bar` would, and reads as a
+    // different rule. Same elements, then weight, is the question the
+    // browser asks.
+    const parts = (rule: Rule) =>
+      rule.selector.split(",").map((one) => one.replace(/\s+/g, " ").trim());
+    /** Whether `later` reaches everything `mine` does, at a weight that wins. */
+    const overrides = (later: Rule, mine: Rule) =>
+      parts(mine).some((one) =>
+        parts(later).some(
+          (other) =>
+            (other === one || other.endsWith(` ${one}`)) && beats(other, one),
+        ),
+      );
     const plain = all.filter((rule) => !context(rule));
     const beaten: string[] = [];
     for (const [at, rule] of all.entries()) {
@@ -220,12 +312,12 @@ describe("the stylesheet says what the browser does", () => {
       if (!/@media|@supports/.test(inside)) continue;
       const mine = properties(rule);
       for (const later of plain) {
-        if (later.selector !== rule.selector) continue;
         if (all.indexOf(later) < at) continue;
+        if (!overrides(later, rule)) continue;
         const wins = properties(later);
         for (const [property, value] of mine) {
           if (value.includes("!important")) continue;
-          if (!wins.has(property)) continue;
+          if (!taken(property, wins)) continue;
           beaten.push(
             `${inside} ${rule.selector} line ${rule.source?.start?.line}: ${property} is taken by line ${later.source?.start?.line}`,
           );
