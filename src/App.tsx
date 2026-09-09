@@ -127,7 +127,7 @@ import {
   type Storm,
 } from "./lib/hurdat";
 import { basemapCredit, drawnOverLight } from "./lib/mapStyles";
-import { supportedProduct } from "./lib/radarKinds";
+import { isTdwrStation, supportedProduct } from "./lib/radarKinds";
 import { level2Available } from "./lib/level2";
 import { pairingById } from "./lib/alertPairings";
 import { featureBounds } from "./lib/overlays";
@@ -1495,6 +1495,21 @@ export default function App() {
         run: () => write(),
       });
     }
+    // The object the picture was decoded from, beside the readings taken out
+    // of it. A CSV is this app's account of the volume; the volume is what
+    // another tool reopens, and it is the same file the bucket published.
+    if (singleSite.saveVolume) {
+      const save = singleSite.saveVolume;
+      offers.push({
+        id: "volume",
+        label: t("export.dataVolume"),
+        format: isTdwrStation(singleSite.station) ? "nids" : "ar2v",
+        // Nothing is read out of it, so the toast says its size rather than
+        // counting readings that were never taken.
+        verbatim: true,
+        run: () => save(),
+      });
+    }
     // The picture on the map is a grid too when MRMS is drawing it, and it is
     // the one a reader is most likely to want the numbers behind.
     const frame = frames[frameIndex];
@@ -1550,6 +1565,8 @@ export default function App() {
     frames,
     mrms.layers,
     singleSite.exportValues,
+    singleSite.saveVolume,
+    singleSite.station,
     singleSite.sweep?.product,
     t,
   ]);

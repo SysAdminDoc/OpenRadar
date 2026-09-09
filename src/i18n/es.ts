@@ -34,9 +34,12 @@ export const es: Catalogue = {
   "export.dataFile": "{label} en {format}",
   "export.dataRadar": "Valores del radar",
   "export.dataComposite": "Compuesto MRMS",
+  "export.dataVolume": "El volumen en sí",
   "export.dataWritten": "{label} guardado",
   "export.dataWrittenBody":
     "{readings, plural, one {# lectura} other {# lecturas}}, {size}, en {path}, con un archivo de procedencia al lado.",
+  "export.dataWrittenFileBody":
+    "{size}, en {path}, tal como se publicó, con un archivo de procedencia al lado.",
   "export.dataFailed": "La exportación de datos falló",
   "export.dataNoView":
     "El mapa aún no tiene una vista a la que recortar la malla.",
@@ -51,6 +54,8 @@ export const es: Catalogue = {
   "dataExport.error.tooLarge":
     "Serían {count, plural, one {# lectura} other {# lecturas}} en un solo archivo. Acerca el mapa para que la exportación abarque menos.",
   "dataExport.error.noFolder": "No hay dónde escribir la exportación.",
+  "dataExport.error.notAVolume":
+    "Ese no es el nombre de un volumen que esta aplicación haya dibujado.",
   "dataExport.error.write": "No se pudo escribir la exportación: {reason}",
   "dataExport.error.gridUnknownProduct":
     "No existe una malla llamada {product}.",

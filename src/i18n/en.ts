@@ -34,9 +34,12 @@ export const en = {
   "export.dataFile": "{label} as {format}",
   "export.dataRadar": "Radar values",
   "export.dataComposite": "MRMS composite",
+  "export.dataVolume": "The volume itself",
   "export.dataWritten": "{label} written",
   "export.dataWrittenBody":
     "{readings, plural, one {# reading} other {# readings}}, {size}, at {path}, with a provenance file beside it.",
+  "export.dataWrittenFileBody":
+    "{size}, at {path}, exactly as it was published, with a provenance file beside it.",
   "export.dataFailed": "The data export failed",
   "export.dataNoView": "The map has no view to cut the grid to yet.",
   "dataExport.bytes": "{count, plural, one {# byte} other {# bytes}}",
@@ -49,6 +52,8 @@ export const en = {
   "dataExport.error.tooLarge":
     "That would be {count, plural, one {# reading} other {# readings}} in one file. Zoom in so the export covers less.",
   "dataExport.error.noFolder": "There is nowhere to write the export.",
+  "dataExport.error.notAVolume":
+    "That is not the name of a volume this app has drawn.",
   "dataExport.error.write": "The export could not be written: {reason}",
   "dataExport.error.gridUnknownProduct": "There is no grid called {product}.",
   "dataExport.error.gridBadListing":

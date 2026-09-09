@@ -41,9 +41,12 @@ export const fr: Catalogue = {
   "export.dataFile": "{label} en {format}",
   "export.dataRadar": "Valeurs du radar",
   "export.dataComposite": "Composite MRMS",
+  "export.dataVolume": "Le volume lui-même",
   "export.dataWritten": "{label} enregistré",
   "export.dataWrittenBody":
     "{readings, plural, one {# relevé} other {# relevés}}, {size}, dans {path}, avec un fichier de provenance à côté.",
+  "export.dataWrittenFileBody":
+    "{size}, dans {path}, tel qu'il a été publié, avec un fichier de provenance à côté.",
   "export.dataFailed": "L'exportation des données a échoué",
   "export.dataNoView": "La carte n'a pas encore de vue à découper.",
   "dataExport.bytes": "{count, plural, one {# octet} other {# octets}}",
@@ -57,6 +60,8 @@ export const fr: Catalogue = {
   "dataExport.error.tooLarge":
     "Cela ferait {count, plural, one {# relevé} other {# relevés}} dans un seul fichier. Zoomez pour que l'export couvre moins de terrain.",
   "dataExport.error.noFolder": "Il n'y a nulle part où écrire l'exportation.",
+  "dataExport.error.notAVolume":
+    "Ce n'est pas le nom d'un volume que cette application a dessiné.",
   "dataExport.error.write": "L'exportation n'a pas pu être écrite : {reason}",
   "dataExport.error.gridUnknownProduct":
     "Il n'y a pas de grille appelée {product}.",

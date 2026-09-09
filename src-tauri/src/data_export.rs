@@ -48,6 +48,12 @@ const CSV_EXTENSION: &str = "csv";
 /// The grid, which is a single-band float raster.
 const GEOTIFF_EXTENSION: &str = "tif";
 
+/// An Archive II volume, saved as the bucket published it.
+const VOLUME_EXTENSION: &str = "ar2v";
+
+/// A Level III product, which is what a terminal radar publishes instead.
+const LEVEL3_EXTENSION: &str = "nids";
+
 /// Every kind of file this module writes, and the one place it is written
 /// down.
 ///
@@ -59,7 +65,12 @@ const GEOTIFF_EXTENSION: &str = "tif";
 /// ships reads it, because a writer names its own kind of file rather than
 /// picking one out of a list by position.
 #[cfg(test)]
-const EXTENSIONS: &[&str] = &[CSV_EXTENSION, GEOTIFF_EXTENSION];
+const EXTENSIONS: &[&str] = &[
+    CSV_EXTENSION,
+    GEOTIFF_EXTENSION,
+    VOLUME_EXTENSION,
+    LEVEL3_EXTENSION,
+];
 
 /// How many gates one CSV may hold.
 ///
@@ -94,6 +105,8 @@ pub enum DataExportError {
     NoFolder,
     #[error("the export could not be written: {0}")]
     Write(String),
+    #[error("that is not the name of a volume this app has drawn")]
+    NotAVolume,
 }
 
 impl DataExportError {
@@ -110,6 +123,7 @@ impl DataExportError {
             Self::TooLarge(count) => ("tooLarge", vec![count.to_string()]),
             Self::NoFolder => ("noFolder", Vec::new()),
             Self::Write(why) => ("write", vec![why.clone()]),
+            Self::NotAVolume => ("notAVolume", Vec::new()),
         }
     }
 }
@@ -143,6 +157,20 @@ pub struct SweepDataRequest {
     /// A volume the reader opened off their own disk.
     #[serde(default)]
     pub path: Option<String>,
+}
+
+/// Which volume to save, by the name the bucket published it under.
+///
+/// The key rather than a station and a moment, because the key is what the
+/// picture on screen already carries and it names one object exactly: asking
+/// for "the newest volume at KDMX" a minute after drawing one can answer with
+/// a different file, and a copy of a volume that is not the volume on screen
+/// is the one thing this is for.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VolumeFileRequest {
+    pub station: String,
+    pub volume: String,
 }
 
 /// Which grid to write, and the corner of the world to cut it to.
@@ -192,9 +220,16 @@ struct Provenance {
     written_at: String,
     data_file: String,
     sha256: String,
-    /// `polar` or `grid`, which is also which of the two files this is.
+    /// `polar`, `grid`, or `volume` for the source object saved unmodified.
     kind: &'static str,
-    product: ProvenanceProduct,
+    /// Absent on a saved volume, which holds every product the radar
+    /// collected rather than the one that was on screen.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    product: Option<ProvenanceProduct>,
+    /// The bucket object this file is a byte-for-byte copy of. Absent on an
+    /// export the app computed from one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    object: Option<ProvenanceObject>,
     /// When the radar collected it, not when it was fetched.
     observed: Option<String>,
     source: ProvenanceSource,
@@ -213,6 +248,14 @@ struct ProvenanceProduct {
     id: String,
     label: String,
     unit: String,
+}
+
+/// Where the bytes came from, said precisely enough to fetch them again.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProvenanceObject {
+    bucket: String,
+    key: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -566,11 +609,12 @@ fn polar_provenance(
         data_file: String::new(),
         sha256: String::new(),
         kind: "polar",
-        product: ProvenanceProduct {
+        product: Some(ProvenanceProduct {
             id: values.product_id.clone(),
             label: values.product.to_string(),
             unit: values.unit.to_string(),
-        },
+        }),
+        object: None,
         observed: values.collected.map(stamp),
         source,
         geometry: serde_json::json!({
@@ -611,6 +655,168 @@ fn polar_provenance(
                   a range folded gate has an empty value and status rangeFolded"
             .to_string(),
     }
+}
+
+/// Whether a name is a bucket key and nothing else.
+///
+/// The page hands over the key of the picture it is looking at, and a key is
+/// half a URL: a name carrying a query, a fragment or a parent reference would
+/// be fetched and written to disk as a volume. Only the characters the two
+/// buckets actually use, which is letters, digits, dashes and underscores in
+/// segments separated by slashes.
+///
+/// A dot is not among them. Neither bucket puts one in a key, and refusing it
+/// outright is what makes a parent reference impossible rather than a case to
+/// remember: `..` is not a segment to exclude, it is a segment that cannot be
+/// spelled.
+fn readable_key(key: &str) -> bool {
+    !key.is_empty()
+        && key.len() <= 200
+        && key.split('/').all(|segment| {
+            !segment.is_empty()
+                && segment.chars().all(|character| {
+                    character.is_ascii_alphanumeric() || character == '_' || character == '-'
+                })
+        })
+}
+
+/// The bucket object's own name, which is the name every other tool that
+/// reads one of these expects to be handed.
+///
+/// Not `file_name`, which writes `openradar-` in front of everything else this
+/// module produces. Those are files this app computed and named; this one is
+/// somebody else's object saved unaltered, and renaming it loses the station,
+/// the collection time and the convention in one go.
+fn volume_file_name(key: &str, extension: &str) -> String {
+    let stem: String = key
+        .rsplit('/')
+        .next()
+        .unwrap_or(key)
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || character == '_' || character == '-' {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    format!("{stem}.{extension}")
+}
+
+/// When the radar collected what a key names.
+///
+/// The two buckets stamp their keys differently: an Archive II volume is
+/// `KDMX20260830_092159_V06` and a Level III product is
+/// `TATL_NZH_2026_08_30_23_40_12`. Both are the collection time rather than
+/// the publication time, which is what the sidecar has to say.
+fn key_moment(key: &str) -> Option<DateTime<Utc>> {
+    if let Some(at) = level2::key_time(key) {
+        return Some(at);
+    }
+    let name = key.rsplit('/').next()?;
+    let stamp = name.get(name.len().checked_sub(19)?..)?;
+    chrono::NaiveDateTime::parse_from_str(stamp, "%Y_%m_%d_%H_%M_%S")
+        .ok()
+        .map(|parsed| parsed.and_utc())
+}
+
+/// The volume behind the picture, saved as the bucket published it.
+///
+/// A picture, a CSV and a GeoTIFF are all this app's account of what the radar
+/// measured. The object itself is the thing a case study is reopened from, in
+/// this app or in any other tool that reads the format, and it was the one
+/// thing a reader who had found the sweep that matters could not keep.
+///
+/// The bytes are never touched: what is written is exactly what was fetched,
+/// so the file's checksum is the bucket object's checksum and the sidecar can
+/// say so.
+#[tauri::command]
+pub async fn export_volume_file(
+    app: AppHandle,
+    request: VolumeFileRequest,
+) -> Result<DataExportReport, DataExportError> {
+    let station = request.station.to_uppercase();
+    let key = request.volume;
+    if !readable_key(&key) {
+        return Err(DataExportError::NotAVolume);
+    }
+    let folder = exports::export_folder(&app).map_err(|_| DataExportError::NoFolder)?;
+
+    // An airport's own radar publishes a Level III product at a time under its
+    // own name; everything else publishes an Archive II volume.
+    let terminal = crate::tdwr::is_tdwr(&station);
+    let (host, extension, source) = if terminal {
+        (
+            format!("https://{}", crate::level3::BUCKET),
+            LEVEL3_EXTENSION,
+            ProvenanceSource {
+                kind: "archive",
+                label: "NOAA NEXRAD Level III (TDWR)".to_string(),
+                url: Some("https://registry.opendata.aws/noaa-nexrad/".to_string()),
+            },
+        )
+    } else {
+        // A partial upload is published under `_MDM` and is not a volume; the
+        // picture is never drawn from one, so neither is a saved file.
+        if !(key.ends_with("_V06") || key.ends_with("_V03")) {
+            return Err(DataExportError::NotAVolume);
+        }
+        (
+            level2::ARCHIVE_HOST.to_string(),
+            VOLUME_EXTENSION,
+            ProvenanceSource {
+                kind: "archive",
+                label: "NOAA NEXRAD Level II archive".to_string(),
+                url: Some("https://registry.opendata.aws/noaa-nexrad/".to_string()),
+            },
+        )
+    };
+
+    // The bytes the picture was drawn from, where they are still held. The
+    // ordinary case is a reader saving the volume they are looking at, and
+    // that one costs nothing and cannot come back as a different object.
+    let bytes = match level2::cached(&key) {
+        Some(held) => held,
+        None => crate::http::get_bytes(&format!("{host}/{key}"))
+            .await
+            .map_err(Level2Error::from)?,
+    };
+
+    let written_at = Utc::now();
+    let provenance = Provenance {
+        format: "openradar-data-provenance",
+        format_version: 1,
+        application: APP,
+        written_at: stamp(written_at),
+        data_file: String::new(),
+        sha256: String::new(),
+        kind: "volume",
+        product: None,
+        object: Some(ProvenanceObject {
+            bucket: host.clone(),
+            key: key.clone(),
+        }),
+        observed: key_moment(&key).map(stamp),
+        source,
+        geometry: serde_json::json!({
+            "station": station,
+            "radar": if terminal { "TDWR" } else { "WSR-88D" },
+        }),
+        coordinate_reference: "EPSG:4326",
+        derivation: Vec::new(),
+        missing: "nothing: the file is the published object, byte for byte".to_string(),
+    };
+
+    // No readings and nothing omitted, because nothing was read out of it.
+    write_pair(
+        &folder,
+        volume_file_name(&key, extension),
+        &bytes,
+        provenance,
+        0,
+        0,
+    )
 }
 
 /// Which grid a request names, and where to find it in the bucket.
@@ -708,11 +914,12 @@ pub async fn export_grid_data(
         data_file: String::new(),
         sha256: String::new(),
         kind: "grid",
-        product: ProvenanceProduct {
+        product: Some(ProvenanceProduct {
             id: request.product.clone(),
             label: entry.label.to_string(),
             unit: entry.unit.to_string(),
-        },
+        }),
+        object: None,
         observed: DateTime::from_timestamp(request.time, 0).map(stamp),
         source: ProvenanceSource {
             kind: "mrms",
@@ -1277,5 +1484,71 @@ mod tests {
             exports::sanitize_file_name(&sidecar)
                 .unwrap_or_else(|error| panic!("{sidecar} cannot be written: {error:?}"));
         }
+        // A saved volume keeps the bucket's own name rather than taking one
+        // from `file_name`, so the loop above says nothing about it: the two
+        // real names go through the same allowlist.
+        for name in [
+            volume_file_name("2026/08/30/KDMX/KDMX20260830_092159_V06", VOLUME_EXTENSION),
+            volume_file_name("TATL_NZH_2026_08_30_23_40_12", LEVEL3_EXTENSION),
+        ] {
+            exports::sanitize_file_name(&name)
+                .unwrap_or_else(|error| panic!("{name} cannot be written: {error:?}"));
+            let sidecar = format!("{name}.provenance.json");
+            exports::sanitize_file_name(&sidecar)
+                .unwrap_or_else(|error| panic!("{sidecar} cannot be written: {error:?}"));
+        }
+    }
+
+    #[test]
+    fn a_saved_volume_is_named_the_way_the_bucket_named_it() {
+        // The point of saving the object at all is that another tool can read
+        // it, and the station and the collection time are in the name. An
+        // `openradar-` stem would throw both away.
+        assert_eq!(
+            volume_file_name("2026/08/30/KDMX/KDMX20260830_092159_V06", VOLUME_EXTENSION),
+            "KDMX20260830_092159_V06.ar2v"
+        );
+        assert_eq!(
+            volume_file_name("TATL_NZH_2026_08_30_23_40_12", LEVEL3_EXTENSION),
+            "TATL_NZH_2026_08_30_23_40_12.nids"
+        );
+    }
+
+    #[test]
+    fn a_name_that_is_not_a_bucket_key_is_refused() {
+        // The key comes from the page, and it is half a URL. Every one of
+        // these would otherwise be pasted into a fetch and written to disk.
+        assert!(readable_key("2026/08/30/KDMX/KDMX20260830_092159_V06"));
+        assert!(readable_key("TATL_NZH_2026_08_30_23_40_12"));
+        for bad in [
+            "",
+            "../../etc/passwd",
+            "2026/../../../secret",
+            "2026//KDMX",
+            "KDMX?list-type=2",
+            "evil.example.com/KDMX20260830_092159_V06",
+            "KDMX 20260830",
+            "KDMX20260830_092159_V06#fragment",
+        ] {
+            assert!(!readable_key(bad), "{bad} was read as a key");
+        }
+        // And a name longer than any key either bucket publishes.
+        assert!(!readable_key(&"a".repeat(201)));
+    }
+
+    #[test]
+    fn a_key_says_when_the_radar_collected_it() {
+        // The two buckets stamp their names differently and the sidecar has to
+        // say the collection time either way, not the moment it was saved.
+        assert_eq!(
+            key_moment("2026/08/30/KDMX/KDMX20260830_092159_V06").map(stamp),
+            Some("2026-08-30T09:21:59Z".to_string())
+        );
+        assert_eq!(
+            key_moment("TATL_NZH_2026_08_30_23_40_12").map(stamp),
+            Some("2026-08-30T23:40:12Z".to_string())
+        );
+        // And a name with no stamp in it says nothing rather than guessing.
+        assert_eq!(key_moment("KDMX"), None);
     }
 }

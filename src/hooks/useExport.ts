@@ -66,6 +66,15 @@ export interface DataExportSource {
   /** The file extension, said plainly beside the button. */
   format: string;
   /**
+   * True when the file is the source object saved unaltered rather than
+   * readings this app took out of one.
+   *
+   * The toast counts readings, and a volume has none: nothing was read out of
+   * it. Saying "0 readings" about a ten megabyte volume is worse than saying
+   * nothing, so it gets the sentence that names the size instead.
+   */
+  verbatim?: boolean;
+  /**
    * The view at the moment the button was pressed, for a dataset that is cut
    * to it, and null when the map has not settled on one. It is read here
    * rather than by the caller because the caller builds this list during a
@@ -737,12 +746,17 @@ export function useExport(options: {
               const report = await offer.run(mapRef.current?.bounds() ?? null);
               pushToast({
                 title: translate("export.dataWritten", { label: offer.label }),
-                detail: translate("export.dataWrittenBody", {
-                  // Raw, because the sentence counts by it.
-                  readings: report.readings,
-                  size: exportSize(report.bytes),
-                  path: report.path,
-                }),
+                detail: offer.verbatim
+                  ? translate("export.dataWrittenFileBody", {
+                      size: exportSize(report.bytes),
+                      path: report.path,
+                    })
+                  : translate("export.dataWrittenBody", {
+                      // Raw, because the sentence counts by it.
+                      readings: report.readings,
+                      size: exportSize(report.bytes),
+                      path: report.path,
+                    }),
               });
             } catch (failure: unknown) {
               // The sentence for the reader, and what the native side

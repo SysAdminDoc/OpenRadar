@@ -44,7 +44,7 @@ use crate::tdwr;
 use crate::vad;
 use crate::vwp;
 
-const ARCHIVE_HOST: &str = "https://unidata-nexrad-level2.s3.amazonaws.com";
+pub(crate) const ARCHIVE_HOST: &str = "https://unidata-nexrad-level2.s3.amazonaws.com";
 /// The image is square because a sweep is a circle; this is its side in pixels.
 pub(crate) const IMAGE_SIZE: usize = 1024;
 /// A WSR-88D surveillance cut reaches this far, and the extent follows it.

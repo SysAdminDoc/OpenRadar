@@ -334,6 +334,7 @@ pub fn run() {
             hrrr::hrrr_smoke,
             data_export::export_sweep_data,
             data_export::export_grid_data,
+            data_export::export_volume_file,
             bundles::replay_bundle_capture,
             bundles::replay_bundle_open,
             bundles::replay_bundle_close,

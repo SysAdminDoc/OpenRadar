@@ -28,8 +28,12 @@ const MAX_BYTES: usize = 64 * 1024 * 1024;
 /// the two writers, so the promise read wider than it was;
 /// `data_export::tests::every_name_this_module_writes_is_one_the_app_allows`
 /// is the other half and reads this list.
+///
+/// `ar2v` is an Archive II volume and `nids` a Level III product, both saved
+/// as the bucket published them. Neither is a name this app invents: they are
+/// what every other tool that reads these files expects to be handed.
 const ALLOWED_EXTENSIONS: &[&str] = &[
-    "png", "webm", "mp4", "gif", "json", "jsonl", "md", "pal", "csv", "tif",
+    "png", "webm", "mp4", "gif", "json", "jsonl", "md", "pal", "csv", "tif", "ar2v", "nids",
 ];
 /// Windows addresses these as devices no matter the extension or folder.
 const RESERVED_NAMES: &[&str] = &[
@@ -298,7 +302,8 @@ mod tests {
         let said = ExportError::BadExtension.to_string();
         assert_eq!(
             said,
-            "only png, webm, mp4, gif, json, jsonl, md, pal, csv and tif files can be exported"
+            "only png, webm, mp4, gif, json, jsonl, md, pal, csv, tif, ar2v \
+             and nids files can be exported"
         );
     }
 
