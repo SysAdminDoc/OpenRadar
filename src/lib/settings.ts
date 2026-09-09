@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { isDesktopRuntime } from "./runtime";
 import { SPC_HAZARDS } from "./spcHazards";
 import type { SpcHazard } from "./spcHazards";
@@ -820,8 +821,45 @@ export const DEFAULT_SETTINGS: AppSettings = {
 };
 
 const STORAGE_KEY = "openradar.settings";
+
+/**
+ * The copy taken before each write, and where an unreadable one is kept.
+ *
+ * Only the browser preview uses these. The desktop build keeps its three
+ * files in app data, where the native side can put one back before the store
+ * has ever been asked for anything; here the store is one key in
+ * `localStorage` and a second key beside it is all the same idea needs.
+ */
+const PREVIOUS_KEY = "openradar.settings.previous";
+const KEPT_KEY = "openradar.settings.unreadable";
+
 let storePromise: Promise<Store> | null = null;
 let storeWriteQueue: Promise<void> = Promise.resolve();
+
+/** A settings document that would not parse, and what was done about it. */
+export interface SettingsRecovery {
+  /** Where the unreadable document was kept, so a reader can go and look. */
+  keptAt: string;
+  /** Whether the last good copy went back in its place. */
+  restored: boolean;
+}
+
+let recovery: SettingsRecovery | null = null;
+
+/**
+ * What the last load had to recover from, for the workspace to say out loud.
+ *
+ * Read after the settings are in hand, not before: on the desktop it is the
+ * native side that answers, and the answer arrives with the load.
+ */
+export function settingsRecovery(): SettingsRecovery | null {
+  return recovery;
+}
+
+/** Forgets the last recovery, so a test does not carry one between cases. */
+export function resetSettingsRecovery(): void {
+  recovery = null;
+}
 
 function finiteInRange(
   value: unknown,
@@ -2088,11 +2126,21 @@ export function resetLayout(settings: AppSettings): AppSettings {
 }
 
 export async function loadSettings(): Promise<AppSettings> {
+  let settings: AppSettings;
   try {
-    return await readSettings();
+    settings = await readSettings();
   } catch {
-    return normalizeSettings(undefined);
+    settings = normalizeSettings(undefined);
   }
+  // The desktop recovery happens in the native setup hook, before the store
+  // is ever asked for anything, so by here it has already been done and the
+  // only thing left is to find out whether it happened.
+  if (isDesktopRuntime()) {
+    recovery = await invoke<SettingsRecovery | null>("settings_recovered")
+      .then((answer) => answer ?? null)
+      .catch(() => null);
+  }
+  return settings;
 }
 
 /**
@@ -2118,7 +2166,33 @@ export async function readSettings(): Promise<AppSettings> {
     return normalizeSettings(value ?? DEFAULT_SETTINGS);
   }
   const raw = window.localStorage.getItem(STORAGE_KEY);
-  return normalizeSettings(raw ? JSON.parse(raw) : DEFAULT_SETTINGS);
+  if (raw === null) return normalizeSettings(DEFAULT_SETTINGS);
+  if (looksLikeSettings(raw)) return normalizeSettings(JSON.parse(raw));
+  const put = recoverStored(raw);
+  // Not the defaults, which say first run and would ask a reader who has been
+  // here for a year to pick their units again. Their choice cannot be known
+  // from a document that will not parse, and that is the case the load
+  // already has a rule for: leave it alone.
+  return normalizeSettings(put === null ? undefined : JSON.parse(put));
+}
+
+/**
+ * Puts the last good copy back when the live document will not parse.
+ *
+ * Answers with what to read instead, or `null` when there was no copy to go
+ * back to. The unreadable document is kept rather than dropped: somebody who
+ * hand-edited it wants to see what they wrote.
+ */
+function recoverStored(raw: string): string | null {
+  const previous = window.localStorage.getItem(PREVIOUS_KEY);
+  const restored = previous !== null && looksLikeSettings(previous);
+  window.localStorage.setItem(KEPT_KEY, raw);
+  if (restored) window.localStorage.setItem(STORAGE_KEY, previous);
+  // Removed rather than left, or every load from here on reads the same
+  // unreadable document and the reader is stuck on the defaults for good.
+  else window.localStorage.removeItem(STORAGE_KEY);
+  recovery = { keptAt: KEPT_KEY, restored };
+  return restored ? previous : null;
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
@@ -2128,11 +2202,20 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
       .catch(() => {})
       .then(async () => {
         const store = await getStore();
+        // Before the write, not after: what is worth keeping is the state the
+        // reader had before whatever goes wrong next, and a write that tears
+        // halfway through is one of the things that goes wrong. A failure
+        // here is not a reason to refuse the save.
+        await invoke("settings_keep_previous").catch(() => false);
         await store.set("settings", normalized);
         await store.save();
       });
     storeWriteQueue = write;
     return write;
+  }
+  const live = window.localStorage.getItem(STORAGE_KEY);
+  if (live !== null && looksLikeSettings(live)) {
+    window.localStorage.setItem(PREVIOUS_KEY, live);
   }
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized, null, 2));
 }

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -7,6 +7,9 @@ import {
   cameraKey,
   looksLikeSettings,
   normalizeSettings,
+  resetSettingsRecovery,
+  saveSettings,
+  settingsRecovery,
   restoreSettings,
   watchedPlaces,
   sameCamera,
@@ -859,6 +862,102 @@ describe("reading the settings when the store will not answer", () => {
     await expect(loadSettings()).resolves.toEqual(
       expect.objectContaining({ textScale: DEFAULT_SETTINGS.textScale }),
     );
+  });
+});
+
+describe("a settings document that will not parse", () => {
+  const LIVE = "openradar.settings";
+  const PREVIOUS = "openradar.settings.previous";
+  const KEPT = "openradar.settings.unreadable";
+
+  beforeEach(() => {
+    for (const key of [LIVE, PREVIOUS, KEPT]) {
+      window.localStorage.removeItem(key);
+    }
+    resetSettingsRecovery();
+  });
+
+  /** A stored workspace with one thing in it worth losing. */
+  function stored(place: string): string {
+    return JSON.stringify({
+      ...DEFAULT_SETTINGS,
+      watchPlaces: [
+        {
+          id: "one",
+          name: place,
+          center: [-93.7, 41.7],
+          radiusMiles: 30,
+          minSeverity: "severe",
+        },
+      ],
+    });
+  }
+
+  it("keeps a copy of what was there before each write", async () => {
+    // The copy is the state the reader had before whatever went wrong next.
+    // Taken after the write instead, it would be a copy of whatever was just
+    // written, which on a bad write is the bad thing itself.
+    await saveSettings(normalizeSettings(JSON.parse(stored("Casa"))));
+    await saveSettings(normalizeSettings(JSON.parse(stored("Trabajo"))));
+    const copy = window.localStorage.getItem(PREVIOUS);
+    expect(copy).toContain("Casa");
+    expect(copy).not.toContain("Trabajo");
+  });
+
+  it("puts the copy back and keeps the one it could not read", async () => {
+    window.localStorage.setItem(PREVIOUS, stored("Casa"));
+    // A write torn in half, which is what a power cut leaves behind.
+    window.localStorage.setItem(LIVE, stored("Casa").slice(0, 40));
+
+    const read = await readSettings();
+    expect(
+      read.watchPlaces.map((place) => place.name),
+      "the reader's places did not come back",
+    ).toEqual(["Casa"]);
+    expect(settingsRecovery()).toEqual({ keptAt: KEPT, restored: true });
+    expect(window.localStorage.getItem(KEPT)).toBe(stored("Casa").slice(0, 40));
+    // And the live document is readable again, so the next launch is quiet.
+    expect(looksLikeSettings(window.localStorage.getItem(LIVE) ?? "")).toBe(
+      true,
+    );
+  });
+
+  it("opens plain and says so when there is no copy to go back to", async () => {
+    window.localStorage.setItem(LIVE, "{oh dear");
+
+    const read = await readSettings();
+    expect(read.watchPlaces).toEqual([]);
+    expect(settingsRecovery()).toEqual({ keptAt: KEPT, restored: false });
+    // Kept, because somebody who edited it by hand wants to see what they
+    // wrote. Out of the way, because leaving it in place means every launch
+    // from here on reads the same unreadable document.
+    expect(window.localStorage.getItem(KEPT)).toBe("{oh dear");
+    expect(window.localStorage.getItem(LIVE)).toBeNull();
+    // Not read as a first run: their units were picked long ago and asking
+    // again because a file rotted is a second thing going wrong.
+    expect(read.unitsChosen).toBe(true);
+  });
+
+  it("says nothing on an ordinary load", async () => {
+    // The positive control. Without it every case above passes against a
+    // build that reports a recovery every time, which is its own wrong
+    // answer: a toast about damaged settings on a launch where nothing
+    // happened is worse than no toast at all.
+    window.localStorage.setItem(LIVE, stored("Casa"));
+    const read = await readSettings();
+    expect(read.watchPlaces.map((place) => place.name)).toEqual(["Casa"]);
+    expect(settingsRecovery()).toBeNull();
+    expect(window.localStorage.getItem(KEPT)).toBeNull();
+  });
+
+  it("does not copy an unreadable document forward", async () => {
+    // The write path runs on every settings change, including the first one
+    // after something damaged the file. Copying that forward would put the
+    // damage over the only good copy there is.
+    window.localStorage.setItem(PREVIOUS, stored("Casa"));
+    window.localStorage.setItem(LIVE, "not json at all");
+    await saveSettings(normalizeSettings(JSON.parse(stored("Trabajo"))));
+    expect(window.localStorage.getItem(PREVIOUS)).toContain("Casa");
   });
 });
 

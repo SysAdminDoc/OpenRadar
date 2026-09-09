@@ -2266,6 +2266,12 @@ export const fr: Catalogue = {
   "app.preparing": "Préparation de la carte",
   "app.settingsNotSavedBody":
     "La fenêtre actuelle se sert quand même de vos changements.",
+  "app.settingsRestored": "Vos réglages ont été rétablis",
+  "app.settingsRestoredBody":
+    "Le fichier de réglages était illisible, la dernière bonne copie a donc repris sa place. Ce qui a changé depuis est perdu.",
+  "app.settingsUnreadable": "Vos réglages n'ont pas pu être lus",
+  "app.settingsUnreadableBody":
+    "Le fichier de réglages était abîmé et il n'y avait aucune copie, cette fenêtre s'est donc ouverte sans rien. Le fichier illisible a été conservé.",
   "app.savedView": "Vue enregistrée",
   "popup.importedShape": "Forme importée",
   "popup.openProduct": "Ouvrir le produit officiel",

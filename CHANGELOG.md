@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.12.0
 
+- Your settings survive a damaged settings file. Everything you set up lives in one file, and it is read as a whole, so one bad byte in it lost your watched places, colour tables, offline packs and presets at once. The app opened on the defaults, said nothing about it, and wrote those defaults back over the file at the next change. A copy is now kept before each write and put back when the live file will not parse, the unreadable file is kept rather than dropped, and a toast says which of the two happened.
+
 - The Wind Profile and Cross-section panels offer a way to do the thing they ask for. Both need a single radar site held, and both used to say so in one sentence and leave you to find the switch, which is in a different panel. Each now ends that sentence with a button that holds the nearest radar. The wind panel does not offer it when the map is already held on a past day, because holding a site is not the answer to that one.
 
 - A Canadian or German warning office that cannot be reached is named, instead of the map simply showing no warnings there. The alerts layer draws American, Canadian and German warnings together, and when one of the two foreign services was down its warnings were quietly left out: over Ontario during an outage you saw a clear map, which reads as good news rather than as missing news. The layer now says which office did not answer and keeps everything else drawn.

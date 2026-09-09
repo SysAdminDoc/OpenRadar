@@ -40,6 +40,7 @@ mod mrms;
 mod palette;
 mod probsevere;
 mod radar_status;
+mod settings_backup;
 mod sound;
 mod tdwr;
 mod tiles;
@@ -352,6 +353,8 @@ pub fn run() {
             crash::crash_last_webview_report,
             window_geometry::window_reset_geometry,
             sound::alert_sound_bytes,
+            settings_backup::settings_keep_previous,
+            settings_backup::settings_recovered,
             tray::tray_enabled
         ])
         .setup(|_app| {
@@ -374,6 +377,11 @@ pub fn run() {
                     // entry, so it lives beside the packs rather than
                     // anywhere a cache clear can reach.
                     journal::init(&dir);
+                    // The settings file lives here too, written by the store
+                    // plugin. Recovered before the webview loads, so the
+                    // store finds a file it can read rather than falling to
+                    // the defaults and writing them back over the reader's.
+                    settings_backup::init(&dir);
                     // The wallpaper picture is written here too, one file
                     // overwritten each time rather than a growing folder of
                     // yesterdays somewhere the reader has to find.

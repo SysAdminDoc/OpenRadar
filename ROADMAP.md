@@ -367,14 +367,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
       Acceptance: A PNG export carries the provenance JSON in an `iTXt` chunk that `pngcheck` or the test's own reader returns byte for byte equal to the sidecar; the sidecar stays.
       Complexity: S
 
-- [ ] AUD-353 (P3): Keep the last good settings file beside the live one
-      Why: A store file that will not parse falls to defaults with no way back; the reader's ten places, palettes and themes are gone with nothing said. PowerToys backs its settings up before every update and restores them when it detects corruption, and Supercell Wx's export writing five-byte files (#675) is what the loss looks like in practice. A copy taken before each write, offered back with a toast, is a few lines and an undo.
-      Evidence: `src/lib/settings.ts:2073-2079` (`loadSettings` swallows every read failure and answers with the defaults) and `:2091-2105` (`readSettings`, the store `get` on the desktop and a bare `JSON.parse` in the browser); https://learn.microsoft.com/en-us/windows/powertoys/general (2026-08-25); https://github.com/dpaulat/supercell-wx/issues/675. Corrected 2026-09-07: an earlier draft cited `:2033`, which is `looksLikeSettings` and has nothing to do with the load.
-      Note 2026-09-07: not S, and not a second key in the same store. A store file that will not parse loses every key in it at once, so the copy has to be its own file in app data, which means a Rust command each way rather than a frontend-only change. There is a smaller piece worth splitting out if this stays too big: `loadSettings` cannot currently tell "nothing stored yet" from "stored and unreadable", and the second case then writes the defaults back over the file on the next save, which is where the reader actually loses the places.
-      Touches: the settings store write path (`src/hooks/useSettings.ts` or the store plugin call), a `settings.previous.json` beside the live file, a toast with Undo on a failed parse, `e2e/storage.spec.ts`.
-      Acceptance: A corrupt store file at launch restores the previous good one and says so; the corrupt file is kept renamed; a spec plants a corrupt file and finds the reader's places intact.
-      Complexity: M
-
 - [ ] AUD-349 (P3): Snow-squall colour tables in the box
       Why: The NWS trains forecasters on two AWIPS colour tables built for squalls, reflectivity over 30 dBZ and velocity over 30 kt lit and everything else dimmed, and publishes them. The app already holds up to twelve GRLevelX tables per product; shipping these two, named for what they are, gives the winter reader the office's own view with no file to find.
       Evidence: https://vlab.noaa.gov/web/snow-squalls-and-snow-squall-warnings/radar-color-tables ; `src/lib/palette.ts`; the palette legend (`src/lib/legend.ts`).
