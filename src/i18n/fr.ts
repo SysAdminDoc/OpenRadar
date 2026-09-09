@@ -101,27 +101,27 @@ export const fr: Catalogue = {
   "alerts.openProduct": "Ouvrir le produit officiel",
   "alertType.tornado": "Mettez-vous à l'abri maintenant",
   "alertType.tornadoDetail":
-    "Alertes et veilles de tornade, alertes de tsunami, vents extrêmes, et les urgences civiles : matières dangereuses, centrale nucléaire, danger radiologique, confinement, évacuation immédiate.",
+    "Alertes et veilles de tornade, alertes de tsunami, vents extrêmes, et les urgences civiles : matières dangereuses, centrale nucléaire, danger radiologique, confinement, évacuation immédiate",
   "alertType.thunderstorm": "Orage et vent",
   "alertType.thunderstormDetail":
-    "Alertes d'orage violent et de vents forts, avis de vent, tempêtes de poussière, et les produits maritimes de vent.",
+    "Alertes d'orage violent et de vents forts, avis de vent, tempêtes de poussière, et les produits maritimes de vent",
   "alertType.flood": "Inondation",
   "alertType.floodDetail":
-    "Crue soudaine et crue de rivière, inondation côtière et riveraine, fortes vagues et courants d'arrachement.",
+    "Crue soudaine et crue de rivière, inondation côtière et riveraine, fortes vagues et courants d'arrachement",
   "alertType.winter": "Hiver et froid",
   "alertType.winterDetail":
-    "Tempêtes hivernales, blizzards, verglas et pluie verglaçante, refroidissement éolien, gel intense, avalanche.",
+    "Tempêtes hivernales, blizzards, verglas et pluie verglaçante, refroidissement éolien, gel intense, avalanche",
   "alertType.tropical": "Tropical",
   "alertType.tropicalDetail":
-    "Ouragans et tempêtes tropicales, onde de tempête, et les alertes de vents de force ouragan émises par les bureaux maritimes.",
+    "Ouragans et tempêtes tropicales, onde de tempête, et les alertes de vents de force ouragan émises par les bureaux maritimes",
   "alertType.fire": "Incendie",
   "alertType.fireDetail":
-    "Alertes de risque extrême d'incendie, veilles météo-feu, fumée dense.",
+    "Alertes de risque extrême d'incendie, veilles météo-feu, fumée dense",
   "alertType.heat": "Chaleur",
-  "alertType.heatDetail": "Chaleur excessive et avis de chaleur.",
+  "alertType.heatDetail": "Chaleur excessive et avis de chaleur",
   "alertType.other": "Tout le reste",
   "alertType.otherDetail":
-    "Tout ce que la liste n'a jamais vu, pour qu'un nouveau produit apparaisse au lieu de disparaître.",
+    "Tout ce que la liste n'a jamais vu, pour qu'un nouveau produit apparaisse au lieu de disparaître",
   "layers.order": "Quelle couche passe par-dessus",
   "layers.orderDetail":
     "Les alertes restent toujours au-dessus du reste, parce qu'une alerte, c'est quelqu'un qui vous dit de vous mettre à l'abri",
@@ -130,7 +130,7 @@ export const fr: Catalogue = {
   "layers.opacity": "Opacité des couches",
   "layers.smoothGrids": "Comment les grilles nationales sont dessinées",
   "layers.smoothGridsDetail":
-    "Une cellule de la mosaïque fait environ un kilomètre, donc de près c'est un carré d'une seule couleur contre le carré d'à côté.",
+    "Une cellule de la mosaïque fait environ un kilomètre, donc de près c'est un carré d'une seule couleur contre le carré d'à côté",
   "layers.smoothGridsLabel": "Interpoler entre les cellules",
   "layers.smoothGridsNote":
     "Lisse les champs qui couvrent le pays, pas les champs épars comme la grêle et la rotation, et jamais au-dessus d'un terrain que le réseau n'a pas couvert. Les valeurs qu'écrit une exportation restent les cellules elles-mêmes.",
@@ -400,7 +400,7 @@ export const fr: Catalogue = {
   "almanac.flyTo": "M'y emmener",
   "settings.almanac": "À cette date",
   "settings.almanacDetail":
-    "Une carte dans Historique des tempêtes qui dit ce que la météo a fait à cette date d'autres années, d'après le registre livré avec l'application. Elle n'apparaît jamais tant qu'une alerte est en vigueur là où vous surveillez",
+    "Une carte dans Historique des tempêtes qui dit ce que la météo a fait à cette date d'autres années, d'après le registre livré avec l'application. Elle n'apparaît jamais tant qu'une alerte est en vigueur là où vous surveillez.",
   "history.eyebrow": "Meilleure trajectoire HURDAT2",
   "history.title": "Historique des tempêtes",
   "history.placeholder": "Ian 2022",
@@ -555,20 +555,20 @@ export const fr: Catalogue = {
   "keywords.isothermReflectivity": "isotherme glace froid dbz zero",
   "keywords.cappi": "cappi niveau altitude tranche correlation",
   "layers.lightningForecastDetail":
-    "La probabilité que la foudre tombe là où elle n'est pas encore tombée.",
+    "La probabilité que la foudre tombe là où elle n'est pas encore tombée",
   "layers.lightningJumpDetail":
-    "Là où le taux d'éclairs d'une cellule a grimpé plus vite que son propre historique.",
+    "Là où le taux d'éclairs d'une cellule a grimpé plus vite que son propre historique",
   "layers.isothermReflectivityDetail":
-    "Réflectivité au niveau où l'air est assez froid pour former de la glace.",
+    "Réflectivité au niveau où l'air est assez froid pour former de la glace",
   "layers.lightningWindow": "Moyenne sur",
   "layers.lightningWindowDetail":
-    "Les quatre donnent un taux d'éclairs, donc vous pouvez passer de l'une à l'autre et comparer.",
+    "Les quatre donnent un taux d'éclairs, donc vous pouvez passer de l'une à l'autre et comparer",
   "layers.lightningForecastWindow": "Prévision pour les",
   "layers.lightningForecastWindowDetail":
     "Une prévision, pas un impact. Cela couvre du terrain où rien n'est tombé.",
   "layers.lightningJumpWindow": "Saut affiché",
   "layers.lightningJumpWindowDetail":
-    "En écarts-types. À partir de deux, le WDTD dit qu'il faut regarder.",
+    "En écarts-types. À partir de deux, la formation du service météo dit qu'il faut regarder.",
   "layers.isothermLevel": "Mesurée à",
   "layers.isothermLevelDetailMinus10":
     "Là où la foudre démarre. Un écho fort ici veut dire que la charge se sépare.",
@@ -582,8 +582,8 @@ export const fr: Catalogue = {
   "lightningForecast.60m": "60 min",
   "lightningJump.now": "Maintenant",
   "lightningJump.max": "5 dernières min",
-  "isothermLevel.minus10": "-10 C",
-  "isothermLevel.minus20": "-20 C",
+  "isothermLevel.minus10": "−10 °C",
+  "isothermLevel.minus20": "−20 °C",
   "mrms.lightning1min": "Foudre nuage-sol, 1 min",
   "mrms.lightning15min": "Foudre nuage-sol, 15 min",
   "mrms.lightning30min": "Foudre nuage-sol, 30 min",
@@ -591,8 +591,8 @@ export const fr: Catalogue = {
   "mrms.lightningProbability60": "Probabilité de foudre dans 60 min",
   "mrms.lightningJump": "Saut de foudre",
   "mrms.lightningJumpMax": "Plus grand saut de foudre, 5 min",
-  "mrms.reflectivityMinus10c": "Réflectivité à -10 C",
-  "mrms.reflectivityMinus20c": "Réflectivité à -20 C",
+  "mrms.reflectivityMinus10c": "Réflectivité à −10 °C",
+  "mrms.reflectivityMinus20c": "Réflectivité à −20 °C",
   "layers.spcDay3Probability": "Probabilité",
   "watch.notificationsRefused":
     "Windows ne laisse pas OpenRadar afficher de notifications, donc elles ne peuvent apparaître que dans l'app. Activez-les dans les Paramètres de Windows, sous Système, Notifications.",
@@ -773,14 +773,14 @@ export const fr: Catalogue = {
     "Estompe le balayage terminé derrière celui que le radar est en train de faire, comme le fait un écran au phosphore. Rien des mesures ne change; la légende donne l'âge de la moitié la plus ancienne autant que de la plus récente, parce qu'une image estompée est plus vieille qu'une image qui ne l'est pas.",
   "radar.archiveBrowse": "Archive II",
   "radar.archiveBrowseDetail":
-    "Ouvrez un volume local hors ligne ou demandez à l'archive publique de la NOAA un site et une heure UTC.",
+    "Ouvrez un volume local hors ligne ou demandez à l'archive publique de la NOAA un site et une heure UTC",
   "radar.openArchiveTitle": "Ouvrir un volume NEXRAD Archive II",
   "radar.openArchive": "Ouvrir un fichier Archive II local",
   "radar.archiveStation": "Site NEXRAD",
   "radar.archiveStationPlaceholder": "KDMX",
   "radar.archiveTime": "Date et heure UTC",
   "radar.loadArchive": "Charger le volume de l'archive publique",
-  "radar.archiveReading": "Lecture du volume choisi...",
+  "radar.archiveReading": "Lecture du volume choisi",
   "radar.archiveUnavailable": "Le volume choisi n'est pas disponible.",
   "radar.localArchive": "Archive II locale",
   "radar.publicArchive": "Archive II publique",
@@ -802,7 +802,7 @@ export const fr: Catalogue = {
   "radar.classification": "Classification",
   "radar.classificationLabel": "Produit de classification des hydrométéores",
   "radar.classificationDetail":
-    "Le produit Level III que lit la couche de classification des hydrométéores : l'angle le plus bas, ou le balayage hybride dans lequel tout le volume est lu.",
+    "Le produit Level III que lit la couche de classification des hydrométéores : l'angle le plus bas, ou le balayage hybride dans lequel tout le volume est lu",
   "radar.error.unknownSite": "{0} n'est pas un site NEXRAD.",
   "radar.error.notWsr88d":
     "{0} est le radar terminal d'un aéroport : il n'a ni volume Level II à lire, ni archive.",
@@ -953,14 +953,14 @@ export const fr: Catalogue = {
   "layers.qpeDayDetail": "Ce qui est tombé depuis hier à la même heure",
   "counties.failed": "Les limites de comtés n'ont pas pu être lues.",
   "layers.countiesDetail":
-    "Limites de comtés et d'États, la façon dont les alertes et les signalements sont formulés.",
+    "Limites de comtés et d'États, la façon dont les alertes et les signalements sont formulés",
   "layers.gaugeQpePeriod": "Sur quelle durée",
   "layers.gaugeQpeDetail":
     "La pluie vue par le radar, ramenée vers ce que les pluviomètres ont réellement recueilli. Plus proche du réel que le radar seul, et toujours une estimation partout où il n'y a pas de pluviomètre.",
   "layers.unitStreamflowDetail":
     "Ce que le modèle de crue fait ruisseler par kilomètre carré. Un modèle du sol, pas une mesure du ciel.",
   "layers.ffgThreeHourDetail":
-    "La même chose sur trois heures, la fenêtre dans laquelle une crue plus lente se forme.",
+    "La même chose sur trois heures, la fenêtre dans laquelle une crue plus lente se forme",
   "layers.ffgHourDetail":
     "Compare la pluie de la dernière heure à ce que le service estime que le sol peut absorber. 100 % veut dire que la pluie l'a atteint.",
   "layer.precipType": "Pluie ou neige",
@@ -1348,7 +1348,7 @@ export const fr: Catalogue = {
   "azShearLevel.low": "0 à 2 km",
   "azShearLevel.mid": "3 à 6 km",
   "azShearLevel.midNote":
-    "Au-dessus de 10 ici, le mésocyclone est profond, selon la lecture du WDTD.",
+    "Au-dessus de 10 ici, le mésocyclone est profond, selon la lecture du service météo.",
   "azShearLevel.lowNote":
     "La tranche sur laquelle s'appuie une alerte de tornade, là où le couple atteint le sol.",
   "layers.hailDetail": "Taille maximale estimée de la grêle, MRMS",
@@ -1414,7 +1414,7 @@ export const fr: Catalogue = {
     "Le réseau publie ces champs à trente-trois hauteurs. Une corrélation sous 0,8 n'est généralement pas de la météo : oiseaux, paillettes, ou débris soulevés par une tornade.",
 
   "layers.note":
-    "Les interrupteurs de couche s'enregistrent tout de suite et agissent aussitôt sur la carte. Les alertes viennent du NWS, d'ECCC et du DWD, les séismes de l'USGS et les périmètres de feu du NIFC.",
+    "Chaque interrupteur s'enregistre dès que vous le pressez. Les alertes viennent du NWS, d'ECCC et du DWD, les séismes de l'USGS et les périmètres de feu du NIFC.",
   "settings.eyebrow": "Préférences d'OpenRadar",
   "settings.title": "Réglages",
   "settings.appearance": "Apparence",
@@ -1434,7 +1434,7 @@ export const fr: Catalogue = {
   "occasion.notThisYear": "Pas cette année",
   "settings.ambient": "La météo sur l'habillage",
   "settings.ambientDetail":
-    "Pluie, neige ou brouillard dessinés sur la barre de commandes tant que la station la plus proche de l'endroit que vous surveillez le rapporte. Jamais par-dessus la carte, et cela s'arrête quand le rapport vieillit",
+    "Pluie, neige ou brouillard dessinés sur la barre de commandes tant que la station la plus proche de l'endroit que vous surveillez le rapporte. Jamais par-dessus la carte, et cela s'arrête quand le rapport vieillit.",
   "settings.ambientSeen": "Affiche ce que {station} a rapporté à {when}.",
   "settings.ambientQuiet":
     "Rien à dessiner : aucune station proche ne rapporte de temps.",
@@ -1444,7 +1444,7 @@ export const fr: Catalogue = {
     "Arrêté : cette fenêtre ne suivait pas, alors l'effet s'est retiré. Éteignez-le et rallumez-le pour réessayer.",
   "settings.occasions": "Apparence saisonnière",
   "settings.occasionsDetail":
-    "Un changement d'accent pendant quelques semaines par année. Elle n'atteint jamais la carte, et elle se retire tant qu'une alerte est en vigueur là où vous surveillez",
+    "Un changement d'accent pendant quelques semaines par année. Elle n'atteint jamais la carte, et elle se retire tant qu'une alerte est en vigueur là où vous surveillez.",
   "settings.accentDetail":
     "La couleur des titres, des interrupteurs et de l'anneau de focus. Elle n'atteint jamais une échelle du radar, le contour d'une alerte ni la trajectoire d'un orage.",
   "settings.themeInForce": "{name} s'applique par-dessus l'apparence intégrée.",
@@ -1490,7 +1490,7 @@ export const fr: Catalogue = {
   "approach.windowMinutes": "{count} min",
   "approach.sound": "Avec un son",
   "approach.soundDetail":
-    "Désactivé, parce qu'une alerte en fait déjà un et ceci n'en est pas une.",
+    "Désactivé, parce qu'une alerte en fait déjà un et ceci n'en est pas une",
   "approach.needsCells":
     "Nécessite la couche Cellules orageuses, qui est ce qui les suit.",
   "approach.needsPlace":
@@ -1509,7 +1509,7 @@ export const fr: Catalogue = {
     "Aucun éclair dans le rayon depuis trente minutes.",
   "lightningWatch.setting": "Prévenez-moi des éclairs près d'un lieu surveillé",
   "lightningWatch.settingDetail":
-    "Compte les éclairs vus par satellite dans un rayon que vous choisissez, et prévient au début et après une demi-heure de calme.",
+    "Compte les éclairs vus par satellite dans un rayon que vous choisissez, et prévient au début et après une demi-heure de calme",
   "lightningWatch.needsPlace":
     "Il faut un lieu surveillé, puisque c'est autour de lui que porte le rayon.",
   "lightningWatch.radius": "À quelle distance de chaque lieu",
@@ -1518,7 +1518,7 @@ export const fr: Catalogue = {
     "{count, plural, one {# éclair} other {# éclairs}}",
   "lightningWatch.sound": "Avec un son",
   "lightningWatch.soundDetail":
-    "Désactivé, parce qu'une alerte en fait déjà un et ceci n'en est pas une.",
+    "Désactivé, parce qu'une alerte en fait déjà un et ceci n'en est pas une",
   "lightningWatch.note":
     "Éclairs détectés par satellite, pas des relevés d'impacts au sol.",
   "lightningWatch.chipSince": "Dernier éclair il y a {since}",
@@ -1820,7 +1820,7 @@ export const fr: Catalogue = {
   "toast.watching": "Surveillance de ce point",
   "toast.placesFull": "C'est là tous les endroits",
   "toast.placeAdded": "Surveillance de {place}",
-  "toast.watchingDetail": "Les alertes à proximité vous interrompront.",
+  "toast.watchingDetail": "Les alertes à proximité vous interrompront",
   "toast.logsFailed": "Le dossier des journaux n'a pas pu être ouvert",
   "toast.logsDesktop":
     "Les journaux ne sont écrits que par l'application de bureau.",
@@ -2086,7 +2086,7 @@ export const fr: Catalogue = {
   "tray.unreachable": "OpenRadar : la surveillance n'atteint pas le service",
   "autostart.setting": "Démarrer avec Windows",
   "autostart.settingDetail":
-    "S'ouvre dans la zone de notification à l'ouverture de session, pour que les lieux surveillés le soient dès que la machine est allumée.",
+    "S'ouvre dans la zone de notification à l'ouverture de session, pour que les lieux surveillés le soient dès que la machine est allumée",
   "autostart.needsTray":
     "Nécessite l'icône de la zone de notification, puisque c'est là que ça s'ouvre.",
   "autostart.unavailable":
@@ -2167,7 +2167,7 @@ export const fr: Catalogue = {
   "watch.quietOverride": "Toujours me réveiller pour",
   "watch.sendTest": "Envoyer une alerte de test",
   "watch.sendTestDetail":
-    "Lève une notification inoffensive, et la tonalité si elle est active, pour que vous sachiez à quoi vous attendre.",
+    "Lève une notification inoffensive, et la tonalité si elle est active, pour que vous sachiez à quoi vous attendre",
   "watch.testSent": "Alerte de test envoyée",
   "watch.testSentBody":
     "Si rien n'est apparu, Windows retient peut-être les notifications de cette application.",

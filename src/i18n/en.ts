@@ -92,27 +92,27 @@ export const en = {
   "alerts.openProduct": "Open the official product",
   "alertType.tornado": "Take cover now",
   "alertType.tornadoDetail":
-    "Tornado warnings and watches, tsunami warnings, extreme wind, and the civil emergencies: hazardous materials, a nuclear plant, a radiological hazard, shelter in place, evacuate immediately.",
+    "Tornado warnings and watches, tsunami warnings, extreme wind, and the civil emergencies: hazardous materials, a nuclear plant, a radiological hazard, shelter in place, evacuate immediately",
   "alertType.thunderstorm": "Thunderstorm and wind",
   "alertType.thunderstormDetail":
-    "Severe thunderstorm and high wind warnings, wind advisories, dust storms, and the marine wind products.",
+    "Severe thunderstorm and high wind warnings, wind advisories, dust storms, and the marine wind products",
   "alertType.flood": "Flood",
   "alertType.floodDetail":
-    "Flash flood and river flood, coastal and lakeshore flooding, high surf and rip currents.",
+    "Flash flood and river flood, coastal and lakeshore flooding, high surf and rip currents",
   "alertType.winter": "Winter and cold",
   "alertType.winterDetail":
-    "Winter storms, blizzards, ice and freezing rain, wind chill, hard freeze, avalanche.",
+    "Winter storms, blizzards, ice and freezing rain, wind chill, hard freeze, avalanche",
   "alertType.tropical": "Tropical",
   "alertType.tropicalDetail":
-    "Hurricanes and tropical storms, storm surge, and the hurricane-force wind warnings the marine offices issue.",
+    "Hurricanes and tropical storms, storm surge, and the hurricane-force wind warnings the marine offices issue",
   "alertType.fire": "Fire",
   "alertType.fireDetail":
-    "Red flag warnings, fire weather watches, dense smoke.",
+    "Red flag warnings, fire weather watches, dense smoke",
   "alertType.heat": "Heat",
-  "alertType.heatDetail": "Excessive heat and heat advisories.",
+  "alertType.heatDetail": "Excessive heat and heat advisories",
   "alertType.other": "Everything else",
   "alertType.otherDetail":
-    "Anything the list has never seen, so a new product shows up rather than disappearing.",
+    "Anything the list has never seen, so a new product shows up rather than disappearing",
   "layers.order": "Which overlay sits on top",
   "layers.orderDetail":
     "Warnings always stay above the rest, because a warning is somebody telling you to take cover",
@@ -121,7 +121,7 @@ export const en = {
   "layers.opacity": "How solid the overlays are",
   "layers.smoothGrids": "How the national grids are drawn",
   "layers.smoothGridsDetail":
-    "A cell of the mosaic is about a kilometre across, so zoomed in it is a square of one colour against the square beside it.",
+    "A cell of the mosaic is about a kilometre across, so zoomed in it is a square of one colour against the square beside it",
   "layers.smoothGridsLabel": "Read between the cells",
   "layers.smoothGridsNote":
     "Smooths the fields that cover the country, not the scattered ones like hail and rotation, and never across ground the network had no coverage of. The readings an export writes are the cells themselves either way.",
@@ -383,7 +383,7 @@ export const en = {
   "almanac.flyTo": "Take me there",
   "settings.almanac": "On this date",
   "settings.almanacDetail":
-    "A card in Storm history saying what the weather did on this date in other years, from the record that ships with the app. It never appears while a warning is in force where you watch",
+    "A card in Storm history saying what the weather did on this date in other years, from the record that ships with the app. It never appears while a warning is in force where you watch.",
   "history.eyebrow": "HURDAT2 best track",
   "history.title": "Storm history",
   "history.placeholder": "Ian 2022",
@@ -531,20 +531,20 @@ export const en = {
   "keywords.isothermReflectivity": "",
   "keywords.cappi": "",
   "layers.lightningForecastDetail":
-    "The chance lightning strikes ground it has not struck yet.",
+    "The chance lightning strikes ground it has not struck yet",
   "layers.lightningJumpDetail":
-    "Where a cell's flash rate has climbed faster than its own history.",
+    "Where a cell's flash rate has climbed faster than its own history",
   "layers.isothermReflectivityDetail":
-    "Reflectivity at the level the air is cold enough for ice.",
+    "Reflectivity at the level the air is cold enough for ice",
   "layers.lightningWindow": "Averaged over",
   "layers.lightningWindowDetail":
-    "All four are a flash rate, so you can step between them and compare.",
+    "All four are a flash rate, so you can step between them and compare",
   "layers.lightningForecastWindow": "Forecast for the next",
   "layers.lightningForecastWindowDetail":
     "A forecast, not a strike. This covers ground nothing has hit yet.",
   "layers.lightningJumpWindow": "Jump shown",
   "layers.lightningJumpWindowDetail":
-    "In standard deviations. Two is where the WDTD says to start looking.",
+    "In standard deviations. Two is where the weather service's own training says to start looking.",
   "layers.isothermLevel": "Sampled at",
   "layers.isothermLevelDetailMinus10":
     "Where lightning gets going. Strong echo here means charge is separating.",
@@ -558,8 +558,8 @@ export const en = {
   "lightningForecast.60m": "60 min",
   "lightningJump.now": "Now",
   "lightningJump.max": "Past 5 min",
-  "isothermLevel.minus10": "-10 C",
-  "isothermLevel.minus20": "-20 C",
+  "isothermLevel.minus10": "−10 °C",
+  "isothermLevel.minus20": "−20 °C",
   "mrms.lightning1min": "Cloud-to-ground lightning, 1 min",
   "mrms.lightning15min": "Cloud-to-ground lightning, 15 min",
   "mrms.lightning30min": "Cloud-to-ground lightning, 30 min",
@@ -567,8 +567,8 @@ export const en = {
   "mrms.lightningProbability60": "Chance of lightning in 60 min",
   "mrms.lightningJump": "Lightning jump",
   "mrms.lightningJumpMax": "Largest lightning jump, 5 min",
-  "mrms.reflectivityMinus10c": "Reflectivity at -10 C",
-  "mrms.reflectivityMinus20c": "Reflectivity at -20 C",
+  "mrms.reflectivityMinus10c": "Reflectivity at −10 °C",
+  "mrms.reflectivityMinus20c": "Reflectivity at −20 °C",
   "layers.spcDay3Probability": "Probability",
   "watch.notificationsRefused":
     "Windows is not letting OpenRadar show notifications, so these can only appear in the app. Turn them on in Windows Settings, under System, Notifications.",
@@ -751,14 +751,14 @@ export const en = {
     "Fade the finished sweep behind the one the radar is making, the way a phosphor screen does. Nothing about the readings changes; the legend says the age of the older half as well as the newer, because a decayed picture is older than an undecayed one.",
   "radar.archiveBrowse": "Archive II",
   "radar.archiveBrowseDetail":
-    "Open a local volume offline or ask NOAA's public archive for a site and UTC time.",
+    "Open a local volume offline or ask NOAA's public archive for a site and UTC time",
   "radar.openArchiveTitle": "Open a NEXRAD Archive II volume",
   "radar.openArchive": "Open local Archive II file",
   "radar.archiveStation": "NEXRAD site",
   "radar.archiveStationPlaceholder": "KDMX",
   "radar.archiveTime": "UTC date and time",
   "radar.loadArchive": "Load public archive volume",
-  "radar.archiveReading": "Reading the selected volume...",
+  "radar.archiveReading": "Reading the selected volume",
   "radar.archiveUnavailable": "The selected volume is not available.",
   "radar.localArchive": "Local Archive II",
   "radar.publicArchive": "Public Archive II",
@@ -779,7 +779,7 @@ export const en = {
   "radar.classification": "Classification",
   "radar.classificationLabel": "Hydrometeor classification product",
   "radar.classificationDetail":
-    "Which Level III product the Hydrometeor Classification layer reads: the lowest tilt, or the hybrid scan the whole volume is read into.",
+    "Which Level III product the Hydrometeor Classification layer reads: the lowest tilt, or the hybrid scan the whole volume is read into",
   "radar.error.unknownSite": "{0} is not a NEXRAD site.",
   "radar.error.notWsr88d":
     "{0} is an airport's terminal radar: it has no Level II volume to read and no archive.",
@@ -928,14 +928,14 @@ export const en = {
   "layers.qpeDayDetail": "How much has fallen since this time yesterday",
   "counties.failed": "The county outlines could not be read.",
   "layers.countiesDetail":
-    "County and state lines, which is how warnings and storm reports are worded.",
+    "County and state lines, which is how warnings and storm reports are worded",
   "layers.gaugeQpePeriod": "How far back",
   "layers.gaugeQpeDetail":
     "Radar rainfall pulled back towards what the reporting rain gauges actually caught. Closer to the truth than radar alone, and still an estimate everywhere a gauge is not.",
   "layers.unitStreamflowDetail":
     "What the flash flood model has running off each square kilometre. A model of the ground, not a reading of the sky.",
   "layers.ffgThreeHourDetail":
-    "The same over three hours, which is the window a slower flood builds in.",
+    "The same over three hours, which is the window a slower flood builds in",
   "layers.ffgHourDetail":
     "How the past hour of rain compares with what the office says the ground there can take. 100% means the rain has met it.",
   "layer.precipType": "Rain or Snow",
@@ -1311,7 +1311,7 @@ export const en = {
   "azShearLevel.low": "0 to 2 km",
   "azShearLevel.mid": "3 to 6 km",
   "azShearLevel.midNote":
-    "Above 10 through here is a deep mesocyclone, by the WDTD reading.",
+    "Above 10 through here is a deep mesocyclone, by the weather service's own reading.",
   "azShearLevel.lowNote":
     "The slab a tornado warning is argued from, where a couplet reaches the ground.",
   "layers.hailDetail": "MRMS maximum estimated hail size",
@@ -1377,7 +1377,7 @@ export const en = {
     "The network publishes these at thirty-three heights. Correlation below 0.8 is usually not weather: birds, chaff, or debris lofted by a tornado.",
 
   "layers.note":
-    "Layer switches save immediately and take effect on the map right away. Alerts come from the NWS, ECCC and DWD, earthquakes from the USGS, and fire perimeters from NIFC.",
+    "Every switch here saves as you press it. Alerts come from the NWS, ECCC and DWD, earthquakes from the USGS, and fire perimeters from NIFC.",
   "settings.eyebrow": "OpenRadar preferences",
   "settings.title": "Settings",
   "settings.appearance": "Appearance",
@@ -1397,7 +1397,7 @@ export const en = {
   "occasion.notThisYear": "Not this year",
   "settings.ambient": "Weather on the chrome",
   "settings.ambientDetail":
-    "Rain, snow or fog drawn on the command bar while the station nearest the place you watch is reporting it. Never over the map, and it stops when the report goes stale",
+    "Rain, snow or fog drawn on the command bar while the station nearest the place you watch is reporting it. Never over the map, and it stops when the report goes stale.",
   "settings.ambientSeen": "Drawing what {station} reported at {when}.",
   "settings.ambientQuiet":
     "Nothing to draw: no station near you is reporting weather.",
@@ -1407,7 +1407,7 @@ export const en = {
     "Stopped: this window was not keeping up, so the effect took itself off. Switch it off and on to try again.",
   "settings.occasions": "Seasonal look",
   "settings.occasionsDetail":
-    "A change of accent for a few weeks of the year. It never reaches the map, and it stands down while a warning is in force where you watch",
+    "A change of accent for a few weeks of the year. It never reaches the map, and it stands down while a warning is in force where you watch.",
   "settings.accentDetail":
     "The colour on headings, switches and the focus ring. It never reaches a radar scale, a warning outline or a storm track.",
   "settings.themeInForce": "{name} is in force over the built-in look.",
@@ -1450,7 +1450,7 @@ export const en = {
   "approach.windowMinutes": "{count} min",
   "approach.sound": "Make a sound for it",
   "approach.soundDetail":
-    "Off, because a warning already makes one and this is not a warning.",
+    "Off, because a warning already makes one and this is not a warning",
   "approach.needsCells":
     "Needs the Storm Cells layer, which is what tracks them.",
   "approach.needsPlace":
@@ -1469,7 +1469,7 @@ export const en = {
     "No flashes within the radius for thirty minutes.",
   "lightningWatch.setting": "Tell me about lightning near a watched place",
   "lightningWatch.settingDetail":
-    "Counts the satellite flashes within a radius you set, and says when it starts and when it has been quiet for half an hour.",
+    "Counts the satellite flashes within a radius you set, and says when it starts and when it has been quiet for half an hour",
   "lightningWatch.needsPlace":
     "Needs a place to watch, since that is what the radius is around.",
   "lightningWatch.radius": "How far around each place",
@@ -1478,7 +1478,7 @@ export const en = {
     "{count, plural, one {# flash} other {# flashes}}",
   "lightningWatch.sound": "Make a sound for it",
   "lightningWatch.soundDetail":
-    "Off, because a warning already makes one and this is not a warning.",
+    "Off, because a warning already makes one and this is not a warning",
   "lightningWatch.note":
     "Satellite-detected flashes, not ground strike reports.",
   "lightningWatch.chipSince": "Last flash {since} ago",
@@ -1766,7 +1766,7 @@ export const en = {
   "toast.watching": "Watching this point",
   "toast.placesFull": "That is every place",
   "toast.placeAdded": "Watching {place}",
-  "toast.watchingDetail": "Warnings near it will interrupt you.",
+  "toast.watchingDetail": "Warnings near it will interrupt you",
   "toast.logsFailed": "The log folder could not be opened",
   "toast.logsDesktop": "Logs are only written by the desktop app.",
   "toast.settingsReset": "Settings reset",
@@ -2027,7 +2027,7 @@ export const en = {
   "tray.unreachable": "OpenRadar: the watch is not reaching the service",
   "autostart.setting": "Start with Windows",
   "autostart.settingDetail":
-    "Opens to the tray at sign-in, so the places you watch are watched from the moment the machine is on.",
+    "Opens to the tray at sign-in, so the places you watch are watched from the moment the machine is on",
   "autostart.needsTray":
     "Needs the tray icon, because that is what it opens to.",
   "autostart.unavailable": "This build cannot ask Windows about startup items.",
@@ -2102,7 +2102,7 @@ export const en = {
   "watch.quietOverride": "Always wake me for",
   "watch.sendTest": "Send a test alert",
   "watch.sendTestDetail":
-    "Raises one harmless notification, and the tone if it is on, so you know what to expect.",
+    "Raises one harmless notification, and the tone if it is on, so you know what to expect",
   "watch.testSent": "Test alert sent",
   "watch.testSentBody":
     "If nothing appeared, Windows may be holding notifications for this app.",
