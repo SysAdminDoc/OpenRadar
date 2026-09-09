@@ -201,6 +201,28 @@ describe("type for a screen that is looked at rather than worked at", () => {
     expect(
       ambientTypeScale(4, { width: 153, height: 93 }, { width: 1, height: 1 }),
     ).toBeCloseTo(3, 6);
+
+    // One case for each clamp, because the pair above is answered by either.
+    // Nothing measured on one axis leaves the other still binding, so with
+    // both clamps gone the height carried the answer and the width clamp was
+    // deletable with the whole suite green.
+    //
+    // Nothing across, and a room too narrow for the size being asked for.
+    expect(
+      ambientTypeScale(
+        4,
+        { width: 70, height: 1000 },
+        { width: 0, height: 90 },
+      ),
+    ).toBeCloseTo(6, 6);
+    // Nothing down, and a room too short for it.
+    expect(
+      ambientTypeScale(
+        4,
+        { width: 1920, height: 95 },
+        { width: 180, height: 0 },
+      ),
+    ).toBeCloseTo(5, 6);
   });
 });
 
@@ -278,5 +300,10 @@ describe("the sizes the rule is anchored on", () => {
     // more than two gaps followed from this one for any gap above zero, so it
     // could not fail on its own and read as cover it was not giving.
     expect(pixels(readout, "gap") * 3).toBe(AMBIENT_GAPS_PX);
+    // And a gap at all, which is the one thing the reading above cannot say:
+    // three times nothing is nothing, so a column that lost its gap entirely
+    // would satisfy it. The assertion this replaced covered that by accident
+    // and nothing else.
+    expect(pixels(readout, "gap")).toBeGreaterThan(0);
   });
 });
