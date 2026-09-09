@@ -216,6 +216,53 @@ describe("the record written beside the picture", () => {
     );
   }
 
+  /**
+   * The smallest PNG a chunk can be added to: signature, IHDR, IDAT, IEND.
+   *
+   * `exportStill` answers with `new Blob(["png"])` everywhere else in this
+   * file, which is not a PNG at all, so nothing here could ever have seen the
+   * record go into the picture.
+   */
+  function tinyPng(): Blob {
+    const bytes: number[] = [137, 80, 78, 71, 13, 10, 26, 10];
+    const table = (byte: number) => {
+      let value = byte;
+      for (let bit = 0; bit < 8; bit += 1) {
+        value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+      }
+      return value >>> 0;
+    };
+    const crc = (over: number[]) => {
+      let value = 0xffffffff;
+      for (const byte of over)
+        value = table((value ^ byte) & 0xff) ^ (value >>> 8);
+      return (value ^ 0xffffffff) >>> 0;
+    };
+    const four = (value: number) => [
+      (value >>> 24) & 0xff,
+      (value >>> 16) & 0xff,
+      (value >>> 8) & 0xff,
+      value & 0xff,
+    ];
+    const add = (type: string, data: number[]) => {
+      const named = [...type].map((one) => one.charCodeAt(0));
+      bytes.push(
+        ...four(data.length),
+        ...named,
+        ...data,
+        ...four(crc([...named, ...data])),
+      );
+    };
+    add("IHDR", [0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 0, 0, 0]);
+    add("IDAT", [1, 2, 3]);
+    add("IEND", []);
+    return new Blob([new Uint8Array(bytes)], { type: "image/png" });
+  }
+
+  function bytesFrom(call: unknown[]) {
+    return (call[1] as Blob).arrayBuffer().then((held) => new Uint8Array(held));
+  }
+
   function sidecarFrom(call: unknown[]) {
     return new Promise<Record<string, unknown>>((resolve) => {
       const reader = new FileReader();
@@ -252,6 +299,50 @@ describe("the record written beside the picture", () => {
     expect(written.frames).toHaveLength(1);
     expect(written.frames[0].index).toBe(1);
     expect(written.frames[0].sourceId).toBe("mrms");
+  });
+
+  it("puts the record inside the picture as well as beside it", async () => {
+    // The sidecar is the file left behind. A picture goes into a message or a
+    // document on its own, and a week later nobody can say which radar, which
+    // volume or which minute it is of. PNG has carried text for this since
+    // 1996, so the same document goes in an `iTXt` chunk.
+    exportStill.mockResolvedValue(tinyPng());
+    const { result } = renderExport();
+    act(() => result.current.exportImage());
+    await waitFor(() => expect(saveFile).toHaveBeenCalledTimes(2));
+
+    const written = await bytesFrom(saveFile.mock.calls[0]);
+    const beside = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.readAsText(saveFile.mock.calls[1][1] as Blob);
+    });
+
+    // The chunk, found by walking rather than by searching: the last chunk
+    // before `IEND`.
+    const view = new DataView(written.buffer);
+    const carried: Record<string, string> = {};
+    for (let at = 8; at + 12 <= written.length;) {
+      const length = view.getUint32(at);
+      const type = String.fromCharCode(...written.subarray(at + 4, at + 8));
+      if (type === "iTXt") {
+        const data = written.subarray(at + 8, at + 8 + length);
+        const keyword = data.indexOf(0);
+        const language = data.indexOf(0, keyword + 3);
+        const translated = data.indexOf(0, language + 1);
+        carried[new TextDecoder().decode(data.subarray(0, keyword))] =
+          new TextDecoder().decode(data.subarray(translated + 1));
+      }
+      at += 12 + length;
+    }
+    // Byte for byte the same document, so the picture on its own answers
+    // everything the sidecar does.
+    expect(carried["OpenRadar Provenance"]).toBe(beside);
+    expect(JSON.parse(beside).picture).toBe(saveFile.mock.calls[0][0]);
+    // And the picture is still a picture: it grew by exactly the chunk.
+    const before = new Uint8Array(await (await tinyPng()).arrayBuffer());
+    expect(written.length).toBeGreaterThan(before.length);
+    expect([...written.subarray(0, 8)]).toEqual([...before.subarray(0, 8)]);
   });
 
   it("credits what was drawn over the radar, in the picture and beside it", async () => {
