@@ -97,3 +97,36 @@ describe("one word per thing", () => {
     }
   });
 });
+
+describe("where a description ends", () => {
+  // Fifty-two of the descriptions under a switch ended in a period and
+  // sixty-two did not, with adjacent rows in the same panel disagreeing. A
+  // reader does not think "that one has a full stop"; they see a column of
+  // text that was written by two people. The rule is the shortest one that
+  // reads right: a fragment is not a sentence and takes no stop, and two
+  // sentences take two stops.
+  //
+  // The three catalogues agree on it exactly, which is what makes it a rule
+  // rather than a preference: the translations mirror the original's
+  // punctuation everywhere, so the decision only has to be made once.
+  const boundary = /[.!?]\s+[A-ZÀ-Ü0-9]/;
+
+  for (const [copy, name] of [
+    [en, "en"],
+    [es, "es"],
+    [fr, "fr"],
+  ] as const) {
+    it(`stops a ${name} description only when it is more than one sentence`, () => {
+      for (const [key, value] of entries(copy)) {
+        if (!key.endsWith("Detail")) continue;
+        // A plural block carries its own punctuation inside the arms, where
+        // the rule cannot see the end of the sentence.
+        if (/\{[a-z]+, plural/.test(value)) continue;
+        const many = boundary.test(value);
+        expect(value.trimEnd().endsWith("."), `${name} ${key}: ${value}`).toBe(
+          many,
+        );
+      }
+    });
+  }
+});
