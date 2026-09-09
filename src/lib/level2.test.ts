@@ -623,6 +623,20 @@ describe("how much ground the sweep is drawn over", () => {
     // says so. Nothing about the disc changed; what changed is what is in it.
     expect(finestDetailSteps(230, 1), "a legacy 1 km volume").toBe(4);
 
+    // And the stop at the far end, which had no case at all: deleting it, or
+    // raising it to four thousand, left the whole suite green. The gate
+    // length is an unchecked number of metres out of a file header, and one
+    // metre asks for four thousand steps, each a volume decoded and a 1,024
+    // square drawn over a hundred metres of ground.
+    expect(finestDetailSteps(230, 0.001), "a header claiming metre gates").toBe(
+      64,
+    );
+    expect(finestDetailSteps(230, 0.02), "a header claiming 20 m gates").toBe(
+      64,
+    );
+    // Just under it, so the stop is a ceiling rather than the only answer.
+    expect(finestDetailSteps(230, 0.1)).toBe(32);
+
     // A sweep that did not say gets the ceiling the old constant was. The
     // wrong answer in the other direction is a reader's picture taken away
     // over a field that failed to arrive.
