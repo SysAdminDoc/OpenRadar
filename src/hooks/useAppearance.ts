@@ -11,10 +11,19 @@ import {
 import { translate, type StringKey } from "../i18n";
 import type { AppSettings } from "../lib/settings";
 
-/** What the browser paints around the window before the app has drawn. */
+/**
+ * What the browser paints around the window before the app has drawn.
+ *
+ * Only for a window with no stylesheet to ask, which is a test environment
+ * rather than a build: the effect below reads the palette itself, so the
+ * strip around the window is the colour the workspace is actually painted in
+ * rather than a hand-copied near-match of it. The pair the boot script in
+ * `index.html` carries is held to the same two values by a test, because that
+ * one runs before there is a stylesheet to read.
+ */
 const CHROME_COLOR: Record<AppSettings["theme"], string> = {
-  dark: "#090b10",
-  light: "#eef2f6",
+  dark: "#070b10",
+  light: "#e9eef4",
 };
 
 export interface Appearance {
@@ -130,7 +139,12 @@ export function useAppearance(
     const meta = document.querySelector<HTMLMetaElement>(
       'meta[name="theme-color"]',
     );
-    meta?.setAttribute("content", CHROME_COLOR[settings.theme]);
+    // Read after the theme attribute above, so the palette answering is the
+    // one this window is on.
+    const painted = getComputedStyle(document.documentElement)
+      .getPropertyValue("--bg")
+      .trim();
+    meta?.setAttribute("content", painted || CHROME_COLOR[settings.theme]);
     // Mirrored where the boot script in `index.html` can read it before first
     // paint. The settings themselves are behind an async store on the
     // desktop, so nothing synchronous can reach them; this key is the only

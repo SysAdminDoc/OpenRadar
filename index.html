@@ -7,7 +7,7 @@
       name="description"
       content="OpenRadar is a map-first desktop weather radar with flat and globe navigation."
     />
-    <meta name="theme-color" content="#090b10" />
+    <meta name="theme-color" content="#070b10" />
     <!-- The app's own icon, at the two sizes a tab and a task switcher ask
          for. Without these the webview requests /favicon.ico on every launch
          and logs a 404, which is the first error in the console of a working
@@ -43,7 +43,7 @@
           document.documentElement.dataset.theme = held;
           document
             .querySelector('meta[name="theme-color"]')
-            .setAttribute("content", held === "light" ? "#eef2f6" : "#090b10");
+            .setAttribute("content", held === "light" ? "#e9eef4" : "#070b10");
         }
       } catch (ignored) {
         // A window with no storage at all keeps the default.

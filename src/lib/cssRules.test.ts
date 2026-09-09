@@ -116,6 +116,31 @@ describe("the stylesheet says what the browser does", () => {
     expect(beaten).toEqual([]);
   });
 
+  it("paints the window's own strip in the colour the workspace is painted in", () => {
+    // The colour the browser puts around the window before anything has drawn
+    // was a hand-copied near-match of the palette, in three places, none of
+    // them equal to `--bg`: a cold start showed a strip in a colour the app
+    // never uses. The workspace reads the palette now; the boot script cannot,
+    // because it runs before there is a stylesheet, so its pair is held here.
+    const html = readFileSync(join(ROOT, "..", "index.html"), "utf8");
+    const backgrounds = [...css.matchAll(/--bg:\s*(#[0-9a-f]{3,8})/g)].map(
+      (match) => match[1],
+    );
+    // The dark palette first, then the light one, which is the order the file
+    // declares them in and the order the boot script names them.
+    expect(backgrounds).toHaveLength(2);
+    const [dark, light] = backgrounds;
+    expect(html).toContain(`content="${dark}"`);
+    expect(html).toContain(`? "${light}" : "${dark}"`);
+    // And the fallback the workspace keeps for a window with no stylesheet.
+    const appearance = readFileSync(
+      join(ROOT, "hooks", "useAppearance.ts"),
+      "utf8",
+    );
+    expect(appearance).toContain(`dark: "${dark}"`);
+    expect(appearance).toContain(`light: "${light}"`);
+  });
+
   it("has no rule with nothing in it", () => {
     // What is left when the last live declaration goes. It reads as a place
     // something belongs rather than as nothing at all.
