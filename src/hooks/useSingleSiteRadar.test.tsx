@@ -233,6 +233,12 @@ describe("choosing a site", () => {
         useSingleSiteRadar(
           options({
             center: props.center,
+            // Zoomed in far enough that a box is asked for at all. The suite
+            // default is below the threshold, so with it this case ran on a
+            // view that had no box to re-ask for and proved nothing about the
+            // grid: "no second request" was true because there was never a
+            // first one.
+            zoom: 12,
             radar: {
               product: "storm-relative-velocity",
               // Rebuilt on each render, exactly as the settings state does it.
@@ -244,7 +250,11 @@ describe("choosing a site", () => {
     );
 
     await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
-    expect(fetchSweep).toHaveBeenCalledTimes(1);
+    // Arriving costs two: the whole disc, which says where the site reaches,
+    // and then the box measured on it. Both belong to the arrival, and what
+    // this case is about is that panning adds nothing to them.
+    await waitFor(() => expect(fetchSweep.mock.calls.length).toBe(2));
+    const arrived = fetchSweep.mock.calls.length;
 
     // Inside one cell of the coarse grid the site is resolved on, so nothing
     // about which site to read has changed.
@@ -253,7 +263,7 @@ describe("choosing a site", () => {
     rerender({ center: [-93.73, 41.73] });
 
     await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
-    expect(fetchSweep).toHaveBeenCalledTimes(1);
+    expect(fetchSweep).toHaveBeenCalledTimes(arrived);
   });
 
   it("holds a site the panel pinned rather than following the map", async () => {
