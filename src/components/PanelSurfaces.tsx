@@ -611,6 +611,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           health={props.health}
           log={props.log}
           onOpenLogFolder={props.onOpenLogFolder}
+          onRemoved={props.onRemoved}
           onCopyDiagnostics={props.onCopyDiagnostics}
           onReportIssue={props.onReportIssue}
           hasWatchedPlace={props.hasWatchedPlace}

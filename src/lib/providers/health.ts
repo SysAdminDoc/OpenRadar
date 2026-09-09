@@ -131,9 +131,34 @@ export function providerIncidents(): ProviderIncident[] {
   return incidents;
 }
 
-/** Forgets them, which is the reader's to do. */
-export function clearIncidents() {
+/**
+ * Forgets them, which is the reader's to do, and hands back what was there.
+ *
+ * The list is this machine's afternoon: what every source did, in order, and
+ * nothing rebuilds it. Every other removal in the workspace offers an undo,
+ * which is the rule the character section is written under, and this one had
+ * no way back at all. Returning the ring rather than a copy of it would hand
+ * out the live array, so the caller gets its own.
+ */
+export function clearIncidents(): ProviderIncident[] {
+  const held = [...incidents];
   incidents = [];
+  saveIncidents();
+  announce();
+  return held;
+}
+
+/**
+ * Puts a forgotten list back, for the undo beside the button that took it.
+ *
+ * Whatever has happened since stays: a source that failed while the toast was
+ * on screen is real and its incident is newer than everything being restored,
+ * so the two are merged in time order rather than one replacing the other.
+ */
+export function restoreIncidents(held: ProviderIncident[]) {
+  incidents = [...held, ...incidents]
+    .sort((first, second) => first.at - second.at)
+    .slice(-MAX_INCIDENTS);
   saveIncidents();
   announce();
 }

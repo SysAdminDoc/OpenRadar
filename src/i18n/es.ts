@@ -674,6 +674,9 @@ export const es: Catalogue = {
   "diagnostics.openLogs": "Abrir la carpeta de registros",
   "diagnostics.forget": "Olvidar el historial de fuentes",
   "diagnostics.forgot": "Olvidado. Los informes nuevos empiezan aquí.",
+  "diagnostics.forgotten": "El historial de fuentes se ha olvidado",
+  "diagnostics.forgottenBody":
+    "Lo que cada fuente hizo hoy en esta máquina ya no está. Nada lo reconstruye.",
   "diagnostics.report": "Copiar y abrir un informe",
   "diagnostics.reportFailed": "No se pudo abrir la página del informe",
   "diagnostics.reportFailedDetail":
