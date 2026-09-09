@@ -167,8 +167,23 @@ export function drawFrame(
       // Room made for the ellipsis rather than added to the line. Appending
       // it after the wrap can push the widest line past what the box was
       // measured for, which walks the box into its own margin.
-      const last = kept[fits - 1];
-      kept[fits - 1] = `${last.length > 2 ? last.slice(0, -2) : last} …`;
+      //
+      // Measured rather than counted. Dropping two characters and adding a
+      // space and an ellipsis is length-neutral and this font is not: two
+      // narrow glyphs are about 7 px together against 13 for what replaces
+      // them, so a line ending in `ill` or `tt` came back wider than the one
+      // that was already too wide. Characters come off until what is left
+      // plus the ellipsis fits the same room every other line was wrapped to.
+      const ellipsis = " …";
+      let head = kept[fits - 1];
+      while (
+        room > 0 &&
+        head.length > 0 &&
+        context.measureText(head + ellipsis).width > room
+      ) {
+        head = head.slice(0, -1);
+      }
+      kept[fits - 1] = `${head}${ellipsis}`;
       laid = {
         ...laid,
         lines: kept,

@@ -30,13 +30,27 @@ function fakeCanvas(width: number, height: number) {
     }),
     // Proportional to the text, because a fake that answers 40 for every
     // string cannot see a line running off the edge, which is the one thing
-    // the caption's own arithmetic is for. Seven pixels a character is about
-    // what 13px Segoe UI measures, and it scales with the type size: without
-    // that, shrinking the font to make a caption fit changes nothing the fake
-    // can see and the height cap cannot be tested at all.
-    measureText: (text: string) => ({
-      width: (text.length * 7 * (parseFloat(context.font) || 13)) / 13,
-    }),
+    // the caption's own arithmetic is for, and it scales with the type size:
+    // without that, shrinking the font to make a caption fit changes nothing
+    // the fake can see and the height cap cannot be tested at all.
+    //
+    // Two glyph widths rather than one, because the caption's own truncation
+    // is width arithmetic and a monospace fake cannot see it: dropping two
+    // characters to add a space and an ellipsis is length-neutral, so under a
+    // fake that charges the same for every glyph a line that grew looked
+    // exactly like one that shrank. Narrow for the glyphs that really are
+    // narrow in Segoe UI, seven pixels a character for the rest, scaled with
+    // the type size so shrinking the font is still visible to the height cap.
+    measureText: (text: string) => {
+      const size = parseFloat(context.font) || 13;
+      // An ellipsis is three dots and is about two characters wide, which is
+      // the whole reason dropping two glyphs to add one does not pay for
+      // itself. Narrow for the glyphs that really are narrow in Segoe UI.
+      const each = (glyph: string) =>
+        glyph === "…" ? 13 : "ilt.,';:!|".includes(glyph) ? 3 : 7;
+      const total = [...text].reduce((sum, glyph) => sum + each(glyph), 0);
+      return { width: (total * size) / 13 };
+    },
     getImageData: (_x: number, _y: number, w: number, h: number) => ({
       // A different colour per call, so a frame that was never redrawn would
       // be indistinguishable from the one before it.
@@ -194,6 +208,49 @@ describe("the keys burned into an exported picture", () => {
     expect(inked[0].line).toBe("2026-09-08 21:00Z");
     expect(inked[0].color).toBe("#e7edf7");
     expect(inked.some((one) => one.color === "#9da9bb")).toBe(true);
+  });
+
+  it("keeps a cut line inside the box when it ends in narrow glyphs", () => {
+    // The cut used to drop two characters and add a space and an ellipsis,
+    // which is length-neutral and not width-neutral. Two narrow glyphs are
+    // about 7 px together in this font against 13 for what replaced them, so
+    // a line ending in `ill` or `tt` came back wider than the one that was
+    // already too wide, and the box was measured after the cut, so it grew
+    // into the margin the picture keeps around it.
+    //
+    // Every credit here ends in narrow glyphs on purpose, so the last kept
+    // line does too whichever one it falls on.
+    // Narrow two-letter words, so the wrap fills each line to within a few
+    // pixels of the limit and the last kept one has no slack to absorb a cut
+    // that grows.
+    const every = Array.from({ length: 300 }, () => "il").join(" ");
+    const width = 320;
+    const { canvas, inked } = recording(width, 180);
+    drawFrame(canvas, canvas, {
+      lines: ["2026-09-08 21:00Z", "KDMX 0.5° reflectivity"],
+      attribution: every,
+    });
+
+    const cut = inked.at(-1)!;
+    expect(cut.line, "the caption was never cut").toContain("…");
+    // The room every other line was wrapped to: the picture less the margin
+    // the box sits in and the padding inside it, on both sides. The padding
+    // is 12 in `export.ts`. The cut line has to obey the same bound, and the
+    // margin is wide enough to hide a few pixels of overrun, which is why
+    // measuring the box rather than the line proves nothing here.
+    const room = width - 12 * 4;
+    const context = canvas.getContext("2d") as unknown as {
+      measureText: (text: string) => { width: number };
+    };
+    expect(
+      context.measureText(cut.line).width,
+      "the cut line came back wider than the wrap it replaced",
+    ).toBeLessThanOrEqual(room);
+    // And every other line already obeyed it, so this is the cut and not the
+    // wrap being tested.
+    for (const line of inked.slice(0, -1)) {
+      expect(context.measureText(line.line).width).toBeLessThanOrEqual(room);
+    }
   });
 
   it("shrinks the type before it drops a word of the credit", () => {
