@@ -290,7 +290,7 @@ export function useSingleSiteRadar(options: {
    * Records a site's reach, from an answer that covered all of it, and which
    * site a file carries when the answer came from one.
    */
-  const rememberDisc = useCallback((answer: SweepImage, path?: string) => {
+  const rememberDisc = useCallback((answer: SweepImage) => {
     setDiscs((now) =>
       now[answer.station]
         ? now
@@ -304,11 +304,23 @@ export function useSingleSiteRadar(options: {
             },
           },
     );
-    if (path) {
-      setFileSites((now) =>
-        now[path] ? now : { ...now, [path]: answer.station },
-      );
-    }
+  }, []);
+
+  /**
+   * Notes which site a file carries, and corrects the note when it changes.
+   *
+   * Called for every local answer rather than only the unboxed ones. Written
+   * once and never revisited, a path whose file had been replaced on disk
+   * with a volume from a different station kept the old station's disc for
+   * the life of the window, and every ask for it was measured on ground it
+   * does not cover. A station that disagrees drops the note, which takes the
+   * box with it, so the next ask is unboxed and teaches the file its site
+   * again.
+   */
+  const noteFileSite = useCallback((path: string, station: string) => {
+    setFileSites((now) =>
+      now[path] === station ? now : { ...now, [path]: station },
+    );
   }, []);
 
   // The site, and the coarse position it was resolved for. A site found for
@@ -467,29 +479,39 @@ export function useSingleSiteRadar(options: {
   );
 
   /**
-   * The same box for a file from disk, measured on the file's own site.
+   * The box for every file whose site is known, by the path it was opened at.
    *
-   * Its own value rather than a branch inside `historicalWithin`, and rebuilt
-   * from its key the same way `within` is, because that callback's identity
-   * decides when the historical effect runs. Reading `center` and `zoom`
-   * inside it made it a new function on every render, and the effect then
-   * asked twice for the same box: once on the first run, and again before the
-   * first answer had come back to write the request key.
+   * One entry per file rather than one for the file on screen. Keyed on the
+   * source being asked about, a reader going back to a file they had open a
+   * moment ago was asked for unboxed all over again, because the only box in
+   * hand belonged to whichever file was current: a whole ten megabyte volume
+   * on every switch back and forth, for a site this already knows the reach
+   * of. The comment here used to say that ask was what teaches the file its
+   * site, which is true the first time and false every time after.
+   *
+   * Rebuilt from a key the way `within` is, because `historicalWithin`'s
+   * identity decides when the historical effect runs, and an object rebuilt
+   * on every render made it a new function each time: the effect then asked
+   * twice for the same box, once on the first run and again before the first
+   * answer had come back to write the request key.
    */
-  const filePath =
-    historicalSource?.kind === "local" ? historicalSource.path : null;
-  const fileStation = filePath ? (fileSites[filePath] ?? null) : null;
-  const fileDisc = fileStation ? discs[fileStation] : undefined;
-  const fileAsking = fileDisc
-    ? sweepDetailBox(fileDisc, center, zoom, windowPx)
-    : null;
-  const fileKey = fileAsking ? fileAsking.join(",") : "";
-  const fileWithin = useMemo(
+  const fileBoxKey = JSON.stringify(
+    Object.fromEntries(
+      Object.entries(fileSites).map(([path, site]) => [
+        path,
+        discs[site]
+          ? sweepDetailBox(discs[site], center, zoom, windowPx)
+          : null,
+      ]),
+    ),
+  );
+  const fileBoxes = useMemo(
     () =>
-      fileKey
-        ? (fileKey.split(",").map(Number) as [number, number, number, number])
-        : null,
-    [fileKey],
+      JSON.parse(fileBoxKey) as Record<
+        string,
+        [number, number, number, number] | null
+      >,
+    [fileBoxKey],
   );
 
   // The volume the step on screen belongs to, and whether the reader has
@@ -750,16 +772,16 @@ export function useSingleSiteRadar(options: {
       // own first answer is what says, so this is null until that answer is
       // in hand and its disc has been recorded.
       //
-      // And only for the file `fileWithin` was measured for. Opening a second
-      // file asks with the source before any render has seen it, so the box
-      // in hand still belongs to the file being replaced: handing it over
-      // drew the new one on the old one's disc, which is the same
-      // intersection sliver as before, moved from the first open to every
-      // open after it. Null here costs one whole-disc answer, which is what
-      // teaches this file its own site.
-      return source.path === filePath ? fileWithin : null;
+      // Looked up by the path being asked about, not by the file on screen.
+      // Handing over whichever box was current drew a newly opened file on
+      // the previous file's disc, which is the intersection sliver this whole
+      // arrangement exists to avoid; keying it to the current file instead
+      // made every return to a file already seen pay for a whole disc again.
+      // By path, both are right: a file nobody has opened is unboxed once,
+      // and a file already known is boxed straight away.
+      return fileBoxes[source.path] ?? null;
     },
-    [fileWithin, filePath, station, within],
+    [fileBoxes, station, within],
   );
 
   const historicalRequestKey = useCallback(
@@ -832,8 +854,20 @@ export function useSingleSiteRadar(options: {
         // A whole-disc answer says what this site's reach is, wherever the
         // site is. That is the only way a file recorded at a station the map
         // has never been near ever gets a box of its own.
-        if (asked === null) {
-          rememberDisc(next, source.kind === "local" ? source.path : undefined);
+        if (asked === null) rememberDisc(next);
+        if (source.kind === "local") {
+          noteFileSite(source.path, next.station);
+          // Everything held for this path goes, because a path is not a
+          // volume. The reader picked this file from a dialog just now, and
+          // the file behind a name can be a different volume from the one
+          // that was there an hour ago: the held pictures are keyed on the
+          // path, so the old file's decode was served back for the new one
+          // and the site never changed on screen.
+          for (const [held] of historicalHeldRef.current) {
+            if (held.includes(JSON.stringify(source.path))) {
+              historicalHeldRef.current.delete(held);
+            }
+          }
         }
         const key = historicalRequestKey(source);
         historicalRequestRef.current = key;
@@ -865,7 +899,13 @@ export function useSingleSiteRadar(options: {
         if (request === requestRef.current) setLoading(false);
       }
     },
-    [fetchHistorical, historicalRequestKey, historicalWithin, rememberDisc],
+    [
+      fetchHistorical,
+      historicalRequestKey,
+      historicalWithin,
+      noteFileSite,
+      rememberDisc,
+    ],
   );
 
   const openLocal = useCallback(async (): Promise<boolean> => {
@@ -1046,13 +1086,9 @@ export function useSingleSiteRadar(options: {
     void fetchHistorical(historicalSource)
       .then((next) => {
         if (!reply.current() || request !== requestRef.current) return;
-        if (asked === null) {
-          rememberDisc(
-            next,
-            historicalSource.kind === "local"
-              ? historicalSource.path
-              : undefined,
-          );
+        if (asked === null) rememberDisc(next);
+        if (historicalSource.kind === "local") {
+          noteFileSite(historicalSource.path, next.station);
         }
         historicalRequestRef.current = key;
         historicalHeldRef.current.set(key, {
@@ -1083,6 +1119,7 @@ export function useSingleSiteRadar(options: {
     latestHistorical,
     fetchHistorical,
     historicalWithin,
+    noteFileSite,
     rememberDisc,
     historicalRequestKey,
     historicalSource,
