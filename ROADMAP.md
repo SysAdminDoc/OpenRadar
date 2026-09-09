@@ -681,13 +681,6 @@ Eleventh research pass, at `8c19165`, an hour after the tenth. It ran the headle
 
 ### P2
 
-- [ ] AUD-461 (P2): The loop speed is shown as a raw slider position, so the product panel reads "-0.1 Speed" on a fresh install
-  Why: `animationSpeed` is a position on a scale from -0.8 to 0.5 that `animationIntervalMs` turns into a frame interval from 1,800 to 350 ms; the default is -0.1. The radar product panel prints that number with one decimal under the label "Speed", and the Settings slider prints the same into its `<output>`. A negative, unitless speed is a number that means nothing to the reader and looks like a fault. The value the reader can reason about is the one the code already computes: how long each frame stays on screen, or how many frames a second.
-  Evidence: seen in the headless capture `dark-chromium-product.png` (2026-09-08) as the chip "-0.1 / Speed"; `src/panels/RadarProductPanel.tsx:246-251` (`formatNumber(radar.animationSpeed, 1)` under `t("radar.speed")`), `src/panels/SettingsPanel.tsx:768-777` (the same into `<output>`), `src/lib/radar.ts:7-11` (`animationIntervalMs`: `1800 - normalized * 1450`), `src/lib/settings.ts:699` (default -0.1) and `:1674-1679` (clamped to -0.8 to 0.5).
-  Touches: `src/lib/radar.ts` (a formatter beside `animationIntervalMs` that says the interval in the reader's words, seconds with one decimal, or frames a second), `src/panels/RadarProductPanel.tsx` and `src/panels/SettingsPanel.tsx` (print through it; the slider keeps its internal range), `src/i18n/*` (a unit string if seconds is chosen), `src/panels/RadarProductPanel.test.tsx` and `src/panels/SettingsPanel.test.tsx` (the default renders as a positive figure with a unit and never as "-0.1").
-  Acceptance: at the default the chip and the slider output show the same positive figure with a unit in all three languages; the slider's stored value and `animationIntervalMs` are unchanged; a test fails if either surface prints the raw position.
-  Complexity: S
-
 ### P3
 
 - [ ] AUD-462 (P3): "Forget source history" is the one removal in the app with no way back

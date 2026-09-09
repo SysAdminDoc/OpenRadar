@@ -739,6 +739,7 @@ export const fr: Catalogue = {
   "radar.compositeDetail": "Boucle de deux heures de la source active",
   "radar.opacity": "Opacité",
   "radar.speed": "Vitesse",
+  "radar.speedValue": "{count}/s",
   "radar.history": "Historique",
   "radar.minutes": "{count} min",
   "radar.show": "Afficher le radar",

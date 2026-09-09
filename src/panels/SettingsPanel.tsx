@@ -13,6 +13,7 @@ import { IncidentPackManager } from "./IncidentPackManager";
 import { StorageSection } from "./StorageSection";
 import type { UndoableRemoval } from "../components/ToastHost";
 import { formatNumber, LANGUAGES, useT } from "../i18n";
+import { framesPerSecond } from "../lib/radar";
 import { themeAccent, themeFromAccent } from "../lib/theme";
 import type { AmbientState } from "../hooks/useAmbient";
 import { JournalSection } from "./JournalSection";
@@ -766,7 +767,14 @@ export function SettingsPanel({
         <label className="range-row">
           <span>
             <strong>{t("settings.animationSpeed")}</strong>
-            <output>{formatNumber(settings.radar.animationSpeed, 1)}</output>
+            <output>
+              {t("radar.speedValue", {
+                count: formatNumber(
+                  framesPerSecond(settings.radar.animationSpeed),
+                  1,
+                ),
+              })}
+            </output>
           </span>
           <input
             type="range"
@@ -775,7 +783,15 @@ export function SettingsPanel({
             step="0.1"
             style={rangeFill(settings.radar.animationSpeed, -0.8, 0.5)}
             aria-label={t("settings.animationSpeedLabel")}
-            aria-valuetext={formatNumber(settings.radar.animationSpeed, 1)}
+            // What a screen reader announces, and it was the slider position
+            // too: "minus zero point one", with no unit and no direction. The
+            // same rate the sighted reader is shown.
+            aria-valuetext={t("radar.speedValue", {
+              count: formatNumber(
+                framesPerSecond(settings.radar.animationSpeed),
+                1,
+              ),
+            })}
             value={settings.radar.animationSpeed}
             onChange={(event) =>
               updateRadar({ animationSpeed: Number(event.target.value) })

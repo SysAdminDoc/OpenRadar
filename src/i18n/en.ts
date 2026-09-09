@@ -718,6 +718,7 @@ export const en = {
   "radar.compositeDetail": "Two-hour loop from the active source",
   "radar.opacity": "Opacity",
   "radar.speed": "Speed",
+  "radar.speedValue": "{count}/s",
   "radar.history": "History",
   "radar.minutes": "{count} min",
   "radar.show": "Show radar",

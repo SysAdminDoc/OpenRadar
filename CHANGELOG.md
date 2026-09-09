@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.12.0
 
+- The loop speed reads as a speed. The radar panel and the settings both showed the slider's own internal position, so a fresh install said "-0.1" under the word Speed, and a screen reader announced the same thing with no unit at all. All three now say how many frames a second the loop is playing, which is one at the default and rises as you push the slider forward.
+
 - The wind layer takes itself off the map when your graphics card will not build it, and says so. Its two small programs are compiled by the driver when the layer is switched on, and a driver that refuses one used to leave the layer sitting there drawing nothing, with the switch still saying it was on. A map with the wind switched on and no wind on it looks exactly like a calm afternoon, which is the one thing a weather display must never do. The switch now goes back off and a message names the reason.
 
 - The credit on an exported picture stays inside the picture. It is drawn small, at the bottom left, and it names every source that went into the frame, which on a busy day is a dozen of them. The box it sits in was allowed to be as wide as the picture and as tall as it liked, so on a small export it climbed past the top edge. It now fits, and it shrinks its own type rather than dropping a source, because a credit with names missing is worse than a credit you have to look closely at.
