@@ -1576,11 +1576,18 @@ input[type="range"]:disabled {
 }
 
 .toggle-row strong {
+  font-size: 12px;
+}
+
+/* Only the rows that carry one. Every toggle row in the app uses this class,
+   and putting the row for a state chip on all of them changed the layout of
+   the settings, the export panel and the radar products for a chip they do
+   not have. */
+.toggle-row strong:has(.layer-state) {
   display: flex;
   align-items: baseline;
   gap: 6px;
   min-width: 0;
-  font-size: 12px;
 }
 
 /* What a layer's source is doing, beside its name. Quiet by default, because

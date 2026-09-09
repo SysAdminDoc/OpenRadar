@@ -498,9 +498,9 @@ describe("what a layer's own source is doing", () => {
   });
 
   it("says nothing at all about a layer that is switched off", () => {
-    // Scoped to what this case rendered rather than to the document: the
-    // renders in this file share one, so a whole-document query answers for
-    // the case before it.
+    // Scoped to what this case rendered. Every layer that is ON says what it
+    // is doing, so a query for any state at all would find the rows this case
+    // is not about.
     const { container } = render(
       panel({
         layers: { earthquakes: false },
@@ -517,6 +517,38 @@ describe("what a layer's own source is doing", () => {
     // The layers that ARE on still say what they are doing, so this is the
     // switch being off rather than the whole panel having gone quiet.
     expect(container.querySelector("[data-layer-state]")).not.toBeNull();
+  });
+
+  it("does not say it is waiting over a note saying why it is not asking", () => {
+    // Two layers have a zoom of their own and several stand down during a
+    // replay, and the row says why underneath. The state would read as
+    // waiting, which is the same row contradicting itself on one line.
+    const { container } = render(
+      panel({
+        layers: { metar: true },
+        now: NOW,
+        layerNotes: { metar: "Zoom in to read the stations." },
+        overlayStates: states("metar", {}),
+      }),
+    );
+    expect(container.querySelector('[data-layer-state^="metar:"]')).toBeNull();
+    // A failure is not that: the state and the note agree, and the note is
+    // the reason the state gives.
+    const { container: failing } = render(
+      panel({
+        layers: { metar: true },
+        now: NOW,
+        layerNotes: { metar: "The service could not be reached." },
+        overlayStates: states("metar", {
+          error: "The service could not be reached.",
+        }),
+      }),
+    );
+    expect(
+      failing
+        .querySelector('[data-layer-state^="metar:"]')
+        ?.getAttribute("data-layer-state"),
+    ).toBe("metar:failed");
   });
 
   it("says nothing about a layer with no source of its own", () => {
@@ -548,7 +580,7 @@ describe("the seven headings the switches are read under", () => {
       "hazards",
       "radar",
       "water",
-      "sky2",
+      "lightning",
       "sky",
       "reference",
       "yours",
@@ -583,7 +615,7 @@ describe("the seven headings the switches are read under", () => {
         ?.closest("[data-layer-group]")
         ?.getAttribute("data-layer-group") ?? null;
     expect(groupOf("weatherAlerts")).toBe("hazards");
-    expect(groupOf("lightningFlashes")).toBe("sky2");
+    expect(groupOf("lightningFlashes")).toBe("lightning");
     expect(groupOf("customOverlay")).toBe("yours");
   });
 });

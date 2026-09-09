@@ -19,6 +19,8 @@ const answers: Record<string, unknown> = {
 const asked: string[] = [];
 const held: { settings: Record<string, unknown> | null } = { settings: null };
 const written: Array<Record<string, unknown>> = [];
+/** Whether the store refuses, which is the file being held open by something. */
+let refuseWrites = false;
 
 vi.mock("./runtime", () => ({
   isDesktopRuntime: () => true,
@@ -40,6 +42,7 @@ vi.mock("@tauri-apps/plugin-store", () => ({
       return Promise.resolve({
         get: () => Promise.resolve(held.settings),
         set: (_key: string, value: Record<string, unknown>) => {
+          if (refuseWrites) return Promise.reject(new Error("in use"));
           written.push(value);
           return Promise.resolve();
         },
@@ -141,12 +144,36 @@ describe("a desktop launch after two starts that did not reach a window", () => 
     written.length = 0;
     await restoreArrangement();
 
-    expect(asked.indexOf("clear_unclean_starts")).toBeGreaterThan(-1);
+    // The write first and the count after it. Cleared first, a write that
+    // failed left the reader in a window that looks ordinary, running on the
+    // plain settings, with no toast and no way to ask again.
+    expect(asked.filter((one) => one === "clear_unclean_starts")).toHaveLength(
+      1,
+    );
     expect(written).toHaveLength(1);
     const document = written[0] as unknown as typeof opened;
     expect(document.occasions.enabled).toBe(true);
     expect(document.ambient).toBe(true);
     expect(window.location.reload).toHaveBeenCalled();
+  });
+
+  it("keeps the count when it cannot write the arrangement back", async () => {
+    // The write is the whole of putting it back, so a window that could not
+    // manage it has to come back plain and offer the press again. Cleared
+    // first, the reader was left in an ordinary-looking window running on the
+    // plain settings with nothing to ask again with.
+    const opened = await loadSettings();
+    await saveSettings({ ...opened, clock: "utc" });
+    written.length = 0;
+    asked.length = 0;
+    refuseWrites = true;
+    try {
+      await restoreArrangement();
+    } finally {
+      refuseWrites = false;
+    }
+    expect(asked).not.toContain("clear_unclean_starts");
+    expect(window.location.reload).not.toHaveBeenCalled();
   });
 
   it("leaves a workspace alone after one start that did not reach a window", async () => {

@@ -2914,7 +2914,6 @@ export default function App() {
           }}
         >
           <PanelSurfaces
-            now={clock}
             layerNotes={{
               // During a replay this switch is drawing that day's polygons out
               // of the archive rather than today's, so what it has to say
@@ -2936,6 +2935,11 @@ export default function App() {
                 overlays.states.spcOutlooks.error ??
                 overlays.states.spcOutlooks.partial,
               spcDiscussions: overlays.states.spcDiscussions.error,
+              // The two the map draws from the Weather Prediction Center. Left
+              // out, their rows said a source was not answering with nothing
+              // under them to say what happened.
+              wpcExcessiveRain: overlays.states.wpcExcessiveRain.error,
+              wpcWinterSeverity: overlays.states.wpcWinterSeverity.error,
               // The second source answering is worth saying: the reports on
               // the map came from somewhere else, and the reader is looking
               // at this switch because the usual one went quiet.

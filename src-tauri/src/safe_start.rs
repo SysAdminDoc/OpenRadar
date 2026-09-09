@@ -106,9 +106,11 @@ pub fn unclean_starts() -> u32 {
 
 /// The workspace saying the reader has put their arrangement back.
 ///
-/// The count goes to nothing rather than the file going away: the app is
-/// still running, and removing the sentinel here would make this run look
-/// like one that had already finished.
+/// The mark goes with the count. This is asked for by a reader pressing a
+/// button in a window that has drawn, so the launch already stopped counting
+/// when it drew; writing a zero back instead put the mark on a run that had
+/// finished with it, and the next crash was then the first of two rather than
+/// the second.
 #[tauri::command]
 pub fn clear_unclean_starts() {
     *STARTS.lock().unwrap_or_else(|held| held.into_inner()) = 0;
