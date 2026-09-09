@@ -160,9 +160,21 @@ function weight(selector: string): [number, number, number] {
   ).length;
   const types = bare.replace(/\[[^\]]*\]|:[a-z-]+\([^)]*\)/g, " ");
   return [
-    (bare.match(/#[\w-]+/g) ?? []).length,
+    // Counted on the same string the types are, not on `bare`. A hash inside
+    // an attribute value is a character in a value rather than an id, and
+    // `[href="#top"]` came back as one id and one attribute where the
+    // specification says one attribute. The previous pass moved the brackets
+    // out of the way for the class and the type counts and left this one
+    // reading the whole selector, which is the same mistake in a third place.
+    //
+    // What it still does not do is read the selector inside `:nth-child(An+B
+    // of S)`, which the specification says contributes on top of the
+    // pseudo-class. Nothing in this file writes one.
+    (types.match(/#[\w-]+/g) ?? []).length,
     classes,
-    (types.match(/(^|[\s>+~(,])[a-z][\w-]*/g) ?? []).length,
+    // A type selector may be written in any case; HTML matches them without
+    // regard to it.
+    (types.match(/(^|[\s>+~(,])[a-zA-Z][\w-]*/g) ?? []).length,
   ];
 }
 
@@ -446,6 +458,12 @@ describe("the stylesheet says what the browser does", () => {
       [":nth-child(odd)", [0, 1, 0]],
       ["li:nth-of-type(even)", [0, 1, 1]],
       ['[aria-label="show more"]', [0, 1, 0]],
+      // Nor is what is inside an attribute value an id, however it is spelled:
+      // a fragment link is one attribute and nothing else.
+      ['a[href="#top"]', [0, 1, 1]],
+      ['[data-tag="#a.b"]', [0, 1, 0]],
+      // And a type selector may be written in any case.
+      ["DIV", [0, 0, 1]],
       // The pair the media gate has to tell apart, which is what sent it
       // looking: the second of these was taking the first and neither the
       // string comparison nor the suffix one could see it.
