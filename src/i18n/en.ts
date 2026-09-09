@@ -44,22 +44,22 @@ export const en = {
   "dataExport.megabytes": "{count} MB",
   "dataExport.error.notDrawn":
     "That grid is not on the map, so there is nothing decoded to write. Turn the layer on and let it draw first.",
-  "dataExport.error.noProduct": "There is no product called {0}.",
+  "dataExport.error.noProduct": "There is no product called {product}.",
   "dataExport.error.nothingInView": "The view holds no part of that grid.",
   "dataExport.error.tooLarge":
-    "That would be {0, plural, one {# reading} other {# readings}} in one file. Zoom in so the export covers less.",
+    "That would be {count, plural, one {# reading} other {# readings}} in one file. Zoom in so the export covers less.",
   "dataExport.error.noFolder": "There is nowhere to write the export.",
-  "dataExport.error.write": "The export could not be written: {0}",
-  "dataExport.error.gridUnknownProduct": "There is no grid called {0}.",
+  "dataExport.error.write": "The export could not be written: {reason}",
+  "dataExport.error.gridUnknownProduct": "There is no grid called {product}.",
   "dataExport.error.gridBadListing":
     "The list of published grids could not be read.",
-  "dataExport.error.gridNoFrames": "No {0} grid has been published yet.",
+  "dataExport.error.gridNoFrames": "No {product} grid has been published yet.",
   "dataExport.error.gridNotGrib": "That file is not a GRIB2 grid.",
   "dataExport.error.gridUnreadable":
     "That grid is packed in a way this build does not read.",
   "dataExport.error.gridNotDrawn": "The grid could not be drawn.",
   "dataExport.error.unknown": "The export could not be written.",
-  "dataExport.error.gridHttpStatus": "The grid service {0}.",
+  "dataExport.error.gridHttpStatus": "The grid service {answer}.",
   "dataExport.error.gridHttpUnreachable":
     "The grid could not be fetched. Check that this machine is online.",
   "dataExport.error.gridHttpRefused":
@@ -273,7 +273,7 @@ export const en = {
   "storage.clearFailedUnknown":
     "The reason did not come back. The log has whatever the command said.",
   "packs.error.tooManyTiles":
-    "That region needs {0, plural, one {# tile} other {# tiles}}, which is more than one pack holds. Zoom in, or take fewer zoom levels.",
+    "That region needs {count, plural, one {# tile} other {# tiles}}, which is more than one pack holds. Zoom in, or take fewer zoom levels.",
   "packs.error.diskCeiling":
     "That would take the packs past the disk limit you set. Delete one, or raise the limit above.",
   "packs.error.notFound": "That pack is not there any more.",
@@ -286,7 +286,7 @@ export const en = {
   "packs.error.failed":
     "Something went wrong on this machine and the download stopped. The Diagnostics panel has the details.",
   "packs.error.pausedOnExit": "The download paused when OpenRadar closed.",
-  "packs.error.httpStatus": "The tile server {0}.",
+  "packs.error.httpStatus": "The tile server {answer}.",
   "packs.error.httpUnreachable":
     "The tile server could not be reached. Check that this machine is online.",
   "packs.error.httpRefused":
@@ -432,19 +432,19 @@ export const en = {
     "{count, plural, one {# feed of warnings was} other {# feeds of warnings were}} not in the bundle, so its warnings may be incomplete.",
   "bundle.missingBoth":
     "{tiles, plural, one {# tile} other {# tiles}} and {warnings, plural, one {# feed of warnings} other {# feeds of warnings}} were not in the bundle.",
-  "bundle.error.invalidRequest": "This replay cannot be bundled: {0}.",
+  "bundle.error.invalidRequest": "This replay cannot be bundled: {reason}.",
   "bundle.error.tooManyTiles":
-    "The view covers {0, plural, one {# tile} other {# tiles}} across the replay. Zoom in, or out, so it covers fewer.",
+    "The view covers {count, plural, one {# tile} other {# tiles}} across the replay. Zoom in, or out, so it covers fewer.",
   "bundle.error.tooManyDocuments":
-    "The replay asks for {0, plural, one {# document} other {# documents}} beside the map, which is more than a bundle holds.",
+    "The replay asks for {count, plural, one {# document} other {# documents}} beside the map, which is more than a bundle holds.",
   "bundle.error.tooLarge": "The bundle would be larger than 256 MB.",
   "bundle.error.noFolder": "There is nowhere to write the bundle.",
-  "bundle.error.write": "The bundle could not be written: {0}",
-  "bundle.error.read": "The bundle could not be read: {0}",
+  "bundle.error.write": "The bundle could not be written: {reason}",
+  "bundle.error.read": "The bundle could not be read: {reason}",
   "bundle.error.notABundle": "That file is not an OpenRadar replay bundle.",
   "bundle.error.newer":
     "That bundle was made by a newer OpenRadar. Update to open it.",
-  "bundle.error.corrupt": "That bundle is damaged: {0}",
+  "bundle.error.corrupt": "That bundle is damaged: {reason}",
   "bundle.error.noView": "The map has no view to bundle yet.",
   "bundle.error.noFrames": "That bundle holds no frames this build can draw.",
   "bundle.error.letGo":
@@ -780,32 +780,32 @@ export const en = {
   "radar.classificationLabel": "Hydrometeor classification product",
   "radar.classificationDetail":
     "Which Level III product the Hydrometeor Classification layer reads: the lowest tilt, or the hybrid scan the whole volume is read into",
-  "radar.error.unknownSite": "{0} is not a NEXRAD site.",
+  "radar.error.unknownSite": "{station} is not a NEXRAD site.",
   "radar.error.notWsr88d":
-    "{0} is an airport's terminal radar: it has no Level II volume to read and no archive.",
+    "{station} is an airport's terminal radar: it has no Level II volume to read and no archive.",
   "radar.error.noLongerListed":
-    "{0} is not on the weather service's list of radars any more. It may have been renamed or taken out of the network; pick another site.",
+    "{station} is not on the weather service's list of radars any more. It may have been renamed or taken out of the network; pick another site.",
   "radar.error.noVolume":
-    "No radar volume has been published for {0} yet today or yesterday.",
+    "No radar volume has been published for {station} yet today or yesterday.",
   "radar.error.badListing": "The volume listing could not be read.",
-  "radar.error.decode": "The volume could not be decoded: {0}",
-  "radar.error.noSweep": "{0} has no {1} sweep at that tilt.",
+  "radar.error.decode": "The volume could not be decoded: {reason}",
+  "radar.error.noSweep": "{station} has no {product} sweep at that tilt.",
   "radar.error.noStormMotion":
-    "The wind at {0} could not be read, so there is nothing to take out of the picture.",
-  "radar.error.encode": "The picture could not be drawn: {0}",
-  "radar.error.invalidTime": "{0} is not a UTC date and time.",
-  "radar.error.localRead": "The selected file could not be read: {0}",
+    "The wind at {station} could not be read, so there is nothing to take out of the picture.",
+  "radar.error.encode": "The picture could not be drawn: {reason}",
+  "radar.error.invalidTime": "{at} is not a UTC date and time.",
+  "radar.error.localRead": "The selected file could not be read: {reason}",
   "radar.error.localTooLarge": "The selected file is larger than 128 MB.",
   "radar.error.outOfRange":
-    "Both ends of a cross-section have to be within range of {0}.",
-  "radar.error.httpStatus": "The radar archive {0}.",
+    "Both ends of a cross-section have to be within range of {station}.",
+  "radar.error.httpStatus": "The radar archive {answer}.",
   "radar.error.httpUnreachable":
     "The radar archive could not be reached. Check that this machine is online.",
   "radar.error.httpRefused":
     "OpenRadar would not fetch that: the address is not one it is allowed to reach.",
   "radar.error.httpTooLarge":
     "The radar archive sent more than OpenRadar will read in one go.",
-  "bundle.error.httpStatus": "The replay service {0}.",
+  "bundle.error.httpStatus": "The replay service {answer}.",
   "bundle.error.httpUnreachable":
     "The replay could not be fetched. Check that this machine is online.",
   "bundle.error.httpRefused":

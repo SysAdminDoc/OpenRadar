@@ -29,15 +29,58 @@ const COUNTED = new Set(["tooLarge", "tooManyTiles"]);
  */
 const STATUS = new Set(["httpStatus", "gridHttpStatus"]);
 
+/**
+ * What each failure's arguments are called in the sentence that uses them.
+ *
+ * Named rather than numbered, which is what the catalogue's own header asks
+ * for: `{0}` in a translation says nothing about what will land there, and a
+ * translator moving a clause has to count the placeholders in the original to
+ * find out. `{station}` and `{product}` need no counting, and a language whose
+ * word order puts them the other way round can just do it.
+ *
+ * A code with no entry here falls back to the number, which is what a string
+ * written for it would have to use. The catalogue gate refuses those, so the
+ * fallback only ever runs for a failure whose sentence has no argument in it.
+ */
+const ARGUMENTS: Record<string, readonly string[]> = {
+  unknownSite: ["station"],
+  notWsr88d: ["station"],
+  noVolume: ["station"],
+  noLongerListed: ["station"],
+  noStormMotion: ["station"],
+  outOfRange: ["station"],
+  noSweep: ["station", "product"],
+  noProduct: ["product"],
+  gridUnknownProduct: ["product"],
+  gridNoFrames: ["product"],
+  decode: ["reason"],
+  encode: ["reason"],
+  localRead: ["reason"],
+  write: ["reason"],
+  read: ["reason"],
+  corrupt: ["reason"],
+  invalidRequest: ["reason"],
+  gridUnreadable: ["reason"],
+  gridNotDrawn: ["reason"],
+  invalidTime: ["at"],
+  httpStatus: ["answer"],
+  gridHttpStatus: ["answer"],
+  tooLarge: ["count"],
+  tooManyTiles: ["count"],
+  tooManyDocuments: ["count"],
+  newer: ["version"],
+};
+
 export function nativeErrorParams(
   code: string,
   args: readonly unknown[],
 ): Record<string, string | number> {
   const counted = COUNTED.has(code);
   const spoken = STATUS.has(code);
+  const names = ARGUMENTS[code];
   const params: Record<string, string | number> = {};
   args.forEach((value, at) => {
-    params[String(at)] = counted
+    params[names?.[at] ?? String(at)] = counted
       ? measured(value)
       : spoken && at === 0
         ? serviceAnswer(Number(value))
