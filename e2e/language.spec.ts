@@ -361,24 +361,44 @@ test.describe("a section heading and the line describing it @ownViewport", () =>
         page.locator(".settings-section__title").first(),
       ).toBeVisible();
 
+      // Every row in the panel that puts two runs of text on one line, not
+      // only the section headings: the first version of this named
+      // `.settings-section__title` and the identical collision was one row
+      // further down, where a range row's label met its value at zero pixels
+      // in the pseudolocale. The shape is the thing, so the sweep finds it
+      // rather than being told where to look.
       const tight = await page.evaluate(() => {
         const bad: string[] = [];
-        for (const title of document.querySelectorAll(
-          ".settings-section__title",
+        for (const row of document.querySelectorAll<HTMLElement>(
+          ".surface-panel--settings *",
         )) {
-          const name = title.querySelector("span");
-          const detail = title.querySelector("small");
-          if (!name || !detail) continue;
-          const gap =
-            detail.getBoundingClientRect().left -
-            name.getBoundingClientRect().right;
-          if (gap < 8) {
-            bad.push(`${name.textContent} + ${detail.textContent}: ${gap}px`);
+          const style = getComputedStyle(row);
+          if (style.display !== "flex") continue;
+          if (style.justifyContent !== "space-between") continue;
+          if (style.flexDirection.startsWith("column")) continue;
+          const kids = [...row.children].filter((one) =>
+            one.textContent?.trim(),
+          );
+          if (kids.length < 2) continue;
+          for (let at = 1; at < kids.length; at += 1) {
+            const gap =
+              kids[at].getBoundingClientRect().left -
+              kids[at - 1].getBoundingClientRect().right;
+            // Against the gap the stylesheet writes, not a looser number:
+            // asked at eight, two thirds of a twelve pixel gap could be
+            // deleted and this would still pass.
+            if (gap < 11.5) {
+              bad.push(
+                `${row.className}: ${kids[at - 1].textContent?.slice(0, 24)} + ${kids[
+                  at
+                ].textContent?.slice(0, 24)}: ${gap}px`,
+              );
+            }
           }
         }
         return bad;
       });
-      expect(tight, "a heading running into its own description").toEqual([]);
+      expect(tight, "two runs of text meeting on one line").toEqual([]);
     });
   }
 
@@ -402,19 +422,26 @@ test.describe("a section heading and the line describing it @ownViewport", () =>
     // are, so comparing rows would compare the wrong edges and pass.
     const edges = await page.evaluate(() => {
       const left = new Map<number, string[]>();
-      for (const row of document.querySelectorAll<HTMLElement>(
-        ".surface-panel--settings .settings-section > .settings-field, " +
-          ".surface-panel--settings .settings-section > .toggle-row",
+      // Every labelled thing in the panel, found by the label rather than by
+      // a list of the classes rows are written with. The list version was two
+      // classes long and missed two more that were both off the column; grown
+      // to four it was still a list, and a list of the rows that are right is
+      // a check that passes because of what it left out. It was also relative
+      // rather than absolute: moving every class it named by the same amount
+      // kept one edge while the two it did not name stayed where they were.
+      for (const label of document.querySelectorAll<HTMLElement>(
+        ".surface-panel--settings .settings-section strong",
       )) {
-        // Where the words begin, not where the row does: a row's own box
-        // carries the padding that puts its contents where they are, so
-        // comparing rows would compare the wrong edges and pass.
-        const inside = row.querySelector(":scope > span");
-        if (!inside) continue;
-        const at = Math.round(inside.getBoundingClientRect().left);
+        // The row this label names, which is the child of the section it sits
+        // in however many wrappers are between. A `.settings-field` holding a
+        // switch row has no direct span of its own, and the version that
+        // asked for one dropped three rows without a word.
+        const row = label.closest<HTMLElement>(".settings-section > *");
+        if (!row || row.classList.contains("settings-section__title")) continue;
+        const at = Math.round(label.getBoundingClientRect().left);
         left.set(at, [
           ...(left.get(at) ?? []),
-          inside.textContent?.slice(0, 20) ?? "",
+          label.textContent?.slice(0, 20) ?? "",
         ]);
       }
       return [...left].map(([at, what]) => `${at}: ${what.join(" / ")}`);
@@ -426,12 +453,26 @@ test.describe("a section heading and the line describing it @ownViewport", () =>
     // plainly. A control sitting in a section rather than in a row has no
     // label of its own, only the heading above it, which stops naming it the
     // moment the section holds a second control.
+    // Every segmented control in every panel, not the ones that happen to be
+    // a direct child of a section in this one: wrapping the unlabelled pair
+    // in a bare div put it back on screen with no name and left this green,
+    // and the Convective outlook section had two controls under one heading
+    // with no name on either.
     const nameless = await page.evaluate(() =>
       [
-        ...document.querySelectorAll(
-          ".surface-panel--settings .settings-section > .segmented-control",
+        ...document.querySelectorAll<HTMLElement>(
+          ".surface-panel .settings-section .segmented-control",
         ),
-      ].map((one) => one.getAttribute("aria-label") ?? "unnamed"),
+      ]
+        .filter((one) => {
+          // A visible name is a `strong` in the row around it, which is what
+          // every labelled row in the panel draws. The heading over a section
+          // is not one: it stops naming anything the moment the section holds
+          // a second control.
+          const row = one.closest<HTMLElement>(".settings-section > *");
+          return !row?.querySelector("strong");
+        })
+        .map((one) => one.getAttribute("aria-label") ?? "unnamed"),
     );
     expect(nameless, "a control with no row and so no visible name").toEqual(
       [],
@@ -439,6 +480,68 @@ test.describe("a section heading and the line describing it @ownViewport", () =>
     expect(edges, "controls starting at more than one left edge").toHaveLength(
       1,
     );
+  });
+
+  test("names every control in every panel it can open", async ({ page }) => {
+    // The same question over the rest of the app. A heading names the one
+    // control under it and stops naming anything the moment there are two,
+    // and a control with no name at all is one a reader works out from the
+    // words on its buttons.
+    await startIn(page, "en");
+    const seen: string[] = [];
+    let controls = 0;
+    for (const key of PANELS) {
+      const button = page.locator(
+        `.command-bar button[aria-label="${en[key]}"]`,
+      );
+      if (!(await button.count())) continue;
+      await button.first().click();
+      await expect(page.locator(".surface-panel")).toBeVisible();
+      // A panel's contents are a lazy chunk, so the surface is on screen and
+      // empty for a frame or two after the click. Without this wait every
+      // panel counted zero controls and the sweep read as clean over nothing.
+      await page
+        .waitForFunction(
+          () => document.querySelectorAll(".surface-panel *").length > 20,
+          undefined,
+          { timeout: 4000 },
+        )
+        .catch(() => {});
+      controls += await page
+        .locator(".surface-panel .settings-section .segmented-control")
+        .count();
+      seen.push(
+        ...(await page.evaluate(() =>
+          [
+            ...document.querySelectorAll<HTMLElement>(
+              ".surface-panel .settings-section .segmented-control",
+            ),
+          ]
+            .filter((one) => {
+              const section = one.closest<HTMLElement>(".settings-section");
+              const row = one.closest<HTMLElement>(".settings-section > *");
+              if (row?.querySelector("strong")) return false;
+              // One control under a heading is named by the heading. Two are
+              // named by neither.
+              return (
+                (section?.querySelectorAll(".segmented-control").length ?? 0) >
+                1
+              );
+            })
+            .map((one) => one.getAttribute("aria-label") ?? "unnamed"),
+        )),
+      );
+      await button.first().click();
+    }
+    // What stops this reading as a clean sweep over nothing. A panel whose
+    // section never renders is a panel this walks past in silence, and the
+    // first version of this passed on the very tree whose defect it was
+    // written for because the section holding it was not on screen.
+    // More than the Settings panel's own five, so this has to have reached a
+    // second panel to pass. The first version of it counted zero everywhere
+    // and reported a clean sweep over nothing.
+    expect(controls, "only one panel was measured").toBeGreaterThan(5);
+    expect(seen, "a control sharing a heading with another").toEqual([]);
   });
 });
 
