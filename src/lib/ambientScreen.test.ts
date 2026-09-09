@@ -180,6 +180,28 @@ describe("type for a screen that is looked at rather than worked at", () => {
       6,
     );
   });
+
+  it("still lets the room bind when the readout measures nothing", () => {
+    // The clamp on the divisor was taken out once as a guard that could not
+    // fire and put back after a differential found otherwise, and the
+    // measurement never became a case, so deleting both clamps again left the
+    // whole suite green. This is the pair of numbers.
+    //
+    // Nothing measured yet divides the room by zero, and `Infinity` is the
+    // answer that stops that axis binding at all: the room is not consulted,
+    // and the geometry's own figure stands however little space there is. It
+    // takes a room whose space left over is smaller than the size being asked
+    // for, which at the furthest setting is about seven pixels, so no window
+    // the view draws in is one. A clamp is cheaper than knowing that.
+    expect(
+      ambientTypeScale(4, { width: 153, height: 93 }, { width: 0, height: 0 }),
+    ).toBeCloseTo(3, 6);
+    // The same room with something measured in it, so the case above is the
+    // clamp rather than the room: without it both answer 4 / 0.6.
+    expect(
+      ambientTypeScale(4, { width: 153, height: 93 }, { width: 1, height: 1 }),
+    ).toBeCloseTo(3, 6);
+  });
 });
 
 describe("the sizes the rule is anchored on", () => {
@@ -188,10 +210,12 @@ describe("the sizes the rule is anchored on", () => {
     // distance is worked out from the smallest of them. A change to either
     // side of that without the other is a rule about a size nobody is
     // reading, which is exactly the kind of drift a comment does not catch.
+    // Comments out, for the reason the test below says: every pattern here is
+    // non-global, so a commented-out declaration above the live one wins.
     const css = readFileSync(
       join(import.meta.dirname, "..", "index.css"),
       "utf8",
-    );
+    ).replace(/\/\*[\s\S]*?\*\//g, "");
     // The multiplier is part of what is matched, not just the number. Without
     // it the pattern read a plain `calc(13px)` as happily as the real thing,
     // so deleting the scale from all three rules, which switches the whole
@@ -211,10 +235,15 @@ describe("the sizes the rule is anchored on", () => {
     // are three gaps and the rule was leaving room for two. Everything here
     // is a fixed size the type never multiplies, which is exactly why it has
     // to be taken out of the room before the type is fitted into it.
+    // Read with the comments taken out first. Every pattern below is
+    // non-global, so the first match in the block wins, and a commented-out
+    // declaration sitting above the live one outranks it: a comment holding
+    // `left: 32px; bottom: 32px; gap: 2px` at the top of `.ambient-readout`
+    // kept this green while the live rule said 11, 11 and 9.
     const css = readFileSync(
       join(import.meta.dirname, "..", "index.css"),
       "utf8",
-    );
+    ).replace(/\/\*[\s\S]*?\*\//g, "");
     // Anchored to the start of a line, so the variant rules do not answer for
     // the base ones: `.ambient-readout[data-over-light] .ambient-readout__leave`
     // comes first in the file and sets two colours and nothing else.
@@ -244,7 +273,10 @@ describe("the sizes the rule is anchored on", () => {
     // only drawn once the reader has named where they watch, so a fresh
     // install is three children and two. The larger figure leaves two pixels
     // unused there and never overruns, which is the direction to be wrong in.
+    //
+    // One assertion rather than two: a second reading that the constant is
+    // more than two gaps followed from this one for any gap above zero, so it
+    // could not fail on its own and read as cover it was not giving.
     expect(pixels(readout, "gap") * 3).toBe(AMBIENT_GAPS_PX);
-    expect(AMBIENT_GAPS_PX).toBeGreaterThan(pixels(readout, "gap") * 2);
   });
 });
