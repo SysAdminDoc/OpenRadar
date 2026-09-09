@@ -334,6 +334,55 @@ test.describe("the Start with Windows row in a long language @ownViewport", () =
   });
 });
 
+test.describe("a section heading and the line describing it @ownViewport", () => {
+  test.use({ viewport: { width: 1024, height: 720 } });
+
+  for (const [language, words] of [
+    ["en", (key: StringKey) => en[key]],
+    ["es", (key: StringKey) => es[key]],
+    ["fr", (key: StringKey) => fr[key]],
+    ["pseudo", (key: StringKey) => pseudoize(en[key])],
+  ] as const) {
+    test(`stay apart in ${language}`, async ({ page }) => {
+      // Neither sweep above can see this. The clipping one skips everything
+      // inside a scroller, and nothing here overflows anyway: the heading row
+      // is `justify-content: space-between`, which puts space between two
+      // boxes right up until the longer one reaches the other, and then puts
+      // none. The Character description was long enough to reach, so the panel
+      // read CHARACTERAll off unless you turn it on, at both widths and in
+      // every language, and the description simply wrapped underneath rather
+      // than clipping.
+      await startIn(page, language);
+      await page
+        .locator(`.command-bar button[aria-label="${words("panel.settings")}"]`)
+        .first()
+        .click();
+      await expect(
+        page.locator(".settings-section__title").first(),
+      ).toBeVisible();
+
+      const tight = await page.evaluate(() => {
+        const bad: string[] = [];
+        for (const title of document.querySelectorAll(
+          ".settings-section__title",
+        )) {
+          const name = title.querySelector("span");
+          const detail = title.querySelector("small");
+          if (!name || !detail) continue;
+          const gap =
+            detail.getBoundingClientRect().left -
+            name.getBoundingClientRect().right;
+          if (gap < 8) {
+            bad.push(`${name.textContent} + ${detail.textContent}: ${gap}px`);
+          }
+        }
+        return bad;
+      });
+      expect(tight, "a heading running into its own description").toEqual([]);
+    });
+  }
+});
+
 test("says a service failure in the reader's own language", async ({
   page,
 }) => {
