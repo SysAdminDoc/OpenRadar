@@ -242,7 +242,11 @@ export function VwpPanel({
           {/* Only for the silence a reader can do something about. Under a
               map held on another day, holding a site is not the answer. */}
           {quiet !== "historical" && onHoldSite ? (
-            <button type="button" onClick={onHoldSite}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={onHoldSite}
+            >
               {t("vwp.holdSite")}
             </button>
           ) : null}
