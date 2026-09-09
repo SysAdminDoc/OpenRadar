@@ -101,3 +101,31 @@ test("says so when nothing matches", async ({ page }) => {
     "0",
   );
 });
+
+test("opens the layers panel with the cursor in its filter", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "Commands", exact: true }).click();
+  await page
+    .getByRole("searchbox", { name: /Search every layer/ })
+    .fill("find a layer");
+  await page.locator('[data-command="find-layer"]').click();
+
+  const box = page.getByRole("searchbox", { name: "Find a layer" });
+  await expect(box).toBeFocused();
+  await box.fill("lightning");
+  await expect(page.locator('[data-layer="lightningDensity"]')).toBeVisible();
+  await expect(page.locator('[data-layer="satellite"]')).toHaveCount(0);
+  await box.fill("");
+  await expect(page.locator('[data-layer="satellite"]')).toBeVisible();
+
+  // The rail is the other way in, and it leaves the cursor alone: somebody
+  // who pressed the button came to press a switch.
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Layers" })).toBeHidden();
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Layers" })).toBeVisible();
+  await expect(
+    page.getByRole("searchbox", { name: "Find a layer" }),
+  ).not.toBeFocused();
+});

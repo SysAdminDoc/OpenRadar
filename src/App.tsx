@@ -268,6 +268,9 @@ const LAST_SEEN_EVERY_MS = 5 * 60_000;
 export default function App() {
   const t = useT();
   const [activeSurface, setActiveSurface] = useState<SurfaceId>(null);
+  // Set by the palette's "Find a layer" and by nothing else, so the box in
+  // the layers panel takes the cursor on that one way in.
+  const [layersToFind, setLayersToFind] = useState(false);
   const [productOpen, setProductOpen] = useState(false);
   const [activeTool, setActiveTool] = useState<ToolMode>(null);
   const [dualPane, setDualPane] = useState(false);
@@ -2655,6 +2658,7 @@ export default function App() {
             return;
           }
           setProductOpen(false);
+          setLayersToFind(action.find === true);
           // The panel it asks for takes the palette's place, so this must not
           // fall through to the close below.
           setActiveSurface(action.surface as SurfaceId);
@@ -3017,6 +3021,7 @@ export default function App() {
               wind: wind.error,
             }}
             activeSurface={activeSurface}
+            layersToFind={layersToFind}
             productOpen={productOpen}
             settings={settings}
             overlayKeys={overlays.keys}
@@ -3335,6 +3340,8 @@ export default function App() {
         }}
         onSurface={(surface) => {
           setProductOpen(false);
+          // Pressed the rail, so they came to press a switch.
+          setLayersToFind(false);
           setActiveSurface(surface);
         }}
         onTool={handleTool}

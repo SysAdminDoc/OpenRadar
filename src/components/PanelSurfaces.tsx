@@ -153,6 +153,8 @@ import type { AmbientState } from "../hooks/useAmbient";
 
 interface PanelSurfacesProps {
   activeSurface: SurfaceId;
+  /** Whether the layers panel was opened by the palette's find command. */
+  layersToFind?: boolean;
   productOpen: boolean;
   settings: AppSettings;
   overlays: OverlayStates;
@@ -395,6 +397,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             wssiDay={settings.wssiDay}
             onWssiDay={props.onWssiDay}
             onSatelliteBand={props.onSatelliteBand}
+            openedToFind={props.layersToFind}
             onClose={onClose}
           />
         </LazyPanel>

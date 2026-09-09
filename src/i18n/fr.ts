@@ -129,6 +129,9 @@ export const fr: Catalogue = {
   "alertType.other": "Tout le reste",
   "alertType.otherDetail":
     "Tout ce que la liste n'a jamais vu, pour qu'un nouveau produit apparaisse au lieu de disparaître",
+  "layers.find": "Trouver une couche",
+  "layers.findNone":
+    "Aucune couche ici ne porte ce nom. La barre de commandes cherche dans le reste de l'application.",
   "layers.order": "Quelle couche passe par-dessus",
   "layers.orderDetail":
     "Les alertes restent toujours au-dessus du reste, parce qu'une alerte, c'est quelqu'un qui vous dit de vous mettre à l'abri",
@@ -1216,6 +1219,7 @@ export const fr: Catalogue = {
   "keywords.export": "enregistrer image video partager",
   "keywords.upload": "importer charger palette couleurs",
   "keywords.layers": "couches interrupteurs afficher masquer",
+  "keywords.findLayer": "chercher filtrer couche trouver",
   "keywords.mapType": "carte fond style theme relief",
   "keywords.settings": "options preferences configurer",
   "keywords.more": "etat sante journal version mise a jour sources",

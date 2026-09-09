@@ -118,6 +118,9 @@ export const en = {
   "alertType.other": "Everything else",
   "alertType.otherDetail":
     "Anything the list has never seen, so a new product shows up rather than disappearing",
+  "layers.find": "Find a layer",
+  "layers.findNone":
+    "No layer here is called that. The command bar searches the rest of the app.",
   "layers.order": "Which overlay sits on top",
   "layers.orderDetail":
     "Warnings always stay above the rest, because a warning is somebody telling you to take cover",
@@ -1182,6 +1185,7 @@ export const en = {
   "keywords.export": "",
   "keywords.upload": "",
   "keywords.layers": "",
+  "keywords.findLayer": "",
   "keywords.mapType": "",
   "keywords.settings": "",
   "keywords.more": "",

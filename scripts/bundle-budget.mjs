@@ -130,7 +130,13 @@ const BUDGETS = [
     //
     // Twenty-seven and not twenty-eight: the chunk measures 27, and the note
     // at the top of this file says these sit close to what the app weighs.
-    raw: 27,
+    //
+    // Twenty-eight on 2026-09-09 for the search box over the forty-six
+    // switches (`AUD-271`): the box, the two strings, and the seventeen
+    // places a section is now asked whether it survives the filter. It is
+    // markup and predicates in this panel rather than anything imported, so
+    // the report still shows the chunk as this panel and lucide alone.
+    raw: 28,
     gzip: 6,
     firstLoad: false,
   },

@@ -44,6 +44,25 @@ describe("what the palette offers", () => {
     );
   });
 
+  it("offers a way to the box that filters the layers panel", () => {
+    // The panel command opens the same panel, so what makes this one worth
+    // its row is where it leaves the cursor. Nothing else in the catalogue
+    // asks for that, and a command that asked for it by accident would open
+    // a panel with the reader's cursor somewhere they did not put it.
+    const asks = commands.filter(
+      (command) => command.action.kind === "surface" && command.action.find,
+    );
+    expect(asks.map((command) => command.id)).toEqual(["find-layer"]);
+    expect(asks[0].action).toEqual({
+      kind: "surface",
+      surface: "layers",
+      find: true,
+    });
+    for (const word of ["find", "filter", "search"]) {
+      expect(find(word), word).toContain("find-layer");
+    }
+  });
+
   it("offers everything when nothing has been typed", () => {
     expect(searchCommands(commands, "")).toHaveLength(commands.length);
     expect(searchCommands(commands, "   ")).toHaveLength(commands.length);

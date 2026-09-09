@@ -29,8 +29,9 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
+import { answersQuery } from "../lib/commands";
 import { rangeFill } from "../lib/rangeFill";
 import { formatAge, formatHeight } from "../lib/units";
 import {
@@ -252,6 +253,15 @@ interface LayersPanelProps {
   onWpcDay: (day: number) => void;
   wssiDay: number;
   onWssiDay: (day: number) => void;
+  /**
+   * Whether the panel was opened by the palette's "Find a layer" rather than
+   * by the rail, in which case the box takes the cursor.
+   *
+   * Only on that one way in. A reader who pressed the rail button came to
+   * press a switch, and moving their cursor into a text box would cost them
+   * a keystroke every time to get it back out.
+   */
+  openedToFind?: boolean;
   onClose: () => void;
 }
 
@@ -657,9 +667,51 @@ export function LayersPanel({
   wssiDay,
   onWssiDay,
   onSatelliteBand,
+  openedToFind,
   onClose,
 }: LayersPanelProps) {
   const t = useT();
+  // What the reader has typed into the box at the top, if anything.
+  const [find, setFind] = useState("");
+  const box = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (openedToFind) box.current?.focus();
+  }, [openedToFind]);
+  /**
+   * Whether a label and the note under it answer what was typed.
+   *
+   * The palette's own rule, so a word that finds a layer in the command bar
+   * finds the same layer here. Reading the translated strings rather than
+   * their keys is what makes it work in every language: the catalogue is the
+   * index, and `t` is how it is read.
+   */
+  const answers = (label: StringKey, ...notes: StringKey[]) =>
+    answersQuery(
+      t(label),
+      notes.map((note) => t(note)),
+      find,
+    );
+  /** The switches left on screen, in the order the catalogue writes them. */
+  const kept = LAYER_OPTIONS.filter((one) =>
+    answers(one.labelKey, one.detailKey),
+  );
+  /**
+   * Whether the section that belongs to one switch is still on screen.
+   *
+   * The window on the lightning density, the day of the outlook, the height
+   * of the CAPPI: each of these only exists because its layer is on, and
+   * each reads as part of that row rather than as a row of its own. So they
+   * follow their switch through the filter instead of being matched on their
+   * own words, and a search for "lightning" keeps the window beside it.
+   *
+   * Read off the same list the rows are drawn from, so the two can never
+   * disagree. A key the catalogue has never heard of keeps its section
+   * rather than losing it: a section wired to a switch that is not up there
+   * is a mistake, and one that hides a section is a mistake nobody sees.
+   */
+  const alongside = (key: keyof LayerSettings) =>
+    !LAYER_OPTIONS.some((one) => one.key === key) ||
+    kept.some((one) => one.key === key);
   // What the satellite over the view will actually draw, which is not always
   // what the reader picked: Himawari carries three of the six bands.
   const drawnBand = bandFor(spacecraft, satelliteBand);
@@ -716,7 +768,28 @@ export function LayersPanel({
       onClose={onClose}
       className="surface-panel--left"
     >
-      {LAYER_GROUPS.map((group) => (
+      {/* Forty-six switches under seven headings. The headings answer "what
+          kind of thing is it", and this answers "I know what it is called".
+          Not a search over the app: the command bar is that, and this box
+          says so when it finds nothing. */}
+      <div className="settings-find">
+        <label className="settings-find__label" htmlFor="layers-find">
+          {t("layers.find")}
+        </label>
+        <input
+          id="layers-find"
+          ref={box}
+          type="search"
+          value={find}
+          onChange={(event) => setFind(event.target.value)}
+        />
+      </div>
+      {kept.length === 0 ? (
+        <p className="settings-find__none">{t("layers.findNone")}</p>
+      ) : null}
+      {LAYER_GROUPS.filter((group) =>
+        kept.some((one) => one.group === group.id),
+      ).map((group) => (
         <div
           className="settings-section"
           key={group.id}
@@ -726,8 +799,9 @@ export function LayersPanel({
             <span>{t(group.labelKey)}</span>
           </div>
           <div className="setting-list">
-            {LAYER_OPTIONS.filter((one) => one.group === group.id).map(
-              ({ key, labelKey, detailKey, icon: Icon }) => {
+            {kept
+              .filter((one) => one.group === group.id)
+              .map(({ key, labelKey, detailKey, icon: Icon }) => {
                 const status = statusOf(key);
                 return (
                   <label className="toggle-row" key={key} data-layer={key}>
@@ -776,34 +850,41 @@ export function LayersPanel({
                     <i className="toggle-track" aria-hidden="true" />
                   </label>
                 );
-              },
-            )}
+              })}
           </div>
         </div>
       ))}
-      <div className="settings-section" data-grid-smoothing>
-        <div className="settings-section__title">
-          <span>{t("layers.smoothGrids")}</span>
-          <small>{t("layers.smoothGridsDetail")}</small>
-        </div>
-        {/* The picture only. What the inspector answers with and what an
+      {answers(
+        "layers.smoothGrids",
+        "layers.smoothGridsDetail",
+        "layers.smoothGridsLabel",
+        "layers.smoothGridsNote",
+      ) ? (
+        <div className="settings-section" data-grid-smoothing>
+          <div className="settings-section__title">
+            <span>{t("layers.smoothGrids")}</span>
+            <small>{t("layers.smoothGridsDetail")}</small>
+          </div>
+          {/* The picture only. What the inspector answers with and what an
             export writes are the cells themselves either way, which is the
             same bargain the sweep's own smoothing makes. */}
-        <label className="toggle-row toggle-row--plain">
-          <span>
-            <strong>{t("layers.smoothGridsLabel")}</strong>
-            <small>{t("layers.smoothGridsNote")}</small>
-          </span>
-          <input
-            type="checkbox"
-            checked={smoothGrids}
-            onChange={(event) => onSmoothGrids(event.target.checked)}
-          />
-          <i className="toggle-track" aria-hidden="true" />
-        </label>
-      </div>
+          <label className="toggle-row toggle-row--plain">
+            <span>
+              <strong>{t("layers.smoothGridsLabel")}</strong>
+              <small>{t("layers.smoothGridsNote")}</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={smoothGrids}
+              onChange={(event) => onSmoothGrids(event.target.checked)}
+            />
+            <i className="toggle-track" aria-hidden="true" />
+          </label>
+        </div>
+      ) : null}
 
-      {arrangeable.length > 1 ? (
+      {arrangeable.length > 1 &&
+      answers("layers.order", "layers.orderDetail") ? (
         <div className="settings-section" data-overlay-order>
           <div className="settings-section__title">
             <span>{t("layers.order")}</span>
@@ -872,7 +953,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {layers.customOverlay ? (
+      {layers.customOverlay && alongside("customOverlay") ? (
         <div className="settings-section" data-overlay-files>
           <div className="settings-section__title">
             <span>{t("layers.files")}</span>
@@ -1018,7 +1099,8 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {OVERLAY_LAYERS.some(({ key }) => layers[key]) ? (
+      {OVERLAY_LAYERS.some(({ key }) => layers[key]) &&
+      answers("layers.opacity", "layers.opacityDetail") ? (
         <div className="settings-section" data-overlay-opacity>
           <div className="settings-section__title">
             <span>{t("layers.opacity")}</span>
@@ -1060,7 +1142,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {layers.weatherAlerts ? (
+      {layers.weatherAlerts && alongside("weatherAlerts") ? (
         <div className="settings-section" data-alert-kinds>
           <div className="settings-section__title">
             <span>{t("alerts.kinds")}</span>
@@ -1094,7 +1176,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {layers.satellite ? (
+      {layers.satellite && alongside("satellite") ? (
         <div className="settings-section" data-satellite-band={satelliteBand}>
           <div className="settings-section__title">
             <span>{t("satellite.product")}</span>
@@ -1141,7 +1223,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {layers.spcOutlooks ? (
+      {layers.spcOutlooks && alongside("spcOutlooks") ? (
         <div
           className="settings-section"
           data-spc-day={spcDay}
@@ -1243,7 +1325,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {layers.wpcExcessiveRain ? (
+      {layers.wpcExcessiveRain && alongside("wpcExcessiveRain") ? (
         <div className="settings-section" data-wpc-day={wpcDay}>
           <div className="settings-section__title">
             <span>{t("layers.wpcDay")}</span>
@@ -1269,7 +1351,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {layers.wpcWinterSeverity ? (
+      {layers.wpcWinterSeverity && alongside("wpcWinterSeverity") ? (
         <div className="settings-section" data-wssi-day={wssiDay}>
           <div className="settings-section__title">
             <span>{t("layers.wssiDay")}</span>
@@ -1295,7 +1377,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {layers.rotationTracks ? (
+      {layers.rotationTracks && alongside("rotationTracks") ? (
         <div className="settings-section" data-rotation-period={rotationPeriod}>
           <div className="settings-section__title">
             <span>{t("layers.rotationPeriod")}</span>
@@ -1321,7 +1403,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {layers.lightningDensity ? (
+      {layers.lightningDensity && alongside("lightningDensity") ? (
         <div
           className="settings-section"
           data-lightning-window={lightningWindow}
@@ -1350,7 +1432,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {layers.lightningForecast ? (
+      {layers.lightningForecast && alongside("lightningForecast") ? (
         <div
           className="settings-section"
           data-lightning-forecast={lightningForecastWindow}
@@ -1384,7 +1466,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {layers.lightningJump ? (
+      {layers.lightningJump && alongside("lightningJump") ? (
         <div
           className="settings-section"
           data-lightning-jump={lightningJumpWindow}
@@ -1416,7 +1498,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {layers.isothermReflectivity ? (
+      {layers.isothermReflectivity && alongside("isothermReflectivity") ? (
         <div className="settings-section" data-isotherm-level={isothermLevel}>
           <div className="settings-section__title">
             <span>{t("layers.isothermLevel")}</span>
@@ -1448,7 +1530,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {layers.cappi ? (
+      {layers.cappi && alongside("cappi") ? (
         <div className="settings-section" data-cappi-level={cappiLevel}>
           <div className="settings-section__title">
             <span>{t("layers.cappiField")}</span>
@@ -1513,7 +1595,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {layers.azShear ? (
+      {layers.azShear && alongside("azShear") ? (
         <div className="settings-section" data-az-shear-level={azShearLevel}>
           <div className="settings-section__title">
             <span>{t("layers.azShearLevel")}</span>
@@ -1550,7 +1632,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {layers.gaugeQpe ? (
+      {layers.gaugeQpe && alongside("gaugeQpe") ? (
         <div
           className="settings-section"
           data-gauge-qpe-period={gaugeQpePeriod}
@@ -1579,7 +1661,7 @@ export function LayersPanel({
         </div>
       ) : null}
 
-      {layers.surge ? (
+      {layers.surge && alongside("surge") ? (
         <div className="settings-section" data-surge-category={surgeCategory}>
           <div className="settings-section__title">
             <span>{t("layers.surgeCategory")}</span>

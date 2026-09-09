@@ -7,7 +7,7 @@ export type CommandAction =
   | { kind: "layer"; layer: keyof LayerSettings }
   | { kind: "style"; style: MapStyleId }
   | { kind: "product"; product: string }
-  | { kind: "surface"; surface: string }
+  | { kind: "surface"; surface: string; find?: boolean }
   | { kind: "tool"; tool: string }
   | { kind: "capture" }
   | { kind: "ambientScreen" }
@@ -624,6 +624,22 @@ export function allCommands(which?: LanguageId): Command[] {
       action: { kind: "surface", surface: entry.surface },
     })),
     {
+      // The layers panel holds forty-six switches under seven headings, and
+      // this is the way in for somebody who knows the word and not the
+      // heading. It opens the panel with the box already under the cursor,
+      // which is the whole difference between it and the panel command
+      // above.
+      id: "find-layer",
+      label: translate("layers.find", undefined, which),
+      group: translate("command.group.panel", undefined, which),
+      keywords: searchTerms(
+        ["filter", "search", "find", "layer"],
+        "keywords.findLayer",
+        which,
+      ),
+      action: { kind: "surface", surface: "layers", find: true },
+    },
+    {
       // One action back to the place the reader watches, from anywhere,
       // including the far side of the globe.
       id: "home",
@@ -696,15 +712,39 @@ export function searchCommands(commands: Command[], query: string): Command[] {
   const words = fold(trimmed).split(/\s+/);
 
   return commands
-    .map((command) => ({ command, rank: rank(command, words) }))
+    .map((command) => ({
+      command,
+      rank: rank(command.label, command.keywords, words),
+    }))
     .filter((entry) => entry.rank > 0)
     .sort((left, right) => right.rank - left.rank)
     .map((entry) => entry.command);
 }
 
-function rank(command: Command, words: string[]): number {
-  const label = fold(command.label);
-  const keywords = command.keywords.map(fold);
+/**
+ * Whether a label and the words beside it answer what somebody typed.
+ *
+ * The same rule the palette ranks by, asked as a yes or no. A settings list
+ * is already in the order its reader learned it, so filtering it must not
+ * reorder it, and an empty box hides nothing.
+ */
+export function answersQuery(
+  label: string,
+  beside: readonly string[],
+  query: string,
+): boolean {
+  const trimmed = query.trim();
+  if (!trimmed) return true;
+  return rank(label, beside, fold(trimmed).split(/\s+/)) > 0;
+}
+
+function rank(
+  name: string,
+  beside: readonly string[],
+  words: string[],
+): number {
+  const label = fold(name);
+  const keywords = beside.map(fold);
 
   let total = 0;
   for (const word of words) {
