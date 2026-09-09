@@ -110,9 +110,6 @@ a {
 
 .top-status {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  right: 12px;
   display: grid;
   align-items: center;
   pointer-events: none;
@@ -200,11 +197,6 @@ a {
   z-index: 50;
   display: flex;
   color: var(--command-ink);
-  /* Labels run longer in other languages, and a button that has slid off the
-     end of the bar is a button nobody can press. The bar scrolls rather than
-     hiding what does not fit. */
-  overflow-x: auto;
-  overflow-y: hidden;
   scrollbar-width: thin;
 }
 
@@ -3200,11 +3192,16 @@ input[type="range"]:disabled {
     --command-ink-faint: #a4b0c2;
   }
 
-  .surface-panel,
-  .radar-timeline,
-  .radar-legend,
-  .zoom-controls,
-  .command-bar {
+  /* Through `:root`, which a media query cannot supply on its own: the flat
+     layout at the bottom of this file sets the same thing on each of these
+     unconditionally and later, so written plainly none of this was read. It
+     says the same thing today and it is a different promise, so it has to
+     hold on its own. */
+  :root .surface-panel,
+  :root .radar-timeline,
+  :root .radar-legend,
+  :root .zoom-controls,
+  :root .command-bar {
     backdrop-filter: none;
   }
 }
@@ -3291,13 +3288,14 @@ input[type="range"]:disabled {
     outline: 1px solid Highlight;
   }
 
-  /* Nothing translucent survives a repaint legibly. */
-  .surface-panel,
-  .radar-timeline,
-  .radar-legend,
-  .zoom-controls,
-  .command-bar,
-  .toast {
+  /* Nothing translucent survives a repaint legibly. Through `:root` for the
+     same reason as the block above. */
+  :root .surface-panel,
+  :root .radar-timeline,
+  :root .radar-legend,
+  :root .zoom-controls,
+  :root .command-bar,
+  :root .toast {
     backdrop-filter: none;
   }
 
