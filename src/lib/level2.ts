@@ -442,6 +442,12 @@ const SOURCE_DOWN = new Set([
   "httpTooLarge",
   "badListing",
   "decode",
+  // The listing swallows a failed day and moves on, so an archive nobody can
+  // reach comes back as a site with no volumes rather than as a refused
+  // connection. Left out, a total outage read as a quiet radar and the
+  // Diagnostics row stayed green through it.
+  "noVolume",
+  "noLongerListed",
 ]);
 
 /**

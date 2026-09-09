@@ -310,7 +310,29 @@ describe("the keys burned into an exported picture", () => {
         context.measureText(cut.line).width,
         `${width}px: the cut line is wider than the room`,
       ).toBeLessThanOrEqual(room);
+      // The trim runs at these widths, so this is where the head can be left
+      // ending in a space. Two of them before the mark read as a gap rather
+      // than as a cut, which is the other half of what that line does.
+      expect(cut.line, `${width}px: two spaces read as a gap`).not.toContain(
+        "  ",
+      );
     }
+  });
+
+  it("marks nothing on a picture with no room to mark", () => {
+    // A picture narrower than the padding on both sides of the caption has a
+    // negative room, and the search for a marker cannot answer that on its
+    // own: every candidate measures wider than nothing. Written as a guard
+    // ahead of the search it took the first, which is the widest. The empty
+    // marker is the only one that fits in no room, so the search answers it
+    // once the guard is gone. A short picture, or the caption is never cut.
+    const { canvas, inked } = recording(40, 80);
+    drawFrame(canvas, canvas, {
+      lines: ["2026-09-08 21:00Z", "KDMX 0.5 reflectivity", "third", "fourth"],
+      attribution: "NOAA NWS",
+    });
+    expect(inked.length, "the caption was never cut").toBeLessThan(5);
+    expect(inked.some((one) => one.line.includes("…"))).toBe(false);
   });
 
   it("shrinks the type before it drops a word of the credit", () => {

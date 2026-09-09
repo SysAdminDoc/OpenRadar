@@ -1,4 +1,4 @@
-//! Whether the last launch finished, and how many did not in a row.
+//! Whether the last launch got as far as a window, and how many did not.
 //!
 //! Something the reader imported can take the window down before there is a
 //! window: a colour table applied to a product, a theme file given tokens by
@@ -6,12 +6,24 @@
 //! crash screen's Reset layout, and a page that dies before it renders never
 //! shows the crash screen, so the one way out is the one way that is shut.
 //!
-//! A file written at startup and removed on a clean exit answers the
-//! question. Finding it at the next startup means the last run did not
-//! finish; the number in it is how many have not finished in a row. Two is
-//! the threshold, because one is a power cut, a killed process or a reader
-//! who closed the laptop, and standing the workspace down for that would be
-//! its own annoyance.
+//! A file written at startup and removed the moment the workspace says it is
+//! up answers the question. Finding it at the next startup means the last run
+//! never got that far; the number in it is how many have not, in a row. Two
+//! is the threshold, because one is a power cut or a laptop lid closed at the
+//! wrong moment, and standing the workspace down for that would be its own
+//! annoyance.
+//!
+//! Cleared on the workspace drawing rather than on a clean exit, which is the
+//! difference between counting the failure this is about and counting every
+//! way a process can stop. This app closes to the tray and is meant to be
+//! left open for days, so it is normally still running when Windows restarts:
+//! counted on the exit, two restarts in a row would have stood the workspace
+//! down for a reader whose arrangement was never the problem. A crash an hour
+//! into an afternoon is also not this, and it is not counted either.
+//!
+//! The clean exit still clears it, for the reader who quits during a slow
+//! start: a window they closed themselves is not a window that would not
+//! draw.
 //!
 //! Nothing here decides what "plain" means. That is the workspace's business,
 //! and it is written where the settings are, next to the values it turns off.
@@ -61,8 +73,17 @@ fn count(path: &Path) -> u32 {
     }
 }
 
-/// The app closing in the ordinary way. Called from the one place every
-/// graceful exit passes through.
+/// The workspace saying it has drawn.
+///
+/// The mark goes at once. From here on this launch counts as one that
+/// reached a window, whatever happens to the process afterwards.
+#[tauri::command]
+pub fn workspace_drawn() {
+    clean_exit();
+}
+
+/// The app closing in the ordinary way, or the workspace reporting that it
+/// drew. Either one means this launch is not the failure being counted.
 pub fn clean_exit() {
     let path = PATH.lock().unwrap_or_else(|held| held.into_inner()).clone();
     let Some(path) = path else {
@@ -111,6 +132,39 @@ mod tests {
     fn a_clean_exit_leaves_nothing_behind() {
         let dir = scratch("clean");
         assert_eq!(count(&dir.join(SENTINEL)), 0);
+    }
+
+    #[test]
+    fn the_whole_round_trip() {
+        // The helper above is arithmetic; this is the part that writes the
+        // file the next start reads, through the same globals the commands
+        // use. Nothing else in the crate touches them.
+        let dir = scratch("roundtrip");
+        init(&dir);
+        assert_eq!(unclean_starts(), 0);
+        assert!(dir.join(SENTINEL).exists(), "nothing marked this run");
+
+        // A start that never got as far as a window: the mark is still there.
+        init(&dir);
+        assert_eq!(unclean_starts(), 1);
+        init(&dir);
+        assert_eq!(unclean_starts(), 2);
+
+        // The workspace drawing clears it, so the next start is clean.
+        workspace_drawn();
+        assert!(!dir.join(SENTINEL).exists());
+        init(&dir);
+        assert_eq!(unclean_starts(), 0);
+
+        // And the reader putting their arrangement back starts the count
+        // again without pretending this run has finished.
+        init(&dir);
+        assert_eq!(unclean_starts(), 1);
+        clear_unclean_starts();
+        assert_eq!(unclean_starts(), 0);
+        assert!(dir.join(SENTINEL).exists(), "this run stopped being marked");
+        init(&dir);
+        assert_eq!(unclean_starts(), 1);
     }
 
     #[test]

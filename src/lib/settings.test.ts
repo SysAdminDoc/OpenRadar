@@ -939,6 +939,33 @@ describe("a settings document that will not parse", () => {
     expect(read.unitsChosen).toBe(true);
   });
 
+  it("reads a document with no schema version rather than filing it away", async () => {
+    // Nothing in the load reads a schema version: only a dropped FILE is
+    // asked for one, to tell a settings export from GeoJSON. Holding a stored
+    // document to that rule filed a hand-edited workspace away as unreadable
+    // and opened on the defaults, which is the loss this whole thing exists
+    // to stop, arriving by a different door.
+    window.localStorage.setItem(
+      LIVE,
+      JSON.stringify({
+        watchPlaces: [
+          {
+            id: "one",
+            name: "Casa",
+            center: [-93.7, 41.7],
+            radiusMiles: 30,
+            minSeverity: "severe",
+          },
+        ],
+      }),
+    );
+
+    const read = await readSettings();
+    expect(read.watchPlaces.map((place) => place.name)).toEqual(["Casa"]);
+    expect(settingsRecovery()).toBeNull();
+    expect(window.localStorage.getItem(KEPT)).toBeNull();
+  });
+
   it("says nothing on an ordinary load", async () => {
     // The positive control. Without it every case above passes against a
     // build that reports a recovery every time, which is its own wrong

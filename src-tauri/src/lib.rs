@@ -355,6 +355,7 @@ pub fn run() {
             window_geometry::window_reset_geometry,
             sound::alert_sound_bytes,
             safe_start::unclean_starts,
+            safe_start::workspace_drawn,
             safe_start::clear_unclean_starts,
             settings_backup::settings_keep_previous,
             settings_backup::settings_recovered,
