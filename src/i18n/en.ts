@@ -2001,6 +2001,11 @@ export const en = {
   "ambientScreen.awakeDetail":
     "Windows turns a monitor off on its own timer, which is not much use for a view meant to be left up. This holds the screen on only while the full-screen view is showing, and gives it back the moment you leave. Windows only.",
   "ambientScreen.idle": "Go into it on its own after",
+  "ambientScreen.distance": "Read from",
+  "ambientScreen.distanceDesk": "A desk away",
+  "ambientScreen.distanceNear": "A step back",
+  "ambientScreen.distanceRoom": "Across a small room",
+  "ambientScreen.distanceFar": "Across a large room",
   "ambientScreen.idleOff": "Never",
   "ambientScreen.idleMinutes":
     "{minutes, plural, one {# minute} other {# minutes}}",

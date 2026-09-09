@@ -364,13 +364,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
       Acceptance: `cargo clippy --all-targets` clean at the new floor, `npm run check` and `cargo test` green, the browser suite green on Playwright 1.63, TypeScript unchanged.
       Complexity: S
 
-- [ ] AUD-352 (P3): Size the full-screen view's type from a viewing distance
-      Why: The full-screen view is meant to be read across a room, and its type is a fixed size chosen for a desk. The human-factors rule for a glanceable display is a glyph subtending about nineteen arcminutes from the furthest viewer, which at four metres is a different number from one metre. One setting, "how far away is the screen", and the view sizes itself.
-      Evidence: https://www.rocketcom.com/insights/designing-ux-for-giant-screens/ ; `CHANGELOG.md` v0.11.0 ("not readable at arm's length let alone across a room"); `src/index.css` (`.ambient-readout` sizes).
-      Touches: the ambient settings in `src/lib/settings.ts`, a rule function in `src/lib/ambient.ts` (distance and the monitor's physical size to a font size, with `window.screen` and `devicePixelRatio` as the inputs the page has), `src/index.css` (a custom property), `e2e/ambient-screen.spec.ts`.
-      Acceptance: The rule is a tested function; at the default distance nothing changes; at four metres the clock and the source line grow to the computed size and stay inside the viewport at 1024 by 680.
-      Complexity: S
-
 - [ ] AUD-351 (P3): Pick the monitor for the full-screen view and the glance window
       Why: The full-screen view takes whichever monitor the window happens to be on, so the second-monitor reader drags the window across first, every time. OBS opens a projector on a named display and reopens it there next launch; Sunshine remembers a monitor by its device id because indices reorder. Nothing in the tree asks Tauri which monitors exist.
       Evidence: no `availableMonitors` or `currentMonitor` in `src` or `src-tauri` (2026-09-07); https://obsproject.com/kb/power-of-projectors ; https://github.com/LizardByte/Sunshine/releases/tag/v2026.906.222525 ; `src-tauri/src/display.rs`, `src-tauri/src/tray.rs`.

@@ -2808,6 +2808,7 @@ export default function App() {
           source={timeline.sourceLabel ?? ""}
           frameAgeMinutes={radarAge}
           idleMs={idleMs}
+          metres={settings.ambientMetres}
           // What is drawn, not what was picked. Two ways of getting this
           // wrong have been fixed here. "auto" is the default and
           // `isLightBasemap` has no case for it, so this once asked whether

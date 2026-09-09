@@ -359,3 +359,53 @@ test("Escape leaves the view, and the way out is a target worth aiming at", asyn
   await expect(page.locator("[data-ambient-readout]")).toHaveCount(0);
   await expect(page.locator(".command-bar")).toBeVisible();
 });
+
+test("sizes its type from how far away the reader says the screen is", async ({
+  page,
+}) => {
+  // The view is meant to be read across a room and its type was drawn for a
+  // desk. Nineteen arcminutes is the figure for a display somebody glances
+  // at, and an angle says nothing about a size until a distance is named.
+  await page.setViewportSize({ width: 1024, height: 680 });
+  await start(page);
+  await enter(page);
+  const readout = page.locator("[data-ambient-readout]");
+  const clock = readout.locator("strong");
+  await expect(clock).toBeVisible();
+  const desk = (await clock.boundingBox())?.height ?? 0;
+  expect(desk).toBeGreaterThan(0);
+
+  // Across a large room, which is the case the item asks about. Written as an
+  // init script rather than into storage: the helper above plants its own
+  // settings on every navigation, so anything written between two loads is
+  // overwritten by the second of them. Registered after it, so it runs after.
+  await page.addInitScript(() => {
+    const held = window.localStorage.getItem("openradar.settings") ?? "{}";
+    window.localStorage.setItem(
+      "openradar.settings",
+      JSON.stringify({ ...JSON.parse(held), ambientMetres: 4 }),
+    );
+  });
+  await page.reload();
+  await enter(page);
+  await expect(clock).toBeVisible();
+
+  const far = (await clock.boundingBox())?.height ?? 0;
+  // Proportional to the distance, which is what holding an angle means. Read
+  // as a ratio rather than as a number of pixels, because the line box a
+  // browser gives a glyph is its own business.
+  // Bigger by a good margin. Not the exact ratio the distance asks for: at
+  // this window size the longest line is what runs out of room first, so the
+  // answer is the window's rather than the geometry's, and which of the two
+  // binds is the unit test's business.
+  expect(far / desk).toBeGreaterThan(3);
+
+  // And it is still inside the window, which the geometry on its own cannot
+  // promise: it does not know how big the screen is.
+  const box = await readout.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(1024);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(680);
+});

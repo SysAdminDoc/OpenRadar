@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.12.0
 
+- The full-screen view sizes its own type from how far away you are. It is meant to be read across a room and its type was drawn for a desk, so there is now one setting under the second-monitor controls: a desk away, a step back, across a small room, across a large room. The rest is geometry. Nothing changes at the default, and the view will not ask for type its window cannot hold.
+
 - The Layers panel is grouped under seven headings instead of one list of forty-six switches. Warnings and hazards, from the radar, rain and flooding, lightning, sky and air, reference, your own files. Finding "Rain or Snow" used to mean reading past thirty rows, and the command list was the only place the same switches were sorted by what they are.
 
 - Every switched-on layer says what its source is doing, on the row that switches it. Up to date, checking, old with how old, waiting, or not answering with the reason underneath. Before this, a layer you turned on that drew nothing looked the same whether the afternoon was quiet or the service was down, and the two places that knew the difference were the diagnostics panel and the legend, neither of which is where you are looking a second after pressing the switch. Old is measured against each layer's own refresh, since they run from half a minute to six hours apart.

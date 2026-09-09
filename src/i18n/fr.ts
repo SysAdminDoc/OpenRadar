@@ -2060,6 +2060,11 @@ export const fr: Catalogue = {
   "ambientScreen.awakeDetail":
     "Windows éteint un moniteur selon sa propre minuterie, ce qui ne convient pas à une vue destinée à rester affichée. Ceci garde l'écran allumé uniquement pendant que la vue plein écran est affichée, et le rend dès que vous la quittez. Windows uniquement.",
   "ambientScreen.idle": "Y entrer seule après",
+  "ambientScreen.distance": "Lu depuis",
+  "ambientScreen.distanceDesk": "Le bureau",
+  "ambientScreen.distanceNear": "Un pas en arrière",
+  "ambientScreen.distanceRoom": "Une petite pièce",
+  "ambientScreen.distanceFar": "Une grande pièce",
   "ambientScreen.idleOff": "Jamais",
   "ambientScreen.idleMinutes":
     "{minutes, plural, one {# minute} other {# minutes}}",
