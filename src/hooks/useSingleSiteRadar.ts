@@ -16,6 +16,7 @@ import {
   sweepDetailBox,
   sweepErrorText,
   sweepSourceFailed,
+  type Level2ProductId,
   type SiteInReach,
   type SweepImage,
 } from "../lib/level2";
@@ -23,7 +24,7 @@ import { fetchCrossSection, type CrossSection } from "../lib/crossSection";
 import type { GeoPoint } from "../lib/geo";
 import { highContrastRequested, reducedMotionRequested } from "./useClock";
 import { log } from "../lib/log";
-import { isTdwrStation, supportedProduct } from "../lib/radarKinds";
+import { isTdwrStation, reachKm, supportedProduct } from "../lib/radarKinds";
 import { loopKey, trimHeld, volumeForTime } from "../lib/siteLoop";
 import {
   dataExportAvailable,
@@ -135,6 +136,24 @@ export interface SingleSiteState {
    * off the reader's own disk, because they already have it.
    */
   saveVolume: (() => Promise<DataExportReport>) | null;
+}
+
+/**
+ * Which disc a station and a product draw over.
+ *
+ * The product and not just the station, because a terminal radar's base
+ * products cover 88.8 kilometres and its long range one 417: one record per
+ * station handed one product's corners and reach to the other, and the pair
+ * decides how far the box may narrow. A reader who opened the long range
+ * product first and switched back got a base product measured against 834
+ * kilometres of ground, which narrowed it to a sixty-fourth of a disc it was
+ * not being drawn over.
+ *
+ * Two entries for a terminal radar and one for a WSR-88D, whose products all
+ * reach the same distance, so nothing asks twice where nothing differs.
+ */
+function discKey(station: string, product: Level2ProductId): string {
+  return `${station}|${reachKm(station, product)}`;
 }
 
 /**
@@ -313,7 +332,8 @@ export function useSingleSiteRadar(options: {
    */
   const rememberDisc = useCallback((answer: SweepImage, whole: boolean) => {
     setDiscs((now) => {
-      const held = now[answer.station];
+      const key = discKey(answer.station, answer.productId);
+      const held = now[key];
       // The corners are learned once, from an answer that covered the whole
       // disc. A boxed answer's corners are the box, and taking those would
       // measure every later box against a sliver of the site's reach.
@@ -321,7 +341,7 @@ export function useSingleSiteRadar(options: {
         if (!whole) return now;
         return {
           ...now,
-          [answer.station]: {
+          [key]: {
             west: answer.west,
             south: answer.south,
             east: answer.east,
@@ -338,10 +358,7 @@ export function useSingleSiteRadar(options: {
       // follows whichever is being drawn. It arrives on boxed answers too,
       // which is the only kind there is once a reader has zoomed in.
       if (held.gateKm === answer.gateKm) return now;
-      return {
-        ...now,
-        [answer.station]: { ...held, gateKm: answer.gateKm },
-      };
+      return { ...now, [key]: { ...held, gateKm: answer.gateKm } };
     });
   }, []);
 
@@ -513,10 +530,9 @@ export function useSingleSiteRadar(options: {
   // the same four numbers, and rebuilding from the string is what keeps the
   // array's identity as steady as the numbers are. Everything that draws this
   // site can then simply depend on it.
-  const asking = station
-    ? (discs[station] &&
-        sweepDetailBox(discs[station], center, zoom, windowPx)) ||
-      null
+  const askingDisc = station ? discs[discKey(station, product)] : undefined;
+  const asking = askingDisc
+    ? sweepDetailBox(askingDisc, center, zoom, windowPx)
     : null;
   const withinKey = asking ? asking.join(",") : "";
   const within = useMemo(
@@ -548,8 +564,13 @@ export function useSingleSiteRadar(options: {
     Object.fromEntries(
       Object.entries(fileSites).map(([path, site]) => [
         path,
-        discs[site]
-          ? sweepDetailBox(discs[site], center, zoom, windowPx)
+        discs[discKey(site, product)]
+          ? sweepDetailBox(
+              discs[discKey(site, product)],
+              center,
+              zoom,
+              windowPx,
+            )
           : null,
       ]),
     ),
