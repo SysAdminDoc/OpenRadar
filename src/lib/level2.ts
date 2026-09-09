@@ -484,11 +484,11 @@ export function sweepCorners(
  * than that, so the reader got a rectangle of radar in bare basemap from the
  * level the single-site view opens at.
  *
- * Ten is also the most narrowing this raster allows. At zoom 8 a 1,920 pixel
- * window already spans 5.27 degrees against a disc of 5.54, so there is no
- * room to narrow at all; at zoom 9 the only step that still covers it is the
- * whole disc. Reaching zooms 8 and 9 needs a bigger raster or more than one
- * of them, which is `AUD-453`, not a smaller threshold.
+ * This is now a floor rather than the whole rule. It is the level below which
+ * no disc is worth narrowing at any window, and `sweepDetailBox` then asks
+ * whether this particular disc can cover this particular window before it
+ * takes the step. Reaching zooms 8 and 9 at all needs a bigger raster or more
+ * than one of them, which is `AUD-453`.
  */
 export const DISC_IS_ENOUGH_BELOW_ZOOM = 10;
 
@@ -527,6 +527,7 @@ export function sweepDetailBox(
   disc: { west: number; south: number; east: number; north: number },
   center: [number, number],
   zoom: number,
+  windowPx: number,
 ): [west: number, south: number, east: number, north: number] | null {
   if (!Number.isFinite(zoom) || zoom < DISC_IS_ENOUGH_BELOW_ZOOM) return null;
   const wide = disc.east - disc.west;
@@ -541,13 +542,33 @@ export function sweepDetailBox(
   // Doubling from two at the threshold. That is a quarter of the resolution
   // the screen could show, deliberately: the same pixels have to cover the
   // window as well as resolve it, and the box the reader is guaranteed is a
-  // quarter of what is asked for. See the threshold above for the arithmetic
-  // and for what it would take to go finer. Past a sixteenth the ceiling
-  // holds, because a quarter kilometre gate has nothing finer in it to draw.
-  const steps = Math.min(
+  // quarter of what is asked for. Past a sixteenth the ceiling holds, because
+  // a quarter kilometre gate has nothing finer in it to draw.
+  let steps = Math.min(
     FINEST_DETAIL_STEPS,
     2 ** (Math.floor(zoom) - DISC_IS_ENOUGH_BELOW_ZOOM + 1),
   );
+  // And then only as far as this disc and this window allow.
+  //
+  // The threshold above was one number for every radar, and coverage is not.
+  // Substituting the progression into the bound cancels the zoom, so whether
+  // a box covers the window depends on the disc's width in degrees alone, and
+  // that goes as one over the cosine of the latitude: a 460 kilometre disc is
+  // 5.54 degrees at Des Moines and 4.59 at Miami. Measured against the 159
+  // site table on 2026-09-08, a single threshold of ten left 85 of them
+  // drawing bare basemap at a 1,920 pixel window and 152 at 2,560. A terminal
+  // radar reaches 89 kilometres rather than 230 and was uncovered at every
+  // common window size.
+  //
+  // So the progression is what a reader could use and this is what they can
+  // have. Halving keeps it a power of two, which keeps the snap grids of
+  // neighbouring zooms nested and a held frame reachable; falling to one step
+  // means the whole disc, which is what `null` says.
+  const half = Number.isFinite(windowPx)
+    ? (Math.max(0, windowPx) / 2) * (360 / (512 * 2 ** Math.floor(zoom)))
+    : 0;
+  while (steps > 1 && wide / (4 * steps) < half) steps /= 2;
+  if (steps <= 1) return null;
   // Half the box, which is both what the corners are measured from and the
   // grid the centre snaps to.
   const halfWide = wide / (2 * steps);

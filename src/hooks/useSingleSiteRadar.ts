@@ -195,6 +195,14 @@ export function useSingleSiteRadar(options: {
   radar: RadarSettings;
   center: [number, number];
   zoom: number;
+  /**
+   * How wide the map is drawn, in CSS pixels.
+   *
+   * Whether a box covers what the reader can see depends on the window as
+   * much as on the zoom, and on a low-latitude disc more than either. See
+   * `sweepDetailBox`.
+   */
+  windowPx: number;
   pageVisible: boolean;
   /** Bumped when a colour table is loaded, so the sweep is drawn again. */
   paletteGeneration: number;
@@ -237,6 +245,7 @@ export function useSingleSiteRadar(options: {
     radar,
     center,
     zoom,
+    windowPx,
     pageVisible,
     paletteGeneration,
     showingTime = null,
@@ -443,7 +452,9 @@ export function useSingleSiteRadar(options: {
   // array's identity as steady as the numbers are. Everything that draws this
   // site can then simply depend on it.
   const asking = station
-    ? (discs[station] && sweepDetailBox(discs[station], center, zoom)) || null
+    ? (discs[station] &&
+        sweepDetailBox(discs[station], center, zoom, windowPx)) ||
+      null
     : null;
   const withinKey = asking ? asking.join(",") : "";
   const within = useMemo(
@@ -468,7 +479,9 @@ export function useSingleSiteRadar(options: {
     historicalSource?.kind === "local" ? historicalSource.path : null;
   const fileStation = filePath ? (fileSites[filePath] ?? null) : null;
   const fileDisc = fileStation ? discs[fileStation] : undefined;
-  const fileAsking = fileDisc ? sweepDetailBox(fileDisc, center, zoom) : null;
+  const fileAsking = fileDisc
+    ? sweepDetailBox(fileDisc, center, zoom, windowPx)
+    : null;
   const fileKey = fileAsking ? fileAsking.join(",") : "";
   const fileWithin = useMemo(
     () =>
