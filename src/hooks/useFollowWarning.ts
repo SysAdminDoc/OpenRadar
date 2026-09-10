@@ -18,16 +18,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const FOLLOW_QUIET_MS = 20_000;
 
 /**
- * Takes the map to a warning as it arrives, when the reader asked for that.
- *
- * The flight happens here rather than where the alert is announced, because
- * the watch speaks the moment it sees a warning and the polygon it is about
- * reaches the workspace on the render after that. The alert is held in a ref
- * and this is woken by a counter, because the effect consumes it: clearing a
- * piece of state from inside the effect that reads it is a cascading render,
- * and clearing a ref is not.
- */
-/**
  * The announcement, held until the polygon it is about has arrived.
  *
  * Two halves because of when each can run: the watch that announces a
@@ -47,9 +37,18 @@ export function useFollowSignal() {
     pending.current = alert;
     setSignal((was) => was + 1);
   }, []);
-  /** The announcement, spent. One flight per announcement, whatever happens. */
+  /**
+   * The announcement, spent. One flight per announcement, whatever happens.
+   *
+   * Cleared here rather than by the caller, because the effect that reads this
+   * is woken by more than the signal that fills it: an export finishing is
+   * enough to run it again, and an announcement left sitting would fly the map
+   * back to a warning minutes after it was announced, with nothing new having
+   * happened. Spent even when the flight cannot be made, for the same reason.
+   */
   const take = useCallback(() => {
     const held = pending.current;
+    pending.current = null;
     return held;
   }, []);
   return { signal, remember, take };
@@ -69,6 +68,12 @@ export interface FollowWarningOptions {
   mapRef: RefObject<MapViewportHandle | null>;
 }
 
+/**
+ * Takes the map to a warning as it arrives, when the reader asked for that.
+ *
+ * Called last in the workspace, because the polygon it flies to reaches the
+ * page on the render after the watch announced the warning.
+ */
 export function useFollowWarning({
   signal,
   take,
