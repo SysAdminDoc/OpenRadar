@@ -101,6 +101,9 @@ test("says once when the estimate first meets the size the reader set", async ({
   expect(first.latitude).toBeCloseTo(41.6, 3);
   expect(first.longitude).toBeCloseTo(-93.6, 3);
   expect(first.radiusMiles).toBe(10);
+  // And which of the five national grids covers the place, because they do
+  // not overlap and CONUS has no rows over San Juan or Anchorage.
+  expect(first.domain).toBe("CONUS");
 });
 
 test("is silent when the estimate is under the size", async ({ page }) => {

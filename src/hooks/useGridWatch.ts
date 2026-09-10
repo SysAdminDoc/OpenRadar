@@ -1,5 +1,5 @@
 import { announceOnDesktop } from "../lib/notify";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { log } from "../lib/log";
 import { isDesktopRuntime } from "../lib/runtime";
 import { playAlertTone } from "../lib/sound";
@@ -16,7 +16,7 @@ import {
   type GridSaid,
   type PlaceReading,
 } from "../lib/gridWatch";
-import { mrmsAvailable, mrmsPeakNear } from "../lib/providers/mrms";
+import { domainFor, mrmsAvailable, mrmsPeakNear } from "../lib/providers/mrms";
 import type { WatchPlace } from "../lib/watch";
 
 /**
@@ -111,7 +111,12 @@ export function gridBody(notice: GridNotice): string {
  *
  * It asks the native side for one number per place rather than reading a
  * grid: the decode is the one the map is already doing, and nothing about
- * where the reader is looking goes into the question.
+ * where the reader is looking goes into the question. Each place is read
+ * against the national grid that covers it rather than always the lower
+ * forty-eight, because the five grids do not overlap.
+ *
+ * Nothing comes back. The rule is the notice: a reading on its way to no
+ * surface was state kept for nobody.
  */
 export function useGridWatch(options: {
   rule: GridRuleId;
@@ -120,9 +125,8 @@ export function useGridWatch(options: {
   ready: boolean;
   /** How the workspace shows one, when a desktop notification did not land. */
   onFallback: (notice: GridNotice) => void;
-}): PlaceReading[] {
+}): void {
   const { rule, settings, places, ready, onFallback } = options;
-  const [readings, setReadings] = useState<PlaceReading[]>([]);
   const saidRef = useRef(new Map<string, GridSaid>());
   const fallbackRef = useRef(onFallback);
   useEffect(() => {
@@ -140,13 +144,23 @@ export function useGridWatch(options: {
   }, []);
 
   // The name is in the key because the notice carries it: a place renamed
-  // between two passes would otherwise be announced under its old name.
+  // between two passes would otherwise be announced under its old name. The
+  // quiet hours are in it for a harder reason: the poll runs inside the
+  // effect, so the `places` array it reads is the one captured when the
+  // effect was established. Without them here, quiet hours set after a rule
+  // was switched on never reached the pass that honours them, and somebody
+  // who asked for silence at two in the morning got a notification anyway.
+  // The lightning rule is safe from this by accident, because its effect
+  // re-runs on every flash window.
   const watched = places
     .filter((place) => place.enabled)
-    .map(
-      (place) =>
-        `${place.id}@${place.center.join(",")}:${place.named === false ? "" : place.name}`,
-    )
+    .map((place) => {
+      const quiet = place.quietHours;
+      const silence = quiet
+        ? `${quiet.enabled}/${quiet.startMinute}-${quiet.endMinute}`
+        : "";
+      return `${place.id}@${place.center.join(",")}:${place.named === false ? "" : place.name}:${silence}`;
+    })
     .join("|");
 
   const wanted = ready && settings.enabled && mrmsAvailable();
@@ -168,12 +182,19 @@ export function useGridWatch(options: {
             miles: null,
             observed: null,
           };
+          // The five national grids do not overlap, so a place is read
+          // against the one that covers it. A place in none of them has no
+          // grid to read at all, which is a reading of nothing rather than a
+          // reading of zero.
+          const domain = domainFor(place.center);
+          if (!domain) return bare;
           try {
             const peak = await mrmsPeakNear(
               source.product,
               place.center[1],
               place.center[0],
               settings.radiusMiles,
+              domain.id,
             );
             if (!peak) return bare;
             return {
@@ -199,7 +220,6 @@ export function useGridWatch(options: {
         }),
       );
       if (!mountedRef.current) return;
-      setReadings(answers);
 
       const at = Date.now();
       const notices = gridToAnnounce(
@@ -279,6 +299,4 @@ export function useGridWatch(options: {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watched]);
-
-  return wanted ? readings : [];
 }

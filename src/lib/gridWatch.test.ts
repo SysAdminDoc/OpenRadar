@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { mrmsSource } from "../test/rustSource";
 import {
   DEFAULT_HAIL_RULE,
   DEFAULT_ROTATION_RULE,
   GRID_RULE_SOURCES,
   gridAfter,
   gridToAnnounce,
+  ROTATION_LEVELS,
   type GridRule,
   type GridSaid,
   type PlaceReading,
@@ -207,10 +209,27 @@ describe("a rule set on a grid near a place", () => {
     expect(GRID_RULE_SOURCES.hail.fromGrid(25.4)).toBeCloseTo(1, 6);
     expect(GRID_RULE_SOURCES.hail.fromGrid(44.45)).toBeCloseTo(1.75, 6);
 
-    // The shear grid is inverse seconds and the panel talks in thousandths,
-    // which is what the weather service's own training says.
+    // The shear grid is published in thousandths of a reciprocal second
+    // already, so the rule reads it as it comes. Held against the product's
+    // own declared unit and its ramp rather than against a restatement of
+    // this line: the ramp the map paints runs from 2 to 14, and a reading of
+    // 3 is a weak shear rather than three thousand of anything.
     expect(GRID_RULE_SOURCES.rotation.product).toBe("az-shear-low");
-    expect(GRID_RULE_SOURCES.rotation.fromGrid(0.01)).toBeCloseTo(10, 6);
+    // String.raw, because a template literal eats the escapes and leaves a
+    // pattern that matches nothing and passes as undefined.
+    const declared = mrmsSource().match(
+      new RegExp(
+        String.raw`id: "` +
+          GRID_RULE_SOURCES.rotation.product +
+          String.raw`",[\s\S]*?unit: "([^"]+)"`,
+      ),
+    );
+    expect(declared?.[1]).toBe("0.001/s");
+    expect(GRID_RULE_SOURCES.rotation.fromGrid(3)).toBeCloseTo(3, 6);
+    expect(GRID_RULE_SOURCES.rotation.fromGrid(10)).toBeCloseTo(
+      ROTATION_LEVELS[1],
+      6,
+    );
   });
 
   it("is off by default, both of them", () => {

@@ -8,16 +8,22 @@
 //! It reads a grid that is already decoded wherever it can. The tiles the map
 //! draws come out of the same cache, so a reader with the hail layer on pays
 //! nothing for the rule; a reader with it off pays one fetch an interval,
-//! which is the fetch the tile server would have made anyway.
+//! which is the fetch the tile server would have made anyway. That last part
+//! only holds with the layer on: with it off this is new traffic, and the
+//! asset ledger says so.
 
 use super::*;
 
 /// How far a degree of latitude is, in miles.
 ///
-/// A degree of longitude is this times the cosine of the latitude, which is
-/// the whole of the projection this needs: a circle of a few tens of miles is
-/// small enough that the earth inside it is flat to well under a cell.
+/// Used for the box the walk starts from and nothing else. A degree of
+/// longitude is this times the cosine of the latitude, which is close enough
+/// to draw a first cut with and not close enough to decide anything: the
+/// circle below is what actually decides, and it is measured on the sphere.
 const MILES_PER_DEGREE: f64 = 69.0546;
+
+/// A mile in kilometres, because the grids are metric and a rule is not.
+const KM_PER_MILE: f64 = 1.609_344;
 
 /// The most a rule may ask about, in miles.
 ///
@@ -38,11 +44,24 @@ pub struct Peak {
     pub miles: f64,
 }
 
-/// How far apart two points are, in miles, over a few tens of miles.
+/// How far apart two points are, in miles.
+///
+/// On the sphere rather than on a flat patch. The flat form this had was good
+/// to seventy metres over the twenty-five miles the panel offers and about six
+/// kilometres at the two hundred and fifty this command allows, which is six
+/// cells: near enough for the panel and not near enough for the command, so
+/// the whole difference goes away instead.
 fn miles_between(lat: f64, lon: f64, other_lat: f64, other_lon: f64) -> f64 {
-    let north = (other_lat - lat) * MILES_PER_DEGREE;
-    let east = (other_lon - lon) * MILES_PER_DEGREE * lat.to_radians().cos();
-    (north * north + east * east).sqrt()
+    crate::cross_section::ground_distance_km(
+        nexrad_model::geo::GeoPoint {
+            latitude: lat,
+            longitude: lon,
+        },
+        nexrad_model::geo::GeoPoint {
+            latitude: other_lat,
+            longitude: other_lon,
+        },
+    ) / KM_PER_MILE
 }
 
 /// The strongest reading within a radius of a place, and how far off it was.
@@ -71,10 +90,18 @@ pub fn peak_within(
     let north = latitude + radius / MILES_PER_DEGREE;
     let south = latitude - radius / MILES_PER_DEGREE;
     // Widened by the latitude, because a degree of longitude is shorter the
-    // further north the place is. At the pole this would be infinite, so the
-    // cosine is floored: the box is only a first cut and the circle below is
-    // what actually decides.
-    let spread = latitude.to_radians().cos().abs().max(0.01);
+    // further north the place is. Taken at whichever edge of the box is
+    // nearer a pole rather than at the place, so the box is too wide rather
+    // than too narrow: too wide costs a few cells the circle then rejects,
+    // and too narrow drops a cell that was inside the circle all along. At
+    // the pole this would be infinite, so the cosine is floored.
+    let spread = north
+        .abs()
+        .max(south.abs())
+        .to_radians()
+        .cos()
+        .abs()
+        .max(0.01);
     let west = longitude - radius / (MILES_PER_DEGREE * spread);
     let east = longitude + radius / (MILES_PER_DEGREE * spread);
 
@@ -122,18 +149,24 @@ pub fn peak_within(
 #[tauri::command]
 pub async fn mrms_peak_near(
     product: String,
+    // Which of the network's regions holds the place. The five grids do not
+    // overlap and are not one picture, so a rule over San Juan has to read
+    // the Caribbean grid; reading CONUS for it answered nothing at all, on a
+    // grid the map beside it was already drawing.
+    domain: Option<String>,
     level: Option<String>,
     latitude: f64,
     longitude: f64,
     radius_miles: f64,
 ) -> Result<Option<Peak>, MrmsError> {
     let entry = product_by_id(&product).ok_or(MrmsError::UnknownProduct(product.clone()))?;
-    let frames = mrms_frames(product.clone(), 1, None, level.clone()).await?;
+    let domain = domain.unwrap_or_else(|| "CONUS".to_string());
+    let frames = mrms_frames(product.clone(), 1, Some(domain.clone()), level.clone()).await?;
     let frame = frames
         .last()
         .ok_or(MrmsError::NoFrames(entry.label.to_string()))?;
     let time = frame.time;
-    let key = key_for("CONUS", entry, level.as_deref(), time)
+    let key = key_for(&domain, entry, level.as_deref(), time)
         .ok_or(MrmsError::UnknownProduct(product))?;
     grid_for(&key, false).await?;
 

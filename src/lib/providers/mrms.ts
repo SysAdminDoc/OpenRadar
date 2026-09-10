@@ -313,11 +313,21 @@ export async function mrmsPeakNear(
   latitude: number,
   longitude: number,
   radiusMiles: number,
+  /**
+   * Which of the five regions the place falls in, from `domainFor`.
+   *
+   * Absent means the lower forty-eight, which is what the native side
+   * defaults to. A caller with a coordinate in hand has no reason to leave
+   * it out: the grids do not overlap, so a place in Alaska read against
+   * CONUS is off the grid rather than quiet.
+   */
+  domain?: string,
   level?: CubeLevel,
 ): Promise<MrmsPeak | null> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<MrmsPeak | null>("mrms_peak_near", {
     product,
+    domain,
     level,
     latitude,
     longitude,

@@ -71,9 +71,14 @@ export const ROTATION_LEVELS = [5, 10, 15, 20] as const;
  *
  * The hail grid is published in millimetres and the rule is written in
  * inches, because a reader setting "over an inch" is thinking in the units a
- * warning is worded in. The shear grid is published in inverse seconds and
- * the rule is in thousandths, for the same reason: 0.01 is what the network
- * writes and "ten" is what a forecaster says.
+ * warning is worded in.
+ *
+ * The shear grid needs no conversion at all. The merged azimuthal shear the
+ * network publishes is already in thousandths of a reciprocal second, which
+ * is the unit `az-shear-low` is declared in, the unit `AZ_SHEAR_RAMP` steps
+ * through, and the unit `shear.rs` multiplies this site's own Level II fit up
+ * to so the two can be compared. A rule that multiplied it again read a
+ * three-thousandths breeze as three thousand.
  */
 export const GRID_RULE_SOURCES: Record<
   GridRuleId,
@@ -82,7 +87,7 @@ export const GRID_RULE_SOURCES: Record<
   hail: { product: "mesh", fromGrid: (mm) => mm / 25.4 },
   rotation: {
     product: "az-shear-low",
-    fromGrid: (perSecond) => perSecond * 1000,
+    fromGrid: (thousandths) => thousandths,
   },
 };
 
