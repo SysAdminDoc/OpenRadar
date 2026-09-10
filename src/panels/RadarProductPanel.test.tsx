@@ -5,6 +5,8 @@ import { DEFAULT_SETTINGS } from "../lib/settings";
 import { RadarProductPanel } from "./RadarProductPanel";
 import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import type { SiteStatus } from "../lib/radarStatus";
+import type { StormCell } from "../lib/cells";
+import type { CellJump } from "../lib/lightningJump";
 
 afterEach(cleanup);
 
@@ -439,5 +441,95 @@ describe("the numbers the panel puts on its chips", () => {
     expect(shown).toBe(en["radar.speedValue"].replace("{count}", "0.98"));
     // And never the slider's own position, whatever it happens to be.
     expect(shown).not.toContain(String(DEFAULT_SETTINGS.radar.animationSpeed));
+  });
+});
+
+describe("the flash rate jump on a tracked cell", () => {
+  /** A cell the tracker found, at nowhere in particular. */
+  function cell(id: string): StormCell {
+    return {
+      id,
+      latitude: 41.6,
+      longitude: -93.6,
+      rangeKm: 40,
+      azimuthDegrees: 180,
+      directionDegrees: 250,
+      speedMs: 12,
+      forecast: [],
+      past: [],
+    };
+  }
+
+  function withJumps(
+    cells: StormCell[],
+    jumps: Array<[string, CellJump]>,
+  ): void {
+    render(
+      <RadarProductPanel
+        radar={DEFAULT_SETTINGS.radar}
+        clock={Date.parse("2026-09-10T18:06:00Z")}
+        singleSite={null}
+        siteStatus={[]}
+        melting={null}
+        cellJumps={new Map(jumps)}
+        stormCells={{
+          ...CELLS,
+          report: {
+            station: "KDMX",
+            siteLatitude: 41.73,
+            siteLongitude: -93.72,
+            observed: "2026-09-10T18:06:00Z",
+            cells,
+            mesocyclones: [],
+          },
+        }}
+        watch={DEFAULT_SETTINGS.watch}
+        onRadar={vi.fn()}
+        onClose={() => {}}
+      />,
+    );
+  }
+
+  const jumped = (rate: number): CellJump => ({
+    rate,
+    sigma: 3.4,
+    at: Date.parse("2026-09-10T18:04:00Z"),
+  });
+
+  it("says which storm jumped, how fast it is flashing, and that it is not a warning", () => {
+    withJumps([cell("A1")], [["A1", jumped(11)]]);
+    const line = document.querySelector("[data-cell-jump]");
+    expect(line?.textContent).toContain(en["jump.badge"].replace("{id}", "A1"));
+    // The rate, rounded, and the moment it was found.
+    expect(line?.textContent).toContain("11");
+    // And the two things a reader has to be told about this number: it is a
+    // signal rather than a warning, and these are flashes a satellite saw
+    // above the cloud rather than strikes anybody reported.
+    expect(line?.textContent).toContain(en["jump.note"]);
+  });
+
+  it("says nothing at all about a cell that has not jumped", () => {
+    // A rate on its own is not a jump. `at` is what says one was found, and
+    // a cell with a rate and no jump must not put a badge on the panel.
+    withJumps([cell("A1")], [["A1", { rate: 40, sigma: 1.1, at: null }]]);
+    expect(document.querySelector("[data-cell-jump]")).toBeNull();
+  });
+
+  it("names the storm the rate belongs to when several have jumped", () => {
+    // The badge lists every cell that jumped, and the rate beside it belongs
+    // to one of them. Unnamed, a squall line read as though the whole row
+    // were flashing at the first cell's rate.
+    withJumps(
+      [cell("A1"), cell("A2"), cell("B0")],
+      [
+        ["A1", jumped(26)],
+        ["A2", jumped(14)],
+        ["B0", jumped(31)],
+      ],
+    );
+    const text = document.querySelector("[data-cell-jump]")?.textContent ?? "";
+    expect(text).toContain(en["jump.badge"].replace("{id}", "A1, A2, B0"));
+    // Whichever it reports, it says which one it is reporting.
+    expect(text).toContain("A1 is now at 26 a minute");
   });
 });

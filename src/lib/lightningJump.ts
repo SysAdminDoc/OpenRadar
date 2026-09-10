@@ -31,10 +31,12 @@ export const JUMP_BIN_MS = 2 * 60_000;
 /**
  * How much history a jump is judged against.
  *
- * Five changes before the current one, which is the ten minutes the method
- * asks for plus the bins those changes are taken across.
+ * Seven bins, which is six changes: the newest one, and the five before it
+ * that make up the ten minutes the method takes its deviation over. Six bins
+ * gave four prior changes, which is a shorter window than the method asks for
+ * and a standard deviation over four numbers.
  */
-export const JUMP_HISTORY_BINS = 6;
+export const JUMP_HISTORY_BINS = 7;
 
 /**
  * How fast a storm has to be flashing before a rise means anything, per
@@ -109,22 +111,31 @@ export function binOf(at: number): number {
 /**
  * The flash rate in each bin, per minute, oldest first.
  *
- * A bin nothing was seen in is a bin with no flashes rather than a gap: a
- * storm that stops flashing has a rate of zero, and dropping the bin would
- * make the next change look like a continuation of the one before it.
+ * A bin a window arrived for and saw nothing in is a bin with no flashes: a
+ * storm that stops flashing has a rate of zero, and dropping that bin would
+ * make the next change read as a continuation of the one before it. A bin no
+ * window arrived for at all is a different thing and is not here to divide;
+ * `changes` measures the real gap between two bins rather than assuming they
+ * are adjacent.
  */
 export function rates(series: readonly JumpSample[]): number[] {
   return series.map((sample) => sample.flashes / (JUMP_BIN_MS / 60_000));
 }
 
 /**
- * The rate of change between consecutive bins, per minute per minute.
+ * The rate of change between one bin and the next, per minute per minute.
+ *
+ * Divided by the time that actually passed between the two rather than by a
+ * bin length. A missed poll leaves a six-minute hole, and treating it as one
+ * two-minute step reads the change across it as three times what it was.
  */
 export function changes(series: readonly JumpSample[]): number[] {
   const perMinute = rates(series);
   const found: number[] = [];
   for (let at = 1; at < perMinute.length; at += 1) {
-    found.push((perMinute[at] - perMinute[at - 1]) / (JUMP_BIN_MS / 60_000));
+    const minutes = (series[at].at - series[at - 1].at) / 60_000;
+    if (!(minutes > 0)) continue;
+    found.push((perMinute[at] - perMinute[at - 1]) / minutes);
   }
   return found;
 }
@@ -147,9 +158,13 @@ export function jumpIn(series: readonly JumpSample[]): CellJump {
   const newest = all[all.length - 1];
   const before = all.slice(0, -1);
   const mean = before.reduce((sum, one) => sum + one, 0) / before.length;
+  // Over one fewer than the count, which is the standard deviation of a
+  // sample rather than of a population. These five changes are a sample of a
+  // storm's behaviour, not the whole of it, and dividing by five instead made
+  // the deviation too small and every sigma reported here too large.
   const variance =
     before.reduce((sum, one) => sum + (one - mean) * (one - mean), 0) /
-    before.length;
+    Math.max(1, before.length - 1);
   const deviation = Math.sqrt(variance);
   // A storm whose rate has not varied at all has no scale to measure a rise
   // against. Dividing by it would make any rise infinite, so a flat history
@@ -218,11 +233,21 @@ export function rememberJumps(
   for (const id of [...held.keys()]) {
     if (!live.has(id)) held.delete(id);
   }
+  // Only the flashes that fell inside this bin. The window handed over is a
+  // rolling five minutes, and counting all of it into a two-minute bin read
+  // every rate two and a half times too high: a storm flashing ten a minute
+  // came out as twenty-six, and the floor meant to keep small storms out let
+  // anything above four through. The window is longer than a bin, so each bin
+  // is fully covered by the window that closes it.
+  const inBin = flashes.filter((flash) => {
+    const when = flash.time * 1000;
+    return when >= bin - JUMP_BIN_MS && when < bin;
+  });
   const found = new Map<string, CellJump>();
   for (const cell of cells) {
     const series = withSample(held.get(cell.id) ?? [], {
       at: bin,
-      flashes: flashesNear(cell, flashes),
+      flashes: flashesNear(cell, inBin),
     });
     held.set(cell.id, series);
     found.set(cell.id, jumpIn(series));
