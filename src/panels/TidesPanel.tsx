@@ -194,6 +194,53 @@ export function TidesPanel({ point, clock, onClose }: TidesPanelProps) {
             </div>
           </div>
 
+          {reading.observed ? (
+            <div className="storm-row" data-tide-observed>
+              <div>
+                <strong>
+                  {t("tides.observed", {
+                    height: formatTideHeight(reading.observed.feet),
+                  })}
+                </strong>
+                <small>
+                  {t("tides.observedAt", {
+                    time: formatClock(reading.observed.time),
+                  })}
+                </small>
+                {/* The whole reason the gauge is here. A prediction is
+                    astronomy and it is very good; what it does not know about
+                    is wind and pressure, and the gap between the two is the
+                    water the weather is adding. */}
+                {reading.observed.differenceFeet === null ? null : (
+                  <small
+                    data-tide-difference={
+                      reading.observed.differenceFeet >= 0 ? "above" : "below"
+                    }
+                  >
+                    {reading.observed.differenceFeet >= 0 ? (
+                      <ArrowUp size={12} />
+                    ) : (
+                      <ArrowDown size={12} />
+                    )}
+                    {t(
+                      reading.observed.differenceFeet >= 0
+                        ? "tides.abovePrediction"
+                        : "tides.belowPrediction",
+                      {
+                        height: formatTideHeight(
+                          Math.abs(reading.observed.differenceFeet),
+                        ),
+                        predicted: formatTideHeight(
+                          reading.observed.predictedFeet ?? 0,
+                        ),
+                      },
+                    )}
+                  </small>
+                )}
+              </div>
+            </div>
+          ) : null}
+
           {next.length ? (
             <div className="route-table">
               {next.map((extreme) => (

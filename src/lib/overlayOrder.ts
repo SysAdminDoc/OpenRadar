@@ -27,7 +27,11 @@ export const OVERLAY_DEPTH: Record<OverlayId, number> = {
   // Over the plots for the same reason they are over the areas: a gauge is a
   // single dot and the thing a reader is looking for when they turned it on.
   riverGauges: 10,
-  alerts: 11,
+  // Beside the gauges and for the same reason: a buoy is a single dot
+  // somebody turned the layer on to find, and the sea it reports is the one
+  // thing under a hurricane track that is a measurement rather than a model.
+  buoys: 11,
+  alerts: 12,
 };
 
 /**

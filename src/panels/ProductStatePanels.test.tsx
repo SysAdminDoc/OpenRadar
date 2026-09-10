@@ -85,6 +85,7 @@ describe("tide location changes", () => {
         station: dallas,
         distanceMiles: 2,
         extremes: [],
+        observed: null,
       })
       .mockReturnValueOnce(
         new Promise((resolve) => {
@@ -115,6 +116,7 @@ describe("tide location changes", () => {
       station: newYork,
       distanceMiles: 1,
       extremes: [],
+      observed: null,
     });
   });
 });

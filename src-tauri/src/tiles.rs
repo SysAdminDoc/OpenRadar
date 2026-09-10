@@ -41,6 +41,7 @@ const SERVED_HOSTS: &[&str] = &[
     "services3.arcgis.com",
     "satepsanone.nesdis.noaa.gov",
     "aviationweather.gov",
+    "www.ndbc.noaa.gov",
     "api.tidesandcurrents.noaa.gov",
     "api.water.noaa.gov",
     "api.open-meteo.com",

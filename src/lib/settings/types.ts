@@ -167,6 +167,7 @@ export interface LayerSettings {
   /** Surface observations, drawn as the conventional station plots. */
   metar: boolean;
   riverGauges: boolean;
+  buoys: boolean;
   tropical: boolean;
   satellite: boolean;
   customOverlay: boolean;

@@ -135,6 +135,15 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "observation",
     freshForMs: 90 * 60_000,
   },
+  buoys: {
+    sourceId: "buoys",
+    label: "Buoys",
+    attribution: "NOAA National Data Buoy Center",
+    // A hull in the water, which is the one thing on the marine map that is
+    // not a model.
+    kind: "observation",
+    freshForMs: 90 * 60_000,
+  },
   riverGauges: {
     sourceId: "riverGauges",
     label: "River gauges",

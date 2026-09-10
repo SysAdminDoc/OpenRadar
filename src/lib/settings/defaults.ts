@@ -70,6 +70,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     forecastSmoke: false,
     metar: false,
     riverGauges: false,
+    buoys: false,
     tropical: true,
     satellite: false,
     customOverlay: false,

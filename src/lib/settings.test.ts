@@ -197,6 +197,7 @@ describe("settings normalization", () => {
     expect(settings.radar.tilt).toBe(0);
     expect(Object.keys(settings.layers).sort()).toEqual([
       "azShear",
+      "buoys",
       "cappi",
       "classification",
       "counties",
