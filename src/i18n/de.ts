@@ -769,7 +769,7 @@ export const de: Catalogue = {
     "Die Standardatmosphäre, weil keine Radiosondierung geladen ist",
   "radar.hailAirSounding": "Aus {source}",
   "radar.hailAirHeights":
-    "Gefrierpunkt bei {freezing}, minus zwanzig bei {cold}",
+    "Gefrierpunkt bei {freezing}, minus zwanzig bei {cold}, über dem Meeresspiegel",
   "product.velocity": "Geschwindigkeit",
   "product.spectrumWidth": "Spektralbreite",
   "product.differential": "Differentielle Reflektivität",
@@ -1667,7 +1667,8 @@ export const de: Catalogue = {
     "Vom Satelliten erkannte Blitze, keine Meldungen von Einschlägen am Boden.",
   "melting.title": "Schmelzschicht",
   "melting.source": "Aus dem {tilt}°-Schnitt dieses Volumens selbst",
-  "melting.band": "Um {peak}, zwischen {bottom} und {top} über dem Radar.",
+  "melting.band":
+    "Um {peak}, zwischen {bottom} und {top} über dem Meeresspiegel.",
   "melting.note":
     "Das helle Band, das das Radar sieht, dort wo Schnee zu Regen wird. Die Hagelkorngröße darüber wird gegen die Radiosondierung gerechnet und nicht dagegen.",
   "melting.noHighTilt":
@@ -1813,6 +1814,7 @@ export const de: Catalogue = {
   "palette.none": "Hier passt nichts dazu. Versuchen Sie ein kürzeres Wort.",
   "legend.hidden": "RADAR AUSGEBLENDET",
   "legend.smoothed": "Zwischen den Gates geglättet",
+  "legend.melting": "Schmelzschicht bei {height}, aus der {tilt}°-Elevation",
   "legend.partlyUnfolded": "{share}% noch gefaltet",
   "legend.scale": "{product} von {min} bis {max} {unit}",
   "timeline.label": "Radaranimation",

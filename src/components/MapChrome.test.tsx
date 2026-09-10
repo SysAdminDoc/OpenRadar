@@ -347,3 +347,47 @@ describe("the legend says what unfolding could not do", () => {
     expect(screen.queryByText(/still folded/)).toBeNull();
   });
 });
+
+describe("the melting layer on the bar", () => {
+  const layer = {
+    topKm: 3.2,
+    bottomKm: 2.8,
+    peakKm: 3.0,
+    elevationDegrees: 9.9,
+    gates: 270,
+  };
+
+  const legend = (melting: typeof layer | null, radarEnabled = true) => (
+    <RadarLegend
+      open={false}
+      radarEnabled={radarEnabled}
+      productLabel="Hail size"
+      eyebrow="KTLX"
+      scale="none"
+      melting={melting}
+      onToggle={() => {}}
+    />
+  );
+
+  it("names the height and the cut it was read from", () => {
+    // The acceptance asks the bar for both. Two clicks into a panel is not
+    // the bar, and the height the hail size is worked out against is a
+    // reading about the picture beside it.
+    render(legend(layer));
+    const line = document.querySelector("[data-legend-melting]")?.textContent;
+    // 3.0 km is 1.9 miles, and the cut is the volume's own.
+    expect(line).toContain("1.9");
+    expect(line).toContain("9.9");
+  });
+
+  it("says nothing where no layer was read", () => {
+    render(legend(null));
+    expect(document.querySelector("[data-legend-melting]")).toBeNull();
+  });
+
+  it("says nothing with the radar switched off", () => {
+    // A reading about a picture nobody is looking at.
+    render(legend(layer, false));
+    expect(document.querySelector("[data-legend-melting]")).toBeNull();
+  });
+});

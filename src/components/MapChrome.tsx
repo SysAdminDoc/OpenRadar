@@ -18,8 +18,9 @@ import {
   formatRadarTime,
   type RadarFrame,
 } from "../lib/radar";
-import { formatMeasure, useT } from "../i18n";
-import { formatAge, utcHourLabel } from "../lib/units";
+import { formatMeasure, formatNumber, useT } from "../i18n";
+import { formatAge, formatDistanceKm, utcHourLabel } from "../lib/units";
+import type { MeltingLayer } from "../lib/melting";
 import { rangeFill } from "../lib/rangeFill";
 
 function initLabel(initUtc: string): string {
@@ -51,6 +52,15 @@ interface RadarLegendProps {
    * inside one of them may be a fold rather than rotation.
    */
   unplacedShare?: number;
+  /**
+   * The bright band this volume can see, where one was read.
+   *
+   * On the bar rather than only in the panel, because the height a hail size
+   * is worked out against is a reading about the picture beside it and the
+   * panel it is otherwise in is two clicks away. Null wherever there is none,
+   * which includes every product that is not the hail size.
+   */
+  melting?: MeltingLayer | null;
   onToggle: () => void;
 }
 
@@ -64,6 +74,7 @@ export function RadarLegend({
   highContrast = false,
   smoothed = false,
   unplacedShare = 0,
+  melting = null,
   onToggle,
 }: RadarLegendProps) {
   const t = useT();
@@ -90,6 +101,14 @@ export function RadarLegend({
         {radarEnabled && stillFolded > 0 ? (
           <small className="legend-smoothed">
             {t("legend.partlyUnfolded", { share: String(stillFolded) })}
+          </small>
+        ) : null}
+        {radarEnabled && melting ? (
+          <small className="legend-smoothed" data-legend-melting>
+            {t("legend.melting", {
+              height: formatDistanceKm(melting.peakKm),
+              tilt: formatNumber(melting.elevationDegrees, 1),
+            })}
           </small>
         ) : null}
       </span>

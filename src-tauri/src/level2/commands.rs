@@ -312,7 +312,15 @@ pub async fn level2_melting(
         // panel line rather than the picture, and keeping the scan would
         // evict the volume the map is drawing.
         let (scan, _) = decoded_volume_once(&key, data)?;
-        Ok(crate::melting::from_volume(&scan))
+        // Above sea level, the same way the freezing level shown beside it is
+        // worked out. The beam height is measured from the antenna and the
+        // isotherms are not.
+        let site = crate::level2::registry::site_by_id(&station)
+            .ok_or_else(|| Level2Error::UnknownSite(station.clone()))?;
+        let antenna_km = nexrad_model::geo::RadarCoordinateSystem::new(&site.to_site())
+            .antenna_height_meters()
+            / 1000.0;
+        Ok(crate::melting::from_volume(&scan, antenna_km))
     })
     .await
     .map_err(|error| Level2Error::Decode(error.to_string()))?

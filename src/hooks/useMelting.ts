@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   fetchMelting,
   meltingAvailable,
@@ -7,6 +7,7 @@ import {
 } from "../lib/melting";
 import { log } from "../lib/log";
 import { pollWhileOnline } from "../lib/poll";
+import { useLatestReply } from "./useLatestReply";
 
 /**
  * How often the held station is asked again.
@@ -30,22 +31,29 @@ export function useMelting(options: {
   ready: boolean;
 }): MeltingLayer | NoLayer | null {
   const { station, ready } = options;
-  const [found, setFound] = useState<MeltingLayer | NoLayer | null>(null);
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
+  // The answer with the station it is an answer about beside it. A volume
+  // takes seconds to tens of seconds to reach and decode, so a reader
+  // switching sites would otherwise read the old site's melting layer under
+  // the new site's heading until the new one landed. Held together rather
+  // than cleared in an effect, which the linter refuses and which would put
+  // a render between the two anyway.
+  const [found, setFound] = useState<{
+    station: string;
+    layer: MeltingLayer | NoLayer | null;
+  } | null>(null);
+  const latest = useLatestReply();
   const wanted = ready && station !== null && meltingAvailable();
 
   useEffect(() => {
     if (!wanted || !station) return;
+    const reply = latest();
     const ask = async () => {
       try {
         const answer = await fetchMelting(station);
-        if (mounted.current) setFound(answer);
+        // Only if this is still the run the hook is waiting on. A cached
+        // volume for one site can land after a slow one for another, and the
+        // slow one would then overwrite it for a full refresh interval.
+        if (reply.current()) setFound({ station, layer: answer });
       } catch (failure) {
         // A volume that would not decode is not a sky with no melting layer
         // in it, so nothing is shown rather than a wrong reason.
@@ -53,11 +61,15 @@ export function useMelting(options: {
           "melting",
           `${station}: ${failure instanceof Error ? failure.message : String(failure)}`,
         );
-        if (mounted.current) setFound(null);
+        if (reply.current()) setFound({ station, layer: null });
       }
     };
-    return pollWhileOnline(() => void ask(), MELTING_REFRESH_MS);
-  }, [station, wanted]);
+    const stop = pollWhileOnline(() => void ask(), MELTING_REFRESH_MS);
+    return () => {
+      stop();
+      reply.close();
+    };
+  }, [latest, station, wanted]);
 
-  return wanted ? found : null;
+  return wanted && found?.station === station ? found.layer : null;
 }

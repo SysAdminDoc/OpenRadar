@@ -6,6 +6,7 @@ import { ToastHost, type ToastMessage } from "./ToastHost";
 import { LiveRegion } from "./LiveRegion";
 import type { GeoPoint } from "../lib/geo";
 import type { FlashWindow } from "../hooks/useLightning";
+import type { MeltingLayer } from "../lib/melting";
 import { windLabel, type WindField } from "../lib/wind";
 import { paletteLegend } from "../lib/legend";
 import { mosaicLegend } from "../lib/mosaicLegend";
@@ -102,6 +103,11 @@ interface WorkspaceChromeProps {
   /** The single-site sweep on the map, which the legend names. */
   sweep: SweepImage | null;
   /**
+   * The melting layer read off this volume, where the hail size is on screen
+   * and one was found. Null everywhere else.
+   */
+  melting: MeltingLayer | null;
+  /**
    * Where that sweep sits in the site's loop, when the reader has scrubbed
    * off the newest volume. Null the rest of the time.
    */
@@ -192,6 +198,7 @@ export function WorkspaceChrome({
   timeline,
   frames,
   sweep,
+  melting,
   sweepLoop,
   sweepStatus,
   siteStatus,
@@ -481,6 +488,7 @@ export function WorkspaceChrome({
         // sweep the unfolder could not move at all, leaving a third of the
         // echo unplaced, is exactly the one worth saying it about.
         unplacedShare={sweep?.unplacedShare ?? 0}
+        melting={melting}
         onToggle={onToggleProduct}
       />
       {mrmsLayers.length ||

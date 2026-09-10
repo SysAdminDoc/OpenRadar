@@ -49,6 +49,14 @@ pub const MEMBERSHIP_THRESHOLD: f32 = 0.08;
 /// make a bin of its own.
 const BIN_KM: f64 = 0.1;
 
+/// The thickest a melting layer is allowed to be, in kilometres.
+///
+/// A bright band is a few hundred metres deep. Anything walking further than
+/// this is not a band with shoulders, it is a smear of gates that happened to
+/// clear the threshold spread over the whole cut, and reporting it as a layer
+/// puts a freezing level kilometres from where the sky's is.
+const MAX_BAND_KM: f64 = 1.5;
+
 /// How far down from the peak a bin still counts as part of the layer.
 ///
 /// Half the peak, which is where a band's own shoulders fall. Lower than this
@@ -62,11 +70,17 @@ const SHOULDER: f64 = 0.5;
 /// the threshold, not a band. Sixty is about one gate on each of sixty rays.
 const ENOUGH_GATES: usize = 60;
 
-/// Where the melting layer is, above the radar.
+/// Where the melting layer is, above sea level.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MeltingLayer {
-    /// The top of the band, in kilometres above the radar.
+    /// The top of the band, in kilometres above sea level.
+    ///
+    /// Above sea level and not above the antenna, because the panel shows
+    /// this two lines under the freezing level `derive` works the hail size
+    /// against, and that one is above sea level. At a mountain site the two
+    /// datums are three kilometres apart, which is one physical height shown
+    /// as two different numbers in the same box.
     pub top_km: f64,
     /// The bottom of it, which is where the snow has finished melting.
     pub bottom_km: f64,
@@ -115,6 +129,7 @@ fn heights_in_band(
     reflectivity: &SweepField,
     differential: &SweepField,
     correlation: &SweepField,
+    antenna_km: f64,
 ) -> Vec<f64> {
     let elevation = reflectivity.elevation_degrees();
     let mut found = Vec::new();
@@ -143,7 +158,7 @@ fn heights_in_band(
             if membership(z, zdr, rho) < MEMBERSHIP_THRESHOLD {
                 continue;
             }
-            found.push(beam_height_km(range, elevation));
+            found.push(beam_height_km(range, elevation) + antenna_km);
         }
     }
     found
@@ -165,7 +180,34 @@ pub fn band_of(heights: &[f64]) -> Option<(f64, f64, f64)> {
         }
         *counts.entry((height / BIN_KM).floor() as i64).or_insert(0) += 1;
     }
-    let (&peak_bin, &peak) = counts.iter().max_by_key(|(_, count)| **count)?;
+    let peak = *counts.values().max()?;
+    // The middle of the longest unbroken run of bins that tie for the most
+    // gates. A flat-topped band has a plateau rather than one bin, and taking
+    // whichever end the map iterated to last put the band's own middle at its
+    // top: half a kilometre out on a one-kilometre band, which is twice the
+    // accuracy this is meant to have. Where two separated heights tie, the
+    // lower run wins, because the melting layer is the lower one and whatever
+    // is above it is something else.
+    let modal: Vec<i64> = counts
+        .iter()
+        .filter(|(_, count)| **count == peak)
+        .map(|(bin, _)| *bin)
+        .collect();
+    let mut best = (modal[0], 1usize);
+    let mut start = modal[0];
+    let mut run = 1usize;
+    for pair in modal.windows(2) {
+        if pair[1] == pair[0] + 1 {
+            run += 1;
+        } else {
+            start = pair[1];
+            run = 1;
+        }
+        if run > best.1 {
+            best = (start, run);
+        }
+    }
+    let peak_bin = best.0 + (best.1 as i64 - 1) / 2;
     let floor = (peak as f64 * SHOULDER).ceil() as usize;
     // Out from the peak while the bins still hold their half of it, and
     // stopping at the first that does not: a second band further up is a
@@ -178,41 +220,66 @@ pub fn band_of(heights: &[f64]) -> Option<(f64, f64, f64)> {
     while counts.get(&(bottom - 1)).copied().unwrap_or(0) >= floor {
         bottom -= 1;
     }
-    Some((
-        // The top edge of the topmost bin and the bottom edge of the lowest.
-        (top + 1) as f64 * BIN_KM,
-        bottom as f64 * BIN_KM,
-        (peak_bin as f64 + 0.5) * BIN_KM,
-    ))
+    // The top edge of the topmost bin and the bottom edge of the lowest.
+    let top_km = (top + 1) as f64 * BIN_KM;
+    let bottom_km = bottom as f64 * BIN_KM;
+    // A shoulder measured against the peak walks the whole histogram when the
+    // histogram is flat, and a cut of scattered threshold-clearing gates is
+    // flat. Six kilometres of melting layer is not a band.
+    if top_km - bottom_km > MAX_BAND_KM {
+        return None;
+    }
+    Some((top_km, bottom_km, (peak_bin as f64 + 0.5) * BIN_KM))
 }
 
 /// Reads the melting layer out of one cut's three moments.
+///
+/// `antenna_km` is how high the radar stands above sea level, because the
+/// beam height is measured from the antenna and the freezing level shown
+/// beside this is not.
 pub fn from_cut(
     reflectivity: &SweepField,
     differential: &SweepField,
     correlation: &SweepField,
+    antenna_km: f64,
 ) -> Result<MeltingLayer, NoLayer> {
     let elevation = reflectivity.elevation_degrees();
     if elevation < LOWEST_TILT_DEGREES {
         return Err(NoLayer::NoHighTilt);
     }
-    let heights = heights_in_band(reflectivity, differential, correlation);
+    let heights = heights_in_band(reflectivity, differential, correlation, antenna_km);
     let (top_km, bottom_km, peak_km) = band_of(&heights).ok_or(NoLayer::NothingMelting)?;
     Ok(MeltingLayer {
         top_km,
         bottom_km,
         peak_km,
         elevation_degrees: elevation,
-        gates: heights.len(),
+        // The gates in the band, not every gate in the cut that cleared the
+        // threshold. A caller weighs the answer by this number, and counting
+        // the whole disc reported a hundred for a band holding forty.
+        gates: heights
+            .iter()
+            .filter(|height| **height >= bottom_km && **height < top_km)
+            .count(),
     })
 }
 
-/// The melting layer in a decoded volume, read from its highest usable cut.
+/// The melting layer in a decoded volume, read from the cut that saw most of
+/// it.
 ///
-/// The highest rather than the first at or above the angle: the beam climbs
-/// faster the steeper it is, so the band is thinner in range and the answer is
-/// sharper, and a high cut is further from the ground clutter.
-pub fn from_volume(scan: &nexrad_model::data::Scan) -> Result<MeltingLayer, NoLayer> {
+/// Every cut at or above the angle is read and the one with the most gates in
+/// its band wins. Taking the steepest cut that answered at all was the first
+/// shape of this, on the reasoning that a steeper beam climbs through the band
+/// faster and gives a sharper answer. It also means sixty gates of wet hail at
+/// eight kilometres on the 19.5 degree cut beat five thousand gates of the
+/// real band at three on the 9.9, and the count that would have settled it was
+/// computed and thrown away.
+///
+/// `antenna_km` is how high the radar stands above sea level.
+pub fn from_volume(
+    scan: &nexrad_model::data::Scan,
+    antenna_km: f64,
+) -> Result<MeltingLayer, NoLayer> {
     use nexrad_model::data::Product;
 
     let mut angles = crate::level2::tilts(scan);
@@ -223,6 +290,7 @@ pub fn from_volume(scan: &nexrad_model::data::Scan) -> Result<MeltingLayer, NoLa
     angles.sort_by(|left, right| right.partial_cmp(left).unwrap_or(std::cmp::Ordering::Equal));
 
     let mut missing = false;
+    let mut best: Option<MeltingLayer> = None;
     for angle in angles {
         let Some(z) = crate::level2::sweep_field_at(scan, Product::Reflectivity, angle) else {
             missing = true;
@@ -241,11 +309,18 @@ pub fn from_volume(scan: &nexrad_model::data::Scan) -> Result<MeltingLayer, NoLa
         };
         // A cut that has all three but no band in it is not a reason to stop:
         // the next one down may still be above the angle and may see it.
-        match from_cut(&z.field, &zdr.field, &rho.field) {
-            Ok(found) => return Ok(found),
+        match from_cut(&z.field, &zdr.field, &rho.field, antenna_km) {
+            Ok(found) => {
+                if best.as_ref().is_none_or(|held| found.gates > held.gates) {
+                    best = Some(found);
+                }
+            }
             Err(NoLayer::NothingMelting) => continue,
             Err(other) => return Err(other),
         }
+    }
+    if let Some(found) = best {
+        return Ok(found);
     }
     if missing {
         return Err(NoLayer::MissingMoment);

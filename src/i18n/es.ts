@@ -746,7 +746,8 @@ export const es: Catalogue = {
   "radar.hailAirStandard":
     "La atmósfera estándar, porque no hay sondeo cargado",
   "radar.hailAirSounding": "De {source}",
-  "radar.hailAirHeights": "Congelación a {freezing}, menos veinte a {cold}",
+  "radar.hailAirHeights":
+    "Congelación a {freezing}, menos veinte a {cold}, sobre el nivel del mar",
   "product.velocity": "Velocidad",
   "product.spectrumWidth": "Ancho espectral",
   "product.differential": "Reflectividad diferencial",
@@ -1639,7 +1640,8 @@ export const es: Catalogue = {
     "Destellos detectados por satélite, no informes de impactos en tierra.",
   "melting.title": "Capa de fusión",
   "melting.source": "Del corte a {tilt}° de este mismo volumen",
-  "melting.band": "En torno a {peak}, entre {bottom} y {top} sobre el radar.",
+  "melting.band":
+    "En torno a {peak}, entre {bottom} y {top} sobre el nivel del mar.",
   "melting.note":
     "La banda brillante que ve el radar, donde la nieve se está convirtiendo en lluvia. El tamaño del granizo de arriba se calcula con el sondeo y no con esto.",
   "melting.noHighTilt":
@@ -1778,6 +1780,7 @@ export const es: Catalogue = {
   "palette.none": "Nada de aquí coincide. Prueba con una palabra más corta.",
   "legend.hidden": "RADAR OCULTO",
   "legend.smoothed": "Suavizado entre compuertas",
+  "legend.melting": "Capa de fusión a {height}, del corte de {tilt}°",
   "legend.partlyUnfolded": "{share}% sigue plegado",
   "legend.scale": "{product} de {min} a {max} {unit}",
   "timeline.label": "Animación del radar",

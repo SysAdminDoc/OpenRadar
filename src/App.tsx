@@ -11,6 +11,7 @@ import {
 import type { SurfaceId, ToolMode } from "./components/CommandBar";
 import { MapStage } from "./components/MapStage";
 import { useLatestReply } from "./hooks/useLatestReply";
+import { isLayer } from "./lib/melting";
 import { useAppearance } from "./hooks/useAppearance";
 import { FirstRunReveal } from "./components/FirstRunReveal";
 import { CatchUpCard } from "./components/CatchUpCard";
@@ -1427,6 +1428,10 @@ export default function App() {
         timeline={timeline}
         frames={frames}
         sweep={singleSite.sweep}
+        // The bar carries a layer and never a reason there is none: a line
+        // saying why there is no melting layer belongs in the panel, where
+        // there is room to say it.
+        melting={isLayer(melting) ? melting : null}
         sweepLoop={singleSite.loop}
         // Never over a volume the reader opened by hand. How long ago the
         // office last heard from KDMX is a statement about the radar now, and

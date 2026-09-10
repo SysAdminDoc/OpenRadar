@@ -6,6 +6,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { MeltingLayer } from "../lib/melting";
 import { WorkspaceChrome } from "./WorkspaceChrome";
 import { en } from "../i18n/en";
 import { DEFAULT_SETTINGS } from "../lib/settings";
@@ -89,6 +90,7 @@ function chrome(
   distanceMiles: number,
   overrides: {
     sweep?: SweepImage | null;
+    melting?: MeltingLayer | null;
     liveClock?: number;
     sweepLoop?: { index: number; count: number } | null;
     sweepStatus?: SiteStatus | null;
@@ -116,6 +118,7 @@ function chrome(
       timeline={timeline}
       frames={[]}
       sweep={overrides.sweep ?? null}
+      melting={overrides.melting ?? null}
       sweepLoop={overrides.sweepLoop ?? null}
       sweepStatus={overrides.sweepStatus ?? null}
       siteStatus={overrides.siteStatus ?? []}
