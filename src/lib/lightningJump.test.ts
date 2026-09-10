@@ -6,6 +6,7 @@ import {
   JUMP_MIN_RATE,
   binOf,
   changes,
+  flashesByCell,
   flashesNear,
   jumpIn,
   rates,
@@ -341,6 +342,62 @@ describe("the series each tracked cell carries between windows", () => {
     for (const rate of rates) {
       expect(rate, `${rates.join(", ")}`).toBeCloseTo(30, 6);
     }
+  });
+
+  it("counts a flash between two cells to one of them", () => {
+    // The tracker publishes a centroid and no size, so the circle is a fixed
+    // radius and two cells twelve miles apart overlap. Counting a flash to
+    // both meant every cell along a squall line carried the line's rate near
+    // it, they all jumped on the same bin, and the badge named five at once.
+    //
+    // Twelve miles apart: a tenth of a degree of latitude is about seven, so
+    // 0.174 degrees is about twelve.
+    const west = { id: "A1", latitude: 41.6, longitude: -93.6 };
+    const east = { id: "A2", latitude: 41.774, longitude: -93.6 };
+    const between = { latitude: 41.68, longitude: -93.6 };
+    // Both circles hold it, which is the case at all.
+    expect(
+      flashesNear(west, [flash(between.latitude, between.longitude)]),
+    ).toBe(1);
+    expect(
+      flashesNear(east, [flash(between.latitude, between.longitude)]),
+    ).toBe(1);
+
+    const shared = flashesByCell(
+      [west, east],
+      [flash(between.latitude, between.longitude)],
+    );
+    expect(shared.get("A1")! + shared.get("A2")!).toBe(1);
+    // And it goes to the nearer one, which is the western cell.
+    expect(shared.get("A1")).toBe(1);
+    expect(shared.get("A2")).toBe(0);
+
+    // A flash outside both circles belongs to neither.
+    const away = flashesByCell([west, east], [flash(43.5, -93.6)]);
+    expect(away.get("A1")).toBe(0);
+    expect(away.get("A2")).toBe(0);
+
+    // And every cell has an entry, so a quiet cell reads as no flashes
+    // rather than as no answer.
+    expect([...shared.keys()].sort()).toEqual(["A1", "A2"]);
+  });
+
+  it("does not fold one flash into two overlapping cells", () => {
+    // The fold path, not the helper: two cells twelve miles apart, and a
+    // storm flashing between them. Every flash used to enter both series, so
+    // along a squall line each cell carried the line's rate near it.
+    const east = { id: "A2", latitude: 41.774, longitude: -93.6 };
+    const when = closing(0);
+    const flashes = new Array(24)
+      .fill(null)
+      .map(() => flash(41.68, -93.6, when));
+    const found = rememberJumps([near, east], flashes, when);
+    const west = found.get("A1")?.rate ?? 0;
+    const other = found.get("A2")?.rate ?? 0;
+    // Twenty-four flashes in two minutes is twelve a minute, once.
+    expect(west + other).toBeCloseTo(12, 6);
+    expect(west).toBeCloseTo(12, 6);
+    expect(other).toBe(0);
   });
 
   it("counts each cell only its own flashes", () => {
