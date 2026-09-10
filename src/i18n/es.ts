@@ -1332,6 +1332,13 @@ export const es: Catalogue = {
   "aviation.title": "{what}",
   "aviation.validBetween": "Válido de {from} a {to}",
   "aviation.validAt": "Válido desde {time}",
+  "aviation.severityLight": "Ligera",
+  "aviation.severityLightModerate": "De ligera a moderada",
+  "aviation.severityModerate": "Moderada",
+  "aviation.severityModerateSevere": "De moderada a severa",
+  "aviation.severitySevere": "Severa",
+  "aviation.forecastAhead":
+    "{count, plural, one {Previsión para dentro de una hora} other {Previsión para dentro de # horas}}",
   "aviation.severity": "Intensidad: {severity}",
   "aviation.freezingLevel": "Isoterma cero a {high} ft",
   "aviation.feet": "{feet} ft",

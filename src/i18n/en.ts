@@ -1309,6 +1309,13 @@ export const en = {
   "aviation.title": "{what}",
   "aviation.validBetween": "Valid {from} to {to}",
   "aviation.validAt": "Valid from {time}",
+  "aviation.severityLight": "Light",
+  "aviation.severityLightModerate": "Light to moderate",
+  "aviation.severityModerate": "Moderate",
+  "aviation.severityModerateSevere": "Moderate to severe",
+  "aviation.severitySevere": "Severe",
+  "aviation.forecastAhead":
+    "{count, plural, one {Forecast for one hour ahead} other {Forecast for # hours ahead}}",
   "aviation.severity": "Severity: {severity}",
   "aviation.freezingLevel": "Freezing level at {high} ft",
   "aviation.feet": "{feet} ft",

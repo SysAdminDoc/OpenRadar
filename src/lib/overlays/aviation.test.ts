@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_OVERLAY_CHOICES } from "./registry";
-import { AVIATION_REFRESH_MS, PIREP_LIMIT, aviationOverlay } from "./aviation";
+import {
+  AVIATION_REFRESH_MS,
+  PIREP_LIMIT,
+  aviationOverlay,
+  severityWords,
+} from "./aviation";
+import { en } from "../../i18n/en";
 
 const LIVE = process.env.OPENRADAR_LIVE === "1";
 
@@ -201,6 +207,14 @@ describe("what the air is doing to aircraft", () => {
         Date.parse("2026-09-10T08:55:00.000Z"),
       );
       expect(sigmet.properties.highFeet).toBe(34000);
+      // The service sends a SIGMET's severity as its place in the schema's
+      // own list rather than as a word, and this used to be hardcoded null:
+      // the one product whose severity is never in doubt was the one that
+      // never carried it.
+      expect(sigmet.properties.severity).toBe(5);
+      expect(
+        aviationOverlay.describe!(sigmet.properties)!.lines.join(" "),
+      ).toContain(en["aviation.severitySevere"]);
 
       // The freezing level comes as a line, which is why the layer draws
       // lines at all. Its level is written in hundreds of feet and it is a
@@ -214,6 +228,12 @@ describe("what the air is doing to aircraft", () => {
       // the whole of what it says.
       expect(turbulence.properties.hazard).toBe("TURB-HI");
       expect(turbulence.properties.severity).toBe("MOD");
+      // And the step of the three-hourly grid it is on, which decides
+      // whether it is standing over the reader now or nine hours out.
+      expect(turbulence.properties.forecastHours).toBe(3);
+      expect(
+        aviationOverlay.describe!(turbulence.properties)!.lines.join(" "),
+      ).toContain("3");
       expect(turbulence.properties.lowFeet).toBe(29000);
       expect(turbulence.properties.highFeet).toBe(41000);
       expect(turbulence.properties.contourFeet).toBeNull();
@@ -361,6 +381,44 @@ describe.runIf(LIVE)("against the live service", () => {
       true,
     );
 
+    // The severity, in both shapes the service sends it. The schema for this
+    // collection names the whole vocabulary, in order: "LGT, LT-MOD, MOD
+    // (AIRMET), MOD-SEV, SEV (SIGMET)". The grid sends the word and a SIGMET
+    // sends its place in that list, and whichever arrives has to come out as
+    // something a reader knows. Read off the live answer rather than a list
+    // written here, which is what the item asked for: a sixth level added
+    // upstream fails this rather than being drawn as nothing.
+    const known = [
+      en["aviation.severityLight"],
+      en["aviation.severityLightModerate"],
+      en["aviation.severityModerate"],
+      en["aviation.severityModerateSevere"],
+      en["aviation.severitySevere"],
+    ];
+    for (const feature of data.features) {
+      const raw = feature.properties.severity;
+      if (raw === null || raw === undefined) continue;
+      const said = severityWords(raw);
+      expect(
+        said,
+        `${String(feature.properties.kind)} severity ${raw}`,
+      ).not.toBe(null);
+      // A number is an index into that list and must land inside it. A word
+      // the service invented is shown as it wrote it, which is why only the
+      // numeric form is held to the vocabulary.
+      if (typeof raw === "number") {
+        expect(known, `severity ${raw}`).toContain(said);
+      }
+    }
+
+    // And the forecast step on the grid, which is what says an area is
+    // standing over the reader now rather than nine hours out.
+    for (const feature of grid) {
+      const ahead = feature.properties.forecastHours;
+      expect(typeof ahead, String(feature.properties.hazard)).toBe("number");
+      expect([0, 3, 6, 9, 12]).toContain(ahead);
+    }
+
     // Every altitude this draws has to be an altitude. The contract used to
     // check only that features arrived, which is why a centre advisory read
     // as flight levels and multiplied by a hundred shipped saying the top of
@@ -397,5 +455,99 @@ describe.runIf(LIVE)("against the live service", () => {
       ["cwa", "pirep"].includes(String(one.properties.kind)),
     );
     expect(charted.length).toBeGreaterThan(0);
+  });
+});
+
+describe("how bad the forecaster said it is", () => {
+  it("reads both shapes the service sends the severity in", () => {
+    // The service's own schema for this collection names the vocabulary in
+    // order: "LGT, LT-MOD, MOD (AIRMET), MOD-SEV, SEV (SIGMET)". The grid
+    // sends the word; a SIGMET sends its place in that list, starting at one.
+    expect(severityWords("MOD")).toBe(en["aviation.severityModerate"]);
+    expect(severityWords("LT-MOD")).toBe(en["aviation.severityLightModerate"]);
+    expect(severityWords(5)).toBe(en["aviation.severitySevere"]);
+    expect(severityWords(1)).toBe(en["aviation.severityLight"]);
+    // Case is the service's, not ours.
+    expect(severityWords("sev")).toBe(en["aviation.severitySevere"]);
+
+    // Nothing said is nothing shown: a turbulence area with no severity is
+    // the word "turbulence" and nothing else.
+    expect(severityWords(null)).toBeNull();
+    expect(severityWords(undefined)).toBeNull();
+    expect(severityWords("")).toBeNull();
+    // An index outside the list is not a level this app can name.
+    expect(severityWords(0)).toBeNull();
+    expect(severityWords(9)).toBeNull();
+    // A word the service invented is shown as it wrote it. The forecaster
+    // meant something by it, and dropping it says less than passing it on.
+    expect(severityWords("EXTRM")).toBe("EXTRM");
+  });
+
+  it("puts a SIGMET's severity in the popup, which it never used to", () => {
+    // The parser hardcoded null and the popup only looked at strings, so the
+    // one product whose severity is never in doubt was the one product that
+    // never showed it. Every convective SIGMET live on 2026-09-10 carried 5.
+    const said = aviationOverlay.describe!({
+      kind: "sigmet",
+      title: "SIGMET",
+      hazard: "CONVECTIVE",
+      severity: 5,
+      validFrom: Date.parse("2026-09-10T16:55:00Z"),
+      validTo: Date.parse("2026-09-10T18:55:00Z"),
+      lowFeet: null,
+      highFeet: 45000,
+      lowText: null,
+      highText: null,
+      because: null,
+      contourFeet: null,
+      raw: "CONVECTIVE SIGMET 75E",
+    });
+    expect(said!.lines.join(" ")).toContain(en["aviation.severitySevere"]);
+  });
+
+  it("says how far ahead a forecast area is", () => {
+    // A G-AIRMET is a three-hourly forecast and the popup showed only when it
+    // was issued, so an area nine hours out read exactly like one standing
+    // over the reader now. `forecastHours` was written and never read.
+    const said = aviationOverlay.describe!({
+      kind: "gairmet",
+      title: "G-AIRMET",
+      hazard: "TURB",
+      severity: "MOD",
+      because: null,
+      validFrom: Date.parse("2026-09-10T18:00:00Z"),
+      validTo: null,
+      lowFeet: 10000,
+      lowText: null,
+      highFeet: 24000,
+      highText: null,
+      contourFeet: null,
+      raw: null,
+      forecastHours: 3,
+    });
+    const lines = said!.lines.join(" ");
+    expect(lines).toContain("3");
+    expect(lines).toContain(en["aviation.severityModerate"]);
+
+    // The step that is not a forecast at all says nothing about being one.
+    const now = aviationOverlay.describe!({
+      kind: "gairmet",
+      title: "G-AIRMET",
+      hazard: "TURB",
+      severity: "MOD",
+      because: null,
+      validFrom: Date.parse("2026-09-10T18:00:00Z"),
+      validTo: null,
+      lowFeet: 10000,
+      lowText: null,
+      highFeet: 24000,
+      highText: null,
+      contourFeet: null,
+      raw: null,
+      forecastHours: 0,
+    });
+    expect(now!.lines.join(" ")).not.toContain(
+      en["aviation.forecastAhead"].slice(0, 12),
+    );
   });
 });
