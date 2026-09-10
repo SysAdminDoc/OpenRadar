@@ -178,7 +178,18 @@ export function parseFirms(text: string, satellite: string): OverlayFeature[] {
   return features;
 }
 
-function url(satellite: { folder: string; prefix: string }, area: string) {
+/**
+ * One file's address.
+ *
+ * Exported so the live contract can ask for each of the six by name. Going
+ * through `fetchData` holds them only through `partial`, which says a file
+ * went missing without saying which, and the Alaska files are empty from
+ * about September to May, so nothing else distinguishes them.
+ */
+export function url(
+  satellite: { folder: string; prefix: string },
+  area: string,
+) {
   const file = `${satellite.prefix}_${area}_24h`;
   return `https://${HOST}/data/active_fire/${satellite.folder}/csv/${file}.csv`;
 }

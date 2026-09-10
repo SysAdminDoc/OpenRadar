@@ -9,6 +9,7 @@ import {
   firmsOverlay,
   parseFirms,
   readable,
+  url,
 } from "./firms";
 
 const LIVE = process.env.OPENRADAR_LIVE === "1";
@@ -245,4 +246,35 @@ describe.runIf(LIVE)("against the live service", () => {
     );
     expect(platforms.size).toBe(FIRMS_SATELLITES.length);
   }, 120_000);
+
+  it("holds all six files by name, whether or not any of them is burning", async () => {
+    // `partial` already fails the case above when a file goes missing, but it
+    // says a file went missing without saying which, and the Alaska files are
+    // empty from about September to May: a rename there would show up only as
+    // a sentence naming a spacecraft. This asks for each of the six and holds
+    // its header, which is what says the columns still mean what they meant.
+    // Separate from whether anything was burning, so it fails in September as
+    // well as in July.
+    const wanted = FIRMS_SATELLITES.flatMap((satellite) =>
+      FIRMS_AREAS.map((area) => ({ satellite, area })),
+    );
+    expect(wanted).toHaveLength(6);
+    const unreadable: string[] = [];
+    for (const { satellite, area } of wanted) {
+      const where = `${satellite.id} over ${area}`;
+      const answer = await fetch(url(satellite, area), {
+        headers: { Accept: "text/csv" },
+      });
+      if (!answer.ok) {
+        unreadable.push(`${where}: ${answer.status}`);
+        continue;
+      }
+      const body = await answer.text();
+      if (!readable(body)) {
+        const first = body.split("\n")[0] ?? "";
+        unreadable.push(`${where}: ${first.slice(0, 80)}`);
+      }
+    }
+    expect(unreadable).toEqual([]);
+  }, 180_000);
 });
