@@ -107,6 +107,45 @@ function collection(payload: unknown): OverlayFeature[] {
 }
 
 /**
+ * What each hazard code means, in words.
+ *
+ * The services publish codes rather than words: `MT_OBSC`, `LLWS`, `SFC_WND`,
+ * `M_FZLVL`. Nobody outside aviation reads those in any language, and this
+ * layer used to put them straight on the popup, so a reader in Madrid or
+ * Montreal got `TURB-HI` and nothing else. Every other layer in this app
+ * either translates what it shows or has a written reason for leaving a
+ * service's own words alone; a code is not the office's own words, it is an
+ * abbreviation of them.
+ *
+ * Anything not in here falls back to the code itself, which is what the
+ * reader saw before and is better than an empty line: a hazard the services
+ * add tomorrow appears as its code rather than vanishing.
+ */
+const HAZARD_KEYS: Record<string, StringKey> = {
+  CONVECTIVE: "aviation.hazardConvective",
+  TS: "aviation.hazardConvective",
+  TURB: "aviation.hazardTurbulence",
+  "TURB-HI": "aviation.hazardTurbulenceHigh",
+  "TURB-LO": "aviation.hazardTurbulenceLow",
+  ICE: "aviation.hazardIcing",
+  IFR: "aviation.hazardIfr",
+  MT_OBSC: "aviation.hazardMountains",
+  LLWS: "aviation.hazardShear",
+  SFC_WND: "aviation.hazardSurfaceWind",
+  FZLVL: "aviation.hazardFreezingLevel",
+  M_FZLVL: "aviation.hazardFreezingLevels",
+};
+
+/** The hazard in the reader's own words, or the service's code. */
+export function hazardWords(code: unknown): string | null {
+  if (typeof code !== "string") return null;
+  const said = code.trim();
+  if (!said) return null;
+  const key = HAZARD_KEYS[said.toUpperCase()];
+  return key ? translate(key) : said;
+}
+
+/**
  * How bad the forecaster said it is, in the service's own vocabulary.
  *
  * The Aviation Weather Center's schema for this collection writes the whole
@@ -122,12 +161,18 @@ function collection(payload: unknown): OverlayFeature[] {
  */
 const SEVERITY_WORDS = ["lgt", "lt-mod", "mod", "mod-sev", "sev"] as const;
 
-const SEVERITY_KEYS: Record<(typeof SEVERITY_WORDS)[number], StringKey> = {
+const SEVERITY_KEYS: Record<string, StringKey> = {
   lgt: "aviation.severityLight",
   "lt-mod": "aviation.severityLightModerate",
   mod: "aviation.severityModerate",
   "mod-sev": "aviation.severityModerateSevere",
   sev: "aviation.severitySevere",
+  // A pilot report writes two of these differently and adds one the
+  // forecast products have no use for: a pilot can report meeting nothing,
+  // and a forecaster cannot forecast it.
+  "lgt-mod": "aviation.severityLightModerate",
+  "mod-svr": "aviation.severityModerateSevere",
+  neg: "aviation.severityNone",
 };
 
 /** The severity in the reader's own words, or nothing the service sent. */
@@ -262,14 +307,23 @@ function parsePireps(payload: unknown): OverlayFeature[] {
       properties: {
         kind: "pirep" satisfies AviationKind,
         title: text(from.aircraft_ref) ?? "PIREP",
-        hazard: text(from.turbulence_intensity) ?? text(from.icing_intensity),
+        // What the pilot met, and how bad it was, as two things. The
+        // intensity used to be written into `hazard`, so a report of
+        // moderate turbulence reached the popup as the word "MOD" with
+        // nothing saying what was moderate, and a report of none at all
+        // reached it as "NEG".
+        hazard: text(from.turbulence_intensity)
+          ? "TURB"
+          : text(from.icing_intensity)
+            ? "ICE"
+            : null,
         validFrom: instant(from.observation_time),
         validTo: null,
         lowFeet: null,
         highFeet: number(from.altitude_ft_msl),
         lowText: null,
         highText: null,
-        severity: null,
+        severity: text(from.turbulence_intensity) ?? text(from.icing_intensity),
         because: null,
         contourFeet: null,
         raw: text(from.raw_text),
@@ -415,8 +469,8 @@ export const aviationOverlay: OverlayAdapter = {
   ],
   describe: (properties) => {
     const lines: string[] = [];
-    const hazard = properties.hazard;
-    if (typeof hazard === "string") lines.push(hazard);
+    const hazard = hazardWords(properties.hazard);
+    if (hazard) lines.push(hazard);
 
     const from = properties.validFrom;
     const to = properties.validTo;

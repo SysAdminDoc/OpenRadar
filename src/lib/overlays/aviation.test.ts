@@ -4,6 +4,7 @@ import {
   AVIATION_REFRESH_MS,
   PIREP_LIMIT,
   aviationOverlay,
+  hazardWords,
   severityWords,
 } from "./aviation";
 import { en } from "../../i18n/en";
@@ -126,6 +127,20 @@ const PIREP = {
         raw_text: "ARP TWY63 5355N02112W 0705 F370 DOGAL MS49 255/136 KT",
       },
     },
+    {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [-93.6, 41.6] },
+      properties: {
+        observation_time: 1789023900000,
+        altitude_ft_msl: 12000,
+        aircraft_ref: "B738",
+        // What the pilot actually met. The service writes the intensity in
+        // its own field and this used to be read as the hazard itself.
+        turbulence_intensity: "MOD",
+        icing_intensity: null,
+        raw_text: "UA /OV DSM /TM 0705 /FL120 /TP B738 /TB MOD",
+      },
+    },
   ],
 };
 
@@ -196,9 +211,16 @@ describe("what the air is doing to aircraft", () => {
       );
       expect(data.partial).toBeUndefined();
       const kinds = data.features.map((one) => one.properties.kind);
-      expect(kinds).toEqual(["sigmet", "gairmet", "gairmet", "cwa", "pirep"]);
+      expect(kinds).toEqual([
+        "sigmet",
+        "gairmet",
+        "gairmet",
+        "cwa",
+        "pirep",
+        "pirep",
+      ]);
 
-      const [sigmet, gairmet, turbulence, cwa, pirep] = data.features;
+      const [sigmet, gairmet, turbulence, cwa, pirep, flown] = data.features;
       expect(sigmet.properties.hazard).toBe("CONVECTIVE");
       expect(sigmet.properties.validFrom).toBe(
         Date.parse("2026-09-10T06:55:00.000Z"),
@@ -247,6 +269,22 @@ describe("what the air is doing to aircraft", () => {
         Date.parse("2026-09-10T01:50:00.000Z"),
       );
 
+      // What the pilot met, and how bad it was, as two things. The intensity
+      // used to be written into `hazard`, so a report of moderate turbulence
+      // reached the popup as "MOD" with nothing saying what was moderate,
+      // and a report of none at all reached it as "NEG". The live contract
+      // found it: those are not hazard codes and never had a phrase.
+      expect(flown.properties.hazard).toBe("TURB");
+      expect(flown.properties.severity).toBe("MOD");
+      const reported = aviationOverlay.describe!(flown.properties)!.lines.join(
+        " ",
+      );
+      expect(reported).toContain(en["aviation.hazardTurbulence"]);
+      expect(reported).toContain(en["aviation.severityModerate"]);
+      // And a report where the pilot met nothing carries neither.
+      expect(pirep.properties.hazard).toBeNull();
+      expect(pirep.properties.severity).toBeNull();
+
       // The two the item names for a pilot report.
       expect(pirep.properties.highFeet).toBe(39000);
       expect(pirep.properties.raw).toContain("F370");
@@ -278,7 +316,8 @@ describe("what the air is doing to aircraft", () => {
       // which on this layer is the difference between nothing there and
       // nobody answering.
       expect(data.partial).toContain("G-AIRMET");
-      expect(data.features).toHaveLength(3);
+      // The SIGMET, the centre advisory and the two pilot reports.
+      expect(data.features).toHaveLength(4);
       expect(
         data.features.every((one) => one.properties.kind !== "gairmet"),
       ).toBe(true);
@@ -411,6 +450,20 @@ describe.runIf(LIVE)("against the live service", () => {
       }
     }
 
+    // Every hazard code the services publish today has a phrase. Read off
+    // the live answer rather than a list written here: a code added upstream
+    // fails this rather than reaching a reader in Madrid as `MT_OBSC`.
+    const codes = [
+      ...new Set(
+        data.features
+          .map((one) => one.properties.hazard)
+          .filter((one): one is string => typeof one === "string"),
+      ),
+    ];
+    expect(codes.length).toBeGreaterThan(0);
+    const untranslated = codes.filter((code) => hazardWords(code) === code);
+    expect(untranslated, "hazard codes with no phrase").toEqual([]);
+
     // And the forecast step on the grid, which is what says an area is
     // standing over the reader now rather than nine hours out.
     for (const feature of grid) {
@@ -455,6 +508,61 @@ describe.runIf(LIVE)("against the live service", () => {
       ["cwa", "pirep"].includes(String(one.properties.kind)),
     );
     expect(charted.length).toBeGreaterThan(0);
+  });
+});
+
+describe("what the hazard actually is", () => {
+  it("says it in words rather than in the service's abbreviations", () => {
+    // Nobody outside aviation reads `MT_OBSC` in any language, and this layer
+    // used to put the code straight on the popup: a reader in Madrid or
+    // Montreal got `TURB-HI` and nothing else.
+    expect(hazardWords("MT_OBSC")).toBe(en["aviation.hazardMountains"]);
+    expect(hazardWords("TURB-HI")).toBe(en["aviation.hazardTurbulenceHigh"]);
+    expect(hazardWords("M_FZLVL")).toBe(en["aviation.hazardFreezingLevels"]);
+    expect(hazardWords("LLWS")).toBe(en["aviation.hazardShear"]);
+    // The two services spell the same hazard differently, and a reader does
+    // not care which endpoint it came from.
+    expect(hazardWords("CONVECTIVE")).toBe(en["aviation.hazardConvective"]);
+    expect(hazardWords("TS")).toBe(en["aviation.hazardConvective"]);
+
+    // A code nobody has a phrase for falls back to the code, which is what
+    // the reader saw before and is better than an empty line.
+    expect(hazardWords("VOLCANIC_ASH")).toBe("VOLCANIC_ASH");
+    expect(hazardWords(null)).toBeNull();
+    expect(hazardWords("  ")).toBeNull();
+  });
+
+  it("says a pilot met nothing rather than showing them the code for it", () => {
+    // `NEG` is a pilot reporting no turbulence where somebody expected some,
+    // which is worth knowing and is not a hazard code.
+    expect(severityWords("NEG")).toBe(en["aviation.severityNone"]);
+    // And the two spellings a pilot report uses for the levels the forecast
+    // products write differently.
+    expect(severityWords("LGT-MOD")).toBe(en["aviation.severityLightModerate"]);
+    expect(severityWords("MOD-SVR")).toBe(
+      en["aviation.severityModerateSevere"],
+    );
+  });
+
+  it("puts the words on the popup rather than the code", () => {
+    const said = aviationOverlay.describe!({
+      kind: "gairmet",
+      title: "G-AIRMET",
+      hazard: "MT_OBSC",
+      severity: null,
+      because: null,
+      validFrom: Date.parse("2026-09-10T18:00:00Z"),
+      validTo: null,
+      lowFeet: null,
+      highFeet: null,
+      lowText: null,
+      highText: null,
+      contourFeet: null,
+      raw: null,
+    });
+    const lines = said!.lines.join(" ");
+    expect(lines).toContain(en["aviation.hazardMountains"]);
+    expect(lines).not.toContain("MT_OBSC");
   });
 });
 

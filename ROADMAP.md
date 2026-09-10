@@ -68,13 +68,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
   Acceptance: A ray with two wraps in it comes back continuous in a planted fixture; the reading at a gate half a window from a censored block is within a stated tolerance of the reading at the same gate with the block absent, measured rather than asserted; the over-correction band is derived from the window rather than from the despeckle length. Each change is measured against stored volumes before and after, and a change that does not improve the measurement is not made.
   Complexity: M
 
-- [ ] AUD-476 (P3): Aviation hazard codes reach a Spanish or French reader in English
-  Why: `src/lib/overlays/aviation.ts` passes the service's own hazard codes straight to the popup: `TURB-HI`, `TURB-LO`, `MT_OBSC`, `LLWS`, `SFC_WND`, `FZLVL`, `CONVECTIVE`. Every other layer in the app either translates what it shows or has a written reason for leaving a service's own words alone, and these are codes rather than words: nobody outside aviation reads `MT_OBSC` in any language.
-  Evidence: the live `gairmet` feed on 2026-09-10 carried all seven; the popup renders `properties.hazard` unchanged.
-  Touches: `src/lib/overlays/aviation.ts`, `src/i18n/*`.
-  Acceptance: Every hazard code the two services publish has a phrase in all three catalogues, a code with no phrase falls back to the code itself rather than to nothing, and a test reads the codes off a live answer rather than from a list written by hand.
-  Complexity: S
-
 - [ ] AUD-474 (P3): The live refold gate is red on current weather
   Why: `unfolding_a_live_velocity_sweep_takes_the_folds_out` asserts that at least a fifth of the folded gates come back on their own branch across six stations together. The floor was set against seven recorded days reading 0.291 to 0.462, "with room to spare". On 2026-09-10 the same gate on a clean tree read 0.182, and three runs through the day read 0.213, 0.211 and 0.168. It is an `#[ignore]`d live test so it does not affect `npm run check` or `cargo test --lib`, but it is the gate `AUD-192`'s acceptance is written against and that item cannot be closed while it is red for reasons that have nothing to do with it.
   Evidence: on `bb3e2e2` with nothing modified, "over 6 stations: broken pairs 367485 -> 102287, 118528 of 650716 folded gates back on their own branch". The broken-pair clause still passes comfortably at 0.278 against its 0.85 ceiling; it is only the rejoined share that fails.
