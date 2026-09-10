@@ -332,6 +332,7 @@ pub fn run() {
             probsevere::probsevere_reading,
             radar_status::radar_status,
             mrms::mrms_frames,
+            mrms::mrms_peak_near,
             mrms::mrms_products,
             lightning::lightning_flashes,
             palette::set_palettes,

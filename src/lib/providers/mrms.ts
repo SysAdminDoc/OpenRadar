@@ -291,6 +291,40 @@ export async function mrmsFrames(
   return invoke<MrmsFrame[]>("mrms_frames", { product, limit, domain, level });
 }
 
+/** The strongest reading a grid holds near a place, for a rule set on one. */
+export interface MrmsPeak {
+  /** The reading, in the product's own unit. */
+  value: number;
+  /** When the grid it came from was published, in seconds. */
+  time: number;
+  /** How far that reading was from the place, in miles. */
+  miles: number;
+}
+
+/**
+ * The strongest reading the newest grid of a product holds near a place.
+ *
+ * Null where the place is off the grid or the network covered none of the
+ * circle, which is not the same as a reading of nothing and is the difference
+ * a rule set on it has to keep.
+ */
+export async function mrmsPeakNear(
+  product: MrmsProductId,
+  latitude: number,
+  longitude: number,
+  radiusMiles: number,
+  level?: CubeLevel,
+): Promise<MrmsPeak | null> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<MrmsPeak | null>("mrms_peak_near", {
+    product,
+    level,
+    latitude,
+    longitude,
+    radiusMiles,
+  });
+}
+
 /** The grids are decoded here, so a browser preview has none of this. */
 export function mrmsAvailable(): boolean {
   return isDesktopRuntime();

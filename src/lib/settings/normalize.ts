@@ -17,6 +17,14 @@ import { normalizePalettes } from "../palette";
 import { normalizePaletteAssignments } from "../palette";
 import { isLanguage } from "../../i18n";
 import { isSurgeCategory } from "../surge";
+import {
+  DEFAULT_HAIL_RULE,
+  DEFAULT_ROTATION_RULE,
+  GRID_RADII,
+  HAIL_SIZES,
+  ROTATION_LEVELS,
+  type GridRule,
+} from "../gridWatch";
 import { isSnowfallWindow } from "../snowfall";
 import { MAX_LOOP_VOLUMES, MIN_LOOP_VOLUMES } from "../siteLoop";
 import { isSatelliteBand, type SatelliteBandId } from "../satelliteBands";
@@ -62,6 +70,40 @@ import {
   normalizeStormMotion,
   normalizeThresholds,
 } from "./sections";
+
+/**
+ * A rule set on a grid, held to the choices the panel actually offers.
+ *
+ * The two rules have the same shape and different thresholds, so the ends of
+ * the offered list are passed in rather than named here: a hail size and a
+ * shear reading are not comparable numbers and a shared clamp would let one
+ * of them through at the other's ceiling.
+ */
+function gridRule(
+  value: unknown,
+  fallback: GridRule,
+  thresholds: readonly number[],
+): GridRule {
+  const raw = (value ?? {}) as Partial<GridRule>;
+  return {
+    enabled: bool(raw.enabled, fallback.enabled),
+    radiusMiles: Math.round(
+      finiteInRange(
+        raw.radiusMiles,
+        fallback.radiusMiles,
+        GRID_RADII[0],
+        GRID_RADII[GRID_RADII.length - 1],
+      ),
+    ),
+    threshold: finiteInRange(
+      raw.threshold,
+      fallback.threshold,
+      thresholds[0],
+      thresholds[thresholds.length - 1],
+    ),
+    sound: bool(raw.sound, fallback.sound),
+  };
+}
 
 export function normalizeSettings(value: unknown): AppSettings {
   const raw =
@@ -343,6 +385,12 @@ export function normalizeSettings(value: unknown): AppSettings {
         DEFAULT_LIGHTNING_RULE.sound,
       ),
     },
+    hailWatch: gridRule(raw.hailWatch, DEFAULT_HAIL_RULE, HAIL_SIZES),
+    rotationWatch: gridRule(
+      raw.rotationWatch,
+      DEFAULT_ROTATION_RULE,
+      ROTATION_LEVELS,
+    ),
     spcDay: Math.round(
       finiteInRange(raw.spcDay, DEFAULT_SETTINGS.spcDay, 1, 8),
     ),

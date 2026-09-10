@@ -1650,6 +1650,46 @@ export const fr: Catalogue = {
     "Désactivé, parce qu'une alerte en fait déjà un et ceci n'en est pas une",
   "lightningWatch.note":
     "Éclairs détectés par satellite, pas des relevés d'impacts au sol.",
+  "gridWatch.hailTitle": "Grêle estimée près de {place}",
+  "gridWatch.hailTitleHome": "Grêle estimée près de vous",
+  "gridWatch.hailBody":
+    "Le réseau estime {reading} à moins de {miles} {unit}. Une estimation à partir de l'énergie de l'orage, pas un signalement de grêle au sol.",
+  "gridWatch.hailQuietTitle":
+    "{place} est sous la taille depuis une demi-heure",
+  "gridWatch.hailQuietTitleHome": "Sous la taille depuis une demi-heure",
+  "gridWatch.hailQuietBody":
+    "Rien de cette taille estimé dans le rayon depuis trente minutes.",
+  "gridWatch.rotationTitle": "Rotation près de {place}",
+  "gridWatch.rotationTitleHome": "Rotation près de vous",
+  "gridWatch.rotationBody":
+    "Le réseau combine un cisaillement de {reading} à moins de {miles} {unit}. Du cisaillement mesuré par les radars, pas une tornade ni un signalement.",
+  "gridWatch.rotationQuietTitle": "{place} est calme depuis une demi-heure",
+  "gridWatch.rotationQuietTitleHome": "Calme depuis une demi-heure",
+  "gridWatch.rotationQuietBody":
+    "Aucun cisaillement aussi fort dans le rayon depuis trente minutes.",
+  "gridWatch.shear":
+    "{shear, plural, one {# millième par seconde} other {# millièmes par seconde}}",
+  "gridWatch.hailSetting": "Préviens-moi de la grêle près d'un lieu surveillé",
+  "gridWatch.hailSettingDetail":
+    "Surveille la taille que le réseau estime dans un rayon que vous fixez, et prévient quand elle atteint votre taille et quand elle est en dessous depuis une demi-heure",
+  "gridWatch.rotationSetting":
+    "Préviens-moi de la rotation près d'un lieu surveillé",
+  "gridWatch.rotationSettingDetail":
+    "La même chose, sur le cisaillement que le réseau combine dans les deux kilomètres les plus bas de l'orage",
+  "gridWatch.needsPlace":
+    "A besoin d'un lieu à surveiller, puisque c'est autour de lui que va le rayon.",
+  "gridWatch.desktopOnly":
+    "Les grilles sont décodées par l'application de bureau, c'est donc une des choses qu'un navigateur ne peut pas faire.",
+  "gridWatch.radius": "À quelle distance de chaque lieu",
+  "gridWatch.hailSize": "La taille qui mérite un mot",
+  "gridWatch.rotationLevel": "Le cisaillement qui mérite un mot",
+  "gridWatch.sound": "Faire un son pour cela",
+  "gridWatch.soundDetail":
+    "Désactivé, parce qu'une alerte en fait déjà un et ceci n'est pas une alerte",
+  "gridWatch.hailNote":
+    "Une estimation du radar, pas un signalement de grêle que quelqu'un a vue. Elle monte par temps chaud et baisse par temps froid.",
+  "gridWatch.rotationNote":
+    "Du cisaillement combiné à partir des radars qui voyaient l'orage. Ce n'est pas une tornade, et c'est toujours l'alerte qu'il faut suivre.",
   "lightningWatch.chipSince": "Dernier éclair il y a {since}",
   "lightningWatch.chipClear": "Calme depuis {since}",
   "lightningWatch.chipNearest":

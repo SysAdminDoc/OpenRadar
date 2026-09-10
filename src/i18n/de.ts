@@ -1665,6 +1665,47 @@ export const de: Catalogue = {
     "Aus, weil eine Warnung schon einen macht und dies keine Warnung ist",
   "lightningWatch.note":
     "Vom Satelliten erkannte Blitze, keine Meldungen von Einschlägen am Boden.",
+  "gridWatch.hailTitle": "Hagel geschätzt nahe {place}",
+  "gridWatch.hailTitleHome": "Hagel geschätzt in Ihrer Nähe",
+  "gridWatch.hailBody":
+    "Das Netz schätzt {reading} innerhalb von {miles} {unit}. Eine Schätzung aus der Energie des Sturms, keine Meldung von Hagel am Boden.",
+  "gridWatch.hailQuietTitle":
+    "{place} liegt seit einer halben Stunde unter der Größe",
+  "gridWatch.hailQuietTitleHome": "Seit einer halben Stunde unter der Größe",
+  "gridWatch.hailQuietBody":
+    "Seit dreißig Minuten nichts dieser Größe im Radius geschätzt.",
+  "gridWatch.rotationTitle": "Rotation nahe {place}",
+  "gridWatch.rotationTitleHome": "Rotation in Ihrer Nähe",
+  "gridWatch.rotationBody":
+    "Das Netz führt eine Scherung von {reading} innerhalb von {miles} {unit} zusammen. Von den Radaren gemessene Scherung, kein Tornado und keine Meldung von einem.",
+  "gridWatch.rotationQuietTitle": "{place} ist seit einer halben Stunde ruhig",
+  "gridWatch.rotationQuietTitleHome": "Seit einer halben Stunde ruhig",
+  "gridWatch.rotationQuietBody":
+    "Seit dreißig Minuten keine so starke Scherung im Radius.",
+  "gridWatch.shear":
+    "{shear, plural, one {# Tausendstel je Sekunde} other {# Tausendstel je Sekunde}}",
+  "gridWatch.hailSetting":
+    "Sag mir etwas über Hagel nahe einem beobachteten Ort",
+  "gridWatch.hailSettingDetail":
+    "Beobachtet die Größe, die das Netz in einem von Ihnen gesetzten Radius schätzt, und sagt Bescheid, wenn sie Ihre Größe zum ersten Mal erreicht und wenn sie eine halbe Stunde darunter liegt",
+  "gridWatch.rotationSetting":
+    "Sag mir etwas über Rotation nahe einem beobachteten Ort",
+  "gridWatch.rotationSettingDetail":
+    "Dasselbe, für die Scherung, die das Netz in den untersten zwei Kilometern des Sturms zusammenführt",
+  "gridWatch.needsPlace":
+    "Braucht einen Ort zum Beobachten, denn darum liegt der Radius.",
+  "gridWatch.desktopOnly":
+    "Die Gitter dekodiert die Desktop-App, das ist also eines der Dinge, die ein Browser nicht kann.",
+  "gridWatch.radius": "Wie weit um jeden Ort",
+  "gridWatch.hailSize": "Die Größe, die der Rede wert ist",
+  "gridWatch.rotationLevel": "Die Scherung, die der Rede wert ist",
+  "gridWatch.sound": "Dafür einen Ton abspielen",
+  "gridWatch.soundDetail":
+    "Aus, weil eine Warnung schon einen macht und dies keine Warnung ist",
+  "gridWatch.hailNote":
+    "Eine Schätzung des Radars, keine Meldung von Hagel, den jemand gesehen hat. Sie fällt an einem warmen Tag höher aus und an einem kalten niedriger.",
+  "gridWatch.rotationNote":
+    "Scherung, aus den Radaren zusammengeführt, die den Sturm sehen konnten. Es ist kein Tornado, und zu befolgen ist weiterhin die Warnung.",
   "lightningWatch.chipSince": "Letzter Blitz vor {since}",
   "lightningWatch.chipClear": "Ruhig seit {since}",
   "lightningWatch.chipNearest": "Der nächste lag {distance} nach {direction}",

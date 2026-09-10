@@ -379,9 +379,9 @@ describe("what may import what", () => {
     // `runtime.ts` opens by saying why it is a file of its own, and the reason
     // is a count: enough modules ask this that leaving it in the settings file
     // put an edge back into the module the whole tree sits on. The count said
-    // "forty-odd" and the tree held thirty-three, then thirty-four once the
-    // snowfall layer asked it too. A number in a comment is only worth
-    // writing down if something recounts it, so this does.
+    // "forty-odd" and the tree held thirty-three, then thirty-five as the
+    // snowfall layer and the grid rules asked it too. A number in a comment
+    // is only worth writing down if something recounts it, so this does.
     const graphed = graph();
     const asks = [...graphed]
       .filter(
@@ -390,9 +390,9 @@ describe("what may import what", () => {
           to.some((one) => named(one) === "lib/runtime.ts"),
       )
       .map(([from]) => named(from));
-    expect(asks.length).toBe(34);
+    expect(asks.length).toBe(35);
     expect(readFileSync(join(ROOT, "lib/runtime.ts"), "utf8")).toContain(
-      "thirty-four modules ask this question",
+      "thirty-five modules ask this question",
     );
   });
 

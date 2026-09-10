@@ -15,6 +15,7 @@ import type { Palette } from "../palette";
 import type { LanguageId } from "../../i18n";
 import type { SurgeCategory } from "../surge";
 import type { SnowfallWindow } from "../snowfall";
+import type { GridRule } from "../gridWatch";
 import type { SatelliteBandId } from "../satelliteBands";
 import type { GaugeQpePeriod } from "../gaugeQpe";
 import type { ApproachSettings } from "../approach";
@@ -486,6 +487,17 @@ export interface AppSettings {
    * is off until asked for and says what it is.
    */
   lightningWatch: LightningRule;
+  /**
+   * When to say that the network is estimating hail near a watched place.
+   *
+   * The same shape as the lightning notice and for the same reason: a grid
+   * of estimated hail sizes is arithmetic on the energy in a column, not a
+   * forecaster judging a hazard, so it is off until asked for and says what
+   * it is.
+   */
+  hailWatch: GridRule;
+  /** The same, for the rotation the network merges from the radars. */
+  rotationWatch: GridRule;
   /** Which window the gauge-corrected accumulation covers. */
   gaugeQpePeriod: GaugeQpePeriod;
   /** Which window the rotation track covers. */
