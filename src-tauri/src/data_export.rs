@@ -405,7 +405,13 @@ fn polar_csv_capped(
         values.product, values.product_id
     ));
     header(format!("unit: {}", values.unit));
-    header(format!("elevation_degrees: {elevation:.2}"));
+    // A column has no elevation, and a reader parsing this would take the zero
+    // the grid is built on for the half-degree cut rather than for no cut.
+    if level2::whole_volume(&values.product_id) {
+        header("elevation_degrees: none; this is the whole volume".to_string());
+    } else {
+        header(format!("elevation_degrees: {elevation:.2}"));
+    }
     header(format!(
         "collected: {}",
         values
@@ -665,7 +671,14 @@ fn polar_provenance(
             "antennaHeightMeters": RadarCoordinateSystem::new(&values.site)
                 .antenna_height_meters(),
             "siteGroundHeightMeters": values.site.height_meters(),
-            "elevationDegrees": field.elevation_degrees(),
+            // Null rather than zero on a column, which has no elevation: a
+            // reader taking the zero for the half-degree cut would place every
+            // gate at a height the volume never measured it at.
+            "elevationDegrees": if level2::whole_volume(&values.product_id) {
+                serde_json::Value::Null
+            } else {
+                serde_json::json!(field.elevation_degrees())
+            },
             "azimuthCount": field.azimuth_count(),
             "gateCount": field.gate_count(),
             "firstGateRangeKm": field.first_gate_range_km(),

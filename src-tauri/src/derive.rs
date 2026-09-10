@@ -14,7 +14,7 @@
 
 use nexrad_model::data::{GateStatus, Product, Scan, SweepField};
 
-use crate::cross_section::beam_height_km;
+use crate::cross_section::{beam_height_km, EFFECTIVE_EARTH_RADIUS_KM as EARTH_KM};
 use crate::gates::reading_at;
 use crate::level2::{sweep_field_at, tilts, MAX_RANGE_KM};
 
@@ -103,8 +103,9 @@ pub fn named(kind: Kind) -> (&'static str, &'static str) {
 /// One line saying how the numbers were arrived at, for the export header.
 pub fn derivation(kind: Kind, isotherms: &Isotherms<'_>) -> String {
     let column = format!(
-        "the column over each point of ground, sampled from every cut of the volume on \
-         {BIN_KM:.0} km bins by the 4/3 effective earth radius beam model"
+        "the column over each point of ground on {BIN_KM:.0} km bins, sampled from every \
+         cut of the volume whose beam reaches that far, by the 4/3 effective earth \
+         radius beam model"
     );
     match kind {
         Kind::Composite => format!("the strongest reading in {column}"),
@@ -131,10 +132,9 @@ pub fn derivation(kind: Kind, isotherms: &Isotherms<'_>) -> String {
     }
 }
 
-/// A derived grid and, on hail size, the gates carrying a three-body signature.
+/// A derived grid.
 pub struct Derived {
     pub field: SweepField,
-    pub flagged: Option<SweepField>,
 }
 
 /// One reading of the column, at the height the beam that made it passed.
@@ -184,16 +184,12 @@ pub fn derive(
     );
 
     let mut column: Vec<Sample> = Vec::with_capacity(cuts.len());
-    let mut cores: Vec<(usize, usize)> = Vec::new();
     for (at, angle) in azimuths.iter().enumerate() {
         for bin in 0..bins {
             let ground_km = FIRST_BIN_KM + bin as f64 * BIN_KM;
             read_column(&cuts, *angle, ground_km, antenna_km, &mut column);
             if column.is_empty() {
                 continue;
-            }
-            if kind == Kind::HailSize && column.iter().any(|one| one.dbz >= TBSS_CORE_DBZ) {
-                cores.push((at, bin));
             }
             let Some(value) = answer(kind, &column, isotherms) else {
                 continue;
@@ -202,11 +198,7 @@ pub fn derive(
         }
     }
 
-    let flagged = (kind == Kind::HailSize).then(|| spike(&cuts, &azimuths, &cores, bins, &field));
-    Some(Derived {
-        field,
-        flagged: flagged.flatten(),
-    })
+    Some(Derived { field })
 }
 
 /// Every cut's reading over one point of ground, lowest beam first.
@@ -224,11 +216,9 @@ fn read_column(
 ) {
     into.clear();
     for (elevation, cut) in cuts {
-        let cosine = (*elevation as f64).to_radians().cos();
-        if cosine <= 0.0 {
+        let Some(slant_km) = slant_for(ground_km, *elevation) else {
             continue;
-        }
-        let slant_km = ground_km / cosine;
+        };
         let Some((dbz, GateStatus::Valid)) = reading_at(cut, azimuth, slant_km) else {
             continue;
         };
@@ -238,6 +228,37 @@ fn read_column(
         });
     }
     into.sort_by(|left, right| left.height_km.total_cmp(&right.height_km));
+}
+
+/// How far along the beam a point of ground is, under the model the rest of
+/// this crate measures beam heights with.
+///
+/// Dividing the ground range by the cosine is the flat-earth answer, and it is
+/// wrong by more than the half gate `gates` exists to remove: at the top tilt
+/// of a volume pattern it comes out about 360 metres short at ninety
+/// kilometres, which is a gate and a half. The beam climbs, so the ground it
+/// has covered is less than its own shadow, and the correction is the earth
+/// the height is measured against. Two passes, because the height that sets
+/// the correction is the height at the range being solved for and one pass
+/// already lands well inside a metre.
+fn slant_for(ground_km: f64, elevation: f32) -> Option<f64> {
+    let angle = (elevation as f64).to_radians();
+    let cosine = angle.cos();
+    if cosine <= 0.0 {
+        return None;
+    }
+    let mut slant = ground_km / cosine;
+    for _ in 0..2 {
+        let height = beam_height_km(slant, elevation);
+        // The ground distance this slant range actually covers, then the
+        // slant range that would have covered the one asked for.
+        let covered = EARTH_KM * (slant * cosine / (EARTH_KM + height)).asin();
+        if covered <= 0.0 {
+            return None;
+        }
+        slant *= ground_km / covered;
+    }
+    Some(slant)
 }
 
 fn answer(kind: Kind, column: &[Sample], isotherms: &Isotherms<'_>) -> Option<f32> {
@@ -361,74 +382,6 @@ fn temperature_weight(height_km: f64, isotherms: &Isotherms<'_>) -> f64 {
 /// the range, where a squared fit puts hail larger than any that has fallen.
 fn mesh_mm(index: f64) -> f64 {
     15.096 * index.powf(0.206)
-}
-
-/// A three-body scatter spike is echo this weak sitting behind a core this
-/// strong, and nothing else in weather looks like it.
-const TBSS_CORE_DBZ: f32 = 60.0;
-const TBSS_SPIKE_CEILING_DBZ: f32 = 20.0;
-const TBSS_NEAR_KM: f64 = 10.0;
-const TBSS_FAR_KM: f64 = 30.0;
-/// Ground clutter and light rain are also weak, so the spike only counts where
-/// the beam is well above the ground and the ordinary echo has stopped.
-const TBSS_ALOFT_KM: f64 = 3.0;
-
-/// The gates carrying a three-body scatter spike.
-///
-/// Hail scatters the beam sideways, into the ground and back, so a strong core
-/// paints a weak flare on the radar's own radial behind it. It is the one
-/// signature that says large hail is falling now rather than that the column
-/// could make it, which is why it is drawn beside the size rather than folded
-/// into it.
-fn spike(
-    cuts: &[(f32, SweepField)],
-    azimuths: &[f32],
-    cores: &[(usize, usize)],
-    bins: usize,
-    like: &SweepField,
-) -> Option<SweepField> {
-    if cores.is_empty() {
-        return None;
-    }
-    let mut flagged = like.new_like("Three-body scatter spike", "");
-    let mut any = false;
-    let near = (TBSS_NEAR_KM / BIN_KM).round() as usize;
-    let far = (TBSS_FAR_KM / BIN_KM).round() as usize;
-    for &(at, core) in cores {
-        let Some(azimuth) = azimuths.get(at).copied() else {
-            continue;
-        };
-        for bin in core + near..=(core + far).min(bins.saturating_sub(1)) {
-            let ground_km = FIRST_BIN_KM + bin as f64 * BIN_KM;
-            // Behind the core, on the same radial, weak, and high enough that
-            // it is not the ground.
-            let mut aloft = false;
-            let mut strongest = f32::NEG_INFINITY;
-            for (elevation, cut) in cuts {
-                let cosine = (*elevation as f64).to_radians().cos();
-                if cosine <= 0.0 {
-                    continue;
-                }
-                let slant_km = ground_km / cosine;
-                let Some((dbz, GateStatus::Valid)) = reading_at(cut, azimuth, slant_km) else {
-                    continue;
-                };
-                strongest = strongest.max(dbz);
-                if beam_height_km(slant_km, *elevation) >= TBSS_ALOFT_KM {
-                    aloft = true;
-                }
-            }
-            if !aloft || strongest == f32::NEG_INFINITY {
-                continue;
-            }
-            if strongest > TBSS_SPIKE_CEILING_DBZ {
-                continue;
-            }
-            flagged.set(at, bin, 1.0, GateStatus::Valid);
-            any = true;
-        }
-    }
-    any.then_some(flagged)
 }
 
 #[cfg(test)]

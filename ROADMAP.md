@@ -11,6 +11,14 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
+- [ ] AUD-473 (P3): The three-body scatter spike, done against real volumes
+  Why: `AUD-190`'s note asked for the Lemon 1998 signature as a cheap flag beside the hail size. A first attempt shipped in `1cee4e4` and was taken out again the same session because a refutation pass found it fires on ordinary weak echo: the only conditions were a 60 dBZ core somewhere on the radial, a bin 10 to 30 km behind it reading at or below 20 dBZ, and some cut's beam above 3 km. An isolated supercell with clear-air or biological return behind it flags twenty-one consecutive bins on every radial through the core, under a legend that says large hail is falling now.
+  Evidence: the removed `spike` in `src-tauri/src/derive.rs` at `1cee4e4`. What it was missing: the flare starts at the back edge of the core rather than ten kilometres behind it, so the stand-off skipped the real signature and caught the air past it; there was no contiguity requirement, so any weak bin in the window counted; and "aloft" only asked that some cut's beam was high there rather than that the echo is present aloft and absent below, which is what separates a flare from ground return. It also had no positive control: no test in the suite ever made the flag fire.
+  Touches: `src-tauri/src/derive.rs`, `derive_tests.rs`, the hail size legend, and a stored volume with a known spike in it.
+  Acceptance: A flare is flagged on a stored volume that has one, and no gate is flagged on a stored volume with a 60 dBZ core and clear-air return behind it; the test that proves the first is a positive control that fails when the flag is disabled; the mark is labelled a signature rather than a confirmation.
+  Complexity: M
+
+
 - [ ] AUD-472 (P3): The layers panel is above the ceiling AUD-272 set for a panel
   Why: `AUD-272` split the two hottest files and set 1,500 lines as what a file of this kind may be. Its own 2026-09-05 note recorded `src/panels/LayersPanel.tsx` at 1,440 after the September panel split. It is 1,715 now, so the rule that item established is being broken by the file the item was partly about, and the next switch group added makes it worse.
   Evidence: `wc -l src/panels/LayersPanel.tsx` reads 1,715 on 2026-09-09; the `AUD-272` close named only `src/App.tsx` and a `MapOptionsPanels.tsx` that no longer exists, so the panel half went unmeasured.
@@ -69,13 +77,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P3
   Note 2026-09-04: Retention evidence: a Bluesky reader stays on RadarScope for being "the lightest running" (2026-08-26); Anvil's memory sampler (`0f5972d`) shows a 26-frame replay retaining 2,178 MB, which is the comparison the README number would sit against.
-- [ ] AUD-191 (P3): Specific differential phase from the volume's differential phase
-  Why: KDP is the dual-pol field that locates heavy rain and the KDP foot, it exists only as a Level III product, and the raw differential phase is already in the decoded volume.
-  Evidence: `src-tauri/src/level2/ramp.rs` `product_from_name` has no KDP; Vulpiani et al. 2012 iterative finite-difference method (Py-ART `kdp_vulpiani`, wradlib `kdp_from_phidp`) with unfolding and a correlation-coefficient censor at 0.9.
-  Touches: `src-tauri/src/level2/sweep.rs` (or `derive.rs`), the product table in `src-tauri/src/level2/ramp.rs`, ramp, legend, catalogues, `data_export.rs` (`derivation` names the method and window).
-  Acceptance: A KDP product draws in degrees per kilometre from the volume's PHI with the method in the legend; gates with correlation below 0.9 are censored; a synthetic ramp in PHI produces the expected constant KDP in a test.
-  Complexity: M
-
 - [ ] AUD-192 (P3): Continuity across tilts in the dealiaser
       Note 2026-09-07: WSR-88D Build 24.0 carried 2DVDA fixes for dealiasing failures under high vertical shear (ROC software engineering page; Likely). Read them before choosing the interval rule.
       Note 2026-09-07 (evening): R2D2 works top down, highest elevation first (larger Nyquist, cleaner velocities), each settled sweep guiding the one below, matched by azimuth and ground range `r cos(elev)`; UNRAVEL's `unfolding_3D` (`unravel/continuity.py`, lines 1037-1110) is a readable implementation of that mapping with a four-branch cascade at `alpha Vnyq` that leaves a gate alone rather than forcing it; 4DD seeds only where the sweep above and the previous volume agree within 0.25 Vn; Py-ART's own header lists 3D region finding as unimplemented, so there is nothing to copy there.

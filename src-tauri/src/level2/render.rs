@@ -261,7 +261,7 @@ pub(crate) fn gate_color(
             // storm is turning is not how much it is turning. The column
             // products run low to high like everything else and compare as
             // they are.
-            let signed = matches!(derived, Some(Worked::Turning(_)));
+            let signed = matches!(derived, Some(Worked::Turning(_) | Worked::Phase));
             let measured = if signed || matches!(product, Product::Velocity) {
                 value.abs()
             } else {
@@ -281,6 +281,11 @@ pub(crate) fn gate_color(
                     (shear::Kind::AzimuthalShear, true) => HIGH_CONTRAST_SITE_SHEAR_RAMP,
                     (shear::Kind::Rotation, false) => SITE_ROTATION_RAMP,
                     (shear::Kind::Rotation, true) => HIGH_CONTRAST_SITE_ROTATION_RAMP,
+                }),
+                Some(Worked::Phase) => Some(if high_contrast {
+                    HIGH_CONTRAST_PHASE_RAMP
+                } else {
+                    PHASE_RAMP
                 }),
                 Some(Worked::Column(kind)) => Some(match (kind, high_contrast) {
                     (derive::Kind::Composite, _) => unreachable!("matched above"),

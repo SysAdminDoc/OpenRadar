@@ -34,6 +34,7 @@ mod host;
 mod hrrr;
 mod incident_packs;
 mod journal;
+mod kdp;
 mod level2;
 mod level3;
 mod lightning;

@@ -739,6 +739,7 @@ export const en = {
   "product.longRange": "Long range reflectivity",
   "product.azimuthalShear": "Azimuthal shear",
   "product.rotation": "Rotation",
+  "product.specificDifferentialPhase": "Specific differential phase",
   "product.compositeReflectivity": "Composite reflectivity",
   "product.echoTop": "Echo top",
   "product.vil": "Vertically integrated liquid",

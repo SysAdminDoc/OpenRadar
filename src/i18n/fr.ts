@@ -761,6 +761,7 @@ export const fr: Catalogue = {
   "product.longRange": "Réflectivité longue portée",
   "product.azimuthalShear": "Cisaillement azimutal",
   "product.rotation": "Rotation",
+  "product.specificDifferentialPhase": "Phase différentielle spécifique",
   "product.compositeReflectivity": "Réflectivité composite",
   "product.echoTop": "Sommet de l'écho",
   "product.vil": "Eau liquide intégrée",

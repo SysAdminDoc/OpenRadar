@@ -754,6 +754,7 @@ export const es: Catalogue = {
   "product.longRange": "Reflectividad de largo alcance",
   "product.azimuthalShear": "Cizalladura azimutal",
   "product.rotation": "Rotación",
+  "product.specificDifferentialPhase": "Fase diferencial específica",
   "product.compositeReflectivity": "Reflectividad compuesta",
   "product.echoTop": "Cima del eco",
   "product.vil": "Agua líquida integrada",

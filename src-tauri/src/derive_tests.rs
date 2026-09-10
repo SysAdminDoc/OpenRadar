@@ -188,6 +188,32 @@ fn two_cut_volume(lower_dbz: f32, upper_dbz: f32) -> Vec<u8> {
     fixture::volume(&site, at, &cuts)
 }
 
+/// The same volume forty seconds in: one cut published and the rest to come.
+fn one_cut_volume(dbz: f32) -> Vec<u8> {
+    let at = Utc
+        .with_ymd_and_hms(2026, 9, 9, 22, 30, 0)
+        .single()
+        .expect("a UTC time");
+    let site = fixture::Site {
+        id: *b"KDMX",
+        latitude: 41.731,
+        longitude: -93.723,
+        height_metres: 299,
+    };
+    let cuts = vec![fixture::flat_cut(
+        at,
+        fixture::Cut {
+            number: 1,
+            degrees: 0.5,
+            radials: 360,
+            gates: 400,
+            reflectivity: fixture::Gate::Reading(dbz),
+            ..fixture::Cut::default()
+        },
+    )];
+    fixture::volume(&site, at, &cuts)
+}
+
 /// The grid is the radar's own frame on kilometre bins, and the whole volume
 /// is what each bin was worked out from.
 #[test]
@@ -238,6 +264,74 @@ fn the_echo_top_climbs_with_range_because_the_beam_does() {
     assert!((far - expected).abs() < 0.2, "{far} is not {expected}");
 }
 
+/// Why a column may not be drawn from the volume the radar is sweeping now.
+///
+/// A scan publishes its cuts from the bottom up over four to six minutes, so
+/// forty seconds in there is a volume holding only its lowest tilts. This is
+/// that volume against the finished one, over the same ground: the echo top
+/// reads the height of the highest beam there has been so far, which is a
+/// storm that has not grown yet rather than one that is not there.
+#[test]
+fn a_volume_that_is_only_its_lowest_cuts_answers_differently() {
+    let air = plain_air();
+    let bin = ((40.0 - FIRST_BIN_KM) / BIN_KM).round() as usize;
+    let top_of = |data: Vec<u8>| {
+        let scan = scan_volume(data).expect("a decoded volume");
+        let derived = derive(&scan, Kind::EchoTop, &air, 0.299).expect("a derived grid");
+        let (value, status) = derived.field.get(90, bin);
+        assert_eq!(status, GateStatus::Valid);
+        value
+    };
+    let whole = top_of(two_cut_volume(45.0, 45.0));
+    let partway = top_of(one_cut_volume(45.0));
+    assert!(
+        whole > partway + 1.0,
+        "the finished volume topped out at {whole} km and its lowest cut at          {partway}, which is not far enough apart for this to be worth guarding"
+    );
+}
+
+/// The ground a slant range covers, which is what `slant_for` inverts.
+///
+/// Written out here rather than called, so the inverse is checked against the
+/// model rather than against itself.
+fn ground_covered(slant_km: f64, elevation: f32) -> f64 {
+    let height = beam_height_km(slant_km, elevation);
+    let cosine = (elevation as f64).to_radians().cos();
+    EARTH_KM * (slant_km * cosine / (EARTH_KM + height)).asin()
+}
+
+/// A point of ground is put at the range along the beam that actually reaches
+/// it, under the same earth the beam height is measured against.
+#[test]
+fn the_slant_range_lands_on_the_ground_it_was_asked_for() {
+    for elevation in [0.5f32, 3.5, 9.9, 19.5] {
+        for ground_km in [10.0f64, 50.0, 90.0, 150.0] {
+            let Some(slant) = slant_for(ground_km, elevation) else {
+                continue;
+            };
+            let landed = ground_covered(slant, elevation);
+            assert!(
+                (landed - ground_km).abs() < 0.001,
+                "at {elevation} degrees, {ground_km} km came back as {landed}"
+            );
+        }
+    }
+}
+
+/// And the flat-earth answer it replaces is wrong by more than a gate at the
+/// top of a volume pattern, which is what makes the correction worth making.
+#[test]
+fn the_flat_answer_is_out_by_more_than_a_gate_at_the_top_tilt() {
+    let ground_km = 90.0;
+    let elevation = 19.5f32;
+    let flat = ground_km / (elevation as f64).to_radians().cos();
+    let real = slant_for(ground_km, elevation).expect("a slant range");
+    assert!(
+        real - flat > 0.25,
+        "the flat answer was {flat} against {real}, which is inside a gate"
+    );
+}
+
 /// Nothing to see is nothing drawn, rather than a grid of zeroes.
 #[test]
 fn a_volume_with_no_echo_draws_nothing() {
@@ -251,25 +345,6 @@ fn a_volume_with_no_echo_draws_nothing() {
             .all(|status| !matches!(status, GateStatus::Valid)),
         "an empty volume was given an echo top"
     );
-    assert!(derived.flagged.is_none());
-}
-
-/// Only hail size carries a signature, and only where there is a core to make
-/// one.
-#[test]
-fn the_spike_is_only_looked_for_behind_a_strong_core() {
-    let air = plain_air();
-    let quiet = scan_volume(two_cut_volume(45.0, 45.0)).expect("a decoded volume");
-    let derived = derive(&quiet, Kind::HailSize, &air, 0.299).expect("a derived grid");
-    assert!(
-        derived.flagged.is_none(),
-        "a forty-five decibel volume was given a three-body signature"
-    );
-
-    // And a grid that is not hail size never carries one at all.
-    let strong = scan_volume(two_cut_volume(65.0, 65.0)).expect("a decoded volume");
-    let composite = derive(&strong, Kind::Composite, &air, 0.299).expect("a derived grid");
-    assert!(composite.flagged.is_none());
 }
 
 #[test]

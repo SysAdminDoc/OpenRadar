@@ -202,10 +202,22 @@ function sayNext(): void {
         "voiceschanged",
         () => {
           waitingForVoices = false;
+          stopWatching();
           sayNext();
         },
         { once: true },
       );
+      // And a ceiling on the wait itself. An engine that reports no voices for
+      // the whole run never raises `voiceschanged`, and without this the
+      // sentence sits in the queue for ever: nothing else calls back, so the
+      // staleness sweep above never runs again either and every later warning
+      // is swallowed silently by the flag set just now.
+      stopWatching();
+      lookAgain = setTimeout(() => {
+        lookAgain = null;
+        waitingForVoices = false;
+        sayNext();
+      }, SPEAKING_CEILING_MS);
     }
     return;
   }
