@@ -175,6 +175,20 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "meteoalarm",
+    label: "MeteoAlarm European weather warnings",
+    host: "feeds.meteoalarm.org",
+    kind: "browser",
+    files: ["src/lib/overlays/meteoalarm.test.ts"],
+    liveBlock: "against the live service",
+    // A quiet day in Switzerland is a legitimately empty feed, so what this
+    // holds is the shape: the two awareness parameters the hazard switch and
+    // the green filter read, and that geometry is still published at all. A
+    // feed that stopped carrying polygons would draw nothing with every other
+    // assertion still green.
+    required: false,
+  },
+  {
     id: "eccc-alerts",
     label: "ECCC public weather alerts",
     host: "api.weather.gc.ca",

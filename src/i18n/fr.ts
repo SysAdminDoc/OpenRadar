@@ -501,6 +501,9 @@ export const fr: Catalogue = {
     "{office} n'a pas pu être contacté, donc ses alertes ne sont pas sur la carte.",
   "alerts.officeEccc": "Environnement et Changement climatique Canada",
   "alerts.officeDwd": "Deutscher Wetterdienst",
+  "alerts.officeMeteoalarm": "MeteoAlarm",
+  "alerts.countriesUnasked":
+    "{count, plural, one {Un autre pays européen est à l'écran et n'a pas été interrogé ; zoomez pour voir ses avertissements.} other {# autres pays européens sont à l'écran et n'ont pas été interrogés ; zoomez pour voir leurs avertissements.}}",
   "alerts.officeUnanswered": "le bureau n'a pas répondu",
   "earthquakes.failed": "Le service sismique de l'USGS {answer}.",
   "smoke.failed": "L'analyse de fumée de la NOAA {answer}.",
@@ -2325,6 +2328,7 @@ export const fr: Catalogue = {
   "journal.sourceNws": "NWS",
   "journal.sourceEccc": "ECCC",
   "journal.sourceDwd": "DWD",
+  "journal.sourceMeteoalarm": "MeteoAlarm",
   "journal.obtainedWatch":
     "une alerte qui a atteint un endroit que vous surveillez",
   "journal.obtainedStation":

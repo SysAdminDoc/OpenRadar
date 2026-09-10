@@ -31,6 +31,7 @@ export const CACHED_HOSTS = [
   "geo.weather.gc.ca",
   "api.weather.gc.ca",
   "maps.dwd.de",
+  "feeds.meteoalarm.org",
   "mesonet.agron.iastate.edu",
   "gibs.earthdata.nasa.gov",
   "tiles.openfreemap.org",

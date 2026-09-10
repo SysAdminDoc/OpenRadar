@@ -65,8 +65,8 @@ export function alertSeverity(prodType: string, sig: string): AlertSeverity {
 /**
  * Which office issued a warning.
  *
- * One layer draws three offices' warnings, and the copy around it was written
- * when it drew one. Every popup ended "Source: NWS {office}" with the office
+ * One layer draws four sources' warnings now, and the copy around it was
+ * written when it drew one. Every popup ended "Source: NWS {office}" with the office
  * taken from the feature, so a Canadian warning read "Source: NWS Environment
  * and Climate Change Canada" and a German one named the Deutscher
  * Wetterdienst under the same American heading. The Canadian licence requires
@@ -76,9 +76,11 @@ export function alertSeverity(prodType: string, sig: string): AlertSeverity {
  * Carried as a property on the feature rather than worked out from the shape
  * of the data, because the three parsers are the only places that know.
  */
-export type AlertAgency = "nws" | "eccc" | "dwd";
+export type AlertAgency = "nws" | "eccc" | "dwd" | "meteoalarm";
 
 /** The agency a parsed feature names, defaulting to the American one. */
 export function alertAgency(value: unknown): AlertAgency {
-  return value === "eccc" || value === "dwd" ? value : "nws";
+  return value === "eccc" || value === "dwd" || value === "meteoalarm"
+    ? value
+    : "nws";
 }

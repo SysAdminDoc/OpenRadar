@@ -18,6 +18,11 @@ import {
 } from "../alertSeverity";
 import { ecccUrl, parseEcccAlerts, reachesCanada } from "./ecccAlerts";
 import { dwdUrl, parseDwdWarnings, reachesGermany } from "./dwdWarnings";
+import {
+  meteoalarmCountriesIn,
+  meteoalarmUrl,
+  parseMeteoalarm,
+} from "./meteoalarm";
 import { language } from "../../i18n";
 import { log } from "../log";
 import { failureSentence } from "../serviceAnswer";
@@ -461,6 +466,31 @@ async function dwdFeatures(
 }
 
 /**
+ * One MeteoAlarm country's warnings, or none.
+ *
+ * Same terms as the Canadian and German sources above: one country's service
+ * having a bad minute must not take the layer down.
+ */
+async function meteoalarmFeatures(
+  country: string,
+  at: number,
+  signal?: AbortSignal,
+): Promise<OverlayFeature[] | null> {
+  try {
+    const answer = await fetch(cachedUrl(meteoalarmUrl(country)), {
+      signal,
+      headers: { Accept: "application/json" },
+    });
+    if (!answer.ok) throw new Error(translate("alerts.officeUnanswered"));
+    return parseMeteoalarm(await answer.text(), { at, country });
+  } catch (failure) {
+    if (aborted(failure, signal)) throw failure;
+    log.warn("overlay", `MeteoAlarm ${country}: ${failureSentence(failure)}`);
+    return null;
+  }
+}
+
+/**
  * How big the hail is, in the units the reader asked for.
  *
  * The one measurement in a warning popup, and it was the one line in this app
@@ -562,7 +592,32 @@ export const alertsOverlay: OverlayAdapter = {
       if (german) drawn.features.push(...german);
       else unanswered.push(translate("alerts.officeDwd"));
     }
-    if (reachesCanada(bounds) || reachesGermany(bounds)) {
+    // And the rest of Europe, through MeteoAlarm. One feed per country, only
+    // the countries the view actually reaches, and only the ones covering
+    // most of what is on screen: a view of the whole continent reaches all
+    // thirty-seven of them and one request each on every pan is not a
+    // reasonable thing to do to a shared free service.
+    const european = meteoalarmCountriesIn(bounds);
+    if (european.asked.length > 0) {
+      const at = Date.now();
+      const answers = await Promise.all(
+        european.asked.map((country) =>
+          meteoalarmFeatures(country, at, signal).then((found) => ({
+            country,
+            found,
+          })),
+        ),
+      );
+      for (const answer of answers) {
+        if (answer.found) drawn.features.push(...answer.found);
+        else unanswered.push(translate("alerts.officeMeteoalarm"));
+      }
+    }
+    if (
+      reachesCanada(bounds) ||
+      reachesGermany(bounds) ||
+      european.asked.length > 0
+    ) {
       drawn.features.sort(
         (left, right) =>
           Number(right.properties.severityRank) -
@@ -574,14 +629,23 @@ export const alertsOverlay: OverlayAdapter = {
     // Which office did not answer, so the layer can say it rather than
     // letting a country with no warnings drawn stand for one that was not
     // asked successfully.
-    return unanswered.length
-      ? {
-          ...drawn,
-          partial: translate("alerts.officeMissing", {
-            office: unanswered.join(", "),
-          }),
-        }
-      : drawn;
+    // Which office did not answer, and how many countries the view reached
+    // that were not asked at all. A country with nothing drawn must not be
+    // read as a country with no warnings in it.
+    const notes: string[] = [];
+    if (unanswered.length) {
+      notes.push(
+        translate("alerts.officeMissing", {
+          office: [...new Set(unanswered)].join(", "),
+        }),
+      );
+    }
+    if (european.skipped > 0) {
+      notes.push(
+        translate("alerts.countriesUnasked", { count: european.skipped }),
+      );
+    }
+    return notes.length ? { ...drawn, partial: notes.join(" ") } : drawn;
   },
   layers: (sourceId) => [
     {

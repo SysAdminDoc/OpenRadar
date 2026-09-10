@@ -55,6 +55,8 @@ const ALLOWED_HOSTS: &[&str] = &[
     // The same office's public weather alerts.
     "api.weather.gc.ca",
     "maps.dwd.de",
+    // EUMETNET's shared publication of every European service's warnings.
+    "feeds.meteoalarm.org",
     "noaa-gfs-bdp-pds.s3.amazonaws.com",
     "noaa-hrrr-bdp-pds.s3.amazonaws.com",
     "unidata-nexrad-level2.s3.amazonaws.com",
