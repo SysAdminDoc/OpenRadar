@@ -65,6 +65,8 @@ export const WATCH_RING_LAYER_IDS = [
 ];
 export const TOOL_LINE_LAYER_ID = "openradar-tool-line";
 export const TOOL_POINT_LAYER_ID = "openradar-tool-points";
+/** The keyboard cursor, which is a reader's own place on the map. */
+export const KEY_CURSOR_LAYER_ID = "openradar-key-cursor";
 export const TRACK_LINE_LAYER_ID = "openradar-track-line";
 export const TRACK_POINT_LAYER_ID = "openradar-track-points";
 export const CUSTOM_FILL_LAYER_ID = "openradar-custom-fill";
@@ -189,7 +191,13 @@ export const CUSTOM_LAYER_IDS = [
   CUSTOM_ICON_LAYER_ID,
 ];
 
-export const TOOL_LAYER_IDS = [TOOL_LINE_LAYER_ID, TOOL_POINT_LAYER_ID];
+export const TOOL_LAYER_IDS = [
+  TOOL_LINE_LAYER_ID,
+  TOOL_POINT_LAYER_ID,
+  // Above the tools, because it is where the reader is rather than what
+  // they have drawn, and a measurement line must not cover it.
+  KEY_CURSOR_LAYER_ID,
+];
 
 export const RADAR_LANE_LAYER_IDS = [
   `${RADAR_LAYER_ID}-observed`,

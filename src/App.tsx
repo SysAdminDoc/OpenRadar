@@ -125,6 +125,8 @@ export default function App() {
   >("loading");
   const [viewport, setViewport] = useState<OverlayBounds | null>(null);
   const [cursor, setCursor] = useState<GeoPoint | null>(null);
+  /** What the keyboard cursor last said, for the polite live region. */
+  const [cursorSaid, setCursorSaid] = useState("");
   // The readout is held as a way of writing itself. A measurement taken in
   // miles is still on screen when the units are switched, and a written string
   // cannot follow that; a renderer can.
@@ -604,6 +606,23 @@ export default function App() {
   // the weather doing something; nothing the reader does writes a row.
   // The places being watched, and the ring drawn round each of them.
   const { watchedForJournal, watchRings } = useWatchedPlaces(settings);
+  /**
+   * The watched places as plain named points, for the keyboard cursor.
+   *
+   * Only the ones switched on, because a place the reader turned off is not
+   * one they want to hear their position measured from.
+   */
+  const namedPoints = useMemo(
+    () =>
+      watchedForJournal
+        .filter((place) => place.enabled)
+        .map((place) => ({
+          name: place.name,
+          lon: place.center[0],
+          lat: place.center[1],
+        })),
+    [watchedForJournal],
+  );
 
   // Everything the map draws that is not the radar picture itself: the
   // cells the site's own tracker found, what the algorithm says is falling,
@@ -1056,6 +1075,11 @@ export default function App() {
         onPrimaryMove={(camera) => secondMapRef.current?.syncCamera(camera)}
         onSecondaryMove={(camera) => mapRef.current?.syncCamera(camera)}
         onCursorChange={setCursor}
+        // The reader's own watched places, as plain points. The map has
+        // no business knowing what a watched place is; it needs somewhere
+        // named to measure the keyboard cursor from.
+        namedPoints={namedPoints}
+        onCursorSpeak={setCursorSaid}
         onToolResult={showToolResult}
         onSection={handleSection}
         onOverlayAction={applyPairing}
@@ -1485,7 +1509,12 @@ export default function App() {
         // Only while the panel is open. A reader who asked for the readout
         // wants to hear it change; everybody else did not ask to be read the
         // weather every time the radar turns.
-        readout={activeSurface === "nearby" ? nearby.summary : ""}
+        // The keyboard cursor takes the polite region while it is up: a
+        // reader walking the map is asking about where they are now, and the
+        // Nearby summary is about where they live.
+        readout={
+          cursorSaid || (activeSurface === "nearby" ? nearby.summary : "")
+        }
         onClearTools={() => mapRef.current?.clearTools()}
         onToggleProduct={() => {
           setActiveSurface(null);

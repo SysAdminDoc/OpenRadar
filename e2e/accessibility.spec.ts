@@ -359,8 +359,15 @@ test("moves the map from the keyboard, with no drag anywhere", async ({
   await page.locator("canvas.maplibregl-canvas").focus();
   await expect(page.locator("canvas.maplibregl-canvas")).toBeFocused();
 
-  await page.keyboard.press("ArrowRight");
-  await expect.poll(() => pane.getAttribute("data-camera")).not.toBe(before);
+  // The arrows walk a cursor now rather than panning outright, which is what
+  // gives a keyboard reader somewhere on the map to ask about. Panning is
+  // not lost: the map follows the cursor once it reaches the edge, so a held
+  // arrow key still moves the world. This used to assert that one press
+  // moved the camera, which is the behaviour the cursor replaced.
+  await expect(async () => {
+    await page.keyboard.press("ArrowRight");
+    expect(await pane.getAttribute("data-camera")).not.toBe(before);
+  }).toPass({ timeout: 10_000 });
 
   const panned = await pane.getAttribute("data-camera");
   await page.keyboard.press("Equal");
@@ -1379,4 +1386,85 @@ test("the Diagnostics actions stay inside their row", async ({ page }) => {
   // And every button the same height, so none has wrapped where its
   // neighbours have not.
   expect(measured!.tallest - measured!.shortest).toBeLessThan(2);
+});
+
+/**
+ * The map itself, for somebody who cannot see it.
+ *
+ * The Nearby panel answers "what is the weather where I live". This answers
+ * the other question a map is for: what is it showing ten miles that way.
+ * A canvas cannot be made accessible, so the arrow keys walk a cursor over
+ * it and the polite region says what it is standing on.
+ */
+test("arrow keys walk a cursor over the map and say what is under it", async ({
+  page,
+}) => {
+  const canvas = page.locator("canvas.maplibregl-canvas");
+  const readout = page.locator(".map-readout");
+  const polite = page.locator('.live-region [role="status"]');
+
+  await canvas.focus();
+  await expect(canvas).toBeFocused();
+  await expect(readout).toHaveCount(0);
+
+  await page.keyboard.press("ArrowRight");
+  await expect(readout).toBeVisible();
+  const first = (await readout.textContent()) ?? "";
+  // The polite region says where the cursor is, which is what a screen
+  // reader announces. The readout beside it is for somebody who can see.
+  await expect(polite).not.toBeEmpty();
+  const said = (await polite.textContent()) ?? "";
+  expect(said).toContain(",");
+
+  // Another press moves it, rather than saying the same thing again.
+  await page.keyboard.press("ArrowDown");
+  await expect(readout).not.toHaveText(first);
+
+  // A finer step with Shift, which is what the last bit of a hunt needs.
+  const before = (await readout.textContent()) ?? "";
+  await page.keyboard.press("Shift+ArrowRight");
+  await expect(readout).not.toHaveText(before);
+
+  // Escape puts the cursor away and hands the reader back to the rail,
+  // which is where every other Escape in this app leaves them.
+  await page.keyboard.press("Escape");
+  await expect(readout).toHaveCount(0);
+  await expect(polite).toBeEmpty();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        document.activeElement?.closest(".command-bar") !== null &&
+        document.activeElement?.tagName === "BUTTON"
+          ? true
+          : false,
+      ),
+    )
+    .toBe(true);
+});
+
+test("the cursor announcement is clean in the pseudolocale", async ({
+  page,
+}) => {
+  // A third longer again in the pseudolocale, which is where a sentence
+  // built from four pieces overruns whatever holds it.
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "openradar.settings",
+      JSON.stringify({
+        schemaVersion: 3,
+        seenWelcome: true,
+        language: "pseudo",
+      }),
+    );
+  });
+  await page.reload();
+  await expect(page.getByRole("application", { name: /.+/ })).toBeVisible();
+
+  const canvas = page.locator("canvas.maplibregl-canvas");
+  await canvas.focus();
+  await page.keyboard.press("ArrowUp");
+  await expect(page.locator(".map-readout")).toBeVisible();
+  await expect(page.locator('.live-region [role="status"]')).not.toBeEmpty();
+  await page.waitForTimeout(PANEL_SETTLE_MS);
+  expect(`cursor: ${describeViolations(await scan(page))}`).toBe("cursor: ");
 });

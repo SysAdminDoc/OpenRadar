@@ -94,6 +94,9 @@ interface MapStageProps {
   onPrimaryMove: (camera: CameraState) => void;
   onSecondaryMove: (camera: CameraState) => void;
   onCursorChange: (point: GeoPoint | null) => void;
+  /** Named points the keyboard cursor measures itself from. */
+  namedPoints: ReadonlyArray<{ name: string; lat: number; lon: number }>;
+  onCursorSpeak: (said: string) => void;
   onToolResult: (render: (() => string) | null) => void;
   /** The two ends of a cross-section, once the tool has both. */
   onSection: (from: GeoPoint, to: GeoPoint) => void;
@@ -149,6 +152,8 @@ export function MapStage({
   onPrimaryMove,
   onSecondaryMove,
   onCursorChange,
+  namedPoints,
+  onCursorSpeak,
   onToolResult,
   onSection,
   onOverlayAction,
@@ -256,6 +261,8 @@ export function MapStage({
         onCameraChange={onCameraChange}
         onCameraMove={onPrimaryMove}
         onCursorChange={onCursorChange}
+        namedPoints={namedPoints}
+        onCursorSpeak={onCursorSpeak}
         onToolResult={onToolResult}
         onSection={onSection}
         onOverlayAction={onOverlayAction}
