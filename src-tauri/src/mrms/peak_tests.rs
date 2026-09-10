@@ -110,3 +110,21 @@ fn the_radius_is_bounded_however_it_is_asked_for() {
     assert!(peak_within(&grid, f64::NAN, -98.0, 25.0).is_none());
     assert!(peak_within(&grid, 39.0, f64::INFINITY, 25.0).is_none());
 }
+
+/// The circle is measured on the sphere, not across a flat patch.
+///
+/// Both numbers below are worked out by hand from the haversine and from the
+/// flat form this used to carry, so the assertion fails if the flat form
+/// comes back rather than merely restating whatever the function returns.
+#[test]
+fn the_distance_is_measured_on_the_sphere() {
+    // Two degrees of longitude at forty-nine north, which is the top of the
+    // CONUS grid: 90.66 miles on the sphere and 90.61 flat.
+    let near = miles_between(49.0, -100.0, 49.0, -98.0);
+    assert!((near - 90.656).abs() < 0.02, "{near} miles");
+
+    // And a span the command will take but the panel never offers, where the
+    // flat form is twenty-six miles out: 1170.28 against 1196.06.
+    let far = miles_between(30.0, -100.0, 45.0, -90.0);
+    assert!((far - 1170.276).abs() < 0.5, "{far} miles");
+}

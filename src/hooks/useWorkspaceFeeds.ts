@@ -300,7 +300,7 @@ export function useWorkspaceFeeds({
   // minute cadence, and says the same two things per storm the lightning
   // rule does. Held back over a replay like every other current reading:
   // hail falling in 2005 is not hail falling now.
-  const placeHail = useGridWatch({
+  useGridWatch({
     rule: "hail",
     settings: settings.hailWatch,
     places: watchedForJournal,
@@ -308,7 +308,7 @@ export function useWorkspaceFeeds({
     onFallback: (notice) =>
       pushToast({ title: gridTitle(notice), detail: gridBody(notice) }),
   });
-  const placeRotation = useGridWatch({
+  useGridWatch({
     rule: "rotation",
     settings: settings.rotationWatch,
     places: watchedForJournal,
@@ -418,8 +418,6 @@ export function useWorkspaceFeeds({
     placeLightning,
     cellJumps,
     melting,
-    placeHail,
-    placeRotation,
     wind,
     frames,
     frameIndex,
