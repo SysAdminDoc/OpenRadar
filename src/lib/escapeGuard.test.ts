@@ -1,9 +1,8 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { workspaceSource } from "../test/workspaceSource";
 
 /**
- * The app-root Escape handler's own body, read as text.
+ * The workspace's Escape handler's own body, read as text.
  *
  * Two of the three things this holds cannot be driven from a browser test.
  * Entering either full-screen mode from the command palette deliberately
@@ -12,12 +11,13 @@ import { describe, expect, it } from "vitest";
  * exists on the idle path, which engages after a configured number of minutes
  * of nobody touching the machine. Rather than sit through that, the guard is
  * pinned where it is written.
+ *
+ * Read out of the workspace as a whole rather than out of `App.tsx`: the
+ * handler moved into a hook beside it on 2026-09-09, and where it lives is
+ * not what this is about.
  */
 function escapeHandler(): string {
-  const source = readFileSync(
-    join(import.meta.dirname, "..", "App.tsx"),
-    "utf8",
-  );
+  const source = workspaceSource();
   const at = source.indexOf('if (event.key !== "Escape"');
   expect(at).toBeGreaterThan(-1);
   const rest = source.slice(at);

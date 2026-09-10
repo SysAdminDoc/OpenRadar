@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { workspaceSource } from "../test/workspaceSource";
 import {
   foundAt,
   readCuriosities,
@@ -139,10 +140,10 @@ describe("standing down during danger", () => {
     // 1934 sitting over a live warning: found in the quiet, still there when
     // the warning went up. Held by reading the source, because reproducing
     // it needs a second alerts poll to land mid-test.
-    const app = readFileSync(
-      join(import.meta.dirname, "..", "App.tsx"),
-      "utf8",
-    );
+    // The workspace as one text: the card is drawn in `App.tsx` and the
+    // search moved into a hook beside it, and where each of them lives is
+    // not what this is about.
+    const app = workspaceSource();
     // Across however many lines the condition takes: it grew a third
     // clause and a single-line read stopped seeing any of it.
     const drawn = app.slice(
@@ -154,10 +155,7 @@ describe("standing down during danger", () => {
 
     // And the detection is gated too, which is the half that was already
     // right: a card must not be found during a warning either.
-    const hook = readFileSync(
-      join(import.meta.dirname, "..", "App.tsx"),
-      "utf8",
-    );
+    const hook = app;
     // The whole options object, however long the enabled clause grows.
     const at = hook.indexOf("useCuriosities({");
     const found = hook.slice(at, hook.indexOf("onFound:", at));

@@ -16,21 +16,14 @@ import { FirstRunReveal } from "./components/FirstRunReveal";
 import { CatchUpCard } from "./components/CatchUpCard";
 import { CuriosityCard } from "./components/CuriosityCard";
 import { AmbientReadout } from "./components/AmbientReadout";
-import { useCuriosities } from "./hooks/useCuriosities";
 import type { Curiosity } from "./lib/curiosities";
 import { useAmbient } from "./hooks/useAmbient";
 import { setJournalWriting, thumbnailFrom } from "./lib/journal";
 import type { MapViewportHandle } from "./components/MapViewport";
 import { CaptureBar } from "./components/CaptureBar";
 import { WorkspaceChrome } from "./components/WorkspaceChrome";
-import { useArchiveWarnings } from "./hooks/useArchiveWarnings";
-import { alertsOfKind } from "./lib/overlays/alerts";
 import { EMPTY_OVERLAY } from "./lib/overlays";
-import {
-  useMinuteClock,
-  useReducedMotion,
-  useSecondClock,
-} from "./hooks/useClock";
+import { useMinuteClock, useReducedMotion } from "./hooks/useClock";
 import { useExport } from "./hooks/useExport";
 import { useWorkspaceOverlays } from "./hooks/useWorkspaceOverlays";
 import { useRadarTimeline } from "./hooks/useRadarTimeline";
@@ -38,17 +31,6 @@ import { useSettings } from "./hooks/useSettings";
 import { useToasts, UNDO_LIFETIME_MS } from "./hooks/useToasts";
 import { useAutostart } from "./hooks/useAutostart";
 import { notificationPermission, type NotifyPermission } from "./lib/notify";
-import {
-  useApproachWatch,
-  approachBody,
-  approachTitle,
-} from "./hooks/useApproachWatch";
-import { approachesFor, type Approach } from "./lib/approach";
-import {
-  useLightningWatch,
-  lightningBody,
-  lightningTitle,
-} from "./hooks/useLightningWatch";
 import { useAlertSound } from "./hooks/useAlertSound";
 import { useGlanceWindow } from "./hooks/useGlanceWindow";
 import { useWorkspaceReport } from "./hooks/useWorkspaceReport";
@@ -59,105 +41,59 @@ import { usePaletteActions } from "./hooks/usePaletteActions";
 import { useNearbyReadout } from "./hooks/useNearbyReadout";
 import { useStationRecord } from "./hooks/useStationRecord";
 import { useCatchUp } from "./hooks/useCatchUp";
-import {
-  setCloseToTray,
-  setGlanceOnTop,
-  setTrayEnabled,
-  setTrayCopy,
-} from "./lib/tray";
-import { useDisplayAwake } from "./hooks/useDisplayAwake";
+import { useWorkspaceFeeds } from "./hooks/useWorkspaceFeeds";
+import { useWorkspacePresses } from "./hooks/useWorkspacePresses";
+import { useCommandActions } from "./hooks/useCommandActions";
+import { useMapHandlers } from "./hooks/useMapHandlers";
+import { useOccasionNotice } from "./hooks/useOccasionNotice";
+import { useEscapeKey } from "./hooks/useEscapeKey";
+import { useOverlayShapes } from "./hooks/useOverlayShapes";
+import { useWatchedPlaces } from "./hooks/useWatchedPlaces";
+import { useOpenPanel } from "./hooks/useOpenPanel";
+import { usePresence } from "./hooks/usePresence";
+import { useAmbientScreen } from "./hooks/useAmbientScreen";
+import { useFollowSignal, useFollowWarning } from "./hooks/useFollowWarning";
 import { useWelcomeHint } from "./hooks/useWelcomeHint";
-import { useMrmsOverlays } from "./hooks/useMrmsOverlays";
 import { loadCounties } from "./lib/counties";
 import { useNativeReports } from "./hooks/useNativeReports";
-import { useLightning } from "./hooks/useLightning";
 import { usePalette } from "./hooks/usePalette";
-import { useWind } from "./hooks/useWind";
 import { useSingleSiteRadar } from "./hooks/useSingleSiteRadar";
 import { useRadarStatus } from "./hooks/useRadarStatus";
 import { statusFor } from "./lib/radarStatus";
 import { useUpdates } from "./hooks/useUpdates";
 import { useWorkspaceActions } from "./hooks/useWorkspaceActions";
-import type { CommandAction } from "./lib/commands";
-import { SURFACE_FRAMES } from "./lib/commands";
 import { LazyPanel } from "./components/LazyPanel";
 import type { GeoPoint } from "./lib/geo";
-import { log, recentLog, subscribeLog } from "./lib/log";
+import { recentLog, subscribeLog } from "./lib/log";
 import type { OverlayBounds, OverlayLegend } from "./lib/overlays";
 import {
   providerHealth,
   loadProviderIncidents,
-  satelliteFrameTime,
   subscribeHealth,
 } from "./lib/providers";
-import { frameAgeMinutes, type RadarFrame } from "./lib/radar";
-import { watchRingFeatures } from "./lib/ring";
 import type { Storm } from "./lib/hurdat";
 import { basemapCredit, drawnOverLight } from "./lib/mapStyles";
 import { supportedProduct } from "./lib/radarKinds";
 import { level2Available } from "./lib/level2";
-import { pairingById } from "./lib/alertPairings";
-import { featureBounds } from "./lib/overlays";
-import { alertId, type WatchAlert } from "./lib/watch";
 
-/**
- * How long the map is left alone after the reader last moved it.
- *
- * Long enough that a warning does not interrupt somebody mid-look, short
- * enough that the next one still finds them.
- */
-const FOLLOW_QUIET_MS = 20_000;
-
-/**
- * How close going home gets, when the map was further out than that.
- *
- * A reader already looking at their own street stays there rather than being
- * pulled back out to a county: the camera only comes in, never out. Seven is
- * the zoom the storm archive flies to, which is a place and its weather in
- * one view.
- */
-const HOME_ZOOM = 7;
 import { bundlesAvailable } from "./lib/replayBundle";
 import type { ArchiveReplay } from "./hooks/useRadarTimeline";
-import type {
-  AppSettings,
-  CameraState,
-  LayerSettings,
-  MapStyleId,
-  RadarSettings,
-} from "./lib/settings";
+import type { LayerSettings, MapStyleId, RadarSettings } from "./lib/settings";
 import {
   noteWorkspaceDrawn,
   restoreArrangement,
   settingsRecovery,
   startedPlain,
 } from "./lib/settings";
-import { watchedPlaces } from "./lib/watch";
-import {
-  mergedOverlayShapes,
-  overlayGates,
-  type WorkspaceOverlayFile,
-} from "./lib/workspaceOverlays";
-import { translate, useT, type StringKey } from "./i18n";
+import { type WorkspaceOverlayFile } from "./lib/workspaceOverlays";
+import { translate, useT } from "./i18n";
 import { fetchVwp, vwpAvailable } from "./lib/vwp";
 import type { SpcHazard } from "./lib/overlays/registry";
 import { OVERLAY_ADAPTERS } from "./lib/overlays";
 
-import { useStormCells } from "./hooks/useStormCells";
-import type { CellReport } from "./lib/cells";
-import { useCellJournal } from "./hooks/useCellJournal";
-import { cellKey, livingNames, withName } from "./lib/cellNames";
-import { useClassification } from "./hooks/useClassification";
-import { useForecastSmoke } from "./hooks/useForecastSmoke";
-import {
-  FORECAST_SMOKE_OPACITY,
-  forecastSmokeCorners,
-  forecastSmokeValid,
-} from "./lib/forecastSmoke";
 import { activePalettes } from "./lib/palette";
 import { METAR_MIN_ZOOM } from "./lib/overlays/metar";
 import { GAUGE_MIN_ZOOM } from "./lib/overlays/rivers";
-import { useProbSevere } from "./hooks/useProbSevere";
 import { NoGpu } from "./components/NoGpu";
 import { useOfflineSince } from "./hooks/useOffline";
 import { useStateNotices } from "./hooks/useStateNotices";
@@ -181,7 +117,8 @@ export default function App() {
   const [activeTool, setActiveTool] = useState<ToolMode>(null);
   const [dualPane, setDualPane] = useState(false);
   const [compareOffset, setCompareOffset] = useState(0);
-  const [pageVisible, setPageVisible] = useState(() => !document.hidden);
+  // Whether anybody is there, and when they last said so.
+  const { pageVisible, touchedAt, setTouchedAt } = usePresence();
   const [mapStatus, setMapStatus] = useState<
     "loading" | "ready" | "error" | "nogpu"
   >("loading");
@@ -222,7 +159,6 @@ export default function App() {
    */
   const [ambientAsked, setAmbientAsked] = useState(false);
   /** When anybody last touched the machine, for the dimming and the slowing. */
-  const [touchedAt, setTouchedAt] = useState(() => Date.now());
   const [historyStorm, setHistoryStorm] = useState<Storm | null>(null);
 
   // What the reader calls the storms the radar is tracking.
@@ -501,19 +437,13 @@ export default function App() {
     pageVisible,
   });
 
-  // Only that a warning was announced. Whether to fly to it, and where to,
-  // are settled in the effect below, which can see the polygon and the state
-  // of the export.
-  //
-  // The alert itself is held in a ref and the effect is woken by a counter,
-  // because the effect consumes it: clearing a piece of state from inside the
-  // effect that reads it is a cascading render, and clearing a ref is not.
-  const pendingFollowRef = useRef<WatchAlert | null>(null);
-  const [followSignal, setFollowSignal] = useState(0);
-  const rememberFollow = useCallback((alert: WatchAlert) => {
-    pendingFollowRef.current = alert;
-    setFollowSignal((was) => was + 1);
-  }, []);
+  // An announcement waiting for the polygon it is about, which arrives on
+  // the render after it.
+  const {
+    signal: followSignal,
+    remember: rememberFollow,
+    take: takeFollow,
+  } = useFollowSignal();
 
   // The frame that was on screen, small, for whatever the record writes down
   // next. Null when there is no map yet or the picture comes back over its
@@ -562,45 +492,6 @@ export default function App() {
     capture: journalFrame,
   });
 
-  // The words before the icon, so the first tray a reader ever sees is
-  // already in their own language rather than English for a moment.
-  useEffect(() => {
-    void setTrayCopy({
-      open: translate("tray.menuOpen"),
-      glance: translate("tray.menuGlance"),
-      quit: translate("tray.menuQuit"),
-      quiet: translate("tray.quiet"),
-      warning: translate("tray.warning"),
-      unreachable: translate("tray.unreachable"),
-    });
-  }, [settings.language]);
-
-  useEffect(() => {
-    void setTrayEnabled(settings.tray);
-  }, [settings.tray]);
-
-  useEffect(() => {
-    // With the tray off there is nothing to close to, so the window closes
-    // the app whatever this says.
-    void setCloseToTray(settings.tray && settings.closeToTray);
-  }, [settings.closeToTray, settings.tray]);
-
-  // The startup entry cannot outlive the icon it opens to.
-  //
-  // A reader who ticks "Start with Windows" and later removes the tray icon
-  // would otherwise get the map across their screen at every sign-in, with the
-  // one switch that could stop it greyed out because it needs the icon. So
-  // taking the icon away takes the entry with it, which is what the disabled
-  // switch has been saying all along.
-  useEffect(() => {
-    if (settings.tray || autostart.on !== true) return;
-    autostart.set(false);
-  }, [autostart, settings.tray]);
-
-  useEffect(() => {
-    void setGlanceOnTop(settings.glanceOnTop);
-  }, [settings.glanceOnTop]);
-
   // The tray icon, the small window, and what that window shows. Whether
   // it is open cannot be known from here, because the tray menu opens it
   // and the workspace never hears about that.
@@ -614,6 +505,10 @@ export default function App() {
     observed: timeline.newestObserved,
     sourceLabel: timeline.sourceLabel,
     canvas: () => mapRef.current?.canvas() ?? null,
+    closeToTray: settings.closeToTray,
+    glanceOnTop: settings.glanceOnTop,
+    language: settings.language,
+    autostart,
   });
 
   // What the window looks like: the built-in look, a theme the reader
@@ -677,43 +572,14 @@ export default function App() {
     journalFrame,
   });
 
-  // One line, once a year, the first time a pack is on screen. It carries the
-  // way to send that occasion away until next year; the switch that ends them
-  // for good is in Settings, because a toast is not where somebody makes a
-  // decision they will not revisit.
-  useEffect(() => {
-    const { occasion, year, showing } = appearance;
-    if (!showing || !occasion) return;
-    // Not until the stored settings are in. Before they are, `settings` is
-    // the defaults, so writing to them here saved a file of defaults over the
-    // reader's own workspace and then gave the notice a second time once the
-    // real file arrived.
-    if (!hydrated) return;
-    const current = settingsRef.current;
-    if (current.occasions.seen[occasion] === year) return;
-    applySettings({
-      ...current,
-      occasions: {
-        ...current.occasions,
-        seen: { ...current.occasions.seen, [occasion]: year },
-      },
-    });
-    pushToast({
-      title: translate(`occasion.${occasion}` as StringKey),
-      detail: translate("occasion.notice"),
-      actionLabel: translate("occasion.notThisYear"),
-      onAction: () => {
-        const now = settingsRef.current;
-        applySettings({
-          ...now,
-          occasions: {
-            ...now.occasions,
-            declined: { ...now.occasions.declined, [occasion]: year },
-          },
-        });
-      },
-    });
-  }, [appearance, applySettings, hydrated, pushToast, settingsRef]);
+  // One line, once a year, the first time a seasonal pack is on screen.
+  useOccasionNotice({
+    appearance,
+    hydrated,
+    settingsRef,
+    onSettings: applySettings,
+    pushToast,
+  });
 
   // Take the map to a warning as it arrives, when the reader asked for that.
   //
@@ -721,347 +587,69 @@ export default function App() {
   // alerts this reads: the callback has to exist before the hook is called
   // and see the state that comes out of it.
 
-  // The layer that explains a warning, from the warning's own popup.
-  //
-  // Switches only. It does not move the camera, does not restyle the
-  // polygon, and does not touch the warning's own presentation: the pairing
-  // is a suggestion about where to look rather than a claim about the hazard.
-  const applyPairing = useCallback(
-    (id: string) => {
-      const pairing = pairingById(id);
-      if (!pairing) return;
-      const current = settingsRef.current;
-      const next: AppSettings = {
-        ...current,
-        layers: { ...current.layers, ...pairing.layers },
-      };
-      if (pairing.radarProduct) {
-        next.radar = { ...current.radar, product: pairing.radarProduct };
-      }
-      applySettings(next);
-      const names = Object.keys(pairing.layers)
-        .map((key) => translate(`layer.${key}` as "layer.metar"))
-        .join(", ");
-      pushToast({
-        title: translate("pairing.shown", { layer: names }),
-        detail: translate("pairing.shownBody"),
-        actionLabel: translate("toast.undo"),
-        onAction: () => applySettings(current),
-      });
-    },
-    [applySettings, pushToast, settingsRef],
-  );
-
-  // The wind layer's shaders would not build on this card, so the viewport has
-  // taken the layer back out and the switch has to follow it. Left on, it
-  // described a layer that was not being drawn, and the map read as a calm
-  // afternoon: the reader would have had no way to tell that from the real
-  // thing. No undo, because pressing it would only fail again on the same
-  // card; the switch is there to try again with.
-  const handleWindUndrawable = useCallback(() => {
-    const current = settingsRef.current;
-    if (!current.layers.wind) return;
-    applySettings({
-      ...current,
-      layers: { ...current.layers, wind: false },
+  // Three presses that answer a reader rather than the weather: the layer
+  // that explains a warning, the switch that gives up on a wind field the
+  // map could not draw, and the test that proves a notification works.
+  const { applyPairing, handleWindUndrawable, sendWatchTest } =
+    useWorkspacePresses({
+      settingsRef,
+      onSettings: applySettings,
+      pushToast,
+      overlays,
     });
-    pushToast({
-      title: translate("wind.noDraw"),
-      detail: translate("wind.noDrawBody"),
-    });
-  }, [applySettings, pushToast, settingsRef]);
-
-  // A test the reader asked for is answered on the desktop path only. When the
-  // notification does not go out, the watch has already put the same alert in
-  // front of them as a toast, and a second message saying it worked would be
-  // the app talking about itself rather than about the weather.
-  const sendWatchTest = useCallback(() => {
-    void (async () => {
-      const delivered = await overlays.sendWatchTest();
-      if (delivered) {
-        pushToast({
-          title: translate("watch.testSent"),
-          detail: translate("watch.testSentBody"),
-        });
-      }
-    })();
-  }, [overlays, pushToast]);
 
   // The third of the three things that open an entry in the record, after a
   // warning reaching a named place and the sky changing at one. All three are
   // the weather doing something; nothing the reader does writes a row.
-  const watchedForJournal = useMemo(
-    () => watchedPlaces(settings),
-    // The watched places and nothing else. Keyed on the whole settings object
-    // this rebuilt on every write, which restarted the effect below with it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [settings.watch, settings.watchPlaces],
-  );
+  // The places being watched, and the ring drawn round each of them.
+  const { watchedForJournal, watchRings } = useWatchedPlaces(settings);
 
-  // The radius each watched place's rules are judged against, drawn as a ring
-  // around it. Built here rather than in the map: the radius is the reader's,
-  // the label is in the units they are reading in, and the map component has
-  // no business knowing what a watched place is.
-  const watchRings = useMemo(
-    () => (settings.watchRings ? watchRingFeatures(watchedForJournal) : null),
-    // The units are read by `formatDistance` from a store rather than passed
-    // in, so the labels have to be rebuilt when the setting behind that store
-    // changes. The rule cannot see that read and calls the dependency
-    // unnecessary; without it a reader switching to metric keeps rings
-    // labelled in miles until something else moves.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [settings.watchRings, settings.units, watchedForJournal],
-  );
-
-  // Tied to whichever site the single-site radar is reading, because the cells
-  // are that radar's own account of that volume.
-  const stormCells = useStormCells({
-    ready: hydrated,
-    // The watch keeps its own feed. Tying it to the layer meant a reader
-    // who switched the cells off had the approach notice stop with them,
-    // while its switch stayed on in the settings and re-armed itself weeks
-    // later when the layer came back. A watch runs whether or not anybody is
-    // looking at what it is watching.
-    enabled:
-      (settings.layers.stormCells || settings.approach.enabled) &&
-      !singleSite.historical,
-    station: singleSite.station,
+  // Everything the map draws that is not the radar picture itself: the
+  // cells the site's own tracker found, what the algorithm says is falling,
+  // the national grids, the lightning, the wind, that day's warnings during
+  // a replay, and the model's smoke.
+  const {
+    stormCells,
+    nameCell,
+    namesHere,
+    classification,
+    drawnClassification,
+    probSevere,
+    liveClock,
+    mrmsChoices,
+    mrms,
+    approaching,
+    lightning,
+    placeLightning,
+    wind,
+    frames,
+    frameIndex,
+    source,
+    activeFrame,
+    archiveWarnings,
+    replayedAlerts,
+    compareFrame,
+    forecastSmoke,
+    drawnForecastSmoke,
+    satelliteTime,
+    compareSatelliteTime,
+  } = useWorkspaceFeeds({
+    settings,
+    hydrated,
     pageVisible,
-    // The approach notice is derived from this report and exists to reach
-    // somebody who is not looking at the map, so the report has to keep
-    // arriving while the window is hidden or in the tray.
-    keepPollingWhileHidden: settings.approach.enabled,
+    reducedMotion,
     clock,
-    names: cellNames,
-    // Names follow the identity the algorithm gives, so when it stops
-    // tracking a storm the name goes with it. Identifiers are reused: a name
-    // left behind would reappear on a different storm, which is worse than
-    // losing it. Done as the report lands rather than in an effect watching
-    // it, which would be a setState in an effect body.
-    onReport: useCallback(
-      (report: CellReport | null) =>
-        setCellNames((held) =>
-          held.size
-            ? livingNames(
-                held,
-                report?.station ?? null,
-                report?.cells.map((cell) => cell.id) ?? [],
-              )
-            : held,
-        ),
-      [],
-    ),
-  });
-
-  const nameCell = useCallback(
-    (id: string, name: string) => {
-      const station = stormCells.report?.station;
-      if (!station) return;
-      setCellNames((held) => withName(held, cellKey(station, id), name));
-    },
-    [stormCells.report?.station],
-  );
-
-  // Keyed by the algorithm's identifier alone, for the surfaces that are
-  // already looking at one radar's report.
-  const namesHere = useMemo(() => {
-    const station = stormCells.report?.station;
-    if (!station) return new Map<string, string>();
-    const out = new Map<string, string>();
-    for (const cell of stormCells.report?.cells ?? []) {
-      const name = cellNames.get(cellKey(station, cell.id));
-      if (name) out.set(cell.id, name);
-    }
-    return out;
-  }, [cellNames, stormCells.report]);
-
-  useCellJournal({
-    report: stormCells.report,
-    places: watchedForJournal,
-    enabled: settings.watch.enabled,
-    capture: journalFrame,
-    names: namesHere,
-  });
-  // The same site's own account of what is falling, read from Level III
-  // beside the cells and tied to the site for the same reason.
-  const classification = useClassification({
-    ready: hydrated,
-    enabled: settings.layers.classification && !singleSite.historical,
-    station: singleSite.station,
-    product: settings.radar.classificationProduct,
-    pageVisible,
-    clock,
-  });
-  // One object, so the map is handed something new only when the answer is.
-  const drawnClassification = useMemo(
-    () =>
-      classification.report && classification.features
-        ? {
-            features: classification.features,
-            legend: classification.report.legend,
-          }
-        : null,
-    [classification.features, classification.report],
-  );
-  // One reading covers the whole country, so there is nothing to key on the
-  // view: what is on screen is whatever part of it the map is over.
-  const probSevere = useProbSevere({
-    ready: hydrated,
-    enabled: settings.layers.probSevere && !singleSite.historical,
-    pageVisible,
-    clock,
-  });
-  // The live legend counts in seconds, and nothing else on screen does. The
-  // ticking starts only while a live sweep is drawn.
-  const liveClock = useSecondClock(singleSite.sweep?.live === true);
-
-  // Which grid each of the three switches that stands for several is pointing
-  // at. Held together because the hook and the provenance records both need
-  // all three, and a caller that passed two would silently report the default
-  // window as the one on screen.
-  const mrmsChoices = useMemo(
-    () => ({
-      gaugeQpePeriod: settings.gaugeQpePeriod,
-      rotationPeriod: settings.rotationPeriod,
-      lightningWindow: settings.lightningWindow,
-      lightningForecastWindow: settings.lightningForecastWindow,
-      lightningJumpWindow: settings.lightningJumpWindow,
-      isothermLevel: settings.isothermLevel,
-      azShearLevel: settings.azShearLevel,
-      cappiField: settings.cappiField,
-      cappiLevel: settings.cappiLevel,
-    }),
-    [
-      settings.azShearLevel,
-      settings.cappiField,
-      settings.cappiLevel,
-      settings.gaugeQpePeriod,
-      settings.rotationPeriod,
-      settings.lightningWindow,
-      settings.lightningForecastWindow,
-      settings.lightningJumpWindow,
-      settings.isothermLevel,
-    ],
-  );
-
-  const mrms = useMrmsOverlays({
-    ready: hydrated,
-    layers: settings.layers,
-    pageVisible,
-    paletteGeneration,
-    choices: mrmsChoices,
-    smooth: settings.radar.smoothGrids,
-  });
-  // What the radar’s own tracker says is heading for each watched place.
-  // Not a warning, and never worded as one: the panel lists it, the notice
-  // says it is a track, and both are off until asked for.
-  const approaching = useMemo(
-    () => approachesFor(stormCells.report, watchedForJournal, clock),
-    [clock, stormCells.report, watchedForJournal],
-  );
-  useApproachWatch({
-    report: stormCells.report,
-    places: watchedForJournal,
-    settings: settings.approach,
-    clock,
-    // The toast is the announcement on the browser path and the fallback on
-    // the desktop one, and it sits in a polite live region either way. The
-    // desktop notification is what a screen reader hears when it lands.
-    onFallback: (coming: Approach) =>
-      pushToast({
-        title: approachTitle(coming),
-        detail: approachBody(coming),
-      }),
-  });
-
-  const lightning = useLightning({
-    ready: hydrated,
-    enabled:
-      settings.layers.lightningFlashes || settings.lightningWatch.enabled,
-    pageVisible,
-    // Same reason as the cells above: the lightning notice is derived from
-    // this window, and a watch that only works while somebody is watching
-    // is not a watch.
-    keepPollingWhileHidden: settings.lightningWatch.enabled,
-    clock,
-  });
-  // Lightning near a watched place, from the window the map already holds.
-  // Two notices per storm: come in, and half an hour after the last flash it
-  // is over. Nothing here is a warning and every line of it says so.
-  const placeLightning = useLightningWatch({
-    window: lightning.window,
-    places: watchedForJournal,
-    rule: settings.lightningWatch,
-    clock,
-    onFallback: (notice) =>
-      pushToast({
-        title: lightningTitle(notice),
-        detail: lightningBody(notice),
-      }),
-  });
-
-  // Animated particles are motion for its own sake, so a viewer who has asked
-  // for less of it does not get them at all.
-  const wind = useWind({
-    ready: hydrated,
-    enabled: settings.layers.wind && !reducedMotion,
-    pageVisible,
-  });
-  const { frames, frameIndex, source } = timeline;
-  const activeFrame = frames[frameIndex];
-
-  // The warnings that were in force while the archived storm was on the map.
-  // The live layer is switched off during a replay, because today's polygon
-  // over yesterday's storm is a claim nobody made; this puts that day's own
-  // polygons back, from the archive, one request for the whole window.
-  const archiveWarnings = useArchiveWarnings({
     replay,
-    enabled: settings.layers.weatherAlerts,
-    frameTime: activeFrame?.time ?? null,
+    compareOffset,
+    timeline,
+    singleSite,
+    watchedForJournal,
+    cellNames,
+    setCellNames,
+    journalFrame,
+    paletteGeneration,
+    pushToast,
   });
-  const replayedAlerts = useMemo(
-    () =>
-      archiveWarnings.data
-        ? alertsOfKind(archiveWarnings.data, settings.alertTypes)
-        : null,
-    [archiveWarnings.data, settings.alertTypes],
-  );
-  // A comparison that asks for more history than exists is left empty. Using
-  // the first frame while labelling it "12 back" gave a precise label to a
-  // different moment.
-  const compareFrame =
-    frameIndex >= compareOffset
-      ? frames[frameIndex - compareOffset]
-      : undefined;
-
-  // The model's smoke for the hour the playhead is on, and only on the
-  // forecast tail: an observed frame has nothing from a model on it.
-  const smokeWanted = settings.layers.forecastSmoke && !singleSite.historical;
-  const forecastSmoke = useForecastSmoke({
-    ready: hydrated,
-    enabled: smokeWanted,
-    valid: smokeWanted ? forecastSmokeValid(activeFrame) : null,
-    preferredInit: activeFrame?.forecast?.initUtc ?? null,
-  });
-  const drawnForecastSmoke = useMemo(
-    () =>
-      forecastSmoke.field
-        ? {
-            url: forecastSmoke.field.image,
-            coordinates: forecastSmokeCorners(forecastSmoke.field),
-            opacity: FORECAST_SMOKE_OPACITY,
-          }
-        : null,
-    [forecastSmoke.field],
-  );
-
-  // The satellite image that stands for a frame, held back to the newest slot
-  // the archive has actually published.
-  const satelliteFor = (frame: RadarFrame | undefined) =>
-    settings.layers.satellite && !singleSite.historical && frame
-      ? satelliteFrameTime(frame.time, Math.floor(clock / 1000))
-      : null;
-  const satelliteTime = satelliteFor(activeFrame);
 
   const updates = useUpdates({ onToast: pushToast });
   const actions = useWorkspaceActions({
@@ -1075,34 +663,15 @@ export default function App() {
     overlayFiles,
   });
   // What the map actually draws: the enabled files, in order, as one
-  // collection. Derived rather than kept beside the set, so a switch or a
-  // slider cannot leave the two disagreeing.
-  // A placefile can say a shape belongs inside a range and between two times.
-  // Whether any imported file says either is worked out once per change to the
-  // set, so a file that says neither is not rebuilt every time the map moves
-  // or the loop steps, which is the common case and most of them.
-  const gates = useMemo(() => overlayGates(overlayFiles), [overlayFiles]);
-  const gateZoom = gates.zoomed ? Math.floor(settings.camera.zoom) : null;
-  const gateMinute = gates.timed
-    ? Math.floor((activeFrame?.time ?? clock / 1000) / 60)
-    : null;
-  // The volume times the wind profile is drawn for, as the archive names
-  // them. Held rather than rebuilt inline, because the panel refetches on any
-  // change to this list and a new array every render would ask forever.
-  const vwpTimes = useMemo(
-    () => singleSite.volumes.map((at) => new Date(at).toISOString()),
-    [singleSite.volumes],
-  );
-
-  const overlayShapes = useMemo(
-    () =>
-      mergedOverlayShapes(
-        overlayFiles,
-        gateZoom ?? Number.POSITIVE_INFINITY,
-        gateMinute === null ? null : gateMinute * 60_000,
-      ),
-    [overlayFiles, gateZoom, gateMinute],
-  );
+  // The reader's own imported shapes, cut to whatever each file says it is
+  // for, and the volume times the wind profile is drawn for.
+  const { overlayShapes, vwpTimes } = useOverlayShapes({
+    overlayFiles,
+    zoom: settings.camera.zoom,
+    frameTime: activeFrame?.time ?? null,
+    clock,
+    volumes: singleSite.volumes,
+  });
 
   // What the workspace can say about itself: the grids and sweeps that
   // have numbers behind them, the layers actually drawn and where each
@@ -1194,64 +763,20 @@ export default function App() {
     pushToast,
   });
 
-  // The flight happens here rather than where the alert is announced, because
-  // the watch speaks the moment it sees a warning and the polygon it is about
-  // reaches this component on the render after that.
-  useEffect(() => {
-    const alert = pendingFollowRef.current;
-    if (!alert) return;
-    // One attempt per announcement, and the announcement is spent here
-    // whatever happens next. Holding it until the alerts layer has something
-    // to search flies to a warning minutes later out of nowhere, and the
-    // layer is empty for the whole of a replay and any time the reader has
-    // warnings switched off, which is exactly when the watch is still
-    // announcing.
-    pendingFollowRef.current = null;
-    const drawn = overlays.data.alerts;
-    if (!drawn) return;
-    if (!settingsRef.current.followNewWarnings) return;
-    // Not while a picture or a loop is being written: the export walks the
-    // camera itself, and a warning arriving mid-recording would put a flight
-    // in the middle of somebody's video.
-    if (exportState.busy) return;
-    // And not off somebody who is using the map. MapLibre stops a flight the
-    // moment a gesture starts, which covers an interruption; this is the
-    // other half, which is not starting one over a reader's shoulder.
-    const touched = mapRef.current?.interactedAt() ?? null;
-    if (touched !== null && Date.now() - touched < FOLLOW_QUIET_MS) return;
-
-    // The same identity the watch decided by, from the same function, so a
-    // warning it announced is the warning that is flown to.
-    let box: OverlayBounds | null = null;
-    for (const feature of drawn.features) {
-      const bounds = featureBounds(feature.geometry);
-      if (!bounds) continue;
-      if (alertId(feature.properties, bounds) === alert.id) {
-        box = bounds;
-        break;
-      }
-    }
-    if (!box) return;
-    mapRef.current?.fitBounds(box);
-    pushToast({
-      title: translate("follow.went", { headline: alert.headline }),
-      detail: translate("follow.wentBody"),
-      actionLabel: translate("follow.stop"),
-      onAction: () =>
-        applySettings({ ...settingsRef.current, followNewWarnings: false }),
-    });
-    // Deliberately not depending on the drawn alerts: this runs when a
-    // warning is announced and reads whatever the layer holds at that moment.
-    // Waking it again when the layer changes is how a spent announcement came
-    // back to life.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applySettings, exportState.busy, followSignal, pushToast, settingsRef]);
-
-  useEffect(() => {
-    const onVisibility = () => setPageVisible(!document.hidden);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, []);
+  // Take the map to a warning as it arrives, when the reader asked for
+  // that. The flight happens here rather than where the alert is announced,
+  // because the watch speaks the moment it sees a warning and the polygon
+  // it is about reaches this component on the render after that.
+  useFollowWarning({
+    signal: followSignal,
+    take: takeFollow,
+    alerts: overlays.data.alerts,
+    exportBusy: exportState.busy,
+    settingsRef,
+    onSettings: applySettings,
+    pushToast,
+    mapRef,
+  });
 
   // Where the camera came to rest, which is the only moment anything is
   // looked for. Held apart from the settings camera, which is written on a
@@ -1262,113 +787,39 @@ export default function App() {
   } | null>(null);
   const [curiosity, setCuriosity] = useState<Curiosity | null>(null);
 
-  // Any of the ordinary ways somebody says they are still there. Recorded
-  // rather than reacted to: the readout dims itself off this and the loop
-  // slows itself off this, and neither of them wants a render per keystroke.
-  useEffect(() => {
-    const touched = () => setTouchedAt(Date.now());
-    const events = ["pointerdown", "keydown", "wheel"] as const;
-    for (const name of events)
-      window.addEventListener(name, touched, { passive: true });
-    return () => {
-      for (const name of events) window.removeEventListener(name, touched);
-    };
-  }, []);
-
-  /**
-   * Whether the full-screen view is actually on, worked out rather than kept.
-   *
-   * Three things decide it and all three are already known during a render:
-   * whether the reader asked for it, whether they have been away long enough
-   * to have asked for it by default, and whether a warning is standing at a
-   * place they watch. Writing it into state from an effect would cascade a
-   * render for each of them, and the warning case would then have to be
-   * undone by hand when the warning cleared.
-   *
-   * A warning takes it down and puts the workspace back, because the whole
-   * point of the app is the thing that just happened, and a second monitor
-   * showing a clean loop through it is the app hiding its own reason to
-   * exist. It comes back when the warning does not stand any more.
-   */
-  const ambientScreen =
-    (ambientAsked ||
-      (settings.ambientIdleMinutes > 0 &&
-        idleMs >= settings.ambientIdleMinutes * 60_000)) &&
-    !overlays.alertActive;
-
-  // The screen kept on while that view is showing, if the reader asked for
-  // it. Logged and left alone when the system refuses: a screen that sleeps
-  // anyway is a disappointment rather than a fault, and a toast over a view
-  // somebody walked away from helps nobody.
-  useDisplayAwake({
-    wanted: settings.displayAwake,
-    showing: ambientScreen,
-    onFailure: (failure) =>
-      log.warn(
-        "display",
-        failure instanceof Error ? failure.message : "The hold was refused.",
-      ),
+  // Whether the full-screen view is actually on, and the screen held awake
+  // while it is.
+  const ambientScreen = useAmbientScreen({
+    asked: ambientAsked,
+    idleMinutes: settings.ambientIdleMinutes,
+    idleMs,
+    alertActive: overlays.alertActive,
+    displayAwake: settings.displayAwake,
   });
 
-  const handleCameraChange = useCallback(
-    (camera: CameraState) => {
-      updateCamera(camera);
-      setViewport(mapRef.current?.bounds() ?? null);
-      setResting({ center: camera.center, zoom: camera.zoom });
-    },
-    [updateCamera],
-  );
-
-  useCuriosities({
-    // Nothing discoverable reveals itself while a warning is in force at a
-    // watched place. The standing rule, and the reason this is safe to ship.
-    enabled:
-      hydrated &&
-      settings.curiosities &&
-      // Nothing discoverable in the calmer presentation either: somebody who
-      // asked for less is not asking to be surprised.
-      !settings.calm &&
-      !overlays.alertActive &&
-      !replay,
-    camera: resting,
-    already: settings.curiositiesFound,
-    onFound: useCallback(
-      (found: Curiosity) => {
-        setCuriosity(found);
-        applySettings({
-          ...settingsRef.current,
-          curiositiesFound: [...settingsRef.current.curiositiesFound, found.id],
-        });
-      },
-      [applySettings, settingsRef],
-    ),
+  // What the map itself calls back into: where the camera came to rest,
+  // whether the renderer came up, and which tool is armed.
+  const { handleCameraChange, handleMapStatus, handleTool } = useMapHandlers({
+    settings,
+    settingsRef,
+    onSettings: applySettings,
+    hydrated,
+    overlays,
+    replay,
+    resting,
+    setResting,
+    setCuriosity,
+    updateCamera,
+    setViewport,
+    setMapStatus,
+    setActiveTool,
+    setActiveSurface,
+    mapRef,
+    writingLoopRef,
+    setProductOpen,
+    secondMapRef,
+    exportBusy: exportState.busy,
   });
-
-  // A walk of thirty volumes outlives the listing's own refresh, and a
-  // refresh drops the oldest volume to make room for the newest. Held still,
-  // the walk finishes against the list it started with.
-  useEffect(() => {
-    writingLoopRef.current =
-      exportState.busy === "loop" || exportState.busy === "gif";
-  }, [exportState.busy]);
-
-  const handleMapStatus = useCallback(
-    (status: "loading" | "ready" | "error" | "nogpu") => {
-      setMapStatus(status);
-      if (status === "ready") setViewport(mapRef.current?.bounds() ?? null);
-    },
-    [],
-  );
-
-  const handleTool = useCallback((tool: ToolMode) => {
-    setActiveSurface(null);
-    setProductOpen(false);
-    setActiveTool(tool);
-    if (!tool) {
-      mapRef.current?.clearTools();
-      secondMapRef.current?.clearTools();
-    }
-  }, []);
 
   // A storm out of the archive: its track drawn as points, and the two
   // ways of arriving at one. Picking it frames the whole track; replaying
@@ -1383,67 +834,21 @@ export default function App() {
       pushToast,
     });
 
-  /**
-   * Escape, from anywhere the panel did not already handle it.
-   *
-   * A panel stops its own Escape (`PanelShell`), and a native listener on
-   * `window` sits above the root React attaches to, so this never runs twice
-   * for one press: checked in a browser rather than assumed. What it covers
-   * is everywhere else. A reader who opened Layers, tabbed out to the map and
-   * pressed Escape got nothing at all, and the drawing, range and section
-   * tools had no keyboard way out: the only exit was the Clear button in the
-   * tool strip, which is a mouse target.
-   *
-   * One press dismisses one thing. The panel goes first, and only if there
-   * is no panel does the tool go: a tool and a surface can be open together,
-   * and `handleTool(null)` is the Clear button, which also wipes whatever has
-   * been drawn. Taking the tool first meant a single Escape closed the panel,
-   * put the tool away and erased the reader's measurement, three things they
-   * asked for one of.
-   *
-   * A full-screen mode goes first and takes nothing else with it: one press
-   * leaves the mode, and the next press is about the workspace underneath.
-   *
-   * This used to return without doing anything, under a comment saying the
-   * press was already what left them. It was not. Entering either mode from
-   * the command list clears the tool and the surface on the way in, so there
-   * was nothing for the press to fall through to and nothing to protect; what
-   * there was, was no way out but a 30 by 26 button, and only while it
-   * happened to hold focus. A view entered by the idle timer did leave on any
-   * key, because any key is what resets the idle clock; one asked for
-   * deliberately did not leave on anything.
-   */
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      if (ambientScreen) {
-        setAmbientAsked(false);
-        // Also counts as being here, which is what stops the idle rule
-        // putting it straight back.
-        setTouchedAt(Date.now());
-        return;
-      }
-      if (capture) {
-        setCapture(false);
-        return;
-      }
-      if (activeSurface || productOpen) {
-        setActiveSurface(null);
-        setProductOpen(false);
-        return;
-      }
-      if (activeTool) handleTool(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [
-    activeTool,
+  // Escape, from anywhere a panel did not already handle it. One press
+  // dismisses one thing, in the order somebody would name them.
+  useEscapeKey({
     activeSurface,
+    activeTool,
     ambientScreen,
     capture,
     productOpen,
     handleTool,
-  ]);
+    setActiveSurface,
+    setProductOpen,
+    setAmbientAsked,
+    setCapture,
+    setTouchedAt,
+  });
 
   // What the workspace only showed, said out loud once per transition. A
   // reader who cannot see the greyed chip, the note in the Layers panel or
@@ -1485,85 +890,19 @@ export default function App() {
     pushToast,
   });
 
-  // One place that knows how to do each kind of thing the palette offers, so
-  // the palette itself stays a list rather than a second copy of the app.
-  const runCommand = useCallback(
-    (action: CommandAction) => {
-      // Nothing about the welcome hint here. It is remembered the moment it
-      // is put on screen, so having found the commands the reader has already
-      // been past it, and a second place that writes the same flag would be a
-      // line that can never run.
-      const current = settingsRef.current;
-      switch (action.kind) {
-        case "layer":
-          applySettings({
-            ...current,
-            layers: {
-              ...current.layers,
-              [action.layer]: !current.layers[action.layer],
-            },
-          });
-          break;
-        case "style":
-          applySettings({ ...current, mapStyle: action.style });
-          break;
-        case "product":
-          applySettings({
-            ...current,
-            radar: {
-              ...current.radar,
-              product: action.product as RadarSettings["product"],
-              singleSite: true,
-            },
-          });
-          setProductOpen(true);
-          break;
-        case "surface":
-          if (action.surface === "radar-product") {
-            setActiveSurface(null);
-            setProductOpen(true);
-            return;
-          }
-          setProductOpen(false);
-          setLayersToFind(action.find === true);
-          // The panel it asks for takes the palette's place, so this must not
-          // fall through to the close below.
-          setActiveSurface(action.surface as SurfaceId);
-          return;
-        case "tool":
-          // handleTool clears the surface itself.
-          handleTool(action.tool as ToolMode);
-          return;
-        case "home":
-          // The camera only. Nothing about the watch, the layers or the
-          // projection changes: a reader on the globe comes home on the
-          // globe, and a reader who was looking at a storm keeps the storm's
-          // layers when they come back to it.
-          mapRef.current?.flyTo({
-            center: current.watch.center,
-            zoom: Math.max(current.camera.zoom, HOME_ZOOM),
-            bearing: 0,
-            pitch: 0,
-          });
-          break;
-        case "ambientScreen":
-          setAmbientAsked((on) => !on);
-          handleTool(null);
-          break;
-        case "capture":
-          setCapture((on) => !on);
-          // Nothing the mode hides may be left armed behind it. The layout
-          // change is its own announcement, so there is no toast: the mode
-          // hides those, because a toast's action button changes what the
-          // workspace comes back to and it cannot be seen to be pressed.
-          handleTool(null);
-          break;
-      }
-      // Everything else leaves the map showing rather than the list.
-      setActiveSurface(null);
-    },
-    [applySettings, handleTool, settingsRef],
-  );
+  // One place that knows how to do each kind of thing the palette offers,
+  // so the palette itself stays a list rather than a second copy of the app.
+  const runCommand = useCommandActions({
+    settingsRef,
+    onSettings: applySettings,
+    setActiveSurface,
+    setLayersToFind,
+    setProductOpen,
+    setAmbientAsked,
+    setCapture,
+    handleTool,
+    mapRef,
+  });
 
   // What the readout answers with: the point it is about, the places it can
   // be about, and the sentence itself.
@@ -1574,35 +913,14 @@ export default function App() {
       stormCells,
       replayedAlerts,
     });
-  // Staleness is a property of the observed feed, not of the frame the user
-  // scrubbed to and not of a forecast frame that is hours ahead by design.
-  const radarAge = timeline.newestObserved
-    ? frameAgeMinutes(timeline.newestObserved, clock)
-    : null;
-  const panelSide =
-    productOpen ||
-    activeSurface === "commands" ||
-    activeSurface === "search" ||
-    activeSurface === "map-type" ||
-    activeSurface === "layers"
-      ? "left"
-      : activeSurface
-        ? "right"
-        : "none";
-  // What to call the frame the surfaces are drawn in while their own module
-  // is still arriving, and how much room to hold for it. The panels cannot
-  // answer for themselves: they are in the chunk being waited on, along with
-  // the eleventh `lazy` in this app, which is the module holding the other
-  // ten.
-  //
-  // The surface wins over the product panel when both are open, because the
-  // surface is the one the reader just asked for. It is also the one whose
-  // width varies: the settings-shaped panels are 410 and the wide ones 430
-  // against a base of 360, and standing in for any of them at the base width
-  // moved the map chrome once for the stand-in and again for the panel.
-  const openFrame =
-    (activeSurface ? SURFACE_FRAMES[activeSurface] : null) ??
-    SURFACE_FRAMES["radar-product"];
+  // How old the picture is, which side the open panel is on, and what to
+  // call the frame it is drawn in while its own module is still arriving.
+  const { radarAge, panelSide, openFrame } = useOpenPanel({
+    newestObserved: timeline.newestObserved,
+    clock,
+    activeSurface,
+    productOpen,
+  });
 
   // A machine that passed the WebGL2 probe at start-up and could not make
   // the map's own context after all. It reaches here rather than through the
@@ -1695,7 +1013,7 @@ export default function App() {
         compareFrame={compareFrame}
         compareSweep={singleSite.compare.sweep}
         satelliteTime={satelliteTime}
-        compareSatelliteTime={satelliteFor(compareFrame)}
+        compareSatelliteTime={compareSatelliteTime}
         satelliteAgeMinutes={
           satelliteTime === null
             ? null
