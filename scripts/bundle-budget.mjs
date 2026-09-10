@@ -136,8 +136,17 @@ const BUDGETS = [
     // places a section is now asked whether it survives the filter. It is
     // markup and predicates in this panel rather than anything imported, so
     // the report still shows the chunk as this panel and lucide alone.
-    raw: 28,
-    gzip: 6,
+    //
+    // Twenty-nine on 2026-09-10 for two whole layers: the buoys (`AUD-193`)
+    // and the aviation hazards (`AUD-194`). A layer costs this panel a row in
+    // the switch list, an entry in the options table with its own detail
+    // string, and an icon; the two together took the chunk from 28 to 29 raw
+    // and 6 to 7 gzipped, which is about half a kilobyte apiece. The gzip
+    // column moves for the first time since it was written down, because two
+    // layers is the first thing since then that added new prose rather than
+    // more of the same markup.
+    raw: 29,
+    gzip: 7,
     firstLoad: false,
   },
   {

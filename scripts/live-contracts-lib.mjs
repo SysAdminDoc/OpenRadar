@@ -282,6 +282,17 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "aviation",
+    label: "AWC aviation hazards",
+    host: "aviationweather.gov",
+    kind: "browser",
+    files: ["src/lib/overlays/aviation.test.ts"],
+    liveBlock: "against the live service",
+    // The three-hourly grid is issued around the clock, so the contract can
+    // insist on an answer rather than on a shape.
+    required: false,
+  },
+  {
     id: "buoys",
     label: "NDBC latest observations",
     host: "www.ndbc.noaa.gov",

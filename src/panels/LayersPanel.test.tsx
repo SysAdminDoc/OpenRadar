@@ -595,11 +595,11 @@ describe("the seven headings the switches are read under", () => {
       expect(rows.length, `${group} has no switches`).toBeGreaterThan(0);
     }
     // And nothing was lost on the way: every switch the panel used to show
-    // is still on it, counted rather than named. Forty-seven since the buoys
-    // joined the water group on 2026-09-10.
+    // is still on it, counted rather than named. Forty-eight since the buoys
+    // and the aviation hazards joined on 2026-09-10.
     expect(
       container.querySelectorAll(".setting-list .toggle-row"),
-    ).toHaveLength(47);
+    ).toHaveLength(48);
   });
 
   it("names each heading in the reader's own language", () => {

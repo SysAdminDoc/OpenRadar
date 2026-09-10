@@ -1268,6 +1268,23 @@ export const en = {
   "layers.metarDetail": "Airport reports, as station plots",
   "layer.riverGauges": "River Gauges",
   "layer.buoys": "Buoys",
+  "layer.aviation": "Aviation Hazards",
+  "layers.aviationDetail":
+    "SIGMETs, G-AIRMETs, centre weather advisories and pilot reports, from the Aviation Weather Center. Not for flight planning: use an official briefing.",
+  "keywords.aviation":
+    "aviation sigmet airmet gairmet pirep turbulence icing cwa aircraft flight",
+  "aviation.failed": "The Aviation Weather Center {answer}.",
+  "aviation.title": "{what}",
+  "aviation.validBetween": "Valid {from} to {to}",
+  "aviation.validAt": "Valid from {time}",
+  "aviation.between": "{low} to {high} ft",
+  "aviation.upTo": "Up to {high} ft",
+  "aviation.notForFlight": "Not for flight planning. Use an official briefing.",
+  "aviation.sigmets": "SIGMETs",
+  "aviation.gairmets": "G-AIRMETs",
+  "aviation.cwas": "centre advisories",
+  "aviation.pireps": "pilot reports",
+  "aviation.partial": "Drawn without {missing}, which did not answer.",
   "layers.buoysDetail":
     "What the moored buoys are measuring: the wind over the water, the sea it is riding and the pressure above it. One national file every ten minutes, from zoom 4 in.",
   "buoys.failed": "The buoy network {answer}.",

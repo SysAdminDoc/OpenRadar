@@ -113,6 +113,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["river", "flood", "gauge", "stage", "crest", "water"],
   },
   {
+    layer: "aviation",
+    key: "layer.aviation",
+    extra: "keywords.aviation",
+    keywords: ["aviation", "sigmet", "airmet", "pirep", "turbulence", "icing"],
+  },
+  {
     layer: "buoys",
     key: "layer.buoys",
     extra: "keywords.buoys",

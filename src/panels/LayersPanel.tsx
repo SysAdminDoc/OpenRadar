@@ -24,6 +24,7 @@ import {
   Snowflake,
   Tornado,
   Umbrella,
+  Plane,
   Waves,
   Wind,
   X,
@@ -156,6 +157,7 @@ const OVERLAY_LAYERS: Array<{
     labelKey: "layer.riverGauges",
   },
   { key: "buoys", overlayId: "buoys", labelKey: "layer.buoys" },
+  { key: "aviation", overlayId: "aviation", labelKey: "layer.aviation" },
   { key: "tropical", overlayId: "tropical", labelKey: "layer.tropical" },
 ];
 
@@ -406,6 +408,13 @@ const LAYER_OPTIONS: Array<{
     labelKey: "layer.buoys",
     detailKey: "layers.buoysDetail",
     icon: Waves,
+  },
+  {
+    key: "aviation",
+    group: "hazards",
+    labelKey: "layer.aviation",
+    detailKey: "layers.aviationDetail",
+    icon: Plane,
   },
   {
     key: "tropical",

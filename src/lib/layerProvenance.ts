@@ -135,6 +135,16 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "observation",
     freshForMs: 90 * 60_000,
   },
+  aviation: {
+    sourceId: "aviation",
+    label: "Aviation hazards",
+    attribution: "NOAA Aviation Weather Center",
+    // Hazard areas a forecaster drew and reports from people who flew
+    // through them, which is a forecast and an observation in one layer. The
+    // areas are what it is read for.
+    kind: "forecast",
+    freshForMs: 60 * 60_000,
+  },
   buoys: {
     sourceId: "buoys",
     label: "Buoys",
