@@ -1677,7 +1677,7 @@ export const de: Catalogue = {
   "melting.nothingMelting":
     "Nichts in diesem Volumen sieht nach schmelzendem Schnee aus.",
   "jump.badge": "Sprung der Blitzrate bei {id}",
-  "jump.rate": "Jetzt {rate} je Minute, um {time}.",
+  "jump.rate": "{id} liegt jetzt bei {rate} je Minute, {time}.",
   "jump.note":
     "Ein Signal, dass der Sturm sich verstärkt, keine Warnung. Vom Satelliten erkannte Blitze, keine Meldungen von Einschlägen am Boden.",
   "gridWatch.hailTitle": "Hagel geschätzt nahe {place}",

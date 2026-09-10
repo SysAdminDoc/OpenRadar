@@ -25,13 +25,15 @@ function series(counts: number[]): JumpSample[] {
   }));
 }
 
-function flash(latitude: number, longitude: number): Flash {
+function flash(latitude: number, longitude: number, at: number = AT): Flash {
   return {
     latitude,
     longitude,
     energyJoules: 1,
     areaSquareKm: 10,
-    time: AT / 1000,
+    // Seconds, like every time the native side hands over. It is the flash's
+    // own moment that decides which bin it lands in.
+    time: at / 1000,
   };
 }
 
@@ -69,6 +71,14 @@ describe("a storm's flash rate rising faster than it has been", () => {
     expect(doubled.sigma as number).toBeGreaterThan(2);
     expect(doubled.at).toBe(AT);
     expect(doubled.rate).toBe(26);
+
+    // The number itself, worked out by hand. The rates are 12, 13, 12, 13,
+    // 12, 13, 26; the changes are 0.5, -0.5, 0.5, -0.5, 0.5 and then 6.5.
+    // Over the five before it that is a mean of 0.1 and a sample deviation of
+    // 0.5477, which puts the last change 11.87 of them out. Taking the
+    // deviation over five rather than four would say 13.27, which is the same
+    // storm reported as more of a jump than it is.
+    expect(doubled.sigma as number).toBeCloseTo(11.867, 2);
   });
 
   it("says nothing about a storm flashing steadily", () => {
@@ -87,9 +97,14 @@ describe("a storm's flash rate rising faster than it has been", () => {
     expect(young.at).toBeNull();
     expect(young.rate).toBe(20);
 
-    // One bin short of the history the method asks for is still too short.
-    const nearly = jumpIn(series(new Array(JUMP_HISTORY_BINS - 1).fill(20)));
+    // One bin short of the history the method asks for is still too short,
+    // and this one would clear every other bar: its rate is forty a minute,
+    // its changes have a real spread, and its last change is nearly three
+    // sigma. The only thing keeping it quiet is the length of the history.
+    const nearly = jumpIn(series([10, 30, 20, 40, 25, 80]));
+    expect(nearly.rate).toBeGreaterThan(JUMP_MIN_RATE);
     expect(nearly.sigma).toBeNull();
+    expect(nearly.at).toBeNull();
 
     // And a short series that would otherwise clear every other bar. Four
     // bins give three changes, which is a spread and a rise well past two
@@ -158,6 +173,18 @@ describe("a storm's flash rate rising faster than it has been", () => {
     expect(held.length).toBeLessThanOrEqual(JUMP_HISTORY_BINS + 1);
   });
 
+  it("measures a change across the time that actually passed", () => {
+    // A missed poll leaves a six-minute hole between two bins. Reading it as
+    // one two-minute step reads the change across it as three times what it
+    // was, which is a jump made out of a gap.
+    const gapped: JumpSample[] = [
+      { at: AT, flashes: 20 },
+      { at: AT + 3 * JUMP_BIN_MS, flashes: 44 },
+    ];
+    // Ten a minute to twenty-two a minute over six minutes is two.
+    expect(changes(gapped)[0]).toBeCloseTo(2, 6);
+  });
+
   it("counts a bin nothing was seen in as a bin with no flashes", () => {
     // A storm that stops flashing has a rate of zero. Dropping the bin would
     // make the next change read as a continuation of the one before it.
@@ -177,8 +204,11 @@ describe("the series each tracked cell carries between windows", () => {
     let found = new Map<string, ReturnType<typeof jumpIn>>();
     const counts = [24, 26, 24, 26, 24, 26, 52];
     counts.forEach((count, at) => {
-      const flashes = new Array(count).fill(null).map(() => flash(41.6, -93.6));
-      found = rememberJumps([near], flashes, AT + at * JUMP_BIN_MS);
+      const when = AT + at * JUMP_BIN_MS;
+      const flashes = new Array(count)
+        .fill(null)
+        .map(() => flash(41.6, -93.6, when));
+      found = rememberJumps([near], flashes, when);
     });
     expect(found.get("A1")?.at).not.toBeNull();
     expect(found.get("A1")?.rate).toBe(26);
@@ -203,7 +233,9 @@ describe("the series each tracked cell carries between windows", () => {
     // forgetting this is about.
     const counts = [24, 26, 24, 26, 24, 26, 24, 26];
     const near_at = (at: number) =>
-      new Array(counts[at]).fill(null).map(() => flash(41.6, -93.6));
+      new Array(counts[at])
+        .fill(null)
+        .map(() => flash(41.6, -93.6, AT + at * JUMP_BIN_MS));
     for (let at = 0; at < 6; at += 1) {
       rememberJumps([near, other], near_at(at), AT + at * JUMP_BIN_MS);
     }
@@ -213,13 +245,37 @@ describe("the series each tracked cell carries between windows", () => {
       [near, other],
       [
         ...near_at(7),
-        ...new Array(100).fill(null).map(() => flash(43.0, -93.6)),
+        ...new Array(100)
+          .fill(null)
+          .map(() => flash(43.0, -93.6, AT + 7 * JUMP_BIN_MS)),
       ],
       AT + 7 * JUMP_BIN_MS,
     );
     expect(back.get("B2")?.sigma).toBeNull();
     // And the cell that stayed kept its own history.
     expect(back.get("A1")?.sigma).not.toBeNull();
+  });
+
+  it("counts only the flashes that fell inside the bin", () => {
+    // The window the map hands over is a rolling five minutes, which is two
+    // and a half bins of it. Counting the whole window into one bin read
+    // every rate two and a half times too high, put that number on the panel,
+    // and let any storm above four flashes a minute past a floor written for
+    // ten.
+    const now = AT + 4 * JUMP_BIN_MS;
+    const window = [
+      ...new Array(20).fill(null).map(() => flash(41.6, -93.6, now)),
+      ...new Array(30)
+        .fill(null)
+        .map(() => flash(41.6, -93.6, now - JUMP_BIN_MS)),
+      ...new Array(30)
+        .fill(null)
+        .map(() => flash(41.6, -93.6, now - 2 * JUMP_BIN_MS)),
+    ];
+    const found = rememberJumps([near], window, now);
+    // Twenty flashes in two minutes is ten a minute. The whole window is
+    // eighty, which read as forty.
+    expect(found.get("A1")?.rate).toBe(10);
   });
 
   it("counts each cell only its own flashes", () => {

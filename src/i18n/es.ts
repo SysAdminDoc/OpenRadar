@@ -1648,7 +1648,7 @@ export const es: Catalogue = {
     "Al corte alto le falta uno de los tres momentos que esto necesita.",
   "melting.nothingMelting": "Nada en este volumen parece nieve en fusión.",
   "jump.badge": "Salto en la tasa de rayos en {id}",
-  "jump.rate": "Ahora {rate} por minuto, a las {time}.",
+  "jump.rate": "{id} va ahora a {rate} por minuto, {time}.",
   "jump.note":
     "Una señal de que la tormenta se está intensificando, no una advertencia. Rayos detectados por satélite, no informes de impactos en tierra.",
   "gridWatch.hailTitle": "Granizo estimado cerca de {place}",

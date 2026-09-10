@@ -1663,7 +1663,7 @@ export const fr: Catalogue = {
   "melting.nothingMelting":
     "Rien dans ce volume ne ressemble à de la neige en fusion.",
   "jump.badge": "Saut du taux d'éclairs sur {id}",
-  "jump.rate": "Maintenant {rate} par minute, à {time}.",
+  "jump.rate": "{id} est maintenant à {rate} par minute, {time}.",
   "jump.note":
     "Un signal que l'orage s'intensifie, pas une alerte. Des éclairs détectés par satellite, pas des signalements d'impacts au sol.",
   "gridWatch.hailTitle": "Grêle estimée près de {place}",

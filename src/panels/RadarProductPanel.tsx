@@ -1009,6 +1009,11 @@ export function RadarProductPanel({
                 })}
               </strong>{" "}
               {t("jump.rate", {
+                // Named, because the badge above lists every cell that
+                // jumped and this rate and time belong to one of them. In a
+                // squall line the unnamed version read as though a whole row
+                // of storms were all doing twenty-six a minute at 18:04.
+                id: jumping[0].cell.id,
                 rate: formatNumber(Math.round(jumping[0].jump?.rate ?? 0)),
                 time: formatClock(jumping[0].jump?.at ?? 0),
               })}{" "}

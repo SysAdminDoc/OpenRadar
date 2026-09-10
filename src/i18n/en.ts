@@ -1617,7 +1617,7 @@ export const en = {
     "The high cut is missing one of the three moments this needs.",
   "melting.nothingMelting": "Nothing in this volume looks like melting snow.",
   "jump.badge": "Flash rate jumped on {id}",
-  "jump.rate": "Now {rate} a minute, at {time}.",
+  "jump.rate": "{id} is now at {rate} a minute, as of {time}.",
   "jump.note":
     "A signal that the storm is intensifying, not a warning. Satellite-detected flashes, not ground strike reports.",
   "gridWatch.hailTitle": "Hail estimated near {place}",
