@@ -47,13 +47,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
   Acceptance: The cause is found rather than the test retried: either the surface settles before the sweep runs, or the sweep waits for something that says it has. A test made to pass by adding a timeout has not been fixed.
   Complexity: S
 
-- [ ] AUD-477 (P3): Two fields the aviation feeds publish and the layer throws away
-  Why: A refutation pass over `AUD-194` found both. `parseAirSigmets` in `src/lib/overlays/aviation.ts` hardcodes `severity: null` while every live `airsigmet` feature carries a `severity`, and `describe` gates the severity line on `typeof severity === "string"`, so the number the service sends would be dropped even once it is read. Separately `forecastHours` is written into every G-AIRMET at `aviation.ts` and nothing anywhere reads it: `grep -rn forecastHours src/` returns the one line that writes it.
-  Evidence: on 2026-09-10 the live SIGMET collection carried `severity: 5` on every feature; the G-AIRMET collection carried `forecast: 3`. The popup shows a severity for a G-AIRMET turbulence area and never for a SIGMET.
-  Touches: `src/lib/overlays/aviation.ts`, `aviation.test.ts`.
-  Acceptance: A SIGMET's severity reaches the popup in a form a reader understands, whether the service sends a word or a number, with a test that reads a live answer rather than a list written by hand; and `forecastHours` is either rendered or removed, with the choice stated. A field written and never read is either a missing feature or dead weight, and this decides which.
-  Complexity: S
-
 - [ ] AUD-478 (P3): The snowfall layer reads stale while showing the freshest thing published
   Why: `src/lib/layerProvenance.ts` gives the snowfall analysis a twelve-hour freshness measured from the analysis's valid time, because the office publishes at 00Z and 12Z. It does not publish on the hour. For whatever part of each cycle the newer file does not exist yet, `recent()` correctly walks back to one that does, and that one is by then over twelve hours old by its own valid time, so the provenance panel marks the layer stale while it is showing the newest analysis NOHRSC has.
   Evidence: at 09:09Z on 2026-09-10 the 00Z file for that day existed with a Last-Modified of 08:56Z, nearly nine hours after its valid hour; the 12Z file 404'd; and the previous day's 12Z file was still being rewritten at 09:03Z, twenty-one hours after its valid hour. Last-Modified is the latest revision rather than first publication, so the true lag is a lower bound.

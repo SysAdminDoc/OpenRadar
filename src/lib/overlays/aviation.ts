@@ -2,6 +2,7 @@ import { serviceAnswer } from "../serviceAnswer";
 import { type OverlayAdapter, type OverlayFeature } from "./registry";
 import { cachedUrl } from "../tileCache";
 import { formatNumber, translate } from "../../i18n";
+import type { StringKey } from "../../i18n/en";
 import { formatClock } from "../units";
 
 /**
@@ -106,6 +107,45 @@ function collection(payload: unknown): OverlayFeature[] {
 }
 
 /**
+ * How bad the forecaster said it is, in the service's own vocabulary.
+ *
+ * The Aviation Weather Center's schema for this collection writes the whole
+ * of it out: "LGT, LT-MOD, MOD (AIRMET), MOD-SEV, SEV (SIGMET)". It is an
+ * ordered list, and the JSON API sends a G-AIRMET's as the word and a
+ * SIGMET's as that word's place in the list starting at one. Every convective
+ * SIGMET live on 2026-09-10 carried 5, which is SEV, which is what a
+ * convective SIGMET is by definition.
+ *
+ * Both forms are read here for that reason. Before this the SIGMET half was
+ * thrown away at the parser and the popup only looked at strings, so the one
+ * product whose severity is never in doubt was the one that never showed it.
+ */
+const SEVERITY_WORDS = ["lgt", "lt-mod", "mod", "mod-sev", "sev"] as const;
+
+const SEVERITY_KEYS: Record<(typeof SEVERITY_WORDS)[number], StringKey> = {
+  lgt: "aviation.severityLight",
+  "lt-mod": "aviation.severityLightModerate",
+  mod: "aviation.severityModerate",
+  "mod-sev": "aviation.severityModerateSevere",
+  sev: "aviation.severitySevere",
+};
+
+/** The severity in the reader's own words, or nothing the service sent. */
+export function severityWords(value: unknown): string | null {
+  if (typeof value === "number") {
+    // One-based, which is what the schema's own list is.
+    const word = SEVERITY_WORDS[value - 1];
+    return word ? translate(SEVERITY_KEYS[word]) : null;
+  }
+  if (typeof value !== "string") return null;
+  const said = value.trim().toLowerCase();
+  const key = SEVERITY_KEYS[said as (typeof SEVERITY_WORDS)[number]];
+  // A word the service invented is shown as it wrote it rather than dropped:
+  // the forecaster meant something by it.
+  return key ? translate(key) : value.trim() || null;
+}
+
+/**
  * A hazard area the Aviation Weather Center drew.
  *
  * Convective SIGMETs and the non-convective ones come back through the same
@@ -128,7 +168,9 @@ function parseAirSigmets(payload: unknown): OverlayFeature[] {
         highFeet: number(from.altitudeHi1),
         lowText: null,
         highText: null,
-        severity: null,
+        // The service sends this one as a number rather than a word, and it
+        // used to be dropped here.
+        severity: number(from.severity) ?? text(from.severity),
         because: null,
         contourFeet: null,
         raw: text(from.rawAirSigmet),
@@ -389,9 +431,17 @@ export const aviationOverlay: OverlayAdapter = {
       lines.push(translate("aviation.validAt", { time: formatClock(from) }));
     }
 
-    const severity = properties.severity;
-    if (typeof severity === "string") {
+    const severity = severityWords(properties.severity);
+    if (severity) {
       lines.push(translate("aviation.severity", { severity }));
+    }
+
+    // Which step of the three-hourly grid this area is. A G-AIRMET is a
+    // forecast, and the popup showed only when it was issued: an area valid
+    // nine hours out read exactly like one standing over the reader now.
+    const ahead = properties.forecastHours;
+    if (typeof ahead === "number" && ahead > 0) {
+      lines.push(translate("aviation.forecastAhead", { count: ahead }));
     }
 
     // A freezing level contour is a line saying where the freezing level is.
