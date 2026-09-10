@@ -488,7 +488,21 @@ async fn read_archive(bytes: Vec<u8>) {
     let Some(root) = bytes.get(root_offset..root_offset.saturating_add(root_length)) else {
         return;
     };
-    if !pmtiles_root_is_sane(bytes[PMTILES_COMPRESSION_AT], root) {
+    let compression = bytes[PMTILES_COMPRESSION_AT];
+    let leaves = match walk_pmtiles_directory(compression, root) {
+        DirectoryWalk::Sane(leaves) => leaves,
+        DirectoryWalk::Hostile => return,
+        DirectoryWalk::NotOurs => Vec::new(),
+    };
+    // The leaf directories, which is what an import walks before it accepts a
+    // file. The same door, so a clean run here means a clean import.
+    let leaf_offset = u64::from_le_bytes(bytes[40..48].try_into().unwrap_or_default());
+    let held = bytes.clone();
+    if !pmtiles_leaves_are_sane(compression, leaf_offset, leaves, |at, length| {
+        let at = usize::try_from(at).ok()?;
+        let length = usize::try_from(length).ok()?;
+        held.get(at..at.checked_add(length)?).map(<[u8]>::to_vec)
+    }) {
         return;
     }
     let backend = SliceBackend {
@@ -628,6 +642,44 @@ fn read_varint(bytes: &[u8], from: &mut usize, bits: u32) -> Option<u64> {
     None
 }
 
+/// Where in a file a directory sits, as the entry pointing at it said.
+///
+/// The offsets a directory entry carries are relative to the archive's leaf
+/// region, which is where the header's fifth pair of numbers points.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct LeafPointer {
+    offset: u64,
+    length: u64,
+}
+
+/// What a walk of one directory found.
+#[derive(Debug, PartialEq, Eq)]
+enum DirectoryWalk {
+    /// Compressed in a way the reader itself refuses, so nothing is claimed.
+    NotOurs,
+    /// The parser would survive it, and these are the leaves it points at.
+    Sane(Vec<LeafPointer>),
+    /// The parser would not survive it.
+    Hostile,
+}
+
+/// How deep a chain of leaf directories is followed.
+///
+/// The reader recurses while its own depth counter is five or under, starting
+/// at zero, so six is every level it can reach. Checking one more level than
+/// it walks costs a read and refuses nothing it would have survived.
+const PMTILES_MAX_LEAF_DEPTH: u8 = 6;
+
+/// How much leaf directory an import reads before it stops checking.
+///
+/// A whole-planet basemap's leaves run to hundreds of megabytes, and reading
+/// all of them would turn an import into a scan of the file. Past this much,
+/// the check stops and the archive is accepted: what holds it then is the
+/// same thing that held it before any of this existed, which is that every
+/// reader runs where a panic is caught. Sixteen megabytes is more directory
+/// than a regional archive has and far more than a fuzz case can reach.
+const PMTILES_MAX_LEAF_BYTES: u64 = 16 * 1024 * 1024;
+
 /// Whether an archive's root directory says something a parser can survive.
 ///
 /// The count comes off the front of the directory, and the directory is
@@ -635,6 +687,14 @@ fn read_varint(bytes: &[u8], from: &mut usize, bits: u32) -> Option<u64> {
 /// read here; anything else is left to the reader, which refuses a
 /// compression it was not built with rather than parsing it.
 fn pmtiles_root_is_sane(internal_compression: u8, directory: &[u8]) -> bool {
+    !matches!(
+        walk_pmtiles_directory(internal_compression, directory),
+        DirectoryWalk::Hostile
+    )
+}
+
+/// The same walk, keeping what it found rather than only whether it survived.
+fn walk_pmtiles_directory(internal_compression: u8, directory: &[u8]) -> DirectoryWalk {
     // 1 is no compression and 2 is gzip, which are the two the reader is
     // built for. The rest it refuses on its own.
     let plain = match internal_compression {
@@ -644,13 +704,13 @@ fn pmtiles_root_is_sane(internal_compression: u8, directory: &[u8]) -> bool {
             let mut decoder =
                 flate2::read::GzDecoder::new(directory).take(PMTILES_MAX_ROOT_BYTES as u64);
             if decoder.read_to_end(&mut out).is_err() {
-                // A root directory that will not decompress is one the reader
-                // will refuse too, so this says nothing about it.
-                return true;
+                // A directory that will not decompress is one the reader will
+                // refuse too, so this says nothing about it.
+                return DirectoryWalk::NotOurs;
             }
             Cow::Owned(out)
         }
-        _ => return true,
+        _ => return DirectoryWalk::NotOurs,
     };
     // Every varint in the directory, not only the count at the front.
     //
@@ -662,13 +722,13 @@ fn pmtiles_root_is_sane(internal_compression: u8, directory: &[u8]) -> bool {
     // is at most the sixteen kilobytes the reader took.
     let mut at = 0usize;
     let Some(entries) = read_varint(&plain, &mut at, 64) else {
-        return false;
+        return DirectoryWalk::Hostile;
     };
     if entries > PMTILES_MAX_ROOT_ENTRIES {
-        return false;
+        return DirectoryWalk::Hostile;
     }
     let Ok(entries) = usize::try_from(entries) else {
-        return false;
+        return DirectoryWalk::Hostile;
     };
     // The stream in the order the parser reads it: that many tile-id deltas,
     // then that many run lengths, lengths and offsets. The widths are the
@@ -677,21 +737,175 @@ fn pmtiles_root_is_sane(internal_compression: u8, directory: &[u8]) -> bool {
     let mut tile_id: u64 = 0;
     for _ in 0..entries {
         let Some(step) = read_varint(&plain, &mut at, 64) else {
-            return false;
+            return DirectoryWalk::Hostile;
         };
         let Some(next) = tile_id.checked_add(step) else {
-            return false;
+            return DirectoryWalk::Hostile;
         };
         tile_id = next;
     }
-    for bits in [32, 32, 64] {
-        for _ in 0..entries {
-            if read_varint(&plain, &mut at, bits).is_none() {
-                return false;
+    // A run length of zero marks an entry that points at another directory
+    // rather than at a tile, which is how the reader finds a leaf. The three
+    // arrays are read in this order, so the run lengths have to be kept until
+    // the lengths and offsets beside them arrive.
+    let mut runs = Vec::with_capacity(entries.min(1024));
+    for _ in 0..entries {
+        let Some(run) = read_varint(&plain, &mut at, 32) else {
+            return DirectoryWalk::Hostile;
+        };
+        runs.push(run);
+    }
+    let mut lengths = Vec::with_capacity(entries.min(1024));
+    for _ in 0..entries {
+        let Some(length) = read_varint(&plain, &mut at, 32) else {
+            return DirectoryWalk::Hostile;
+        };
+        lengths.push(length);
+    }
+    // The offsets, which are not offsets. A zero means the entry sits
+    // immediately after the one before it, so the value is that entry's own
+    // offset plus its length, and anything else is one more than the offset
+    // it means. The parser does both of those adds without checking, and the
+    // first entry having no predecessor is its own error rather than a panic.
+    let mut leaves = Vec::new();
+    let mut previous: Option<(u64, u64)> = None;
+    for index in 0..entries {
+        let Some(said) = read_varint(&plain, &mut at, 64) else {
+            return DirectoryWalk::Hostile;
+        };
+        let offset = if said == 0 {
+            let Some((offset, length)) = previous else {
+                // No entry before it to follow, which the reader reports as a
+                // bad entry rather than dying on.
+                return DirectoryWalk::NotOurs;
+            };
+            let Some(after) = offset.checked_add(length) else {
+                return DirectoryWalk::Hostile;
+            };
+            after
+        } else {
+            said - 1
+        };
+        previous = Some((offset, lengths[index]));
+        if runs[index] == 0 {
+            leaves.push(LeafPointer {
+                offset,
+                length: lengths[index],
+            });
+        }
+    }
+    DirectoryWalk::Sane(leaves)
+}
+
+/// Whether every leaf directory an archive points at is one a parser survives.
+///
+/// A leaf is parsed on demand inside the tile lookup, and its entry count
+/// reaches `vec![DirEntry::default(); n]` before an entry is read: a hostile
+/// count is "capacity overflow" out of a file somebody else made. The root
+/// directory names every leaf it points at, and each leaf names the ones
+/// under it, so the whole tree can be walked before the reader opens the
+/// file. That is a reimplementation of the directory walk, which is what this
+/// took to close.
+///
+/// `region` reads bytes out of the archive: the offset in the file and how
+/// many, answering `None` where the file does not go that far. Only what the
+/// root actually points at is read, and the walk stops after
+/// `PMTILES_MAX_LEAF_BYTES` so importing a planet does not become a scan of
+/// it. Past that the archive is accepted and what holds it is the containment
+/// every reader already runs under.
+fn pmtiles_leaves_are_sane(
+    internal_compression: u8,
+    leaf_offset: u64,
+    from_root: Vec<LeafPointer>,
+    mut region: impl FnMut(u64, u64) -> Option<Vec<u8>>,
+) -> bool {
+    let mut ahead: Vec<(LeafPointer, u8)> = from_root.into_iter().map(|one| (one, 0)).collect();
+    let mut read: u64 = 0;
+    while let Some((leaf, depth)) = ahead.pop() {
+        if depth >= PMTILES_MAX_LEAF_DEPTH {
+            // Deeper than the reader will follow, so it never parses this one.
+            continue;
+        }
+        // A directory bigger than the biggest one this reads at all. The root
+        // has the same ceiling and nothing legitimate approaches it.
+        if leaf.length == 0 {
+            continue;
+        }
+        if leaf.length > PMTILES_MAX_ROOT_BYTES as u64 {
+            return false;
+        }
+        read = read.saturating_add(leaf.length);
+        if read > PMTILES_MAX_LEAF_BYTES {
+            return true;
+        }
+        let Some(at) = leaf_offset.checked_add(leaf.offset) else {
+            return false;
+        };
+        let Some(bytes) = region(at, leaf.length) else {
+            // The file does not reach that far, which the reader's own read
+            // reports as a failure rather than dying on.
+            continue;
+        };
+        match walk_pmtiles_directory(internal_compression, &bytes) {
+            DirectoryWalk::Hostile => return false,
+            DirectoryWalk::NotOurs => continue,
+            DirectoryWalk::Sane(under) => {
+                for one in under {
+                    ahead.push((one, depth + 1));
+                }
             }
         }
     }
     true
+}
+
+/// Whether an archive's whole directory tree is one a parser survives.
+///
+/// Reads the header and the root itself rather than taking them from
+/// `open_archive`, because this runs once at import and that runs on every
+/// tile served. A basemap that passes here is one whose leaves have already
+/// been walked, and a stored archive is only ever one that passed.
+fn pmtiles_tree_is_sane(path: &Path) -> Result<bool, IncidentPackError> {
+    let file_bytes = fs::metadata(path)?.len();
+    let mut head = vec![0u8; PMTILES_HEADER_BYTES as usize];
+    let mut file = File::open(path)?;
+    if file.read_exact(&mut head).is_err() {
+        return Ok(false);
+    }
+    if !pmtiles_header_is_sane(&head, file_bytes) {
+        return Ok(false);
+    }
+    let said = |at: usize| -> u64 {
+        let mut eight = [0u8; 8];
+        eight.copy_from_slice(&head[at..at + 8]);
+        u64::from_le_bytes(eight)
+    };
+    // The header's third pair of numbers, after the root's and the metadata's.
+    let leaf_offset = said(40);
+    let mut root = vec![0u8; said(16) as usize];
+    file.seek(SeekFrom::Start(said(8)))?;
+    if file.read_exact(&mut root).is_err() {
+        return Ok(false);
+    }
+    let compression = head[PMTILES_COMPRESSION_AT];
+    let leaves = match walk_pmtiles_directory(compression, &root) {
+        DirectoryWalk::Sane(leaves) => leaves,
+        DirectoryWalk::Hostile => return Ok(false),
+        // A compression the reader refuses on its own, so there is nothing
+        // here to read the leaves out of either.
+        DirectoryWalk::NotOurs => return Ok(true),
+    };
+    Ok(pmtiles_leaves_are_sane(
+        compression,
+        leaf_offset,
+        leaves,
+        |at, length| {
+            let mut bytes = vec![0u8; usize::try_from(length).ok()?];
+            file.seek(SeekFrom::Start(at)).ok()?;
+            file.read_exact(&mut bytes).ok()?;
+            Some(bytes)
+        },
+    ))
 }
 
 /// Runs archive work on a blocking thread, where a panic is caught.
@@ -1961,6 +2175,13 @@ async fn inspect_archive(path: &Path) -> Result<ImportedArchive, IncidentPackErr
 }
 
 async fn inspect_archive_here(path: &Path) -> Result<ImportedArchive, IncidentPackError> {
+    // Every leaf directory in the file, before anything asks for a tile. This
+    // is the one place it is worth the read: an import happens once and a
+    // tile is served thousands of times, and an archive in the store is one
+    // that came through here.
+    if !pmtiles_tree_is_sane(path).unwrap_or(false) {
+        return Err(IncidentPackError::ImportUnreadable);
+    }
     let reader = open_archive(path)
         .await
         .map_err(|_| IncidentPackError::ImportUnreadable)?;
@@ -2699,6 +2920,105 @@ mod tests {
             encoder.finish().unwrap()
         };
         assert!(!pmtiles_root_is_sane(2, &zipped_huge));
+    }
+
+    /// The third crash a fuzz run found, and the one that took longest.
+    #[test]
+    fn a_leaf_directory_that_claims_the_world_is_refused() {
+        // A leaf is a root entry whose run length is zero. Its offset is
+        // relative to the leaf region and its length is how many bytes the
+        // reader hands to the same parser, which allocates a vector of the
+        // count at the front before it reads an entry.
+        //
+        // One root entry: count 1, tile-id delta 0, run length 0 (a leaf),
+        // length 16, offset 1 (which the parser reads as 0).
+        let root = [1u8, 0, 0, 16, 1];
+        let DirectoryWalk::Sane(leaves) = walk_pmtiles_directory(1, &root) else {
+            panic!("a root pointing at one leaf");
+        };
+        assert_eq!(
+            leaves,
+            vec![LeafPointer {
+                offset: 0,
+                length: 16
+            }]
+        );
+
+        // Four thousand million entries in the leaf, which is the parser
+        // asking for a hundred gigabytes before it reads one of them. This is
+        // the "capacity overflow" the fuzz run reached after about fifteen
+        // hundred executions and could not write an artefact for, because
+        // libFuzzer's fast-fail on Windows takes the process first.
+        let huge = {
+            let mut said = Vec::new();
+            let mut value: u64 = 4_000_000_000;
+            while value >= 0x80 {
+                said.push((value as u8 & 0x7f) | 0x80);
+                value >>= 7;
+            }
+            said.push(value as u8);
+            said.resize(16, 0);
+            said
+        };
+        assert!(!pmtiles_leaves_are_sane(1, 0, leaves.clone(), |_, _| Some(
+            huge.clone()
+        )));
+
+        // The control: a leaf that says one entry and carries it is fine, so
+        // what the line above refuses is the count and not the walk itself.
+        let one = {
+            let mut said = vec![1u8, 0, 1, 1, 1];
+            said.resize(16, 0);
+            said
+        };
+        assert!(pmtiles_leaves_are_sane(1, 0, leaves.clone(), |_, _| Some(
+            one.clone()
+        )));
+
+        // A leaf the file does not reach is the reader's own read failing,
+        // which is an error rather than a panic, so it is not refused here.
+        assert!(pmtiles_leaves_are_sane(1, 0, leaves.clone(), |_, _| None));
+
+        // The offset is relative to the leaf region, and the region is where
+        // the header says. Asked for at the wrong place, a walk would read
+        // somebody else's bytes as a directory.
+        let mut asked = Vec::new();
+        assert!(pmtiles_leaves_are_sane(
+            1,
+            4096,
+            leaves.clone(),
+            |at, len| {
+                asked.push((at, len));
+                None
+            }
+        ));
+        assert_eq!(asked, vec![(4096, 16)]);
+
+        // And a chain of them, which is what the reader follows up to six
+        // deep. Every leaf here points at another leaf just like it, so a
+        // walk that did not bound its own depth would not come back.
+        let forever = {
+            let mut said = vec![1u8, 0, 0, 16, 1];
+            said.resize(16, 0);
+            said
+        };
+        let mut reads = 0usize;
+        assert!(pmtiles_leaves_are_sane(1, 0, leaves.clone(), |_, _| {
+            reads += 1;
+            Some(forever.clone())
+        }));
+        assert_eq!(reads, PMTILES_MAX_LEAF_DEPTH as usize);
+    }
+
+    #[test]
+    fn an_archive_this_app_wrote_walks_clean_to_its_leaves() {
+        // The positive control for the whole tree, on a real file rather than
+        // on bytes written here: every check above can refuse a hostile
+        // archive by refusing every archive.
+        let root = temporary("leaf-walk");
+        let path = foreign_archive(&root, TileType::Png, AMES, 6, true, "{}");
+        assert!(pmtiles_tree_is_sane(&path).unwrap());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
