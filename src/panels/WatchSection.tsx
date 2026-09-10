@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { BellRing, Crosshair, X, Volume2 } from "lucide-react";
 import { rangeFill } from "../lib/rangeFill";
 import type { NotifyPermission } from "../lib/notify";
@@ -12,6 +13,7 @@ import {
 import type { AppSettings, WatchState } from "../lib/settings";
 import { watchedPlaces, watchesAnything } from "../lib/watch";
 import { useOfflineSince } from "../hooks/useOffline";
+import { useLatestReply } from "../hooks/useLatestReply";
 import type { UndoableRemoval } from "../components/ToastHost";
 import { formatNumber, useT } from "../i18n";
 import { playAlertTone } from "../lib/sound";
@@ -24,13 +26,14 @@ import { APPROACH_MINUTES } from "../lib/approach";
 import { LIGHTNING_COUNTS, LIGHTNING_RADII } from "../lib/lightningWatch";
 import {
   GRID_RADII,
+  GRID_RULE_SOURCES,
   HAIL_SIZES,
   ROTATION_LEVELS,
   type GridRule,
   type GridRuleId,
 } from "../lib/gridWatch";
 import { gridReadingLabel } from "../hooks/useGridWatch";
-import { mrmsAvailable } from "../lib/providers/mrms";
+import { domainFor, mrmsAvailable, mrmsFrames } from "../lib/providers/mrms";
 import { ToggleSetting } from "../components/ToggleSetting";
 import { LightningChip } from "../components/LightningChip";
 import type { PlaceLightning } from "../lib/lightningWatch";
@@ -134,6 +137,61 @@ export function WatchSection({
   // read in a browser preview. Said rather than hidden: a switch that is
   // simply absent reads as a feature that does not exist.
   const gridPossible = watchedPlaceCount > 0 && mrmsAvailable();
+
+  /**
+   * Whether the network publishes each rule's grid where the reader watches.
+   *
+   * It does not everywhere. MRMS has no merged azimuthal shear product for
+   * Alaska at all, so a rotation rule set at Anchorage asked for frames that
+   * do not exist, failed, and recorded nothing every two minutes forever
+   * while the switch in this panel sat on looking like it worked.
+   *
+   * Asked of the bucket rather than answered from a table written here, once
+   * when the panel opens and again if the reader moves home: which products a
+   * region publishes is the network's to change, and a list of them here
+   * would be one more thing to go stale without saying so.
+   */
+  const latestGrids = useLatestReply();
+  const [asked, setAsked] = useState<{
+    at: string;
+    grids: Record<GridRuleId, boolean>;
+  } | null>(null);
+  const home = watchedPlaces(settings).find((place) => place.enabled) ?? null;
+  const homeAt = home ? `${home.center[0]},${home.center[1]}` : "";
+  useEffect(() => {
+    if (!gridPossible || !home) return;
+    const domain = domainFor(home.center);
+    const reply = latestGrids();
+    void (async () => {
+      const answers: Record<GridRuleId, boolean> = {
+        hail: true,
+        rotation: true,
+      };
+      for (const which of ["hail", "rotation"] as GridRuleId[]) {
+        try {
+          const frames = await mrmsFrames(
+            GRID_RULE_SOURCES[which].product,
+            1,
+            domain?.id,
+          );
+          answers[which] = frames.length > 0;
+        } catch {
+          // A region that publishes nothing for this product answers with an
+          // error rather than an empty list. Either way the rule has nothing
+          // to read, which is what the panel says.
+          answers[which] = false;
+        }
+      }
+      if (reply.current()) setAsked({ at: homeAt, grids: answers });
+    })();
+    return reply.close;
+    // The place, not the whole settings object: this asks the network.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gridPossible, homeAt]);
+  // The answer only counts for the place it was asked about. Held with its
+  // own question beside it rather than cleared in an effect, which is what
+  // the linter refuses and what would put a render between the two anyway.
+  const gridsHere = asked?.at === homeAt ? asked.grids : null;
   // Whether the machine can reach anything at all, which is a different
   // answer from whether a service is answering.
   const offlineSince = useOfflineSince();
@@ -505,11 +563,13 @@ export function WatchSection({
           ? t("gridWatch.desktopOnly")
           : watchedPlaceCount === 0
             ? t("gridWatch.needsPlace")
-            : t(
-                which === "hail"
-                  ? "gridWatch.hailSettingDetail"
-                  : "gridWatch.rotationSettingDetail",
-              );
+            : gridsHere && !gridsHere[which]
+              ? t("gridWatch.notPublishedHere")
+              : t(
+                  which === "hail"
+                    ? "gridWatch.hailSettingDetail"
+                    : "gridWatch.rotationSettingDetail",
+                );
         return (
           <div key={which} data-grid-watch={which}>
             <div className="settings-field">

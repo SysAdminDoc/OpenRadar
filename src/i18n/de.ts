@@ -1729,6 +1729,8 @@ export const de: Catalogue = {
     "Sag mir etwas über Rotation nahe einem beobachteten Ort",
   "gridWatch.rotationSettingDetail":
     "Dasselbe, für die Scherung, die das Netz in den untersten zwei Kilometern des Sturms zusammenführt",
+  "gridWatch.notPublishedHere":
+    "Das Netz veröffentlicht dieses Gitter dort, wo Sie beobachten, nicht, also hat diese Regel nichts zu lesen.",
   "gridWatch.needsPlace":
     "Braucht einen Ort zum Beobachten, denn darum liegt der Radius.",
   "gridWatch.desktopOnly":

@@ -1699,6 +1699,8 @@ export const es: Catalogue = {
     "Avísame de la rotación cerca de un lugar vigilado",
   "gridWatch.rotationSettingDetail":
     "Lo mismo, con la cizalladura que la red combina en los dos kilómetros más bajos de la tormenta",
+  "gridWatch.notPublishedHere":
+    "La red no publica esta malla donde vigilas, así que esta regla no tiene nada que leer.",
   "gridWatch.needsPlace":
     "Necesita un lugar que vigilar, porque es en torno a él donde va el radio.",
   "gridWatch.desktopOnly":
