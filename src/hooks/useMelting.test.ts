@@ -1,6 +1,6 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useMelting } from "./useMelting";
+import { MELTING_REFRESH_MS, useMelting } from "./useMelting";
 import type { MeltingLayer } from "../lib/melting";
 
 const melting = vi.hoisted(() => ({ ask: vi.fn() }));
@@ -62,6 +62,39 @@ describe("the melting layer the panel shows", () => {
     await waitFor(() =>
       expect((result.current as MeltingLayer | null)?.peakKm).toBe(4.5),
     );
+  });
+
+  it("does not let an older poll of the same station win", async () => {
+    // The poll fires again every refresh inside the same effect run. A token
+    // taken once per effect was current for all of them, so two answers for
+    // one station that landed out of order overwrote in arrival order.
+    vi.useFakeTimers();
+    try {
+      const slow = deferred<MeltingLayer>();
+      let asked = 0;
+      melting.ask.mockImplementation(() => {
+        asked += 1;
+        return asked === 1 ? slow.promise : Promise.resolve(layer(4.5));
+      });
+      const { result } = renderHook(() =>
+        useMelting({ station: "KDMX", ready: true }),
+      );
+      // The first ask is still out when the refresh fires the second.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(MELTING_REFRESH_MS + 1);
+      });
+      expect(asked).toBeGreaterThanOrEqual(2);
+      expect((result.current as MeltingLayer | null)?.peakKm).toBe(4.5);
+
+      await act(async () => {
+        slow.settle(layer(3.0));
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      // Still the newer poll's answer, not the one that took longer.
+      expect((result.current as MeltingLayer).peakKm).toBe(4.5);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("does not let a slow answer overwrite a newer one", async () => {

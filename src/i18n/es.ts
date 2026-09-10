@@ -512,6 +512,8 @@ export const es: Catalogue = {
   "alerts.officeEccc": "Environment and Climate Change Canada",
   "alerts.officeDwd": "Deutscher Wetterdienst",
   "alerts.officeMeteoalarm": "MeteoAlarm",
+  "alerts.warningsUnshaped":
+    "{count, plural, one {Un aviso europeo en vigor no se dibuja, porque el servicio que lo emitió publica el nombre de una región y no un contorno.} other {# avisos europeos en vigor no se dibujan, porque los servicios que los emiten publican nombres de regiones y no contornos.}}",
   "alerts.countriesUnasked":
     "{count, plural, one {Hay otro país europeo en pantalla al que no se consultó; acerca el mapa para ver sus avisos.} other {Hay # países europeos más en pantalla a los que no se consultó; acerca el mapa para ver sus avisos.}}",
   "alerts.officeUnanswered": "la oficina no respondió",
@@ -1669,7 +1671,7 @@ export const es: Catalogue = {
     "Al corte alto le falta uno de los tres momentos que esto necesita.",
   "melting.nothingMelting": "Nada en este volumen parece nieve en fusión.",
   "jump.badge": "Salto en la tasa de rayos en {id}",
-  "jump.rate": "{id} va ahora a {rate} por minuto, {time}.",
+  "jump.rate": "{id} va ahora a {rate} por minuto, a las {time}.",
   "jump.note":
     "Una señal de que la tormenta se está intensificando, no una advertencia. Rayos detectados por satélite, no informes de impactos en tierra.",
   "gridWatch.hailTitle": "Granizo estimado cerca de {place}",

@@ -11,6 +11,13 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
+- [ ] AUD-494 (P3): The rotation rule can never fire outside the lower forty-eight, and nothing says so
+  Why: `AUD-223`'s fix gave `mrms_peak_near` the domain that covers the place, which fixed the hail rule everywhere. MRMS publishes no merged azimuthal shear product for ALASKA at all, so a rotation rule set at Anchorage asks for frames that do not exist, fails, logs a warning, and records a null reading every two minutes forever. The reader is told nothing: the rule sits in the panel switched on, looking like it works.
+  Evidence: all 147 product prefixes under `noaa-mrms-pds/ALASKA/` listed on 2026-09-10; none matches Shear or Rotation, and `ALASKA/MergedAzShear_0-2kmAGL_00.50/` is empty. The other four domains were not checked one by one. Found by the refutation pass over `060b4b1`.
+  Touches: `src/lib/gridWatch.ts` or `src-tauri/src/mrms/products.rs` (which products a domain actually publishes), `src/panels/WatchSection.tsx` (the rule says it cannot work here), `src/i18n/*`.
+  Acceptance: A rule set on a grid its domain does not publish says so where it is set, rather than polling forever in silence; the check is against what the bucket holds rather than a list written by hand.
+  Complexity: S
+
 - [ ] AUD-493 (P3): Fuzz the PMTiles reader, now that a stranger's archive can reach it
   Why: Until `AUD-228` shipped, every pack the reader opened was one this app had downloaded, hashed tile by tile and renamed into place under its own app-data folder. A reader can now hand it an archive from anywhere, and `AsyncPmTilesReader` begins by parsing a header and a directory tree somebody else wrote. `inspect_archive` refuses what it can see is wrong; it cannot refuse what the parser does before it returns.
   Evidence: `src-tauri/src/incident_packs.rs` `inspect_archive` and `import_archive`; the 2026-09-07 note on `AUD-228` that put this here rather than with `AUD-338`, which shipped the `.orb` half; `cargo-fuzz` is already known to work on this machine.
@@ -209,15 +216,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
 ### P2
 
 ### P3
-
-- [ ] AUD-229 (P3): A keyboard cursor that reads the sweep aloud
-      Note 2026-09-07: wxaccess (w9fyi, macOS, pushed 2026-08-06) reads the probed gate aloud, hides the canvas from the screen reader, and sonifies radar values along a bearing as a tone; the UXPA sonified-map prototypes were evaluated with blind users. A tone along the cursor's bearing is a natural second step for this item.
-      Note 2026-09-07 (evening): arw (stevo399, 2026-09-07) speaks a scene summary ("57 rain objects detected. Strongest: severe core, 31 miles E of the radar, moving SE at 8 mph. Note: 11 storms merged in the last scan"), which is a sentence the Nearby panel could already say from the cell products in hand; Audiom's pattern is neighbour traversal (arrow keys from a region to an adjacent one, each announced with its name and value); Esri added keyboard entry for its measurement toolbar in Fall 2025, the shape for the measure tool here.
-  Why: The Nearby panel gives a screen-reader user the summary; the map itself is a canvas they cannot enter, so "what is the radar showing ten miles north of me" has no answer; the arrow-key virtual cursor is the pattern the accessible-maps field settled on.
-  Evidence: `src/components/MapViewport.tsx` (keyboard handling for the map, no cursor), `src/components/LiveRegion.tsx`; Esri's "Pressing the Up Arrow" pattern https://www.esri.com/about/newsroom/arcnews/pressing-the-up-arrow-big-step-forward-in-accessibility; Audiom, the only WCAG-conformant map viewer https://gaad.foundation/what-we-do/gaadys/winners/audiom.
-  Touches: `src/components/MapViewport.tsx` (arrow keys step a cursor in map space by a reader-chosen distance when the map has focus; the readout sampling already used by the pointer), `src/components/LiveRegion.tsx`, `src/i18n/*`, `e2e/accessibility.spec.ts`.
-  Acceptance: With the map focused, arrow keys move a visible cursor and the live region announces the reflectivity, the velocity and the nearest place with bearing and distance; Escape returns focus to the rail; the pseudolocale clipping test covers the announcement; the cursor is off the export.
-  Complexity: M
 
 ## Audit Findings, 2026-09-03 (evening)
 

@@ -475,12 +475,14 @@ async function meteoalarmFeatures(
   country: string,
   at: number,
   signal?: AbortSignal,
-): Promise<OverlayFeature[] | null> {
+): Promise<{ features: OverlayFeature[]; unshaped: number } | null> {
   try {
-    const answer = await fetch(cachedUrl(meteoalarmUrl(country)), {
-      signal,
-      headers: { Accept: "application/json" },
-    });
+    // No JSON header. This one is Atom, and the live service answers 406
+    // Not Acceptable to `Accept: application/json`. The packaged app is
+    // saved from that by the cached scheme, which drops request headers on
+    // the way to the native fetcher; a browser preview is not, and every
+    // country reported as unreachable there.
+    const answer = await fetch(cachedUrl(meteoalarmUrl(country)), { signal });
     if (!answer.ok) throw new Error(translate("alerts.officeUnanswered"));
     return parseMeteoalarm(await answer.text(), { at, country });
   } catch (failure) {
@@ -549,8 +551,10 @@ export const alertsOverlay: OverlayAdapter = {
   // that office be named.
   attribution:
     '<a href="https://www.weather.gov/">NWS</a>, ' +
-    '<a href="https://weather.gc.ca/">ECCC</a> and ' +
-    '<a href="https://www.dwd.de/">DWD</a> watches and warnings',
+    '<a href="https://weather.gc.ca/">ECCC</a>, ' +
+    '<a href="https://www.dwd.de/">DWD</a> and ' +
+    '<a href="https://www.meteoalarm.org/">MeteoAlarm</a> ' +
+    "watches and warnings",
   attributionUrl: "https://www.weather.gov/",
   host: "mapservices.weather.noaa.gov",
   refreshMs: 60_000,
@@ -598,6 +602,11 @@ export const alertsOverlay: OverlayAdapter = {
     // thirty-seven of them and one request each on every pan is not a
     // reasonable thing to do to a shared free service.
     const european = meteoalarmCountriesIn(bounds);
+    // Warnings that are in force and cannot be drawn, because their service
+    // publishes a region code rather than an outline. Most of the member
+    // services do, so this is the difference between a clean map and a clean
+    // map with two hundred warnings standing over it.
+    let unshaped = 0;
     if (european.asked.length > 0) {
       const at = Date.now();
       const answers = await Promise.all(
@@ -609,8 +618,12 @@ export const alertsOverlay: OverlayAdapter = {
         ),
       );
       for (const answer of answers) {
-        if (answer.found) drawn.features.push(...answer.found);
-        else unanswered.push(translate("alerts.officeMeteoalarm"));
+        if (answer.found) {
+          drawn.features.push(...answer.found.features);
+          unshaped += answer.found.unshaped;
+        } else {
+          unanswered.push(translate("alerts.officeMeteoalarm"));
+        }
       }
     }
     if (
@@ -644,6 +657,9 @@ export const alertsOverlay: OverlayAdapter = {
       notes.push(
         translate("alerts.countriesUnasked", { count: european.skipped }),
       );
+    }
+    if (unshaped > 0) {
+      notes.push(translate("alerts.warningsUnshaped", { count: unshaped }));
     }
     return notes.length ? { ...drawn, partial: notes.join(" ") } : drawn;
   },

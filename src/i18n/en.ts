@@ -494,6 +494,8 @@ export const en = {
   "alerts.officeEccc": "Environment and Climate Change Canada",
   "alerts.officeDwd": "Deutscher Wetterdienst",
   "alerts.officeMeteoalarm": "MeteoAlarm",
+  "alerts.warningsUnshaped":
+    "{count, plural, one {One European warning in force is not drawn, because the service that issued it publishes a region name rather than an outline.} other {# European warnings in force are not drawn, because the services that issued them publish region names rather than outlines.}}",
   "alerts.countriesUnasked":
     "{count, plural, one {One more European country is on screen and was not asked; zoom in to see its warnings.} other {# more European countries are on screen and were not asked; zoom in to see their warnings.}}",
   "alerts.officeUnanswered": "the office did not answer",
