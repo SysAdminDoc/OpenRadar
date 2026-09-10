@@ -131,6 +131,18 @@ const LAYER_COMMANDS: Array<{
     keywords: ["rain", "gauge", "hail", "volunteer", "cocorahs", "observer"],
   },
   {
+    layer: "airnow",
+    key: "layer.airnow",
+    extra: "keywords.airnow",
+    keywords: ["air", "quality", "aqi", "smoke", "ozone", "pollution", "pm25"],
+  },
+  {
+    layer: "firms",
+    key: "layer.firms",
+    extra: "keywords.firms",
+    keywords: ["fire", "hotspot", "viirs", "satellite", "detection", "firms"],
+  },
+  {
     layer: "tropical",
     key: "layer.tropical",
     extra: "keywords.tropical",

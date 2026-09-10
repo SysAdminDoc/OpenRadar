@@ -154,6 +154,29 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "observation",
     freshForMs: 90 * 60_000,
   },
+  airnow: {
+    sourceId: "airnow",
+    label: "Air quality monitors",
+    attribution: "AirNow, US EPA and partners",
+    attributionUrl: "https://www.airnow.gov/",
+    // An instrument on the ground, reporting the hour it just measured. The
+    // forecast smoke layer beside it is a model, and the two must not read
+    // as the same kind of statement.
+    kind: "observation",
+    freshForMs: 90 * 60_000,
+  },
+  firms: {
+    sourceId: "firms",
+    label: "VIIRS fire detections",
+    attribution: "NASA FIRMS",
+    attributionUrl: "https://firms.modaps.eosdis.nasa.gov/",
+    // A satellite saw a pixel that was hot. That is an observation of a
+    // radiance rather than of a fire, which is why the popup says so.
+    kind: "observation",
+    // The file holds a day and each spacecraft passes twice in it, so a
+    // detection is worth having for as long as the file covers.
+    freshForMs: 24 * 3_600_000,
+  },
   cocorahs: {
     sourceId: "cocorahs",
     label: "CoCoRaHS volunteer reports",

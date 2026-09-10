@@ -328,6 +328,28 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "airnow",
+    label: "AirNow reporting areas",
+    host: "files.airnowtech.org",
+    kind: "browser",
+    files: ["src/lib/overlays/airnow.test.ts"],
+    liveBlock: "against the live service",
+    // Every monitor on the continent reports every hour, so this one can
+    // insist on an answer rather than on a shape.
+    required: false,
+  },
+  {
+    id: "firms",
+    label: "NASA FIRMS fire detections",
+    host: "firms.modaps.eosdis.nasa.gov",
+    kind: "browser",
+    files: ["src/lib/overlays/firms.test.ts"],
+    liveBlock: "against the live service",
+    // A day with nothing burning anywhere in the country would be a first,
+    // but the shape is what this holds rather than the count.
+    required: false,
+  },
+  {
     id: "smoke",
     label: "NOAA HMS smoke analysis",
     host: "satepsanone.nesdis.noaa.gov",

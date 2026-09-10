@@ -11,6 +11,13 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
+- [ ] AUD-480 (P3): The forecast accessibility sweep fails about one full run in two
+  Why: `forecast is clean in dark, in light and with more contrast` in `e2e/accessibility.spec.ts` failed once in a full chromium run on 2026-09-10 and passed on the next full run and on every run of it alone. A gate that fails at random teaches everybody to re-run it, which is the same as not having it.
+  Evidence: two full runs the same hour on the same tree, 430 passed with that one failing and then 431 passed with nothing failing. `retries` is 0, so the first run's failure was real rather than a retry. The web server log around it carries "Tropical failed: The service could not be reached" and a run of map tile failures, which is what a parallel run looks like when the network is busy.
+  Touches: `e2e/accessibility.spec.ts`, and whatever the forecast surface renders while its own fetch is still out.
+  Acceptance: The cause is found rather than the test retried: either the surface settles before the sweep runs, or the sweep waits for something that says it has. A test made to pass by adding a timeout has not been fixed.
+  Complexity: S
+
 - [ ] AUD-477 (P3): Two fields the aviation feeds publish and the layer throws away
   Why: A refutation pass over `AUD-194` found both. `parseAirSigmets` in `src/lib/overlays/aviation.ts` hardcodes `severity: null` while every live `airsigmet` feature carries a `severity`, and `describe` gates the severity line on `typeof severity === "string"`, so the number the service sends would be dropped even once it is read. Separately `forecastHours` is written into every G-AIRMET at `aviation.ts` and nothing anywhere reads it: `grep -rn forecastHours src/` returns the one line that writes it.
   Evidence: on 2026-09-10 the live SIGMET collection carried `severity: 5` on every feature; the G-AIRMET collection carried `forecast: 3`. The popup shows a severity for a G-AIRMET turbulence area and never for a SIGMET.
@@ -128,13 +135,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Evidence: `src-tauri/src/dealias.rs` (region growing, largest patch keeps its reading); Louf et al. 2020 (JTECH) and the MIT numba implementation at `vlouf/dealias`; the live multi-site test in `src-tauri/src/level2/decode_tests.rs` that measures refold recovery.
   Touches: `src-tauri/src/dealias.rs` (a pass that votes a cut's interval against its neighbours in elevation), `src-tauri/src/level2/sweep.rs` (hand adjacent cuts to the unfolder), the live aggregate test.
   Acceptance: The six-site refold test's aggregate recovery does not fall and the whole-sweep-out-by-one case is caught in a planted fixture; runtime per cut stays under the current half-second budget.
-  Complexity: M
-
-- [ ] AUD-197 (P3): Observed air quality and active fire detections, keyless
-  Why: HRRR smoke is a model; readers under a plume want the monitor reading, and the earlier rejection of AirNow was of its keyed REST API, not of its public file bucket; FIRMS detections give the fire behind the NIFC perimeter.
-  Evidence: Verified live 2026-09-02: `https://files.airnowtech.org/airnow/today/HourlyData_{YYYYMMDDHH}.dat` and `reportingarea.dat` (public S3, CORS `*`, pipe-delimited, AQI with lat/lon); FIRMS `https://firms.modaps.eosdis.nasa.gov/mapserver/wms/fires/?LAYERS=fires_viirs_24` answers without a key (CORS `*`), CSV/KML 24-hour files keyless without CORS.
-  Touches: new `src/lib/overlays/airnow.ts` and `firms.ts`, `registry.ts`, `http.rs`/CSP for both hosts, ledger, legends (EPA AQI colours), catalogues, live contracts.
-  Acceptance: Monitor AQI draws as points with the EPA category and the hour; VIIRS detections draw as points with confidence and acquisition time; both are labelled observations distinct from the HRRR model layer; fetched at most hourly.
   Complexity: M
 
 - [ ] AUD-198 (P3): German catalogue

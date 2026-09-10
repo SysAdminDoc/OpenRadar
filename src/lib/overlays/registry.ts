@@ -18,6 +18,8 @@ export type OverlayId =
   | "riverGauges"
   | "buoys"
   | "cocorahs"
+  | "airnow"
+  | "firms"
   | "aviation"
   | "wpcExcessiveRain"
   | "wpcWinterSeverity";

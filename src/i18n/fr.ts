@@ -1353,6 +1353,31 @@ export const fr: Catalogue = {
   "layer.cocorahs": "Pluviomètres bénévoles",
   "layers.cocorahsDetail":
     "Ce que les gens ont mesuré dans leur propre jardin ce matin, et la grêle qu'ils ont signalée. Un État à la fois, à partir du zoom 6.",
+  "layer.airnow": "Qualité de l'air",
+  "layers.airnowDetail":
+    "Ce qu'ont mesuré les capteurs au sol cette heure-ci, avec l'indice de l'EPA. Une observation, contrairement à la fumée prévue à côté.",
+  "keywords.airnow": "air aqi fumee ozone pollution pm25 respirer smog",
+  "airnow.failed": "Le réseau de qualité de l'air {answer}.",
+  "airnow.area": "{area}, {state}",
+  "airnow.index": "AQI {aqi}, {category}",
+  "airnow.indexAlone": "AQI {aqi}",
+  "airnow.parameter": "Polluant le pire : {parameter}",
+  "airnow.actionDay": "Journée d'action pour la qualité de l'air",
+  "airnow.measured": "Mesuré à {hour} {zone}",
+  "airnow.measuredAlone": "Mesuré à {hour}",
+  "layer.firms": "Points chauds",
+  "layers.firmsDetail":
+    "Chaque pixel qu'un satellite a vu brûler dans la dernière journée, des heures avant qu'un périmètre soit tracé. À partir du zoom 4.",
+  "keywords.firms": "feu point chaud viirs satellite detection firms incendie",
+  "firms.failed": "Les points chauds {answer}.",
+  "firms.partial": "Dessiné sans {satellites}, qui n'a pas répondu.",
+  "firms.detection": "Pixel chaud, {satellite}",
+  "firms.confidence": "Confiance : {confidence}",
+  "firms.power": "Rayonne {power} MW",
+  "firms.brightness": "Canal de feu à {brightness} K",
+  "firms.seen": "Vu à {time}",
+  "firms.note":
+    "Un pixel chaud, pas un incendie confirmé. Torchères, fours et reflets du soleil en allument un aussi.",
   "cocorahs.failed": "Le réseau de bénévoles {answer}.",
   "cocorahs.partial":
     "Pas de réponse pour {states}, donc rien n'est dessiné là.",

@@ -171,6 +171,10 @@ export interface LayerSettings {
   buoys: boolean;
   /** Rain and hail measured by volunteers with the same gauge. */
   cocorahs: boolean;
+  /** What the monitors on the ground say the air is like to breathe. */
+  airnow: boolean;
+  /** Pixels a satellite saw burning in the last day. */
+  firms: boolean;
   aviation: boolean;
   tropical: boolean;
   satellite: boolean;

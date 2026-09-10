@@ -30,6 +30,12 @@ const ALLOWED_HOSTS: &[&str] = &[
     // other overlay gets from doing so, which is the last good answer still
     // being on the map when the machine has no network.
     "data.cocorahs.org",
+    // The air quality monitors, published hourly as one file for the whole
+    // network on a public bucket.
+    "files.airnowtech.org",
+    // The satellite fire detections, a day of them per spacecraft. No CORS
+    // header at all on these, so the page cannot reach them any other way.
+    "firms.modaps.eosdis.nasa.gov",
     // The national snowfall analysis, published twice a day as a GeoTIFF.
     "www.nohrsc.noaa.gov",
     "mesonet.agron.iastate.edu",

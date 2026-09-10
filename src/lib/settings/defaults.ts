@@ -72,6 +72,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     riverGauges: false,
     buoys: false,
     cocorahs: false,
+    airnow: false,
+    firms: false,
     aviation: false,
     tropical: true,
     satellite: false,
