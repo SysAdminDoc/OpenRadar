@@ -252,6 +252,17 @@ pub(crate) fn prepare_sweep(
     let (product, label, unit) = product_from_name(product_name)
         .ok_or_else(|| Level2Error::NoSweep(station.to_string(), product_name.to_string()))?;
 
+    // A column is every cut, so there is no tilt to honour. Taking the lowest
+    // rather than whatever the reader last chose for some other product is
+    // what makes the picture's own collection time the lowest cut's, which is
+    // what the legend, the age beside it and the late banner all read. Left
+    // alone, two readers on the same volume with different saved tilts were
+    // shown different ages for the identical grid.
+    let tilt_index = if whole_volume(product_name) {
+        0
+    } else {
+        tilt_index
+    };
     let mut chosen = match angle {
         Some(wanted) => sweep_field_at(scan, product, wanted),
         None => sweep_field(scan, product, tilt_index),
@@ -315,6 +326,7 @@ pub(crate) fn prepare_sweep(
     let derivation = match derived {
         Some(Worked::Turning(kind)) => Some(shear::derivation(kind)),
         Some(Worked::Column(kind)) => Some(derive::derivation(kind, &isotherms)),
+        Some(Worked::Phase) => Some(kdp::derivation(&chosen.field)),
         None => None,
     };
     match derived {
@@ -324,6 +336,14 @@ pub(crate) fn prepare_sweep(
                 .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
             chosen.field = found.field;
             debris = found.debris;
+        }
+        Some(Worked::Phase) => {
+            // The censor needs the correlation coefficient of the same cut,
+            // and without it there is nothing to tell rain from a motorway.
+            let beside = Alongside::at(scan, chosen.elevation_degrees);
+            let found = kdp::derive(&chosen.field, beside.beside().correlation)
+                .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
+            chosen.field = found;
         }
         Some(Worked::Column(kind)) => {
             if kind == derive::Kind::HailSize {
@@ -336,7 +356,8 @@ pub(crate) fn prepare_sweep(
             }
             // Not a cut at all: the whole volume, worked into the column over
             // each point of ground. The chosen sweep is still what says when
-            // the picture was collected, which is the lowest cut's own time.
+            // the picture was collected, and the tilt was forced to the lowest
+            // above so that is the lowest cut's own time.
             let site = registry::site_by_id(station)
                 .ok_or_else(|| Level2Error::UnknownSite(station.to_string()))?;
             let antenna_km =
@@ -344,12 +365,14 @@ pub(crate) fn prepare_sweep(
             let found = derive::derive(scan, kind, &isotherms, antenna_km)
                 .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
             chosen.field = found.field;
-            debris = found.flagged;
             // A column has no elevation. Reporting the cut this happened to be
             // chosen from would put a tilt beside a picture that is every tilt
             // at once, and the page reads this number to say what it is
             // looking at and how high the beam was over the cursor.
             chosen.elevation_degrees = 0.0;
+            // The leading edge is where one cut's antenna had got to, which is
+            // not a fact about a grid built out of all of them.
+            chosen.leading_azimuth = None;
         }
         None => {}
     }

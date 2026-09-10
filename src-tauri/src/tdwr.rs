@@ -1062,6 +1062,7 @@ mod tests {
             // Derived from a volume, which a terminal radar does not publish.
             "azimuthal-shear",
             "rotation",
+            "specific-differential-phase",
             "anything",
         ] {
             assert!(

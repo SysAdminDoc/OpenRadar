@@ -260,6 +260,11 @@ pub async fn level2_gate(
     tilt: usize,
     dealias: bool,
     motion: Option<(f32, f32)>,
+    // The same two heights the picture was drawn with. Without them the
+    // readout under the cursor works a hail size out against the standard
+    // atmosphere while the panel beside it names the reader's sounding, and
+    // the number the cursor gives is the one they will write down.
+    air: Option<HailAir>,
     live: bool,
 ) -> Result<Option<GateReading>, Level2Error> {
     let station = station.to_uppercase();
@@ -282,7 +287,7 @@ pub async fn level2_gate(
             tilt,
             dealias,
             motion,
-            None,
+            air.as_ref(),
             None,
             Look::default(),
             None,

@@ -308,6 +308,78 @@ fn the_mask_reads_the_gate_the_range_is_in() {
     );
 }
 
+/// And so do the three the debris criteria read.
+///
+/// The gate above covers the mask alone: it hands `Beside` no dual-pol
+/// moments, so `debris_flag` returns at its first question and the other three
+/// reads never run. This runs each of them on its own, because the three are
+/// an and: leave two of them passing everywhere and only the third can decide,
+/// so only the third's reading of a range is under test.
+#[test]
+fn the_debris_criteria_read_the_gates_the_ranges_are_in() {
+    // Storm out to the centre of coarse gate 49 and air past it, which is the
+    // kilometre geometry a real volume puts its moments on against the
+    // velocity's quarter kilometre.
+    let coarse = |label: &str, unit: &str, inside: f32, outside: f32| {
+        let angles: Vec<f32> = (0..AZIMUTHS).map(|at| at as f32 * SPACING).collect();
+        let mut one = SweepField::new_empty(label, unit, 0.5, angles, SPACING, FIRST_KM, 1.0, 110);
+        for azimuth in 0..AZIMUTHS {
+            for gate in 0..110 {
+                let value = if gate <= 49 { inside } else { outside };
+                one.set(azimuth, gate, value, GateStatus::Valid);
+            }
+        }
+        one
+    };
+    let velocity = couplet(60.0, 3, 360);
+
+    // Each criterion in turn is the only one that changes across the boundary.
+    for (which, dbz, rho, zdr) in [
+        ("reflectivity", (45.0, 25.0), (0.7, 0.7), (0.1, 0.1)),
+        ("correlation", (45.0, 45.0), (0.7, 0.99), (0.1, 0.1)),
+        (
+            "differential reflectivity",
+            (45.0, 45.0),
+            (0.7, 0.7),
+            (0.1, 4.0),
+        ),
+    ] {
+        let reflectivity = coarse("Reflectivity", "dBZ", dbz.0, dbz.1);
+        let correlation = coarse("Correlation coefficient", "", rho.0, rho.1);
+        let differential = coarse("Differential reflectivity", "dB", zdr.0, zdr.1);
+        let flagged = derive(
+            &velocity,
+            Beside {
+                reflectivity: Some(&reflectivity),
+                correlation: Some(&correlation),
+                differential: Some(&differential),
+            },
+            Kind::AzimuthalShear,
+        )
+        .expect("a derived cut")
+        .debris
+        .unwrap_or_else(|| panic!("{which}: nothing was flagged under the couplet"));
+
+        // 51.125 km is a quarter of a kilometre inside the last coarse gate
+        // the storm fills, and both readings of the range agree it is gate 49.
+        let (_, inside) = flagged.get(360, gate_at(51.125));
+        assert_eq!(
+            inside,
+            GateStatus::Valid,
+            "{which}: the storm was not flagged"
+        );
+
+        // 51.875 km is three quarters of the way to the centre of gate 50,
+        // which is air. Read as an edge it is still gate 49, and the criterion
+        // passes on the storm's own reading a kilometre back.
+        let (_, past) = flagged.get(360, gate_at(51.875));
+        assert!(
+            !matches!(past, GateStatus::Valid),
+            "{which}: a gate past the storm was called debris, so that read is half a gate out"
+        );
+    }
+}
+
 /// A gate with almost nothing around it is dropped rather than fitted.
 #[test]
 fn a_gate_with_too_few_neighbours_is_dropped() {

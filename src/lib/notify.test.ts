@@ -201,6 +201,16 @@ function withSpeech(
       installed = 2;
       listeners.splice(0).forEach((run) => run());
     },
+    /**
+     * The list filling with nobody told about it.
+     *
+     * `voiceschanged` is the engine's promise, not the platform's, and an
+     * engine that never keeps it leaves anything waiting on the event waiting
+     * for the rest of the run.
+     */
+    voicesQuietly: () => {
+      installed = 2;
+    },
     /** How many utterances the engine believes it is still reading. */
     live: () => live.length,
     /** How many callbacks are waiting on the voice list. */
@@ -443,6 +453,30 @@ describe("reading an alert aloud", () => {
       ]);
     } finally {
       engine.undo();
+    }
+  });
+
+  it("gives up on a voice list that never arrives", async () => {
+    // WebView2 offers whatever Windows has installed, and a machine with no
+    // speech voices at all reports an empty list and never raises
+    // `voiceschanged`. Without a ceiling on the wait the sentence sits in the
+    // queue for ever, and worse, the flag that says somebody is already
+    // waiting is never cleared: every warning after it is swallowed with no
+    // sound and no line in the log.
+    vi.useFakeTimers();
+    const engine = withSpeech(0);
+    try {
+      const { speak } = await freshSpeech();
+      speak("A tornado warning");
+      expect(engine.words()).toEqual([]);
+      // The list fills and the engine says nothing about it, which is the one
+      // case a listener cannot cover. The queue has to look again by itself.
+      engine.voicesQuietly();
+      await vi.advanceTimersByTimeAsync(21_000);
+      expect(engine.words()).toEqual(["A tornado warning"]);
+    } finally {
+      engine.undo();
+      vi.useRealTimers();
     }
   });
 

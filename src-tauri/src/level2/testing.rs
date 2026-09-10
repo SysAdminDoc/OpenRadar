@@ -428,9 +428,48 @@ mod golden {
             ("correlation-coefficient", "Correlation coefficient", ""),
             ("azimuthal-shear", "Azimuthal shear", "0.001/s"),
             ("rotation", "Rotation", "NROT"),
+            (
+                "specific-differential-phase",
+                "Specific differential phase",
+                "deg/km",
+            ),
         ] {
             let named = product_from_name(product).expect(product);
             assert_eq!((named.1, named.2), (label, unit), "{product}");
+        }
+    }
+
+    /// Which products may be drawn from the volume in progress.
+    ///
+    /// One cut the radar has finished is as good mid-volume as it is at the
+    /// end, so every moment and both rotation products read the live scan. The
+    /// five worked out of the whole volume do not: forty seconds in there are
+    /// two or three cuts, and a column built out of those is not a shallower
+    /// answer but a wrong one, drawn over the whole disc rather than over the
+    /// wedge the radar has reached.
+    #[test]
+    fn only_a_cut_may_be_drawn_from_the_volume_in_progress() {
+        for product in [
+            "reflectivity",
+            "velocity",
+            "storm-relative-velocity",
+            "spectrum-width",
+            "differential-reflectivity",
+            "correlation-coefficient",
+            "azimuthal-shear",
+            "rotation",
+            "specific-differential-phase",
+        ] {
+            assert!(live_may_be_drawn(product), "{product} is one cut");
+        }
+        for product in [
+            "composite-reflectivity",
+            "echo-top",
+            "vil",
+            "vil-density",
+            "hail-size",
+        ] {
+            assert!(!live_may_be_drawn(product), "{product} is the whole volume");
         }
     }
 
@@ -1307,37 +1346,49 @@ mod colour_vision {
         assert!(better > apart * 2.0);
     }
 
-    /// Every scale a worked product is drawn on, ordinary and high contrast.
+    /// A scale and the one a reader who asked for more contrast gets instead.
     ///
-    /// Named once, because three separate registers below read it and a scale
-    /// missing from one of them is a scale nothing checks.
-    const EVERY_WORKED_RAMP: [&[(f32, [u8; 3])]; 12] = [
-        SITE_SHEAR_RAMP,
-        HIGH_CONTRAST_SITE_SHEAR_RAMP,
-        SITE_ROTATION_RAMP,
-        HIGH_CONTRAST_SITE_ROTATION_RAMP,
-        ECHO_TOP_RAMP,
-        HIGH_CONTRAST_ECHO_TOP_RAMP,
-        VIL_RAMP,
-        HIGH_CONTRAST_VIL_RAMP,
-        VIL_DENSITY_RAMP,
-        HIGH_CONTRAST_VIL_DENSITY_RAMP,
-        HAIL_SIZE_RAMP,
-        HIGH_CONTRAST_HAIL_SIZE_RAMP,
+    /// Held as a pair rather than as a flat list, because every register below
+    /// has something to say about both halves and a list of loose ramps lets a
+    /// register quietly cover one of them. That is not hypothetical: the two
+    /// colour-vision registers here each carried their own hand-written array
+    /// of four, so a fifth scale added to the list they were supposed to be
+    /// reading would have been separated by nothing and checked by nothing.
+    type Scale = (&'static [(f32, [u8; 3])], &'static [(f32, [u8; 3])]);
+
+    /// The scales that run either side of zero, where what has to survive is
+    /// which side a reading is on.
+    const SIGNED_SCALES: [Scale; 3] = [
+        (SITE_SHEAR_RAMP, HIGH_CONTRAST_SITE_SHEAR_RAMP),
+        (SITE_ROTATION_RAMP, HIGH_CONTRAST_SITE_ROTATION_RAMP),
+        (PHASE_RAMP, HIGH_CONTRAST_PHASE_RAMP),
     ];
+
+    /// The scales that run low to high, where what has to survive is how far
+    /// up the reading is.
+    const CLIMBING_SCALES: [Scale; 4] = [
+        (ECHO_TOP_RAMP, HIGH_CONTRAST_ECHO_TOP_RAMP),
+        (VIL_RAMP, HIGH_CONTRAST_VIL_RAMP),
+        (VIL_DENSITY_RAMP, HIGH_CONTRAST_VIL_DENSITY_RAMP),
+        (HAIL_SIZE_RAMP, HIGH_CONTRAST_HAIL_SIZE_RAMP),
+    ];
+
+    /// Every one of them, both halves, for the registers that care about all.
+    fn every_worked_ramp() -> Vec<&'static [(f32, [u8; 3])]> {
+        SIGNED_SCALES
+            .into_iter()
+            .chain(CLIMBING_SCALES)
+            .flat_map(|(ordinary, contrast)| [ordinary, contrast])
+            .collect()
+    }
 
     /// The column scales run low to high, so asking for more contrast has to
     /// give a ladder that climbs in lightness: that is what survives when hue
     /// is lost completely.
     #[test]
     fn the_high_contrast_column_scales_climb_in_lightness() {
-        for ramp in [
-            HIGH_CONTRAST_ECHO_TOP_RAMP,
-            HIGH_CONTRAST_VIL_RAMP,
-            HIGH_CONTRAST_VIL_DENSITY_RAMP,
-            HIGH_CONTRAST_HAIL_SIZE_RAMP,
-        ] {
-            assert!(lightness_climbs(ramp, 0.5));
+        for (_, contrast) in CLIMBING_SCALES {
+            assert!(lightness_climbs(contrast, 0.5));
         }
     }
 
@@ -1345,14 +1396,32 @@ mod colour_vision {
     /// the other half of what contrast is for.
     #[test]
     fn the_high_contrast_column_scales_keep_their_steps_apart() {
-        for ramp in [
-            HIGH_CONTRAST_ECHO_TOP_RAMP,
-            HIGH_CONTRAST_VIL_RAMP,
-            HIGH_CONTRAST_VIL_DENSITY_RAMP,
-            HIGH_CONTRAST_HAIL_SIZE_RAMP,
-        ] {
+        for (_, contrast) in CLIMBING_SCALES {
             for vision in EVERY_VISION {
-                let (apart, from, to) = worst_pair(ramp, vision);
+                let (apart, from, to) = worst_pair(contrast, vision);
+                assert!(
+                    apart >= NEIGHBOURS_APART,
+                    "{} brings {from} and {to} within {apart:.1}",
+                    vision.name()
+                );
+            }
+        }
+    }
+
+    /// And the ordinary halves are held to the same floor.
+    ///
+    /// Reflectivity has a second scale because its own is the fifteen-stop NWS
+    /// ladder, and fifteen steps cannot be told apart by anybody once the
+    /// range is divided among them. These are six steps over the same hues,
+    /// and measured rather than assumed they clear the floor at 21.5 under
+    /// deuteranopia, so there is no reason to let them stop clearing it: the
+    /// second scale here buys lightness that survives losing hue altogether,
+    /// not a rescue from a scale that had already failed.
+    #[test]
+    fn the_ordinary_column_scales_keep_their_steps_apart_too() {
+        for (ordinary, _) in CLIMBING_SCALES {
+            for vision in EVERY_VISION {
+                let (apart, from, to) = worst_pair(ordinary, vision);
                 assert!(
                     apart >= NEIGHBOURS_APART,
                     "{} brings {from} and {to} within {apart:.1}",
@@ -1373,12 +1442,10 @@ mod colour_vision {
     /// to let it stop.
     #[test]
     fn the_derived_scales_keep_cyclonic_apart_from_anticyclonic() {
-        for ramp in [
-            SITE_SHEAR_RAMP,
-            HIGH_CONTRAST_SITE_SHEAR_RAMP,
-            SITE_ROTATION_RAMP,
-            HIGH_CONTRAST_SITE_ROTATION_RAMP,
-        ] {
+        for ramp in SIGNED_SCALES
+            .into_iter()
+            .flat_map(|(ordinary, contrast)| [ordinary, contrast])
+        {
             for vision in EVERY_VISION {
                 let apart = opposite_directions(ramp, vision);
                 assert!(
@@ -1394,7 +1461,7 @@ mod colour_vision {
     /// another reading, so it may not be a colour either scale can produce.
     #[test]
     fn the_debris_mark_is_on_neither_scale() {
-        for ramp in EVERY_WORKED_RAMP {
+        for ramp in every_worked_ramp() {
             let ends = (ramp[0].0, ramp[ramp.len() - 1].0);
             let mut at = ends.0;
             while at <= ends.1 {
@@ -1452,7 +1519,7 @@ mod colour_vision {
             HIGH_CONTRAST_WIDE_VELOCITY_RAMP,
         ]
         .into_iter()
-        .chain(EVERY_WORKED_RAMP)
+        .chain(every_worked_ramp())
         {
             assert!(ramp.windows(2).all(|pair| pair[1].0 > pair[0].0));
         }

@@ -142,8 +142,20 @@ pub async fn level2_sweep(
     // age beside the sweep cannot tell apart. The workspace counts these and
     // shows them in Diagnostics, so a feed that has been down for hours says
     // so instead of just looking behind.
+    //
+    // Except for a product that is the whole volume. Forty seconds into a scan
+    // the radar has published the lowest two or three cuts, and a column built
+    // from those is not a column: an echo top reads the height of the third
+    // beam, VIL collapses to a thin slab, and a hail size goes to nothing
+    // because almost none of three low cuts sits above the freezing level.
+    // Worse, the sector mask is built from the drawn field's own azimuths, and
+    // the lowest cut finishes within about fifteen seconds, so from then on
+    // that mask reads the full turn and the three-cut answer replaces the
+    // complete volume everywhere rather than over the wedge the radar has
+    // reached. The finished volume is behind, which the legend says; a column
+    // drawn from a third of one is wrong, which nothing would say.
     let mut live_failed = None;
-    let live = if live {
+    let live = if live && live_may_be_drawn(&product) {
         match chunks::live_scan(&station).await {
             Ok(found) => Some(found),
             Err(reason) => {

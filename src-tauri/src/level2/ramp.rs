@@ -13,6 +13,10 @@ use super::*;
 pub enum Worked {
     Turning(shear::Kind),
     Column(derive::Kind),
+    /// The slope of the differential phase along the beam, which is the one
+    /// field that says how hard it is raining without asking the radar to be
+    /// calibrated or the beam to be unblocked.
+    Phase,
 }
 
 /// Which derivation a product name asks for, when it asks for one.
@@ -23,6 +27,7 @@ pub fn worked_from_name(name: &str) -> Option<Worked> {
     match name {
         "azimuthal-shear" => Some(Worked::Turning(shear::Kind::AzimuthalShear)),
         "rotation" => Some(Worked::Turning(shear::Kind::Rotation)),
+        "specific-differential-phase" => Some(Worked::Phase),
         "composite-reflectivity" => Some(Worked::Column(derive::Kind::Composite)),
         "echo-top" => Some(Worked::Column(derive::Kind::EchoTop)),
         "vil" => Some(Worked::Column(derive::Kind::Vil)),
@@ -30,6 +35,24 @@ pub fn worked_from_name(name: &str) -> Option<Worked> {
         "hail-size" => Some(Worked::Column(derive::Kind::HailSize)),
         _ => None,
     }
+}
+
+/// Whether a product is the whole volume rather than one cut of it.
+///
+/// Three things turn on it and none of them is about colour: the volume in
+/// progress may not be drawn, the cut the reader picked cannot date the
+/// picture, and the export must not head a column with an elevation.
+pub fn whole_volume(product: &str) -> bool {
+    matches!(worked_from_name(product), Some(Worked::Column(_)))
+}
+
+/// Whether the volume the radar is sweeping now may be drawn for this product.
+///
+/// Every other product is one cut, and a cut the radar has finished is as good
+/// mid-volume as it is at the end. A column is the whole volume, and a third
+/// of a volume is not a shallower answer, it is a wrong one.
+pub fn live_may_be_drawn(product: &str) -> bool {
+    !whole_volume(product)
 }
 
 /// The products a caller may ask for, kept as plain names the frontend can send.
@@ -45,6 +68,12 @@ pub fn product_from_name(name: &str) -> Option<(Product, &'static str, &'static 
         Some(Worked::Column(kind)) => {
             let (label, unit) = derive::named(kind);
             return Some((Product::Reflectivity, label, unit));
+        }
+        // Worked out of the phase the radar recorded, so that is the moment
+        // fetched before it is differentiated.
+        Some(Worked::Phase) => {
+            let (label, unit) = kdp::named();
+            return Some((Product::DifferentialPhase, label, unit));
         }
         None => {}
     }
@@ -339,6 +368,32 @@ pub(crate) const HIGH_CONTRAST_HAIL_SIZE_RAMP: &[(f32, [u8; 3])] = &[
     (38.0, COLUMN_STEPS[3]),
     (50.8, COLUMN_STEPS[4]),
     (75.0, COLUMN_STEPS[5]),
+];
+
+/// How fast the differential phase is accumulating, in degrees a kilometre.
+///
+/// Two is heavy rain and four is a downpour, so the stops are close together
+/// low down where the reading is actually used and spread out above it. Either
+/// side of zero, because the slope can go slightly negative in ice and drawing
+/// that as no rain would hide what it is telling you.
+pub(crate) const PHASE_RAMP: &[(f32, [u8; 3])] = &[
+    (-1.0, [0x60, 0xa5, 0xfa]),
+    (0.0, [0x6b, 0x6b, 0x6b]),
+    (0.5, [0x38, 0xbd, 0xf8]),
+    (1.5, [0x4a, 0xde, 0x80]),
+    (3.0, [0xfa, 0xcc, 0x15]),
+    (5.0, [0xfb, 0x92, 0x3c]),
+    (8.0, [0xf4, 0x3f, 0x5e]),
+];
+
+pub(crate) const HIGH_CONTRAST_PHASE_RAMP: &[(f32, [u8; 3])] = &[
+    (-1.0, [0x00, 0x78, 0xba]),
+    (0.0, [0xe8, 0xe8, 0xe8]),
+    (0.5, COLUMN_STEPS[1]),
+    (1.5, COLUMN_STEPS[2]),
+    (3.0, COLUMN_STEPS[3]),
+    (5.0, COLUMN_STEPS[4]),
+    (8.0, COLUMN_STEPS[5]),
 ];
 
 /// The colour a gate carrying a signature is marked in.

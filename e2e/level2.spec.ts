@@ -43,6 +43,10 @@ async function fakeNativeSide(page: Page) {
           // the native side answers with its own labels and units for.
           "azimuthal-shear": ["Azimuthal shear", "0.001/s"],
           rotation: ["Rotation", "NROT"],
+          "specific-differential-phase": [
+            "Specific differential phase",
+            "deg/km",
+          ],
           // The column over each point of ground rather than one cut of it.
           "composite-reflectivity": ["Composite reflectivity", "dBZ"],
           "echo-top": ["Echo top", "km"],
@@ -1538,6 +1542,13 @@ test("offers rotation worked out from the site's own velocity", async ({
   await products.selectOption("rotation");
   await expect(page.getByText("KDMX Rotation")).toBeVisible();
 
+  // And the slope of the differential phase, which ships as a Level III
+  // product and not as a moment, so a site's own has to be worked out.
+  await products.selectOption("specific-differential-phase");
+  await expect(
+    page.getByText("KDMX Specific differential phase"),
+  ).toBeVisible();
+
   // Both were asked for by name, so the native side is deriving rather than
   // the page relabelling velocity.
   const asked = await page.evaluate(() =>
@@ -1551,6 +1562,7 @@ test("offers rotation worked out from the site's own velocity", async ({
   );
   expect(asked).toContain("azimuthal-shear");
   expect(asked).toContain("rotation");
+  expect(asked).toContain("specific-differential-phase");
 });
 
 test("offers the products worked out of the whole volume", async ({ page }) => {

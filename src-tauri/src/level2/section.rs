@@ -106,11 +106,10 @@ pub fn cross_section_from_scan(
     // vertical cut through one would draw the same number at every height and
     // read as a storm of uniform depth.
     let derived = match worked_from_name(asked.product_name) {
-        Some(Worked::Turning(kind)) => Some(kind),
         Some(Worked::Column(_)) => {
             return Err(Level2Error::NoSection(label.to_string()));
         }
-        None => None,
+        other => other,
     };
 
     let site = registry::site_by_id(station)
@@ -149,7 +148,8 @@ pub fn cross_section_from_scan(
         let Some(mut cut) = sweep_field_at(scan, product, *angle) else {
             continue;
         };
-        if (asked.unfold || derived.is_some()) && product == Product::Velocity {
+        let turning = matches!(derived, Some(Worked::Turning(_)));
+        if (asked.unfold || turning) && product == Product::Velocity {
             if let Some(folds_at) = nyquist_for(cut.elevation_number) {
                 let found = unfold_velocity(&mut cut.field, folds_at);
                 dealiased |= found.moved > 0;
@@ -158,19 +158,29 @@ pub fn cross_section_from_scan(
                 unfolding.valid += found.valid;
                 unfolding.unplaced += found.unplaced;
                 unfolding.moved += found.moved;
-            } else if derived.is_some() {
+            } else if turning {
                 // A fold is the largest shear in the sweep, so a cut that
                 // cannot be unfolded is left out rather than drawn as
                 // rotation. The cuts that could be are still the slice.
                 continue;
             }
         }
-        if let Some(kind) = derived {
-            let beside = Alongside::at(scan, cut.elevation_degrees);
-            let Some(found) = shear::derive(&cut.field, beside.beside(), kind) else {
-                continue;
-            };
-            cut.field = found.field;
+        match derived {
+            Some(Worked::Turning(kind)) => {
+                let beside = Alongside::at(scan, cut.elevation_degrees);
+                let Some(found) = shear::derive(&cut.field, beside.beside(), kind) else {
+                    continue;
+                };
+                cut.field = found.field;
+            }
+            Some(Worked::Phase) => {
+                let beside = Alongside::at(scan, cut.elevation_degrees);
+                let Some(found) = kdp::derive(&cut.field, beside.beside().correlation) else {
+                    continue;
+                };
+                cut.field = found;
+            }
+            Some(Worked::Column(_)) | None => {}
         }
         chosen.push(cut);
     }
@@ -207,7 +217,7 @@ pub fn cross_section_from_scan(
         unfolded: dealiased,
         threshold: asked.threshold,
         high_contrast: asked.high_contrast,
-        derived: derived.map(Worked::Turning),
+        derived,
     };
 
     let mut pixels = vec![0u8; taken.width * taken.height * 4];

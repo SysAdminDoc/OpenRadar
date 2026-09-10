@@ -78,6 +78,7 @@ const THRESHOLD_RANGE: Record<
   // product's own unit for the same reason a reflectivity threshold is.
   "azimuthal-shear": { min: 0, max: 14, step: 0.5, unit: "own" },
   rotation: { min: 0, max: 5, step: 0.1, unit: "own" },
+  "specific-differential-phase": { min: 0, max: 8, step: 0.1, unit: "own" },
   // A composite is reflectivity, so it hides on the same scale as reflectivity.
   "composite-reflectivity": { min: 0, max: 70, step: 1, unit: "own" },
   "echo-top": { min: 0, max: 18, step: 0.5, unit: "own" },

@@ -50,6 +50,14 @@ export const LEVEL2_PRODUCTS = [
     unit: "0.001/s",
   },
   { id: "rotation", key: "product.rotation", unit: "NROT" },
+  // The slope of the differential phase along the beam. It ships as a Level
+  // III product and not as a moment, so a site's own version has to be worked
+  // out from the phase itself.
+  {
+    id: "specific-differential-phase",
+    key: "product.specificDifferentialPhase",
+    unit: "deg/km",
+  },
   // The other axis: not one cut but the column over each point of ground,
   // which is where a storm's depth, the water in it and the hail it could be
   // making all live. A composite is reflectivity, so it keeps that unit and
@@ -393,6 +401,11 @@ export async function fetchGate(
     tilt,
     dealias,
     motion,
+    // The same air the picture was drawn against. Without it the readout under
+    // the cursor works a hail size out from the standard atmosphere while the
+    // panel beside it names the reader's sounding, and the number the cursor
+    // gives is the one somebody writes down.
+    air: heldHailAir(),
     live,
   });
 }

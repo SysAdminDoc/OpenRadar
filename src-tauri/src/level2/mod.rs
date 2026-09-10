@@ -37,6 +37,7 @@ use crate::cross_section;
 use crate::dealias;
 use crate::derive;
 use crate::http;
+use crate::kdp;
 use crate::level3;
 use crate::palette;
 use crate::palette::Palette;

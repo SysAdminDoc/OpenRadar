@@ -29,7 +29,7 @@ use crate::gates::reading_at;
 /// height; pretending the earth is a third larger than it is and the beam
 /// straight comes to the same answer, and is what every radar textbook and
 /// the NWS itself does.
-const EFFECTIVE_EARTH_RADIUS_KM: f64 = 6371.0 * 4.0 / 3.0;
+pub const EFFECTIVE_EARTH_RADIUS_KM: f64 = 6371.0 * 4.0 / 3.0;
 
 /// How wide the WSR-88D beam is between its half-power points, in degrees.
 ///
