@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS } from "./lib/settings";
+import { workspaceSource } from "./test/workspaceSource";
 
 /**
  * The promise the Character section makes, held to.
@@ -23,15 +22,12 @@ import { DEFAULT_SETTINGS } from "./lib/settings";
  * comments come out first: a condition quoted in a comment answered for a
  * live one twice in this repository already.
  */
-const app = readFileSync(join(import.meta.dirname, "App.tsx"), "utf8")
-  .replace(/\/\*[\s\S]*?\*\//g, "")
-  .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "")
-  .replace(/\/\/.*/g, "");
+const app = workspaceSource();
 
 /** The text between two landmarks, which is where a condition is written. */
 function between(from: string, to: string): string {
   const at = app.indexOf(from);
-  expect(at, `${from} is no longer in App.tsx`).toBeGreaterThan(-1);
+  expect(at, `${from} is no longer in the workspace`).toBeGreaterThan(-1);
   const end = app.indexOf(to, at);
   expect(end, `${to} no longer follows ${from}`).toBeGreaterThan(at);
   return app.slice(at, end);

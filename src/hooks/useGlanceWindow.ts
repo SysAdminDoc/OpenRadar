@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { pictureDataUrl, thumbnailFrom } from "../lib/journal";
 import {
   glanceIsShowing,
+  setCloseToTray,
+  setGlanceOnTop,
+  setTrayCopy,
+  setTrayEnabled,
   observedMsFrom,
   setTrayHazard,
   whenGlanceOpens,
@@ -9,6 +13,7 @@ import {
 } from "../lib/tray";
 import { WATCH_FAILURES_BEFORE_SAYING } from "../lib/watch";
 import type { RadarFrame } from "../lib/radar";
+import { translate } from "../i18n";
 import { useLatestReply } from "./useLatestReply";
 
 export interface GlanceWindowOptions {
@@ -25,6 +30,14 @@ export interface GlanceWindowOptions {
   sourceLabel: string | null;
   /** The frame on screen, for the picture that window shows. */
   canvas: () => HTMLCanvasElement | null;
+  /** Whether closing the window puts the app in the tray instead. */
+  closeToTray: boolean;
+  /** Whether the small window sits over everything else. */
+  glanceOnTop: boolean;
+  /** The reader's language, so the menu is in it from the first tray. */
+  language: string;
+  /** The startup entry, which cannot outlive the icon it opens to. */
+  autostart: { on: boolean | null; set: (on: boolean) => void };
 }
 
 /**
@@ -46,7 +59,49 @@ export function useGlanceWindow({
   observed,
   sourceLabel,
   canvas,
+  closeToTray,
+  glanceOnTop,
+  language,
+  autostart,
 }: GlanceWindowOptions): void {
+  // The words before the icon, so the first tray a reader ever sees is
+  // already in their own language rather than English for a moment.
+  useEffect(() => {
+    void setTrayCopy({
+      open: translate("tray.menuOpen"),
+      glance: translate("tray.menuGlance"),
+      quit: translate("tray.menuQuit"),
+      quiet: translate("tray.quiet"),
+      warning: translate("tray.warning"),
+      unreachable: translate("tray.unreachable"),
+    });
+  }, [language]);
+
+  useEffect(() => {
+    void setTrayEnabled(tray);
+  }, [tray]);
+
+  useEffect(() => {
+    // With the tray off there is nothing to close to, so the window closes
+    // the app whatever this says.
+    void setCloseToTray(tray && closeToTray);
+  }, [closeToTray, tray]);
+
+  // The startup entry cannot outlive the icon it opens to.
+  //
+  // A reader who ticks "Start with Windows" and later removes the tray icon
+  // would otherwise get the map across their screen at every sign-in, with the
+  // one switch that could stop it greyed out because it needs the icon. So
+  // taking the icon away takes the entry with it, which is what the disabled
+  // switch has been saying all along.
+  useEffect(() => {
+    if (tray || autostart.on !== true) return;
+    autostart.set(false);
+  }, [autostart, tray]);
+
+  useEffect(() => {
+    void setGlanceOnTop(glanceOnTop);
+  }, [glanceOnTop]);
   const latestGlance = useLatestReply();
   // The icon says one thing: whether a warning stands at a place the reader
   // named. Not how many, not what the app is doing.
