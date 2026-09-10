@@ -11,6 +11,27 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
+- [ ] AUD-477 (P3): Two fields the aviation feeds publish and the layer throws away
+  Why: A refutation pass over `AUD-194` found both. `parseAirSigmets` in `src/lib/overlays/aviation.ts` hardcodes `severity: null` while every live `airsigmet` feature carries a `severity`, and `describe` gates the severity line on `typeof severity === "string"`, so the number the service sends would be dropped even once it is read. Separately `forecastHours` is written into every G-AIRMET at `aviation.ts` and nothing anywhere reads it: `grep -rn forecastHours src/` returns the one line that writes it.
+  Evidence: on 2026-09-10 the live SIGMET collection carried `severity: 5` on every feature; the G-AIRMET collection carried `forecast: 3`. The popup shows a severity for a G-AIRMET turbulence area and never for a SIGMET.
+  Touches: `src/lib/overlays/aviation.ts`, `aviation.test.ts`.
+  Acceptance: A SIGMET's severity reaches the popup in a form a reader understands, whether the service sends a word or a number, with a test that reads a live answer rather than a list written by hand; and `forecastHours` is either rendered or removed, with the choice stated. A field written and never read is either a missing feature or dead weight, and this decides which.
+  Complexity: S
+
+- [ ] AUD-478 (P3): The snowfall layer reads stale while showing the freshest thing published
+  Why: `src/lib/layerProvenance.ts` gives the snowfall analysis a twelve-hour freshness measured from the analysis's valid time, because the office publishes at 00Z and 12Z. It does not publish on the hour. For whatever part of each cycle the newer file does not exist yet, `recent()` correctly walks back to one that does, and that one is by then over twelve hours old by its own valid time, so the provenance panel marks the layer stale while it is showing the newest analysis NOHRSC has.
+  Evidence: at 09:09Z on 2026-09-10 the 00Z file for that day existed with a Last-Modified of 08:56Z, nearly nine hours after its valid hour; the 12Z file 404'd; and the previous day's 12Z file was still being rewritten at 09:03Z, twenty-one hours after its valid hour. Last-Modified is the latest revision rather than first publication, so the true lag is a lower bound.
+  Touches: `src/lib/layerProvenance.ts`, and a recording of when each cycle actually appears.
+  Acceptance: The freshness window is derived from measured publication lag across at least a week of cycles rather than from the nominal cadence, and the number is written down with the measurement beside it. A layer that says "stale" while showing the newest thing that exists teaches a reader to ignore the word.
+  Complexity: S
+
+- [ ] AUD-479 (P3): The snowfall reader assumes the raster tiepoint is the grid's own origin
+  Why: `src-tauri/src/snowfall.rs::read` takes `ModelTiepoint` and uses only `tie[3..6]`, the model half. The raster half, `tie[0..3]`, says which pixel that model point is tied to, and this never checks it is `0, 0, 0`. Every file the office has published ties at the origin, so nothing is wrong today; a file tied at any other pixel would be placed wrong with nothing said.
+  Evidence: the fixture's IFD has `GTRasterTypeGeoKey = 1` and a raster tiepoint of `0, 0, 0`, which is what the extent arithmetic assumes.
+  Touches: `src-tauri/src/snowfall.rs`, `snowfall_tests.rs`.
+  Acceptance: A tiepoint at any pixel but the origin is either honoured or refused with a message naming it, and a test feeds one. Silently placing a grid somewhere it is not is the failure this module already had once.
+  Complexity: S
+
 - [ ] AUD-475 (P3): Three things the KDP pass does to a ray that need measuring against real volumes
   Why: A refutation pass over `AUD-191` found three defects that are real but cannot be tuned from a fixture, the way `AUD-192` could not be. Each needs a recorded run over station-days the way `recording_the_days_unfolding_is_held_against` does for the dealiaser.
   Evidence: (1) `src-tauri/src/kdp.rs` unfolds at most once per ray: `unfold` takes `position()` of the first gate below the fold threshold and is called once, outside the reconciliation loop, and the band clamp runs before that loop so a second wrap is undetectable in principle. A ray accumulating more than 720 degrees of differential phase, which is about 90 km of 4 deg/km rain in a squall line, keeps its second wrap. wradlib runs its unfold inside the iteration loop for exactly this reason. (2) `integrate` writes a value at every gate using `unwrap_or(0.0)`, so the reconciliation re-derives the slope over rays where censored and despeckled stretches are flat plateaus; a measured gate within half a window of a censored block has up to half its window filled with fabricated zero slope, which biases the reading low along every clutter block, blocked sector and echo edge. The `measured` mask keeps those gates from being drawn but not from being averaged into. (3) `unfold`'s over-correction band is `DESPECKLE_GATES * 2`, ten gates, under a comment claiming it is the processing window, which is 29 at quarter kilometre gates. It happens to be enough at 0.25 km and 1.0 km spacing and would leave about eight gates carrying a spurious 360 degrees at 0.125 km. Latent on current NEXRAD dual-pol.

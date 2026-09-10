@@ -1318,6 +1318,8 @@ export const es: Catalogue = {
   "aviation.fzl": "la isoterma cero",
   "aviation.between": "{low} a {high}",
   "aviation.upTo": "Hasta {high}",
+  "aviation.atLevel": "Informado a {high}",
+  "aviation.from": "Desde {low} hacia arriba",
   "aviation.notForFlight":
     "No sirve para planificar vuelos. Use una sesión informativa oficial.",
   "aviation.sigmets": "los SIGMET",

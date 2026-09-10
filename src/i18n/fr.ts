@@ -1328,6 +1328,8 @@ export const fr: Catalogue = {
   "aviation.fzl": "l’isotherme 0",
   "aviation.between": "{low} à {high}",
   "aviation.upTo": "Jusqu’à {high}",
+  "aviation.atLevel": "Signalé à {high}",
+  "aviation.from": "À partir de {low}",
   "aviation.notForFlight":
     "Ne sert pas à préparer un vol. Utilisez un dossier officiel.",
   "aviation.sigmets": "les SIGMET",

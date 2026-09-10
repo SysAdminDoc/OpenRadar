@@ -286,6 +286,44 @@ describe("what the air is doing to aircraft", () => {
     }
   });
 
+  it("says a pilot report is at an altitude rather than up to one", () => {
+    // A pilot report is somebody at that height saying what it was like
+    // there. Read as a ceiling the popup said the turbulence ran from the
+    // ground to thirty-nine thousand feet, which is a claim about the whole
+    // column that nobody made.
+    const said = aviationOverlay.describe({
+      kind: "pirep",
+      title: "PIREP",
+      hazard: null,
+      validFrom: Date.parse("2026-09-10T06:55:00.000Z"),
+      validTo: null,
+      lowFeet: null,
+      highFeet: 39000,
+      raw: "ARP UAL930 F390",
+    });
+    const lines = said.lines.join(" ");
+    expect(lines).toContain("39,000 ft");
+    expect(lines).not.toMatch(/up to/i);
+  });
+
+  it("keeps a floor that arrived without a ceiling", () => {
+    // Both fields are independently absent on these products, and there was
+    // no branch for a base without a top: the altitude was dropped with
+    // nothing said, so a hazard from eight thousand feet up read as a hazard
+    // at no particular height.
+    const said = aviationOverlay.describe({
+      kind: "cwa",
+      title: "ZMA CWA 503",
+      hazard: "TS",
+      validFrom: null,
+      validTo: null,
+      lowFeet: 8000,
+      highFeet: null,
+      raw: null,
+    });
+    expect(said.lines.join(" ")).toContain("8,000 ft");
+  });
+
   it("asks four times for the whole country, well inside the rate limit", () => {
     // One per minute per product is the ceiling the item names. Four
     // requests every five minutes is a fifth of that, and `global` is what
