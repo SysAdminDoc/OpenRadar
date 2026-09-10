@@ -1637,6 +1637,16 @@ export const es: Catalogue = {
     "Apagado, porque un aviso ya suena y esto no es un aviso",
   "lightningWatch.note":
     "Destellos detectados por satélite, no informes de impactos en tierra.",
+  "melting.title": "Capa de fusión",
+  "melting.source": "Del corte a {tilt}° de este mismo volumen",
+  "melting.band": "En torno a {peak}, entre {bottom} y {top} sobre el radar.",
+  "melting.note":
+    "La banda brillante que ve el radar, donde la nieve se está convirtiendo en lluvia. El tamaño del granizo de arriba se calcula con el sondeo y no con esto.",
+  "melting.noHighTilt":
+    "Este volumen no tiene ningún corte lo bastante inclinado para leerla.",
+  "melting.missingMoment":
+    "Al corte alto le falta uno de los tres momentos que esto necesita.",
+  "melting.nothingMelting": "Nada en este volumen parece nieve en fusión.",
   "jump.badge": "Salto en la tasa de rayos en {id}",
   "jump.rate": "Ahora {rate} por minuto, a las {time}.",
   "jump.note":

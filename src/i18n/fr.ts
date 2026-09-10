@@ -1650,6 +1650,18 @@ export const fr: Catalogue = {
     "Désactivé, parce qu'une alerte en fait déjà un et ceci n'en est pas une",
   "lightningWatch.note":
     "Éclairs détectés par satellite, pas des relevés d'impacts au sol.",
+  "melting.title": "Couche de fusion",
+  "melting.source": "De la coupe à {tilt}° de ce volume même",
+  "melting.band":
+    "Autour de {peak}, entre {bottom} et {top} au-dessus du radar.",
+  "melting.note":
+    "La bande brillante que le radar voit, là où la neige se change en pluie. La taille de la grêle au-dessus est calculée avec le sondage et non avec ceci.",
+  "melting.noHighTilt":
+    "Ce volume n'a aucune coupe assez inclinée pour la lire.",
+  "melting.missingMoment":
+    "Il manque à la coupe haute un des trois moments dont ceci a besoin.",
+  "melting.nothingMelting":
+    "Rien dans ce volume ne ressemble à de la neige en fusion.",
   "jump.badge": "Saut du taux d'éclairs sur {id}",
   "jump.rate": "Maintenant {rate} par minute, à {time}.",
   "jump.note":

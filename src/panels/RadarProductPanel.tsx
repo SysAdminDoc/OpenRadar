@@ -21,6 +21,7 @@ import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import type { RadarSettings, WatchState } from "../lib/settings";
 import type { StormCellState } from "../hooks/useStormCells";
 import type { CellJump } from "../lib/lightningJump";
+import { isLayer, type MeltingLayer, type NoLayer } from "../lib/melting";
 import {
   CLASSIFICATION_PRODUCT_KEYS,
   CLASSIFICATION_PRODUCTS,
@@ -98,6 +99,8 @@ interface RadarProductPanelProps {
   stormCells: StormCellState;
   /** What each tracked storm's flash rate is doing, keyed by cell. */
   cellJumps: Map<string, CellJump>;
+  /** Where the held radar's own volume puts the melting layer, or why it cannot. */
+  melting: MeltingLayer | NoLayer | null;
   /** The place the reader asked to be told about. */
   watch: WatchState;
   /**
@@ -139,6 +142,7 @@ export function RadarProductPanel({
   singleSite,
   stormCells,
   cellJumps,
+  melting,
   watch,
   siteStatus,
   onRadar,
@@ -825,6 +829,41 @@ export function RadarProductPanel({
                     >
                       {t("radar.stormMotionClear")}
                     </button>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* The band the volume itself can see, beside the sounding the
+                  size is worked out against. Two different answers to the
+                  same question, and a reader comparing them is the point:
+                  the sounding may be hours old and a hundred miles away. */}
+              {radar.product === "hail-size" && melting ? (
+                <div className="settings-section" data-melting>
+                  <div className="settings-section__title">
+                    <span>{t("melting.title")}</span>
+                    <small>
+                      {isLayer(melting)
+                        ? t("melting.source", {
+                            tilt: formatNumber(melting.elevationDegrees, 1),
+                          })
+                        : t(
+                            melting.reason === "noHighTilt"
+                              ? "melting.noHighTilt"
+                              : melting.reason === "missingMoment"
+                                ? "melting.missingMoment"
+                                : "melting.nothingMelting",
+                          )}
+                    </small>
+                  </div>
+                  {isLayer(melting) ? (
+                    <p className="source-note">
+                      {t("melting.band", {
+                        peak: formatDistanceKm(melting.peakKm),
+                        bottom: formatDistanceKm(melting.bottomKm),
+                        top: formatDistanceKm(melting.topKm),
+                      })}{" "}
+                      {t("melting.note")}
+                    </p>
                   ) : null}
                 </div>
               ) : null}

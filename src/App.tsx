@@ -622,6 +622,7 @@ export default function App() {
     lightning,
     placeLightning,
     cellJumps,
+    melting,
     wind,
     frames,
     frameIndex,
@@ -1206,6 +1207,7 @@ export default function App() {
             siteStatus={siteStatus}
             stormCells={stormCells}
             cellJumps={cellJumps}
+            melting={melting}
             nearby={{ ...nearby, cellNames: namesHere, onNameCell: nameCell }}
             replaying={Boolean(replay)}
             nearbyPlaces={nearbyPlaces}

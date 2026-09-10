@@ -32,6 +32,7 @@ import {
 } from "./useLightningWatch";
 import { useGridWatch, gridBody, gridTitle } from "./useGridWatch";
 import { useLightningJump } from "./useLightningJump";
+import { useMelting } from "./useMelting";
 import { useMrmsOverlays } from "./useMrmsOverlays";
 import { useProbSevere } from "./useProbSevere";
 import { useRadarTimeline } from "./useRadarTimeline";
@@ -278,6 +279,14 @@ export function useWorkspaceFeeds({
       }),
   });
 
+  // The band the held volume can see, for the one product whose answer is
+  // worked out against a freezing level. Asked for only while that product
+  // is on screen: answering decodes a volume.
+  const melting = useMelting({
+    station: singleSite.station,
+    ready: hydrated && settings.radar.product === "hail-size",
+  });
+
   // A sudden rise in a tracked storm's flash rate, which is the two halves
   // the app already had with nothing joining them. Nothing is announced: a
   // jump is a signal that a storm is intensifying, and the panel says so.
@@ -408,6 +417,7 @@ export function useWorkspaceFeeds({
     lightning,
     placeLightning,
     cellJumps,
+    melting,
     placeHail,
     placeRotation,
     wind,
