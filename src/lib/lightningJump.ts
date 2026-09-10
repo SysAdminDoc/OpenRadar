@@ -139,6 +139,42 @@ export function flashesNear(
 }
 
 /**
+ * Each cell's share of a window's flashes, with every flash counted once.
+ *
+ * A flash goes to the nearest cell that could claim it and to no other. The
+ * tracker publishes a centroid and a motion and no size, so the circle around
+ * each cell is a fixed radius; two cells twelve miles apart therefore have
+ * overlapping circles, and counting a flash to both meant that along a squall
+ * line every cell's flash rate was the line's rate near it. They then all
+ * jumped on the same bin, which is what put five identifiers on one badge.
+ *
+ * Ties go to the cell the tracker listed first, which is its own order and
+ * not this module's.
+ */
+export function flashesByCell(
+  cells: readonly Pick<StormCell, "id" | "latitude" | "longitude">[],
+  flashes: readonly Flash[],
+  radiusMiles: number = JUMP_RADIUS_MILES,
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const cell of cells) counts.set(cell.id, 0);
+  for (const flash of flashes) {
+    let nearest: { id: string; miles: number } | null = null;
+    for (const cell of cells) {
+      const miles = haversineMiles(
+        { lat: cell.latitude, lon: cell.longitude },
+        { lat: flash.latitude, lon: flash.longitude },
+      );
+      if (miles > radiusMiles) continue;
+      if (nearest && miles >= nearest.miles) continue;
+      nearest = { id: cell.id, miles };
+    }
+    if (nearest) counts.set(nearest.id, (counts.get(nearest.id) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/**
  * Folds a flash into the bin it belongs in.
  *
  * Bins are anchored to the epoch rather than to when the app started, so two
@@ -297,6 +333,7 @@ export function rememberJumps(
     Math.max(at + FLASH_GRANULE_MS - opened, 0),
     JUMP_BIN_MS,
   );
+  const mine = flashesByCell(cells, inBin);
   const found = new Map<string, CellJump>();
   for (const cell of cells) {
     const kept = held.get(cell.id) ?? [];
@@ -307,7 +344,7 @@ export function rememberJumps(
         ? kept
         : withSample(kept, {
             at: bin,
-            flashes: flashesNear(cell, inBin),
+            flashes: mine.get(cell.id) ?? 0,
             covered,
           });
     held.set(cell.id, series);

@@ -27,13 +27,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
   Acceptance: Either the second-derivative term is computed and weighted as the method specifies, with the threshold re-checked against real volumes, or the file says in its own words which published variant it implements and why that one has no such term.
   Complexity: M
 
-- [ ] AUD-492 (P3): Every tracked cell counts flashes in the same ten-mile circle, so a line of storms counts each flash several times
-  Why: `flashesNear` in `src/lib/lightningJump.ts` uses a fixed `JUMP_RADIUS_MILES` because `StormCell` carries a centroid and a motion and no size. Two cells twelve miles apart have overlapping circles, so a flash in the lens enters both series. Along a squall line every cell's flash rate is the line's rate near it, they all jump on the same bin, and the badge names five cells at once.
-  Evidence: `src/lib/cells.ts` `StormCell` has no area or extent field. The multi-cell badge this produces is what `RadarProductPanel.tsx` renders.
-  Touches: `src/lib/lightningJump.ts`, `src/lib/cells.ts` and whatever the Level III cell product carries about a cell's size.
-  Acceptance: A flash belongs to one cell, or the radius comes from something the product actually publishes about that cell, and a fixture with two cells twelve miles apart and one flash between them counts it once.
-  Complexity: M
-
 - [ ] AUD-480 (P3): The forecast accessibility sweep fails about one full run in two
   Why: `forecast is clean in dark, in light and with more contrast` in `e2e/accessibility.spec.ts` failed once in a full chromium run on 2026-09-10 and passed on the next full run and on every run of it alone. A gate that fails at random teaches everybody to re-run it, which is the same as not having it.
   Evidence: two full runs the same hour on the same tree, 430 passed with that one failing and then 431 passed with nothing failing. `retries` is 0, so the first run's failure was real rather than a retry. The web server log around it carries "Tropical failed: The service could not be reached" and a run of map tile failures, which is what a parallel run looks like when the network is busy.
