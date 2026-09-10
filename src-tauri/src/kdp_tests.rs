@@ -222,6 +222,41 @@ fn a_slope_outside_the_believable_band_is_discarded() {
     }
 }
 
+/// A stretch of rain too short to fit a line through is not a stretch of no rain.
+///
+/// `slopes` refuses a window with fewer than half of it measured, so a run
+/// shorter than half the processing window has a phase reading at every gate
+/// and no slope at any of them. Nine gates at a quarter of a kilometre is two
+/// and a bit kilometres of rain, which is an ordinary shower and long enough
+/// to survive the despeckle. Every one of those gates used to be drawn as a
+/// measured zero: the reconciliation reads the missing slope as no slope,
+/// integrates a flat phase across the run, and derives no slope back out of
+/// it, so the picture said the radar had looked and found clear air.
+#[test]
+fn a_run_too_short_to_fit_a_line_through_is_not_drawn_as_no_rain() {
+    let mut correlation = flat("Correlation coefficient", "", 0.2);
+    let mut phase = empty("Differential phase", "deg");
+    // The window here is 29 gates and the fit wants 15 of them, so nine is
+    // comfortably short of it and comfortably past the five the despeckle
+    // asks for.
+    let run = 150..159;
+    for azimuth in 0..AZIMUTHS {
+        for gate in run.clone() {
+            correlation.set(azimuth, gate, 0.98, GateStatus::Valid);
+            let value = 40.0 + 4.0 * (range_km_of(gate) - range_km_of(150)) as f32;
+            phase.set(azimuth, gate, value, GateStatus::Valid);
+        }
+    }
+    let field = derive(&phase, Some(&correlation)).expect("a derived cut");
+    for gate in run {
+        let (value, status) = field.get(4, gate);
+        assert!(
+            !matches!(status, GateStatus::Valid),
+            "gate {gate} was drawn as {value} deg/km, which nothing measured"
+        );
+    }
+}
+
 /// The window is a distance rather than a count of gates, because these gates
 /// are a quarter the length the paper's were.
 #[test]

@@ -127,20 +127,27 @@ pub fn derive(phase: &SweepField, correlation: Option<&SweepField>) -> Option<Sw
         slopes(&ray, interval_km, window, &mut slope);
         unfold(&mut ray, &slope);
         slopes(&ray, interval_km, window, &mut slope);
-        // A slope outside the band is not a slope. It is set to zero so the
-        // integral below can carry across it, and refused so it is never
-        // drawn: a gate the radar measured, whose answer the method threw
-        // out, is a gate with no answer. Drawn as zero it says no rain, and
-        // the readings that land outside the band are the heaviest rain on
-        // the ray, so the one field a forecaster reads for rain rate would
-        // paint a downpour as a dry hole.
+        // Two ways a gate ends up with no answer, and both of them used to
+        // become a zero the reconciliation carried through to the picture.
+        //
+        // A slope outside the band is not a slope. A gate the fit could not
+        // be made at is not a slope either: `slopes` refuses a window with
+        // fewer than half of it measured, so a stretch of rain shorter than
+        // half the window has a value at every gate and a slope at none. At
+        // quarter kilometre gates that is anything under three and a half
+        // kilometres, which is an ordinary shower.
+        //
+        // Both are set to zero so the integral below can carry across them,
+        // and both are refused so neither is drawn. Zero on this field is a
+        // claim about the rain rather than an absence, and the gates that
+        // land outside the band are the heaviest rain on the ray: drawn as
+        // zero, the one field a forecaster reads for rain rate paints a
+        // downpour as a dry hole and a shower as clear sky.
         for (gate, value) in slope.iter_mut().enumerate() {
-            let found = value.unwrap_or(0.0);
-            if found <= MIN_SLOPE || found >= MAX_SLOPE {
+            let believable = value.is_some_and(|found| found > MIN_SLOPE && found < MAX_SLOPE);
+            if !believable {
                 refused[gate] = true;
                 *value = Some(0.0);
-            } else {
-                *value = Some(found);
             }
         }
         // Phase and slope reconciled against each other: the phase a slope

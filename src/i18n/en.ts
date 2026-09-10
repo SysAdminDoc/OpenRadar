@@ -1294,6 +1294,8 @@ export const en = {
   "aviation.fzl": "the freezing level",
   "aviation.between": "{low} to {high}",
   "aviation.upTo": "Up to {high}",
+  "aviation.atLevel": "Reported at {high}",
+  "aviation.from": "From {low} up",
   "aviation.notForFlight": "Not for flight planning. Use an official briefing.",
   "aviation.sigmets": "SIGMETs",
   "aviation.gairmets": "G-AIRMETs",

@@ -419,10 +419,22 @@ export const aviationOverlay: OverlayAdapter = {
       };
       const low = said(properties.lowFeet, properties.lowText);
       const high = said(properties.highFeet, properties.highText);
-      if (low && high) {
+      if (properties.kind === "pirep") {
+        // A pilot report is somebody at that altitude saying what it was
+        // like there. It carries one height and it is not a ceiling: read as
+        // one it said the turbulence ran from the ground to thirty-nine
+        // thousand feet, when what the pilot reported was thirty-nine
+        // thousand feet.
+        if (high) lines.push(translate("aviation.atLevel", { high }));
+      } else if (low && high) {
         lines.push(translate("aviation.between", { low, high }));
       } else if (high) {
         lines.push(translate("aviation.upTo", { high }));
+      } else if (low) {
+        // A base with no top. Both fields are independently absent on these
+        // products and there was no branch for this one, so a hazard with a
+        // floor and no ceiling had its altitude dropped entirely.
+        lines.push(translate("aviation.from", { low }));
       }
     }
 
