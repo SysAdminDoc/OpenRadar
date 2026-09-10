@@ -1222,6 +1222,8 @@ export const es: Catalogue = {
   "keywords.riverGauges":
     "rio inundacion aforo nivel creciente agua hidrologia",
   "keywords.buoys": "boya ola oleaje marino mar costa afuera ndbc fondeo",
+  "keywords.cocorahs":
+    "lluvia pluviometro granizo voluntario cocorahs observador",
   "keywords.tropical": "huracan ciclon cono tormenta tifon",
   "keywords.satellite": "nubes imagen visible infrarrojo",
   "keywords.rotationTracks": "mesociclon cizalladura tornado giro",
@@ -1336,6 +1338,21 @@ export const es: Catalogue = {
   "buoys.water": "Agua",
   "buoys.air": "Aire",
   "buoys.observed": "Medido a las {time}",
+  "layer.cocorahs": "Pluviómetros voluntarios",
+  "layers.cocorahsDetail":
+    "Lo que midió la gente en su propio jardín esta mañana, y el granizo que informó. Un estado a la vez, desde el zoom 6.",
+  "cocorahs.failed": "La red de voluntarios {answer}.",
+  "cocorahs.partial":
+    "Sin respuesta para {states}, así que ahí no se dibuja nada.",
+  "cocorahs.gauge": "Pluviómetro {station}",
+  "cocorahs.hailAt": "Granizo en {station}",
+  "cocorahs.total": "Lluvia: {depth}",
+  "cocorahs.noTotal": "Informó, sin total",
+  "cocorahs.largest": "Piedra mayor: {size}",
+  "cocorahs.average": "Piedra media: {size}",
+  "cocorahs.duration":
+    "Cayó durante {count, plural, one {# minuto} other {# minutos}}",
+  "cocorahs.observed": "Leído a las {when}, hora del propio observador",
   "layers.riverGaugesDetail":
     "Lo que marcan ahora los ríos cerca de la tormenta y hasta dónde espera que suban la oficina de pronóstico. Solo los puntos cercanos, desde el zoom 7.",
   "rivers.observed": "Medido {stage} a las {when}",

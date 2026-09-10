@@ -125,6 +125,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["buoy", "wave", "swell", "marine", "sea", "ndbc", "offshore"],
   },
   {
+    layer: "cocorahs",
+    key: "layer.cocorahs",
+    extra: "keywords.cocorahs",
+    keywords: ["rain", "gauge", "hail", "volunteer", "cocorahs", "observer"],
+  },
+  {
     layer: "tropical",
     key: "layer.tropical",
     extra: "keywords.tropical",

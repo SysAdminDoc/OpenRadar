@@ -162,6 +162,7 @@ const OVERLAY_LAYERS: Array<{
     labelKey: "layer.riverGauges",
   },
   { key: "buoys", overlayId: "buoys", labelKey: "layer.buoys" },
+  { key: "cocorahs", overlayId: "cocorahs", labelKey: "layer.cocorahs" },
   { key: "aviation", overlayId: "aviation", labelKey: "layer.aviation" },
   { key: "tropical", overlayId: "tropical", labelKey: "layer.tropical" },
 ];
@@ -416,6 +417,13 @@ const LAYER_OPTIONS: Array<{
     labelKey: "layer.buoys",
     detailKey: "layers.buoysDetail",
     icon: Waves,
+  },
+  {
+    key: "cocorahs",
+    group: "water",
+    labelKey: "layer.cocorahs",
+    detailKey: "layers.cocorahsDetail",
+    icon: CloudRain,
   },
   {
     key: "aviation",

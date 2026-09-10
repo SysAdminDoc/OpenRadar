@@ -316,6 +316,18 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "cocorahs",
+    label: "CoCoRaHS volunteer reports",
+    host: "data.cocorahs.org",
+    kind: "browser",
+    files: ["src/lib/overlays/cocorahs.test.ts"],
+    liveBlock: "against the live service",
+    // Twenty thousand observers, so somebody has reported somewhere in the
+    // last two days whatever the weather did. This one can insist on an
+    // answer rather than on a shape.
+    required: false,
+  },
+  {
     id: "smoke",
     label: "NOAA HMS smoke analysis",
     host: "satepsanone.nesdis.noaa.gov",

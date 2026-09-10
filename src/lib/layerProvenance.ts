@@ -154,6 +154,18 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "observation",
     freshForMs: 90 * 60_000,
   },
+  cocorahs: {
+    sourceId: "cocorahs",
+    label: "CoCoRaHS volunteer reports",
+    attribution: "CoCoRaHS",
+    attributionUrl: "https://www.cocorahs.org/",
+    // A person reading their own gauge. Nothing on this map is more directly
+    // an observation than that.
+    kind: "observation",
+    // Observers report once in the morning, so a report stands for the day
+    // it covers rather than going stale in an hour.
+    freshForMs: 24 * 3_600_000,
+  },
   riverGauges: {
     sourceId: "riverGauges",
     label: "River gauges",
