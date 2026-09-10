@@ -84,6 +84,8 @@ function mount(
       onPrimaryMove={noop}
       onSecondaryMove={noop}
       onCursorChange={noop}
+      namedPoints={[]}
+      onCursorSpeak={noop}
       onToolResult={noop}
       onSection={noop}
       onOverlayAction={noop}

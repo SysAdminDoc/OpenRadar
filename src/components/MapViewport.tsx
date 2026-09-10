@@ -14,7 +14,13 @@ import {
 } from "../hooks/useLightning";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "../lib/maplibreWorker";
-import { formatDistance, haversineMiles, type GeoPoint } from "../lib/geo";
+import {
+  bearingDegrees,
+  formatDistance,
+  haversineMiles,
+  type GeoPoint,
+} from "../lib/geo";
+import { compassPoint } from "../lib/nearby";
 import { mapStyleDefinition } from "../lib/mapStyles";
 import type { IncidentPackReference } from "../lib/settings";
 import {
@@ -136,6 +142,7 @@ import {
   WATCH_RING_LABEL_LAYER_ID,
   WATCH_RING_LAYER_ID,
   TOOL_POINT_LAYER_ID,
+  KEY_CURSOR_LAYER_ID,
   OVERLAY_SOURCE_PREFIX,
   TRACK_LINE_LAYER_ID,
   TRACK_POINT_LAYER_ID,
@@ -296,6 +303,23 @@ interface MapViewportProps {
   onCameraMove?: (camera: CameraState) => void;
   onCursorChange?: (point: GeoPoint | null) => void;
   /**
+   * Named points to measure the keyboard cursor from, nearest wins.
+   *
+   * The reader's own watched places, handed over as plain points, because
+   * this component has no business knowing what a watched place is. Without
+   * one the cursor still reads its coordinates and the gate under it; with
+   * one it can say "eleven miles north-east of the ballfield", which is the
+   * sentence somebody who cannot see the map actually wants.
+   */
+  namedPoints?: ReadonlyArray<{ name: string; lat: number; lon: number }>;
+  /**
+   * What the keyboard cursor has to say, for the polite live region.
+   *
+   * An empty string when the cursor is put away, which is what stops the
+   * last reading being read again on the next unrelated change.
+   */
+  onCursorSpeak?: (said: string) => void;
+  /**
    * How to write the readout, not the readout itself: it is held while the
    * units can still change underneath it, so it has to be written on demand.
    */
@@ -439,6 +463,8 @@ function MapViewportInner(
     onCameraChange,
     onCameraMove,
     onCursorChange,
+    namedPoints,
+    onCursorSpeak,
     onToolResult,
     onSection,
     onOverlayAction,
@@ -570,6 +596,18 @@ function MapViewportInner(
   const mapStyleRef = useRef(styleIdentity);
   const toolModeRef = useRef<ToolMode>(toolMode);
   const drawPointsRef = useRef<GeoPoint[]>([]);
+  /**
+   * Where the keyboard reader is on the map, or null while they are not.
+   *
+   * A ref rather than state, like everything else the map handlers own: it
+   * is read inside listeners registered once, and a render would not see the
+   * new value there anyway.
+   */
+  const keyCursorRef = useRef<GeoPoint | null>(null);
+  const namedPointsRef = useRef(namedPoints);
+  const cursorSpeakRef = useRef(onCursorSpeak);
+  /** Which cursor reading a late gate answer belongs to. */
+  const cursorAskRef = useRef(0);
   const rangeStartRef = useRef<GeoPoint | null>(null);
   const rangeEndRef = useRef<GeoPoint | null>(null);
   const loggedMapErrorsRef = useRef(new Set<string>());
@@ -637,6 +675,19 @@ function MapViewportInner(
       });
     }
 
+    // Off an exported picture, like the watched rings beside it: where the
+    // reader's cursor is is about them rather than about the weather.
+    if (keyCursorRef.current && !capturingRef.current) {
+      features.push({
+        type: "Feature",
+        properties: { kind: "cursor" },
+        geometry: {
+          type: "Point",
+          coordinates: [keyCursorRef.current.lon, keyCursorRef.current.lat],
+        },
+      });
+    }
+
     if (rangeStartRef.current) {
       features.push({
         type: "Feature",
@@ -685,12 +736,31 @@ function MapViewportInner(
         id: TOOL_POINT_LAYER_ID,
         type: "circle",
         source: TOOL_SOURCE_ID,
-        filter: ["==", ["geometry-type"], "Point"],
+        filter: [
+          "all",
+          ["==", ["geometry-type"], "Point"],
+          ["!=", ["get", "kind"], "cursor"],
+        ],
         paint: {
           "circle-radius": 6,
           "circle-color": "#101722",
           "circle-stroke-color": ink,
           "circle-stroke-width": 2,
+        },
+      });
+      // Bigger and hollow, so it reads as a place on the map rather than as
+      // another point somebody put down. A sighted reader helping somebody
+      // over the phone has to be able to see where they are.
+      map.addLayer({
+        id: KEY_CURSOR_LAYER_ID,
+        type: "circle",
+        source: TOOL_SOURCE_ID,
+        filter: ["==", ["get", "kind"], "cursor"],
+        paint: {
+          "circle-radius": 10,
+          "circle-color": "rgba(0, 0, 0, 0)",
+          "circle-stroke-color": ink,
+          "circle-stroke-width": 3,
         },
       });
       source = map.getSource(TOOL_SOURCE_ID) as maplibregl.GeoJSONSource;
@@ -2101,6 +2171,7 @@ function MapViewportInner(
       if (capturingRef.current === on) return;
       capturingRef.current = on;
       syncWatchRings();
+      renderTools();
       // Painted before the pixels are read. The canvas holds the last frame
       // drawn, so taking a layer off without redrawing changes the style and
       // not the picture.
@@ -2270,7 +2341,199 @@ function MapViewportInner(
     );
     map.on("mouseout", () => onCursorChange?.(null));
     const canvas = map.getCanvas();
+
+    /**
+     * How far one arrow press moves the cursor, in screen pixels.
+     *
+     * A share of the canvas rather than a distance in miles, so the reader
+     * chooses how fine the steps are by zooming: at a county's width a press
+     * is a few miles and over a city it is a few hundred metres. Shift is a
+     * fifth of that, for the last bit of a hunt.
+     *
+     * The item asks for "a reader-chosen distance". This is that choice made
+     * with the control they already have rather than with a new setting, and
+     * it is the one the map itself is already scaled by.
+     */
+    const cursorStep = (fine: boolean) => {
+      const box = canvas.getBoundingClientRect();
+      const across = Math.min(box.width, box.height) || 600;
+      return (across / 12) * (fine ? 0.2 : 1);
+    };
+
+    /** Where the cursor is on screen, or the middle of the map. */
+    const cursorPoint = () => {
+      const held = keyCursorRef.current;
+      const box = canvas.getBoundingClientRect();
+      if (!held) return new maplibregl.Point(box.width / 2, box.height / 2);
+      const at = map.project([held.lon, held.lat]);
+      return new maplibregl.Point(at.x, at.y);
+    };
+
+    /**
+     * The nearest point the reader has named, and where the cursor is from it.
+     */
+    const fromNamed = (point: GeoPoint) => {
+      let nearest: { name: string; miles: number; bearing: number } | null =
+        null;
+      for (const named of namedPointsRef.current ?? []) {
+        const place = { lon: named.lon, lat: named.lat };
+        const miles = haversineMiles(place, point);
+        if (nearest && miles >= nearest.miles) continue;
+        nearest = {
+          name: named.name,
+          miles,
+          bearing: bearingDegrees(place, point),
+        };
+      }
+      return nearest;
+    };
+
+    /**
+     * What the cursor is standing on, as one sentence.
+     *
+     * The coordinates first, because they are the one part that is always
+     * true; then the reading under it where a sweep is drawn, which is the
+     * question somebody who cannot see the map is actually asking; then
+     * where it is from a place they named.
+     */
+    const cursorSentence = (point: GeoPoint, gate: GateReading | null) => {
+      const said = [
+        translate("cursor.at", {
+          lat: formatNumber(point.lat, 3),
+          lon: formatNumber(point.lon, 3),
+        }),
+      ];
+      if (gate) {
+        said.push(
+          translate("cursor.reading", {
+            value: formatMeasure(Math.round(gate.value * 10) / 10),
+            unit: gate.unit,
+          }),
+        );
+      }
+      const near = fromNamed(point);
+      if (near) {
+        said.push(
+          translate("cursor.from", {
+            distance: formatDistance(near.miles),
+            bearing: compassPoint(near.bearing),
+            place: near.name,
+          }),
+        );
+      }
+      return said.join(" ");
+    };
+
+    /**
+     * Moves the cursor and says where it now is.
+     *
+     * Said at once with what is in hand and said again when the gate answers,
+     * the same way the inspect tool does: a reading half a second late is
+     * worth waiting for and an empty announcement while it comes is not.
+     */
+    const moveCursor = (dx: number, dy: number) => {
+      const from = cursorPoint();
+      const box = canvas.getBoundingClientRect();
+      const to = new maplibregl.Point(from.x + dx, from.y + dy);
+      const lngLat = map.unproject(to);
+      const point = { lon: lngLat.lng, lat: lngLat.lat };
+      keyCursorRef.current = point;
+      renderTools();
+      onCursorChange?.(point);
+
+      // The world moves when the cursor would walk off the edge, which is
+      // what keeps arrow-key panning: the reader is still going somewhere,
+      // the map is just following them.
+      const margin = Math.min(box.width, box.height) / 6;
+      if (
+        to.x < margin ||
+        to.y < margin ||
+        to.x > box.width - margin ||
+        to.y > box.height - margin
+      ) {
+        map.panBy([dx, dy], { duration: 0 });
+      }
+
+      const asked = ++cursorAskRef.current;
+      cursorSpeakRef.current?.(cursorSentence(point, null));
+      const drawn = sweepRef.current;
+      if (drawn && drawn.source.kind !== "local") {
+        void fetchGate(
+          drawn.station,
+          point.lat,
+          point.lon,
+          drawn.productId,
+          drawn.tiltIndex,
+          drawn.dealiased,
+          drawn.stormMotion
+            ? [drawn.stormMotion.speedMs, drawn.stormMotion.fromDegrees]
+            : null,
+          drawn.live,
+        )
+          .then((gate) => {
+            // A later press owns the announcement now.
+            if (gate && cursorAskRef.current === asked) {
+              cursorSpeakRef.current?.(cursorSentence(point, gate));
+            }
+          })
+          .catch(() => {
+            // A gate that cannot be read is a reading without one rather than
+            // an error about a place somebody moved to.
+          });
+      }
+    };
+
+    /** Puts the cursor away, and says nothing more about it. */
+    const clearCursor = () => {
+      if (!keyCursorRef.current) return false;
+      keyCursorRef.current = null;
+      cursorAskRef.current += 1;
+      renderTools();
+      onCursorChange?.(null);
+      cursorSpeakRef.current?.("");
+      return true;
+    };
+
+    const ARROWS: Record<string, [number, number]> = {
+      ArrowLeft: [-1, 0],
+      ArrowRight: [1, 0],
+      ArrowUp: [0, -1],
+      ArrowDown: [0, 1],
+    };
+
     const onCanvasKeyDown = (event: KeyboardEvent) => {
+      // The arrows move a cursor rather than the camera. A keyboard reader
+      // had no way to ask what the radar shows ten miles north of them: the
+      // map is a canvas and everything on it is pixels. Panning is not lost,
+      // because the map follows the cursor off the edge.
+      //
+      // Shift and Control are left to MapLibre, which rotates and pitches
+      // with them, and the zoom keys are untouched.
+      const step = ARROWS[event.key];
+      if (step && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        // Stopped here, or MapLibre's own keyboard handler pans as well and
+        // the cursor and the camera both move by different amounts.
+        event.stopPropagation();
+        const by = cursorStep(event.shiftKey);
+        moveCursor(step[0] * by, step[1] * by);
+        return;
+      }
+      // Escape puts the cursor away and hands the reader back to the rail,
+      // which is where every other Escape in the app leaves them. Stopped
+      // from reaching the window listener, so one press dismisses one thing.
+      if (event.key === "Escape" && keyCursorRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        clearCursor();
+        // The rail by its landmark rather than through a ref threaded down
+        // two components: it is a focus move out of this component and the
+        // navigation is named.
+        document
+          .querySelector<HTMLElement>(".command-bar button:not([disabled])")
+          ?.focus();
+        return;
+      }
       // Backspace takes back the last point of a path. Enter appends one and
       // the only way back was Clear, which throws the whole path away: a
       // keyboard reader who put a point in the wrong place had to start
@@ -2302,6 +2565,10 @@ function MapViewportInner(
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
       const bounds = canvas.getBoundingClientRect();
+      // Where the cursor is, when the reader has moved one. Enter used to
+      // act on the centre of the view whatever the reader had walked to,
+      // which put a drawn point and a popup somewhere they were not.
+      const at = cursorPoint();
       // Marked for the duration of the click this raises, so anything that
       // opens because of it knows the reader is on the keyboard.
       fromKeyboardRef.current = true;
@@ -2309,8 +2576,8 @@ function MapViewportInner(
         canvas.dispatchEvent(
           new MouseEvent("click", {
             bubbles: true,
-            clientX: bounds.left + bounds.width / 2,
-            clientY: bounds.top + bounds.height / 2,
+            clientX: bounds.left + at.x,
+            clientY: bounds.top + at.y,
           }),
         );
       } finally {
@@ -2703,6 +2970,16 @@ function MapViewportInner(
     syncOverlays();
     syncCounties();
   });
+
+  // Their own effect, not the tool one below: that effect throws away a
+  // half-made measurement every time it runs, and a watched place being
+  // renamed is not a reason to do that.
+  useEffect(() => {
+    namedPointsRef.current = namedPoints;
+  }, [namedPoints]);
+  useEffect(() => {
+    cursorSpeakRef.current = onCursorSpeak;
+  }, [onCursorSpeak]);
 
   useEffect(() => {
     toolModeRef.current = toolMode;
