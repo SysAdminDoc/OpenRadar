@@ -1687,7 +1687,7 @@ export const en = {
   "gridWatch.rotationSettingDetail":
     "The same, on the shear the network merges through the lowest two kilometres of the storm",
   "gridWatch.notPublishedHere":
-    "The network does not publish this grid where you are watching, so this rule has nothing to read.",
+    "The network does not publish this grid everywhere you are watching, so this rule has nothing to read there.",
   "gridWatch.needsPlace":
     "Needs a place to watch, since that is what the radius is around.",
   "gridWatch.desktopOnly":

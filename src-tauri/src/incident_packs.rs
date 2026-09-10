@@ -406,7 +406,12 @@ impl AsyncBackend for PackFileBackend {
     async fn read(&self, offset: usize, length: usize) -> pmtiles::PmtResult<BackendResponse> {
         let mut file = File::open(&self.path)?;
         file.seek(SeekFrom::Start(offset as u64))?;
-        let mut body = Vec::with_capacity(length);
+        // Reserved against what the file actually holds, not against what it
+        // asked for. `length` is an entry's own length out of a directory
+        // somebody else wrote, up to four gigabytes, and reserving that is an
+        // allocation failure rather than a panic: nothing catches it.
+        let held = file.metadata().map(|held| held.len()).unwrap_or(0) as usize;
+        let mut body = Vec::with_capacity(length.min(held));
         file.take(length as u64).read_to_end(&mut body)?;
         // No version string. That field is for a backend that can tell one
         // published copy of an archive from another, such as an HTTP ETag;
@@ -499,6 +504,12 @@ async fn read_archive(bytes: Vec<u8>) {
     if let Ok(coord) = TileCoord::new(zoom, 0, 0) {
         let _ = reader.get_tile(coord).await;
     }
+    // Bounded before it reaches a shift. `tile_x` does `1 << zoom` and a
+    // header can say anything; `TileCoord::new` rejects an impossible zoom
+    // afterwards, which is one step too late.
+    if zoom > PMTILES_MAX_ZOOM {
+        return;
+    }
     let centre = tile_x(header.center_longitude, zoom);
     let down = tile_y(header.center_latitude, zoom);
     if let Ok(coord) = TileCoord::new(zoom, centre, down) {
@@ -564,6 +575,13 @@ fn pmtiles_header_is_sane(head: &[u8], file_bytes: u64) -> bool {
     root_end <= PMTILES_INITIAL_BYTES.min(file_bytes)
 }
 
+/// The deepest zoom a web map has, which is what `1 << zoom` can take.
+///
+/// A header can say anything, and both `tile_x` and `tile_y` shift by it.
+/// Twenty-two is finer than a metre a pixel at the equator, and nothing that
+/// draws a basemap goes past it.
+const PMTILES_MAX_ZOOM: u8 = 22;
+
 /// The most entries a root directory may say it holds.
 ///
 /// The root has to fit in the sixteen kilobytes the reader takes, and the
@@ -582,18 +600,31 @@ const PMTILES_MAX_ROOT_BYTES: usize = 4 * 1024 * 1024;
 /// `None` for a malformed one or for the end of the buffer. Ten bytes is as
 /// long as a `u64` varint can be, and the parser this stands in front of
 /// shifts without checking: an eleventh continuation byte overflows it.
-fn read_varint(bytes: &[u8], from: &mut usize) -> Option<u64> {
+fn read_varint(bytes: &[u8], from: &mut usize, bits: u32) -> Option<u64> {
+    // Ten bytes for a `u64` and five for a `u32`, which is where each of the
+    // parser's own readers overflows its shift. Reading every field at the
+    // wider limit let a five-byte overflow through: the crate reads the run
+    // length and the length with `read_u32_varint`, which dies on the sixth
+    // byte, and a gate that allowed ten passed a directory the parser could
+    // not survive.
+    let most = bits.div_ceil(7) as usize;
     let mut value: u64 = 0;
-    for at in 0..10 {
+    for at in 0..most {
         let byte = *bytes.get(*from)?;
         *from += 1;
-        value |= u64::from(byte & 0x7f).checked_shl(at * 7)?;
+        value |= u64::from(byte & 0x7f).checked_shl(at as u32 * 7)?;
         if byte & 0x80 == 0 {
-            return Some(value);
+            return if bits >= 64 || value < (1u64 << bits) {
+                Some(value)
+            } else {
+                // A value that does not fit the field it is read into, which
+                // the parser's own reader would also refuse.
+                None
+            };
         }
     }
-    // An eleventh continuation byte, which is what overflows the shift in the
-    // parser this stands in front of.
+    // One byte past what the field can hold, which is what overflows the
+    // shift in the parser this stands in front of.
     None
 }
 
@@ -630,7 +661,7 @@ fn pmtiles_root_is_sane(internal_compression: u8, directory: &[u8]) -> bool {
     // Bounded by the count, which is bounded above, and by the buffer, which
     // is at most the sixteen kilobytes the reader took.
     let mut at = 0usize;
-    let Some(entries) = read_varint(&plain, &mut at) else {
+    let Some(entries) = read_varint(&plain, &mut at, 64) else {
         return false;
     };
     if entries > PMTILES_MAX_ROOT_ENTRIES {
@@ -639,9 +670,25 @@ fn pmtiles_root_is_sane(internal_compression: u8, directory: &[u8]) -> bool {
     let Ok(entries) = usize::try_from(entries) else {
         return false;
     };
-    for _ in 0..entries * 4 {
-        if read_varint(&plain, &mut at).is_none() {
+    // The stream in the order the parser reads it: that many tile-id deltas,
+    // then that many run lengths, lengths and offsets. The widths are the
+    // parser's own, and the tile ids are a running sum it adds without
+    // checking, so the sum is carried here too.
+    let mut tile_id: u64 = 0;
+    for _ in 0..entries {
+        let Some(step) = read_varint(&plain, &mut at, 64) else {
             return false;
+        };
+        let Some(next) = tile_id.checked_add(step) else {
+            return false;
+        };
+        tile_id = next;
+    }
+    for bits in [32, 32, 64] {
+        for _ in 0..entries {
+            if read_varint(&plain, &mut at, bits).is_none() {
+                return false;
+            }
         }
     }
     true
@@ -1946,8 +1993,11 @@ async fn inspect_archive_here(path: &Path) -> Result<ImportedArchive, IncidentPa
     // One tile, actually read. A header can promise anything; a file with a
     // directory tree and no tile data behind it would import and then draw
     // nothing, with no reason anywhere on screen.
+    if header.max_zoom > PMTILES_MAX_ZOOM {
+        return Err(IncidentPackError::ImportUnreadable);
+    }
     let mut found = false;
-    'search: for zoom in header.min_zoom..=header.max_zoom.min(header.min_zoom + 3) {
+    'search: for zoom in header.min_zoom..=header.max_zoom.min(header.min_zoom.saturating_add(3)) {
         let west = tile_x(bounds.west, zoom);
         let east = tile_x(bounds.east - f64::EPSILON * 180.0, zoom);
         let north = tile_y(bounds.north - f64::EPSILON * 90.0, zoom);
@@ -2601,6 +2651,30 @@ mod tests {
         // because the parser shifts on every one of them and checking only
         // the count left the rest of the stream to it.
         assert!(!pmtiles_root_is_sane(1, &[0xff; 16]));
+
+        // The width matters as much as the length. The parser reads the run
+        // length and the length with a 32-bit reader, which dies on the sixth
+        // byte, so a five-byte continuation is a panic even though a 64-bit
+        // reader would take it. One entry: count 1, tile-id delta 0, then a
+        // run length that runs on.
+        // Count 1, tile-id delta 0, a six-byte run length, then a length and
+        // an offset. Six bytes is a perfectly good `u64` varint and one byte
+        // too many for the reader the parser actually uses here.
+        let wide = [1u8, 0, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01, 1, 1];
+        assert!(!pmtiles_root_is_sane(1, &wide));
+        // The control: the same stream with a one-byte run length is fine, so
+        // what the line above refuses is the width and not the length.
+        assert!(pmtiles_root_is_sane(1, &[1u8, 0, 1, 1, 1]));
+
+        // And a tile-id sum the parser adds without checking. Two entries
+        // whose deltas are each most of a u64.
+        let mut runaway = vec![2u8];
+        for _ in 0..2 {
+            runaway
+                .extend_from_slice(&[0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01]);
+        }
+        runaway.extend_from_slice(&[0, 0, 0, 0, 1, 1]);
+        assert!(!pmtiles_root_is_sane(1, &runaway));
         assert!(!pmtiles_root_is_sane(
             1,
             &[1u8, 0, 1, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]

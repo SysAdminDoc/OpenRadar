@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  FLASH_GRANULE_MS,
   JUMP_BIN_MS,
   JUMP_HISTORY_BINS,
   JUMP_MIN_RATE,
@@ -51,7 +52,11 @@ const CELL = { latitude: 41.6, longitude: -93.6 };
  * actually looks like by the time a bin settles.
  */
 function closing(bin: number): number {
-  return AT + (bin + 1) * JUMP_BIN_MS - 1_000;
+  // The last file that starts inside the bin. Every flash in a file carries
+  // that file's own start, and the newest of those starts is what the window
+  // reports as `observed`, so a window's moment is always on a granule
+  // boundary and never at an arbitrary instant.
+  return AT + (bin + 1) * JUMP_BIN_MS - FLASH_GRANULE_MS;
 }
 
 beforeEach(() => forgetJumps());
@@ -234,8 +239,9 @@ describe("the series each tracked cell carries between windows", () => {
       found = rememberJumps([near], flashes, when);
     });
     expect(found.get("A1")?.at).not.toBeNull();
-    // Fifty-two flashes over the 119 seconds of the bin that had passed.
-    expect(found.get("A1")?.rate).toBeCloseTo(52 / (119 / 60), 6);
+    // The last file of the bin, so the bin is covered end to end: fifty-two
+    // flashes in two minutes is twenty-six a minute.
+    expect(found.get("A1")?.rate).toBeCloseTo(26, 6);
   });
 
   it("folds the same window twice to the same answer", () => {
@@ -298,9 +304,43 @@ describe("the series each tracked cell carries between windows", () => {
         .map(() => flash(41.6, -93.6, now - 2 * JUMP_BIN_MS)),
     ];
     const found = rememberJumps([near], window, now);
-    // Twenty flashes over the 119 seconds of the bin that had passed. The
+    // Twenty flashes in the two minutes of this bin is ten a minute. The
     // whole window is eighty, which read as forty.
-    expect(found.get("A1")?.rate).toBeCloseTo(20 / (119 / 60), 6);
+    expect(found.get("A1")?.rate).toBeCloseTo(10, 6);
+  });
+
+  it("reads a steady storm as steady, at the cadence the app polls at", () => {
+    // The whole point of the arithmetic. A storm flashing at exactly thirty a
+    // minute, sampled every minute the way `useLightning` does, must read as
+    // thirty at every sample rather than alternating. Before the file length
+    // was counted it read 45, 36, 45, 36 and never once thirty.
+    const rates: number[] = [];
+    for (let step = 0; step < 8; step += 1) {
+      // Every minute, on a granule boundary, which is where a window's own
+      // moment always lands.
+      const now = AT + 4 * JUMP_BIN_MS + step * 60_000 - FLASH_GRANULE_MS;
+      const bin = binOf(now);
+      const opened = bin - JUMP_BIN_MS;
+      // Thirty a minute means one flash every two seconds, stamped at the
+      // start of the twenty-second file it arrived in.
+      const flashes = [];
+      for (
+        let when = opened;
+        when < now + FLASH_GRANULE_MS;
+        when += FLASH_GRANULE_MS
+      ) {
+        for (let one = 0; one < 10; one += 1) {
+          flashes.push(flash(41.6, -93.6, when));
+        }
+      }
+      const found = rememberJumps([near], flashes, now);
+      const rate = found.get("A1")?.rate;
+      if (typeof rate === "number" && rate > 0) rates.push(rate);
+    }
+    expect(rates.length).toBeGreaterThan(4);
+    for (const rate of rates) {
+      expect(rate, `${rates.join(", ")}`).toBeCloseTo(30, 6);
+    }
   });
 
   it("counts each cell only its own flashes", () => {
@@ -310,8 +350,8 @@ describe("the series each tracked cell carries between windows", () => {
       ...new Array(4).fill(null).map(() => flash(43.0, -93.6, when)),
     ];
     const found = rememberJumps([near, other], flashes, when);
-    expect(found.get("A1")?.rate).toBeCloseTo(30 / (119 / 60), 6);
-    expect(found.get("B2")?.rate).toBeCloseTo(4 / (119 / 60), 6);
+    expect(found.get("A1")?.rate).toBeCloseTo(15, 6);
+    expect(found.get("B2")?.rate).toBeCloseTo(2, 6);
   });
 
   it("rates a bin by the part of it that has actually happened", () => {
@@ -321,12 +361,14 @@ describe("the series each tracked cell carries between windows", () => {
     // reads as almost nothing and the next arrival as almost double, so a
     // storm flashing steadily at thirty a minute came out as 0.5, 15.5, 0.5,
     // 15.5 and never once as thirty.
-    const half = AT + JUMP_BIN_MS + JUMP_BIN_MS / 2;
+    // A window whose newest file starts forty seconds before the bin's
+    // midpoint, so the observation covers exactly one minute of it.
+    const half = AT + JUMP_BIN_MS + JUMP_BIN_MS / 2 - FLASH_GRANULE_MS;
     const flashes = new Array(30)
       .fill(null)
-      .map(() => flash(41.6, -93.6, half - 1));
+      .map(() => flash(41.6, -93.6, half));
     const found = rememberJumps([near], flashes, half);
-    // Thirty flashes over the minute of the bin that has passed.
+    // Thirty flashes over the minute of the bin that has been watched.
     expect(found.get("A1")?.rate).toBe(30);
   });
 
@@ -334,20 +376,19 @@ describe("the series each tracked cell carries between windows", () => {
     // Four seconds of a two-minute bin is a rate with an enormous error bar
     // on it, and the series is what the deviation is measured against: one
     // noisy bin moves the sigma more than the storm does.
-    const opened = AT + JUMP_BIN_MS + 4_000;
+    // The first file of a bin: four seconds of it counted, twenty covered.
+    const opened = AT + JUMP_BIN_MS;
     const flashes = new Array(3)
       .fill(null)
-      .map(() => flash(41.6, -93.6, opened - 1));
+      .map(() => flash(41.6, -93.6, opened));
     const found = rememberJumps([near], flashes, opened);
     // Nothing was folded, so there is no rate at all rather than a wild one.
     expect(found.get("A1")?.rate).toBe(0);
 
     // And the same bin, once it has run long enough, is folded and rated.
-    const later = AT + 2 * JUMP_BIN_MS - 1_000;
-    const more = new Array(40)
-      .fill(null)
-      .map(() => flash(41.6, -93.6, later - 1));
+    const later = AT + 2 * JUMP_BIN_MS - FLASH_GRANULE_MS;
+    const more = new Array(40).fill(null).map(() => flash(41.6, -93.6, later));
     const settled = rememberJumps([near], more, later);
-    expect(settled.get("A1")?.rate).toBeCloseTo(40 / (119 / 60), 6);
+    expect(settled.get("A1")?.rate).toBeCloseTo(20, 6);
   });
 });

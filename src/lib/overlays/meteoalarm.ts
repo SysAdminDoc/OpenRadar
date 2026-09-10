@@ -89,7 +89,11 @@ export const METEOALARM_COUNTRIES: ReadonlyArray<{
   {
     id: "bosnia-herzegovina",
     box: { west: 15.7, south: 42.5, east: 19.7, north: 45.3 },
-    office: "Republic Hydrometeorological Service of the Republic of Srpska",
+    // No office named. The country has two, and the same day's feed
+    // carried 47 warnings from the Republic of Srpska's service and 7
+    // from the Federation's institute; one name here would credit seven
+    // of those to an office that did not issue them. The Atom feed does
+    // not carry the sender, so the popup credits MeteoAlarm alone.
   },
   {
     id: "bulgaria",
@@ -207,7 +211,12 @@ export const METEOALARM_COUNTRIES: ReadonlyArray<{
   {
     id: "poland",
     box: { west: 14.1, south: 48.9, east: 24.2, north: 55.0 },
-    office: "IMGW-PIB Regional Meteorological Forecasting Office",
+    // The institute rather than one of its offices. A census of all 158
+    // live Polish warnings on 2026-09-10 found three: the Warszawa
+    // forecast centre on 150 of them, Gdynia on 5 and Szczecin on 3.
+    // Naming any one of those misattributes the others, and all three
+    // begin with this.
+    office: "IMGW-PIB",
   },
   // Wide enough for the Azores and Madeira, which the same service warns for.
   {
@@ -467,7 +476,16 @@ export function parseMeteoalarm(
   // clean and there are two hundred warnings standing. Counted and said,
   // because a country with nothing drawn must never read as a country with
   // nothing happening.
-  let unshaped = 0;
+  //
+  // Counted by the alert's own identifier rather than by entry. MeteoAlarm
+  // splits one alert into an entry per language, area and polygon, which is
+  // the same reason the drawn side keys the watch on `cap:identifier`: one
+  // French thunderstorm warning over seven departements is seven entries, and
+  // counting those said "seven European warnings in force are not drawn" for
+  // one warning. Across all thirty-seven feeds on 2026-09-10 that was
+  // eighty-three entries against sixty-nine warnings.
+  const undrawn = new Set<string>();
+  const drawn = new Set<string>();
 
   for (const entry of Array.from(document.getElementsByTagName("entry"))) {
     // A test message, an exercise and a system message are not warnings, and
@@ -498,15 +516,16 @@ export function parseMeteoalarm(
 
     const rings = Array.from(entry.getElementsByTagName("cap:polygon"));
     if (rings.length === 0) {
-      unshaped += 1;
+      undrawn.add(identifier);
       continue;
     }
     for (const said of rings) {
       const ring = capRing(text(said.textContent));
       if (!ring) {
-        unshaped += 1;
+        undrawn.add(identifier);
         continue;
       }
+      drawn.add(identifier);
       parsed.push({
         type: "Feature",
         geometry: { type: "Polygon", coordinates: [ring] },
@@ -544,7 +563,10 @@ export function parseMeteoalarm(
     }
   }
 
-  return { features: parsed, unshaped };
+  // A warning with one good outline and one bad is drawn, so it is not one
+  // the reader is missing.
+  for (const identifier of drawn) undrawn.delete(identifier);
+  return { features: parsed, unshaped: undrawn.size };
 }
 
 /** MeteoAlarm's own page for one warning, from the entry's links. */
