@@ -125,7 +125,12 @@ describe("what the workspace can say about notifications", () => {
  */
 function withSpeech(
   voices: number,
-  options: { throws?: boolean; endsAtOnce?: boolean } = {},
+  options: {
+    throws?: boolean;
+    endsAtOnce?: boolean;
+    /** The one sentence the engine finishes and then fails on. */
+    stumblesOn?: string;
+  } = {},
 ) {
   let installed = voices;
   const said: Array<{ text: string; lang: string }> = [];
@@ -151,6 +156,14 @@ function withSpeech(
     speak: (one: Utterance) => {
       if (options.throws) throw new Error("the voice service is not running");
       said.push({ text: one.text, lang: one.lang });
+      // Finished and then failed, inside the one call. A stricter engine than
+      // Chromium, and the order that gets past a queue which tears itself
+      // down in the failure path without checking whether the sentence it is
+      // tearing down is still the one being read.
+      if (options.stumblesOn === one.text) {
+        one.onend?.();
+        throw new Error("the voice service stopped mid-sentence");
+      }
       // An engine that finishes before `speak` returns, which Chromium does
       // not do and a stricter one might.
       if (options.endsAtOnce) {
@@ -357,6 +370,59 @@ describe("reading an alert aloud", () => {
     } finally {
       engine.undo();
       vi.useRealTimers();
+    }
+  });
+
+  it("keeps reading after a ceiling, with nothing new arriving to wake it", async () => {
+    // The ceiling used to be armed only when a caller turned up while a
+    // sentence was being read, so the queue was watched until the first one
+    // fired and never after. An engine that then went quiet took every
+    // sentence from the third on with it: neither read nor dropped, waiting
+    // on a timer nothing was going to set.
+    vi.useFakeTimers();
+    const engine = withSpeech(2);
+    try {
+      const { speak } = await freshSpeech();
+      speak("A tornado warning");
+      speak("A flash flood warning");
+      speak("A severe thunderstorm warning");
+      await vi.advanceTimersByTimeAsync(21_000);
+      expect(engine.words()).toHaveLength(2);
+      // No further speak call. The third has to come off the ceiling armed
+      // against the second.
+      await vi.advanceTimersByTimeAsync(21_000);
+      expect(engine.words()).toEqual([
+        "A tornado warning",
+        "A flash flood warning",
+        "A severe thunderstorm warning",
+      ]);
+      expect(engine.live()).toBe(1);
+    } finally {
+      engine.undo();
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not start a third sentence over one an engine already began", async () => {
+    // An engine that raises `end` from inside `speak` and then throws. The
+    // handler has already moved the queue on by the time the failure is
+    // caught, so the sentence after this one is being read and none of the
+    // tearing down in the failure path is about it. Done anyway, it orphans
+    // that one and starts the next over the top: two voices at once.
+    const engine = withSpeech(0, { stumblesOn: "A tornado warning" });
+    try {
+      const { speak } = await freshSpeech();
+      speak("A tornado warning");
+      speak("A flash flood warning");
+      speak("A severe thunderstorm warning");
+      engine.voicesArrive();
+      expect(engine.words()).toEqual([
+        "A tornado warning",
+        "A flash flood warning",
+      ]);
+      expect(engine.live()).toBe(1);
+    } finally {
+      engine.undo();
     }
   });
 

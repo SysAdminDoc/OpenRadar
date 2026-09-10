@@ -174,17 +174,9 @@ function sayNext(): void {
   const now = Date.now();
   if (saying !== null) {
     const held = now - saying;
-    if (held < SPEAKING_CEILING_MS) {
-      // Looked at again when the ceiling is up, because nothing else will:
-      // the sentence that would have triggered this is the one waiting.
-      if (lookAgain === null) {
-        lookAgain = setTimeout(() => {
-          lookAgain = null;
-          sayNext();
-        }, SPEAKING_CEILING_MS - held);
-      }
-      return;
-    }
+    // The sentence being read has its own ceiling armed against it, so there
+    // is nothing to arm here and nothing to wait for.
+    if (held < SPEAKING_CEILING_MS) return;
     // `cancel` fires `error` on the utterance it cuts, and that utterance's
     // handler is the `done` below. Left to run it would clear `saying` after
     // the sentence underneath had already started, and the one after that
@@ -193,6 +185,7 @@ function sayNext(): void {
     reading += 1;
     engine.cancel();
     saying = null;
+    stopWatching();
   }
   while (waiting.length && now - waiting[0].at > STALE_MS) waiting.shift();
   if (!waiting.length) return;
@@ -228,6 +221,7 @@ function sayNext(): void {
   const done = () => {
     if (mine !== reading) return;
     saying = null;
+    stopWatching();
     sayNext();
   };
   said.onend = done;
@@ -237,17 +231,41 @@ function sayNext(): void {
   // would have its `saying = null` overwritten by the assignment underneath,
   // and the queue would be marked as reading a sentence that had finished.
   saying = now;
+  // Armed against the sentence that is about to be read rather than against
+  // the one waiting behind it. Armed where the reading starts, so every
+  // sentence has one: it used to be armed only when a caller happened to
+  // arrive while one was being read, which meant the queue was watched until
+  // the first ceiling fired and never again. An engine that then went silent
+  // took every sentence after the second with it, neither read nor dropped.
+  stopWatching();
+  lookAgain = setTimeout(() => {
+    lookAgain = null;
+    sayNext();
+  }, SPEAKING_CEILING_MS);
   try {
     engine.speak(said);
   } catch (failure) {
-    // Nothing this utterance says afterwards counts, and the queue is not
-    // held by a sentence that was never started.
-    reading += 1;
-    saying = null;
     log.warn(
       "watch",
       failure instanceof Error ? failure.message : "The voice refused.",
     );
+    // An engine may raise `end` from inside `speak` and throw afterwards, in
+    // which case the sentence after this one is already being read and none of
+    // what follows is about it. Tearing down regardless would orphan that one
+    // and start a third over the top of it.
+    if (mine !== reading) return;
+    // Nothing this utterance says afterwards counts, and the queue is not
+    // held by a sentence that was never started.
+    reading += 1;
+    saying = null;
+    stopWatching();
     sayNext();
   }
+}
+
+/** Puts out the ceiling armed against whatever was being read. */
+function stopWatching(): void {
+  if (lookAgain === null) return;
+  clearTimeout(lookAgain);
+  lookAgain = null;
 }
