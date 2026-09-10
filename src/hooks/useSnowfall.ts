@@ -13,10 +13,13 @@ import { translate } from "../i18n";
 /**
  * How often the office is asked again.
  *
- * It publishes at 00Z and 12Z, so nothing changes for twelve hours at a time
- * and asking every half hour is already generous. What it buys is that the
- * map picks up a new analysis within half an hour of it landing rather than
- * whenever the reader happens to toggle something.
+ * The nominal cycle is 00Z and 12Z, which used to be the whole reason given
+ * here for asking twice an hour, and it was wrong: a cycle lands several
+ * hours after its valid hour and the office then rewrites the trailing five
+ * days on every run, so the file behind one URL moves at no fixed hour. Half
+ * an hour is not generous against that, it is the interval at which the map
+ * picks up whichever revision is current rather than whichever one the reader
+ * happened to arrive on.
  */
 export const SNOWFALL_REFRESH_MS = 30 * 60_000;
 

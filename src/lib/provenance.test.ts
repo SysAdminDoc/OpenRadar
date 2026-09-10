@@ -161,6 +161,53 @@ describe("freshness", () => {
     const record = observation({ freshForMs: null });
     expect(provenanceStale(record, FETCHED_AT + 86_400_000)).toBe(false);
   });
+
+  // The shape every caller in this app actually builds. `useWorkspaceReport`
+  // sets fetchedAt to the same now that diagnostics later judges the record
+  // against, so a check counting from the fetch answers false for everything
+  // and always will. This is the snowfall analysis: valid at Monday noon,
+  // read on Thursday evening, republished daily.
+  it("is stale when what it is about outlived the cadence, however new the bytes are", () => {
+    const now = Date.parse("2026-09-10T18:00:00Z");
+    const record = observation({
+      sourceId: "nohrsc",
+      observedAt: Date.parse("2026-09-07T12:00:00Z"),
+      validAt: Date.parse("2026-09-07T12:00:00Z"),
+      fetchedAt: now,
+      freshForMs: 24 * 3_600_000,
+    });
+    expect(provenanceStale(record, now)).toBe(true);
+    expect(provenanceLines(record, now).join("\n")).toContain(
+      "stale past its refresh",
+    );
+  });
+
+  // A forecast has no observed time by contract, and the hour it describes
+  // can be in the future, so neither of those can be the clock. The run is:
+  // it is the thing that goes out of date while the hour it names does not.
+  it("counts a forecast from its run rather than from the fetch", () => {
+    const init = Date.parse("2026-08-31T12:00:00Z");
+    const record = forecast({
+      freshForMs: 3_600_000,
+      fetchedAt: init + 7_200_000,
+    });
+    expect(provenanceStale(record, init + 7_200_000)).toBe(true);
+    expect(provenanceStale(record, init + 1_800_000)).toBe(false);
+  });
+
+  // Nothing else to count from. A record with no observation, no run and no
+  // valid hour still has to answer, and the fetch is the only time it holds.
+  it("falls back to the fetch when the record carries no other time", () => {
+    const record = observation({
+      kind: "derived",
+      derivedFrom: "velocity unfolded",
+      observedAt: null,
+      validAt: null,
+      freshForMs: 120_000,
+    });
+    expect(provenanceStale(record, FETCHED_AT + 60_000)).toBe(false);
+    expect(provenanceStale(record, FETCHED_AT + 180_000)).toBe(true);
+  });
 });
 
 describe("building records from what the app already has", () => {

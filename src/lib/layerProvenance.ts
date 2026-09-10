@@ -458,11 +458,19 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     // after its valid hour. Twelve hours of cadence plus up to nine to
     // publish is a day, which is also the window these totals cover.
     //
-    // And nothing about it does change in between: `Last-Modified` on every
-    // cycle older than about five days reads 121.6 to 122.5 hours after its
-    // valid hour, which is the office rewriting each analysis on a rolling
-    // five-day schedule rather than any publication time. That also means a
-    // cached copy of a cycle can be a superseded revision of it.
+    // A cycle also keeps changing after it is published, which is the other
+    // reason a copy of one cannot be trusted for longer than this. Twenty
+    // cycles were re-measured the same day: every cycle older than about five
+    // days carries a `Last-Modified` 121.6 to 122.5 hours after its valid
+    // hour and then stops moving, and every cycle newer than that carries one
+    // from the same afternoon, whatever its valid hour. The office rewrites
+    // the whole trailing five days on each run. The 12Z file recorded at
+    // 16:54Z read 17:54Z an hour later, on the same URL.
+    //
+    // So a cached copy of a cycle is not merely old, it can be a superseded
+    // revision of a cycle that is still being revised, and the day here is
+    // the window in which that stops mattering rather than a promise that
+    // nothing moved.
     freshForMs: 24 * 3_600_000,
   },
   lightningDensity: {
