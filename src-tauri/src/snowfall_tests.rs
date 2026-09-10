@@ -346,6 +346,36 @@ fn the_office_still_publishes_what_this_reads() {
 /// has to move the corner by that many cells, or the country is drawn
 /// somewhere it is not.
 fn tied_at(pixel_x: f64, pixel_y: f64) -> Vec<u8> {
+    tied_to(&[pixel_x, pixel_y, 0.0, -126.0, 55.0, 0.0])
+}
+
+/// The same file with the whole tie point tag rewritten.
+fn tied_to(tag: &[f64; 6]) -> Vec<u8> {
+    let mut published = Vec::new();
+    for value in [0.0f64, 0.0, 0.0, -126.0, 55.0, 0.0] {
+        published.extend_from_slice(&value.to_le_bytes());
+    }
+    let mut moved = Vec::new();
+    for value in tag {
+        moved.extend_from_slice(&value.to_le_bytes());
+    }
+    let at = ANALYSIS
+        .windows(published.len())
+        .position(|window| window == published.as_slice())
+        .expect("the published file ties its own origin");
+    let mut bytes = ANALYSIS.to_vec();
+    bytes[at..at + moved.len()].copy_from_slice(&moved);
+    bytes
+}
+
+/// The same file with both tags rewritten.
+///
+/// One at a time is not enough. The tie point tag is only multiplied by the
+/// cell size when the pixel it ties is not the origin, and the published file
+/// ties its origin, so crossing the two cell sizes in that multiplication is
+/// invisible against every other fixture here.
+fn tied_and_scaled(pixel_x: f64, pixel_y: f64, cell_x: f64, cell_y: f64) -> Vec<u8> {
+    let bytes = scaled(cell_x, cell_y);
     let mut published = Vec::new();
     for value in [0.0f64, 0.0, 0.0, -126.0, 55.0, 0.0] {
         published.extend_from_slice(&value.to_le_bytes());
@@ -354,10 +384,33 @@ fn tied_at(pixel_x: f64, pixel_y: f64) -> Vec<u8> {
     for value in [pixel_x, pixel_y, 0.0, -126.0f64, 55.0, 0.0] {
         moved.extend_from_slice(&value.to_le_bytes());
     }
-    let at = ANALYSIS
+    let at = bytes
         .windows(published.len())
         .position(|window| window == published.as_slice())
         .expect("the published file ties its own origin");
+    let mut bytes = bytes;
+    bytes[at..at + moved.len()].copy_from_slice(&moved);
+    bytes
+}
+
+/// The same file with the pixel scale rewritten.
+///
+/// The published grid is square, four hundredths of a degree each way, so
+/// every arithmetic error that crosses the two axes or transposes the tag is
+/// invisible against it. A rectangular cell tells them apart.
+fn scaled(cell_x: f64, cell_y: f64) -> Vec<u8> {
+    let mut published = Vec::new();
+    for value in [0.04f64, 0.04, 0.0] {
+        published.extend_from_slice(&value.to_le_bytes());
+    }
+    let mut moved = Vec::new();
+    for value in [cell_x, cell_y, 0.0f64] {
+        moved.extend_from_slice(&value.to_le_bytes());
+    }
+    let at = ANALYSIS
+        .windows(published.len())
+        .position(|window| window == published.as_slice())
+        .expect("the published file states a square cell");
     let mut bytes = ANALYSIS.to_vec();
     bytes[at..at + moved.len()].copy_from_slice(&moved);
     bytes
@@ -391,10 +444,80 @@ fn a_grid_tied_at_another_pixel_is_placed_where_that_pixel_says() {
 
 #[test]
 fn a_tie_point_that_is_not_a_pixel_is_refused() {
-    let Err(error) = read(&tied_at(f64::NAN, 0.0)) else {
-        panic!("a tie point that is not a pixel was accepted");
+    // Both halves of the raster pair, because one check covered both and a
+    // single `is_finite` passes this while leaving the other unread.
+    for tag in [
+        [f64::NAN, 0.0, 0.0, -126.0, 55.0, 0.0],
+        [0.0, f64::NAN, 0.0, -126.0, 55.0, 0.0],
+        // A pixel this raster does not have. Any finite number used to pass,
+        // and this one puts the corner four quadrillion degrees west.
+        [1.0e17, 0.0, 0.0, -126.0, 55.0, 0.0],
+        [-1.0, 0.0, 0.0, -126.0, 55.0, 0.0],
+    ] {
+        let Err(error) = read(&tied_to(&tag)) else {
+            panic!("a tie point that is not a pixel was accepted: {tag:?}");
+        };
+        assert!(error.contains("tie point"), "{error}");
+    }
+}
+
+#[test]
+fn a_tie_point_that_is_not_a_place_is_refused() {
+    // The ground half went unchecked, and serde writes a non-finite f64 as
+    // null: the map was handed a corner of `[null, 55]` and drew nothing,
+    // with no error anywhere saying why.
+    for tag in [
+        [0.0, 0.0, 0.0, f64::NAN, 55.0, 0.0],
+        [0.0, 0.0, 0.0, -126.0, f64::NAN, 0.0],
+    ] {
+        let Err(error) = read(&tied_to(&tag)) else {
+            panic!("a tie point that is not a place was accepted: {tag:?}");
+        };
+        assert!(error.contains("tie point"), "{error}");
+    }
+    // And a corner that is a number but not anywhere.
+    let Err(error) = read(&tied_to(&[0.0, 0.0, 0.0, -126.0, 5000.0, 0.0])) else {
+        panic!("a corner off the globe was accepted");
     };
-    assert!(error.contains("tie point"), "{error}");
+    assert!(error.contains("globe"), "{error}");
+}
+
+#[test]
+fn a_rectangular_cell_is_read_on_the_axis_it_belongs_to() {
+    // The published grid is square, so nothing about it can tell the two
+    // scales apart: crossing them, or transposing the tag, leaves every
+    // assertion here true. This cell is twice as wide as it is tall.
+    let read = match read(&scaled(0.08, 0.02)) {
+        Ok(read) => read,
+        Err(error) => panic!("a rectangular cell: {error}"),
+    };
+    let [west, south, east, north] = read.extent;
+    // The corner is the corner whatever the cell is.
+    assert!((west - -126.0).abs() < 1e-9, "{west}");
+    assert!((north - 55.0).abs() < 1e-9, "{north}");
+    // 1500 columns at 0.08 is 120 degrees of longitude; 850 rows at 0.02 is
+    // 17 degrees of latitude. The published file is 60 by 34 at 0.04 square,
+    // so each axis moves by its own factor and by nothing else.
+    assert!((east - west - 120.0).abs() < 1e-6, "{east} against {west}");
+    assert!(
+        (north - south - 17.0).abs() < 1e-6,
+        "{north} against {south}"
+    );
+}
+
+#[test]
+fn a_rectangular_cell_moves_the_tie_point_on_its_own_axis() {
+    // The two together, which is the only shape that can see it. Ten cells
+    // east at 0.08 is 0.8 degrees of longitude; five cells south at 0.02 is
+    // 0.1 degrees of latitude. Cross the two cell sizes in that arithmetic
+    // and the corner lands 0.2 west and 0.4 north instead.
+    let read = match read(&tied_and_scaled(10.0, 5.0, 0.08, 0.02)) {
+        Ok(read) => read,
+        Err(error) => panic!("a rectangular cell tied elsewhere: {error}"),
+    };
+    let [west, _south, _east, north] = read.extent;
+    assert!((west - -126.8).abs() < 1e-6, "{west}");
+    assert!((north - 55.1).abs() < 1e-6, "{north}");
 }
 
 /// The real file, read once, for the control above.

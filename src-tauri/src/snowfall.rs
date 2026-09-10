@@ -131,8 +131,23 @@ pub fn read(bytes: &[u8]) -> Result<Analysis, String> {
     // The third of each triple is the elevation, which a flat analysis has no
     // use for and which cannot move a picture on a map.
     let (raster_x, raster_y) = (tie[0], tie[1]);
-    if !(raster_x.is_finite() && raster_y.is_finite()) {
-        return Err("the raster's tie point is not a pixel".to_string());
+    // The pixel has to be one of this raster's. Any finite number passed
+    // before, so a tie at pixel 1e17 was accepted and put the corner four
+    // quadrillion degrees west while the message said it was not a pixel.
+    if !(raster_x.is_finite()
+        && raster_y.is_finite()
+        && raster_x >= 0.0
+        && raster_y >= 0.0
+        && raster_x <= width as f64
+        && raster_y <= height as f64)
+    {
+        return Err("the raster's tie point is not a pixel of this raster".to_string());
+    }
+    // And the ground half has to be a place. Only the raster half was checked,
+    // so a NaN here reached the extent, and serde writes a non-finite f64 as
+    // null: the map was handed `[null, 55]` for a corner.
+    if !(tie[3].is_finite() && tie[4].is_finite()) {
+        return Err("the raster's tie point is not a place".to_string());
     }
     let west = tie[3] - raster_x * cell_x;
     let north = tie[4] + raster_y * cell_y;
@@ -142,6 +157,17 @@ pub fn read(bytes: &[u8]) -> Result<Analysis, String> {
         west + cell_x * width as f64,
         north,
     ];
+    // The whole of it has to be on the globe. Each half above can be sane on
+    // its own and still multiply out to somewhere there is no ground: a cell
+    // size the file is free to state, times a raster the file is free to
+    // size, is not bounded by either check.
+    if !(-180.0..=180.0).contains(&extent[0])
+        || !(-180.0..=180.0).contains(&extent[2])
+        || !(-90.0..=90.0).contains(&extent[1])
+        || !(-90.0..=90.0).contains(&extent[3])
+    {
+        return Err("the raster covers ground that is not on the globe".to_string());
+    }
 
     let read = decoder
         .read_image()
