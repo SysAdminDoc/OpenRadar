@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { isOnline } from "../lib/online";
 import { pollWhileOnline } from "../lib/poll";
 import {
@@ -26,6 +33,7 @@ import { highContrastRequested, reducedMotionRequested } from "./useClock";
 import { log } from "../lib/log";
 import { isTdwrStation, reachKm, supportedProduct } from "../lib/radarKinds";
 import { loopKey, trimHeld, volumeForTime } from "../lib/siteLoop";
+import { hailAirGeneration, subscribeHailAir } from "../lib/sounding";
 import {
   dataExportAvailable,
   exportSweepData,
@@ -601,6 +609,16 @@ export function useSingleSiteRadar(options: {
     newestVolume !== null &&
     shownVolume !== newestVolume;
 
+  // A sounding loading changes what a hail size is worked out against, and a
+  // picture already on screen was drawn against whatever was known then. The
+  // count is in every key below, so the answer is asked for again rather than
+  // sitting there quietly out of date.
+  const airGeneration = useSyncExternalStore(
+    subscribeHailAir,
+    hailAirGeneration,
+    hailAirGeneration,
+  );
+
   const compareVolume =
     compareTime === null ? null : volumeForTime(volumeTimes, compareTime);
   // What that volume would be held under, which is also what says whether
@@ -621,6 +639,7 @@ export function useSingleSiteRadar(options: {
               : null,
           threshold,
           palette: paletteGeneration,
+          air: airGeneration,
           highContrast: highContrastRequested(),
           within,
         });
@@ -905,6 +924,7 @@ export function useSingleSiteRadar(options: {
         motionFrom,
         threshold,
         paletteGeneration,
+        airGeneration,
         highContrastRequested(),
         // Without this the effect below early-returned on an unchanged key
         // however far the reader zoomed, so an archived volume stayed clipped
@@ -912,6 +932,7 @@ export function useSingleSiteRadar(options: {
         historicalWithin(source),
       ]),
     [
+      airGeneration,
       historicalWithin,
       motionFrom,
       motionSpeed,
@@ -1074,10 +1095,12 @@ export function useSingleSiteRadar(options: {
                 : null,
             threshold,
             palette: paletteGeneration,
+            air: airGeneration,
             highContrast: highContrastRequested(),
             within,
           }),
     [
+      airGeneration,
       motionFrom,
       motionSpeed,
       paletteGeneration,
@@ -1484,6 +1507,7 @@ export function useSingleSiteRadar(options: {
       motion,
       threshold,
       palette: paletteGeneration,
+      air: airGeneration,
       highContrast: contrast,
       within,
     });
@@ -1554,6 +1578,7 @@ export function useSingleSiteRadar(options: {
       reply.close();
     };
   }, [
+    airGeneration,
     latestVolume,
     motionFrom,
     motionSpeed,

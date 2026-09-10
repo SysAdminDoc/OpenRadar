@@ -346,18 +346,32 @@ export function hodographPoints(
     }));
 }
 
-/** The temperature at a height above ground, for the freezing level. */
-export function freezingLevel(levels: SoundingLevel[]): number | null {
+/**
+ * The height the profile first passes a temperature on the way up.
+ *
+ * The lowest crossing rather than any of them: an inversion can put the air
+ * back above freezing higher up, and what a hail algorithm weights from is the
+ * bottom of the cold layer.
+ */
+export function isothermHeight(
+  levels: SoundingLevel[],
+  celsius: number,
+): number | null {
   for (let at = 1; at < levels.length; at += 1) {
     const below = levels[at - 1];
     const above = levels[at];
-    if (below.temperature >= 0 && above.temperature < 0) {
+    if (below.temperature >= celsius && above.temperature < celsius) {
       const span = below.temperature - above.temperature;
-      const share = span === 0 ? 0 : below.temperature / span;
+      const share = span === 0 ? 0 : (below.temperature - celsius) / span;
       return below.height + (above.height - below.height) * share;
     }
   }
   return null;
+}
+
+/** The temperature at a height above ground, for the freezing level. */
+export function freezingLevel(levels: SoundingLevel[]): number | null {
+  return isothermHeight(levels, 0);
 }
 
 /** Precipitable water in millimetres, which is the column's own answer. */

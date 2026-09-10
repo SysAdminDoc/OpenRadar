@@ -742,6 +742,11 @@ export const es: Catalogue = {
   "radar.stormMotionSpeed": "Velocidad ({unit})",
   "radar.stormMotionFrom": "Desde",
   "radar.stormMotionClear": "Leerlo del barrido",
+  "radar.hailAir": "Aire con el que se calculó el tamaño",
+  "radar.hailAirStandard":
+    "La atmósfera estándar, porque no hay sondeo cargado",
+  "radar.hailAirSounding": "De {source}",
+  "radar.hailAirHeights": "Congelación a {freezing}, menos veinte a {cold}",
   "product.velocity": "Velocidad",
   "product.spectrumWidth": "Ancho espectral",
   "product.differential": "Reflectividad diferencial",
@@ -749,6 +754,11 @@ export const es: Catalogue = {
   "product.longRange": "Reflectividad de largo alcance",
   "product.azimuthalShear": "Cizalladura azimutal",
   "product.rotation": "Rotación",
+  "product.compositeReflectivity": "Reflectividad compuesta",
+  "product.echoTop": "Cima del eco",
+  "product.vil": "Agua líquida integrada",
+  "product.vilDensity": "Densidad de VIL",
+  "product.hailSize": "Tamaño del granizo",
   "radar.eyebrow": "Producto de radar",
   "radar.title": "Radar compuesto",
   "radar.composite": "Reflectividad compuesta",
@@ -797,6 +807,8 @@ export const es: Catalogue = {
   "radar.dealiasDetail":
     "Un viento más rápido de lo que el radar puede medir se enrolla y se dibuja como si soplara al revés. Esto lo devuelve a su sitio.",
   "radar.sweepLine": "{station} · {site} · {product} a {tilt}° · {age}",
+  "radar.columnSweepLine": "{station} · {site} · {product} · {age}",
+  "radar.columnHistoricalSweepLine": "{station}, {site}, {product}, {time}",
   "radar.justIn": "recién llegado",
   "radar.age": "de hace {age}",
   "radar.reading": "Leyendo el volumen más reciente de {station}.",
@@ -841,6 +853,8 @@ export const es: Catalogue = {
   "radar.error.invalidTime": "{at} no es una fecha y hora UTC.",
   "radar.error.localRead": "No se pudo leer el archivo seleccionado: {reason}",
   "radar.error.localTooLarge": "El archivo seleccionado supera los 128 MB.",
+  "radar.error.noSection":
+    "{product} ya es una respuesta sobre toda la columna, así que no hay corte que tomar.",
   "radar.error.outOfRange":
     "Los dos extremos del corte tienen que estar dentro del alcance de {station}.",
   "radar.dealiasForced":
@@ -1662,6 +1676,10 @@ export const es: Catalogue = {
   "chrome.composite": "Radar compuesto",
   "chrome.sweepProduct": "{station} {product}",
   "chrome.tilt": "ELEVACIÓN {degrees}°",
+  "chrome.column": "VOLUMEN COMPLETO",
+  "chrome.columnHistorical": "VOLUMEN COMPLETO, HISTÓRICO",
+  "chrome.columnLoop": "VOLUMEN COMPLETO · VOLUMEN {index} DE {count}, {time}",
+  "chrome.columnLive": "VOLUMEN COMPLETO · EN VIVO, HACE {seconds} S",
   "chrome.tiltHistorical": "ELEVACIÓN {degrees}°, HISTÓRICA",
   "chrome.tiltLoop":
     "ELEVACIÓN {degrees}° · VOLUMEN {index} DE {count}, {time}",

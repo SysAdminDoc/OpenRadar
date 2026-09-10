@@ -11,6 +11,7 @@ import { useState, type FormEvent } from "react";
 import { PanelShell } from "../components/PanelShell";
 import {
   LEVEL2_PRODUCTS,
+  isColumnProduct,
   SINGLE_SITE_MIN_ZOOM,
   stationSummary,
   sweepAgeMinutes,
@@ -77,6 +78,12 @@ const THRESHOLD_RANGE: Record<
   // product's own unit for the same reason a reflectivity threshold is.
   "azimuthal-shear": { min: 0, max: 14, step: 0.5, unit: "own" },
   rotation: { min: 0, max: 5, step: 0.1, unit: "own" },
+  // A composite is reflectivity, so it hides on the same scale as reflectivity.
+  "composite-reflectivity": { min: 0, max: 70, step: 1, unit: "own" },
+  "echo-top": { min: 0, max: 18, step: 0.5, unit: "own" },
+  vil: { min: 0, max: 70, step: 1, unit: "own" },
+  "vil-density": { min: 0, max: 6, step: 0.1, unit: "own" },
+  "hail-size": { min: 0, max: 100, step: 1, unit: "own" },
 };
 
 interface RadarProductPanelProps {
@@ -521,20 +528,30 @@ export function RadarProductPanel({
                   ? singleSite.error
                   : sweep
                     ? singleSite.historical
-                      ? t("radar.historicalSweepLine", {
-                          station: sweep.station,
-                          site: sweep.siteName,
-                          product: sweep.product,
-                          tilt: formatNumber(sweep.elevationDegrees, 2),
-                          time: utcSweepLabel(sweep.collected),
-                        })
-                      : t("radar.sweepLine", {
-                          station: sweep.station,
-                          site: sweep.siteName,
-                          product: sweep.product,
-                          tilt: formatNumber(sweep.elevationDegrees, 2),
-                          age: ageLabel(sweepAgeMinutes(sweep, clock)),
-                        })
+                      ? t(
+                          isColumnProduct(sweep.productId)
+                            ? "radar.columnHistoricalSweepLine"
+                            : "radar.historicalSweepLine",
+                          {
+                            station: sweep.station,
+                            site: sweep.siteName,
+                            product: sweep.product,
+                            tilt: formatNumber(sweep.elevationDegrees, 2),
+                            time: utcSweepLabel(sweep.collected),
+                          },
+                        )
+                      : t(
+                          isColumnProduct(sweep.productId)
+                            ? "radar.columnSweepLine"
+                            : "radar.sweepLine",
+                          {
+                            station: sweep.station,
+                            site: sweep.siteName,
+                            product: sweep.product,
+                            tilt: formatNumber(sweep.elevationDegrees, 2),
+                            age: ageLabel(sweepAgeMinutes(sweep, clock)),
+                          },
+                        )
                     : singleSite.loading
                       ? t("radar.reading", {
                           station: singleSite.station ?? t("radar.nearestSite"),
@@ -657,27 +674,32 @@ export function RadarProductPanel({
                   : t("radar.thresholdDetail")}
               </p>
 
-              <label className="select-row">
-                <span>{t("radar.tilt")}</span>
-                <select
-                  value={Math.min(radar.tilt, Math.max(0, tilts.length - 1))}
-                  aria-label={t("radar.tiltLabel")}
-                  disabled={!tilts.length}
-                  onChange={(event) =>
-                    onRadar({ ...radar, tilt: Number(event.target.value) })
-                  }
-                >
-                  {tilts.length ? (
-                    tilts.map((angle, index) => (
-                      <option key={angle} value={index}>
-                        {formatNumber(angle, 2)}°
-                      </option>
-                    ))
-                  ) : (
-                    <option value={0}>{formatNumber(0.5, 2)}°</option>
-                  )}
-                </select>
-              </label>
+              {/* A product worked out of the whole volume has no tilt to
+                  choose: every cut went into it. A picker that changed nothing
+                  would be worse than none. */}
+              {isColumnProduct(radar.product) ? null : (
+                <label className="select-row">
+                  <span>{t("radar.tilt")}</span>
+                  <select
+                    value={Math.min(radar.tilt, Math.max(0, tilts.length - 1))}
+                    aria-label={t("radar.tiltLabel")}
+                    disabled={!tilts.length}
+                    onChange={(event) =>
+                      onRadar({ ...radar, tilt: Number(event.target.value) })
+                    }
+                  >
+                    {tilts.length ? (
+                      tilts.map((angle, index) => (
+                        <option key={angle} value={index}>
+                          {formatNumber(angle, 2)}°
+                        </option>
+                      ))
+                    ) : (
+                      <option value={0}>{formatNumber(0.5, 2)}°</option>
+                    )}
+                  </select>
+                </label>
+              )}
 
               {/* Beside the moments rather than in the layers panel, because
                   it is a product of this site like they are: which Level III
@@ -793,6 +815,27 @@ export function RadarProductPanel({
                       {t("radar.stormMotionClear")}
                     </button>
                   ) : null}
+                </div>
+              ) : null}
+
+              {radar.product === "hail-size" && sweep?.hailHeights ? (
+                <div className="settings-section" data-hail-air>
+                  <div className="settings-section__title">
+                    <span>{t("radar.hailAir")}</span>
+                    <small>
+                      {sweep.hailHeights.standard
+                        ? t("radar.hailAirStandard")
+                        : t("radar.hailAirSounding", {
+                            source: sweep.hailHeights.source,
+                          })}
+                    </small>
+                  </div>
+                  <p className="source-note">
+                    {t("radar.hailAirHeights", {
+                      freezing: formatDistanceKm(sweep.hailHeights.freezingKm),
+                      cold: formatDistanceKm(sweep.hailHeights.minusTwentyKm),
+                    })}
+                  </p>
                 </div>
               ) : null}
 

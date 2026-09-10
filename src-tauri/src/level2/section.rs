@@ -100,7 +100,18 @@ pub fn cross_section_from_scan(
     // A derived product is worked out cut by cut, the same way it is for one
     // sweep. A slice of it is what says how deep a circulation goes, which is
     // the question a vertical cut through a mesocyclone is asked.
-    let derived = derived_from_name(asked.product_name);
+    //
+    // The column products are the exception, and they are refused rather than
+    // sliced: each of them is already an answer about the whole column, so a
+    // vertical cut through one would draw the same number at every height and
+    // read as a storm of uniform depth.
+    let derived = match worked_from_name(asked.product_name) {
+        Some(Worked::Turning(kind)) => Some(kind),
+        Some(Worked::Column(_)) => {
+            return Err(Level2Error::NoSection(label.to_string()));
+        }
+        None => None,
+    };
 
     let site = registry::site_by_id(station)
         .map(|entry| entry.to_site())
@@ -196,7 +207,7 @@ pub fn cross_section_from_scan(
         unfolded: dealiased,
         threshold: asked.threshold,
         high_contrast: asked.high_contrast,
-        derived,
+        derived: derived.map(Worked::Turning),
     };
 
     let mut pixels = vec![0u8; taken.width * taken.height * 4];

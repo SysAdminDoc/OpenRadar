@@ -36,6 +36,7 @@ import { guardRadarRequest, type SatelliteProductId } from "../lib/providers";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import {
   beamHeightFeet,
+  isColumnProduct,
   sweepCorners,
   sweepSite,
   type SweepImage,
@@ -2294,7 +2295,10 @@ function MapViewportInner(
         // eighty miles further out, because the beam has climbed.
         const drawn = sweepRef.current;
         let beam: { feet: number; tilt: number } | null = null;
-        if (drawn) {
+        // Not for a product worked out of the whole volume: the reading
+        // under the cursor came from every beam that passed through the column
+        // above it, so there is no one beam to give a height for.
+        if (drawn && !isColumnProduct(drawn.productId)) {
           const site = sweepSite(drawn);
           const rangeKm = haversineMiles(site, point) * MILES_TO_KM;
           if (rangeKm <= drawn.rangeKm) {

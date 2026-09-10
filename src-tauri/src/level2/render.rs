@@ -25,7 +25,7 @@ pub struct Shading {
     /// still velocity and the whole of what changes is which scale the answer
     /// is drawn on: a derived field handed to the velocity ramp reads as a
     /// sweep of dead air, every gate within a metre a second of zero.
-    pub derived: Option<shear::Kind>,
+    pub derived: Option<Worked>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -113,7 +113,7 @@ pub fn render_sweep(
                     Some((_, GateStatus::Valid))
                 )
             });
-            let color = if marked { DEBRIS_MARK } else { color };
+            let color = if marked { FLAG_MARK } else { color };
 
             let at = (row * IMAGE_SIZE + column) * 4;
             pixels[at] = color[0];
@@ -257,10 +257,12 @@ pub(crate) fn gate_color(
         GateStatus::Valid => {
             // Velocity runs either side of zero and both sides are the storm,
             // so its threshold is on how fast rather than on which way. The
-            // derived scales are signed for the same reason: which way a storm
-            // is turning is not how much it is turning. Everything else reads
-            // low to high and compares as it is.
-            let measured = if derived.is_some() || matches!(product, Product::Velocity) {
+            // rotation scales are signed for the same reason: which way a
+            // storm is turning is not how much it is turning. The column
+            // products run low to high like everything else and compare as
+            // they are.
+            let signed = matches!(derived, Some(Worked::Turning(_)));
+            let measured = if signed || matches!(product, Product::Velocity) {
                 value.abs()
             } else {
                 value
@@ -268,16 +270,34 @@ pub(crate) fn gate_color(
             if threshold.is_some_and(|floor| measured < floor) {
                 return None;
             }
-            if let Some(kind) = derived {
-                // Before the loaded table, because a table is matched by unit
-                // and these two carry units of their own. A reader who has
-                // loaded one for either gets it; nothing else reaches this.
-                let ramp = match (kind, high_contrast) {
+            // A composite is reflectivity: the same unit, the same ramp, the
+            // same fade at the bottom of it, and the same loaded table if the
+            // reader has one. It is the column it was taken from that is
+            // worked out, not the scale it is drawn on.
+            let scale = match derived {
+                Some(Worked::Column(derive::Kind::Composite)) | None => None,
+                Some(Worked::Turning(kind)) => Some(match (kind, high_contrast) {
                     (shear::Kind::AzimuthalShear, false) => SITE_SHEAR_RAMP,
                     (shear::Kind::AzimuthalShear, true) => HIGH_CONTRAST_SITE_SHEAR_RAMP,
                     (shear::Kind::Rotation, false) => SITE_ROTATION_RAMP,
                     (shear::Kind::Rotation, true) => HIGH_CONTRAST_SITE_ROTATION_RAMP,
-                };
+                }),
+                Some(Worked::Column(kind)) => Some(match (kind, high_contrast) {
+                    (derive::Kind::Composite, _) => unreachable!("matched above"),
+                    (derive::Kind::EchoTop, false) => ECHO_TOP_RAMP,
+                    (derive::Kind::EchoTop, true) => HIGH_CONTRAST_ECHO_TOP_RAMP,
+                    (derive::Kind::Vil, false) => VIL_RAMP,
+                    (derive::Kind::Vil, true) => HIGH_CONTRAST_VIL_RAMP,
+                    (derive::Kind::VilDensity, false) => VIL_DENSITY_RAMP,
+                    (derive::Kind::VilDensity, true) => HIGH_CONTRAST_VIL_DENSITY_RAMP,
+                    (derive::Kind::HailSize, false) => HAIL_SIZE_RAMP,
+                    (derive::Kind::HailSize, true) => HIGH_CONTRAST_HAIL_SIZE_RAMP,
+                }),
+            };
+            if let Some(ramp) = scale {
+                // Before the loaded table, because a table is matched by unit
+                // and each of these carries a unit of its own. A reader who has
+                // loaded one for any of them gets it; nothing else reaches this.
                 return Some(match table {
                     Some(table) => (table.color(value), MAX_ALPHA),
                     None => (ramp_color(ramp, value), MAX_ALPHA),

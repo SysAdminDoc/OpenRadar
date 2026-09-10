@@ -35,6 +35,7 @@ use serde::Serialize;
 use crate::chunks;
 use crate::cross_section;
 use crate::dealias;
+use crate::derive;
 use crate::http;
 use crate::level3;
 use crate::palette;
@@ -148,6 +149,8 @@ pub enum Level2Error {
     LocalTooLarge,
     #[error("both ends of a cross-section have to be within range of {0}")]
     OutOfRange(String),
+    #[error("{0} is already an answer about the whole column, so there is no slice to take")]
+    NoSection(String),
     #[error(transparent)]
     Http(#[from] http::HttpError),
 }
@@ -175,6 +178,7 @@ impl Level2Error {
             Self::LocalRead(why) => ("localRead", vec![why.clone()]),
             Self::LocalTooLarge => ("localTooLarge", Vec::new()),
             Self::OutOfRange(site) => ("outOfRange", vec![site.clone()]),
+            Self::NoSection(product) => ("noSection", vec![product.clone()]),
             Self::Http(error) => error.parts(),
         }
     }
@@ -192,6 +196,25 @@ impl Serialize for Level2Error {
         out.serialize_field("text", &self.to_string())?;
         out.end()
     }
+}
+
+/// The two heights a hail size was worked out between, and where they came
+/// from.
+///
+/// Carried on the picture rather than worked out again beside it, because a
+/// reader looking at a hail size is owed the air it was read against and the
+/// picture may have been drawn before the sounding they now have was loaded.
+/// `standard` is what lets the page say so in the reader's own language: the
+/// sentence underneath is written for the export header, which is English.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HailHeights {
+    pub freezing_km: f64,
+    pub minus_twenty_km: f64,
+    /// What the page called the sounding, or the standard atmosphere.
+    pub source: String,
+    /// True when no sounding was sent and the stated default was used.
+    pub standard: bool,
 }
 
 /// What a sweep looks like once it is ready to draw.
@@ -226,6 +249,9 @@ pub struct SweepImage {
     /// folds and all, and a reader looking at a couplet in one of them is
     /// owed the fact that it might be a fold rather than rotation.
     pub unplaced_share: f32,
+    /// The air a hail size was worked out against. Absent on every other
+    /// product.
+    pub hail_heights: Option<HailHeights>,
     /// The motion taken out of a storm relative sweep, in metres a second and
     /// the compass direction it comes from. Absent on every other product.
     pub storm_motion: Option<StormMotion>,

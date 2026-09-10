@@ -442,6 +442,9 @@ fn draw_product(
         // nothing to place and nothing left unplaced.
         unplaced_share: 0.0,
         storm_motion: None,
+        // A terminal radar publishes finished products, so there is no volume
+        // to work a column out of and nothing to weigh against the air.
+        hail_heights: None,
         unit: asked.unit.to_string(),
         elevation_degrees: elevation,
         tilts,

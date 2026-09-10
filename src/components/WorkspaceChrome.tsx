@@ -17,7 +17,11 @@ import {
   CLASSIFICATION_PRODUCT_KEYS,
   type Classification,
 } from "../lib/classification";
-import { liveAgeSeconds, type SweepImage } from "../lib/level2";
+import {
+  isColumnProduct,
+  liveAgeSeconds,
+  type SweepImage,
+} from "../lib/level2";
 import {
   faultReason,
   levelTwoLate,
@@ -854,6 +858,10 @@ function tiltEyebrow(
 ): string {
   const age = liveAgeSeconds(sweep, clock);
   const degrees = formatNumber(sweep.elevationDegrees, 2);
+  // A product worked out of the whole volume has no tilt to name, so it says
+  // what it is instead. Unfolding is a velocity word and none of them is
+  // velocity, so there is no unfolded wording to match.
+  const column = isColumnProduct(sweep.productId);
   // A volume the loop reached back for arrives from the archive, so without
   // this it read as HISTORICAL: the same word the app uses for a volume the
   // reader chose by hand, in a view that has not left the present. What is
@@ -861,20 +869,25 @@ function tiltEyebrow(
   // and the time has to be the picture's own rather than the step's, because
   // a site scans every four to six minutes and the timeline steps every two.
   if (loop) {
-    return translate("chrome.tiltLoop", {
-      degrees,
-      index: loop.index,
-      count: loop.count,
-      time: formatRadarTime(Date.parse(sweep.collected) / 1000),
-    });
+    const time = formatRadarTime(Date.parse(sweep.collected) / 1000);
+    const parts = { index: loop.index, count: loop.count, time };
+    return column
+      ? translate("chrome.columnLoop", parts)
+      : translate("chrome.tiltLoop", { degrees, ...parts });
   }
   if (sweep.source.kind !== "recent") {
-    return translate("chrome.tiltHistorical", { degrees });
+    return column
+      ? translate("chrome.columnHistorical")
+      : translate("chrome.tiltHistorical", { degrees });
   }
   if (age === null) {
+    if (column) return translate("chrome.column");
     return translate(sweep.dealiased ? "chrome.tiltDealiased" : "chrome.tilt", {
       degrees,
     });
+  }
+  if (column) {
+    return translate("chrome.columnLive", { seconds: String(age) });
   }
   return translate(
     sweep.dealiased ? "chrome.tiltLiveDealiased" : "chrome.tiltLive",
