@@ -169,6 +169,8 @@ export interface LayerSettings {
   metar: boolean;
   riverGauges: boolean;
   buoys: boolean;
+  /** Rain and hail measured by volunteers with the same gauge. */
+  cocorahs: boolean;
   aviation: boolean;
   tropical: boolean;
   satellite: boolean;

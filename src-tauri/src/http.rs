@@ -25,6 +25,11 @@ const ALLOWED_HOSTS: &[&str] = &[
     // The buoy network, which publishes every station's latest observation
     // in one file and sends no CORS header with it.
     "www.ndbc.noaa.gov",
+    // The volunteer rain and hail network. It does send a CORS header, so
+    // the page could reach it directly; it goes through here for what every
+    // other overlay gets from doing so, which is the last good answer still
+    // being on the map when the machine has no network.
+    "data.cocorahs.org",
     // The national snowfall analysis, published twice a day as a GeoTIFF.
     "www.nohrsc.noaa.gov",
     "mesonet.agron.iastate.edu",

@@ -201,6 +201,7 @@ describe("settings normalization", () => {
       "buoys",
       "cappi",
       "classification",
+      "cocorahs",
       "counties",
       "customOverlay",
       "earthquakes",

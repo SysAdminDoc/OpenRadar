@@ -1231,6 +1231,7 @@ export const fr: Catalogue = {
     "metar station aéroport point rosée vent barbule observation",
   "keywords.riverGauges": "rivière crue jauge niveau eau hydrologie inondation",
   "keywords.buoys": "bouée vague houle marin mer large ndbc mouillage",
+  "keywords.cocorahs": "pluie pluviometre grele benevole cocorahs observateur",
   "keywords.tropical": "ouragan cyclone cone tempete typhon",
   "keywords.satellite": "satellite nuages image visible infrarouge",
   "keywords.rotationTracks": "mesocyclone rotation cisaillement tornade",
@@ -1347,6 +1348,21 @@ export const fr: Catalogue = {
   "buoys.water": "Eau",
   "buoys.air": "Air",
   "buoys.observed": "Mesuré à {time}",
+  "layer.cocorahs": "Pluviomètres bénévoles",
+  "layers.cocorahsDetail":
+    "Ce que les gens ont mesuré dans leur propre jardin ce matin, et la grêle qu'ils ont signalée. Un État à la fois, à partir du zoom 6.",
+  "cocorahs.failed": "Le réseau de bénévoles {answer}.",
+  "cocorahs.partial":
+    "Pas de réponse pour {states}, donc rien n'est dessiné là.",
+  "cocorahs.gauge": "Pluviomètre {station}",
+  "cocorahs.hailAt": "Grêle à {station}",
+  "cocorahs.total": "Pluie : {depth}",
+  "cocorahs.noTotal": "A signalé, sans total",
+  "cocorahs.largest": "Plus gros grêlon : {size}",
+  "cocorahs.average": "Grêlon moyen : {size}",
+  "cocorahs.duration":
+    "Est tombée pendant {count, plural, one {# minute} other {# minutes}}",
+  "cocorahs.observed": "Relevé à {when}, heure de l'observateur",
   "layers.riverGaugesDetail":
     "Ce que lisent les rivières près de l'orage en ce moment, et ce que le bureau de prévision attend d'elles. Points proches seulement, à partir du zoom 7.",
   "rivers.observed": "Niveau observé de {stage} à {when}",

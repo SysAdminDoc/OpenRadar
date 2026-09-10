@@ -197,6 +197,7 @@ export function normalizeSettings(value: unknown): AppSettings {
         DEFAULT_SETTINGS.layers.riverGauges,
       ),
       buoys: bool(layers.buoys, DEFAULT_SETTINGS.layers.buoys),
+      cocorahs: bool(layers.cocorahs, DEFAULT_SETTINGS.layers.cocorahs),
       aviation: bool(layers.aviation, DEFAULT_SETTINGS.layers.aviation),
       tropical: bool(layers.tropical, DEFAULT_SETTINGS.layers.tropical),
       satellite: bool(layers.satellite, DEFAULT_SETTINGS.layers.satellite),

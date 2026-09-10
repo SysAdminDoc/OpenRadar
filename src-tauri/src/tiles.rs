@@ -42,6 +42,7 @@ const SERVED_HOSTS: &[&str] = &[
     "satepsanone.nesdis.noaa.gov",
     "aviationweather.gov",
     "www.ndbc.noaa.gov",
+    "data.cocorahs.org",
     "api.tidesandcurrents.noaa.gov",
     "api.water.noaa.gov",
     "api.open-meteo.com",

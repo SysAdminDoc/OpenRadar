@@ -1199,6 +1199,7 @@ export const en = {
   "keywords.riverGauges": "river flood gauge stage crest water level hydrology",
   "keywords.buoys":
     "buoy wave swell marine sea state offshore ndbc mooring surf",
+  "keywords.cocorahs": "rain gauge hail volunteer cocorahs observer report",
   "keywords.tropical": "",
   "keywords.satellite": "",
   "keywords.rotationTracks": "",
@@ -1312,6 +1313,20 @@ export const en = {
   "buoys.water": "Water",
   "buoys.air": "Air",
   "buoys.observed": "Measured at {time}",
+  "layer.cocorahs": "Volunteer Gauges",
+  "layers.cocorahsDetail":
+    "What people measured in their own gardens this morning, and the hail they reported. One state at a time, from zoom 6 in.",
+  "cocorahs.failed": "The volunteer network {answer}.",
+  "cocorahs.partial": "No answer for {states}, so nothing is drawn there.",
+  "cocorahs.gauge": "Gauge {station}",
+  "cocorahs.hailAt": "Hail at {station}",
+  "cocorahs.total": "Rain: {depth}",
+  "cocorahs.noTotal": "Reported, with no total",
+  "cocorahs.largest": "Largest stone: {size}",
+  "cocorahs.average": "Average stone: {size}",
+  "cocorahs.duration":
+    "Fell for {count, plural, one {# minute} other {# minutes}}",
+  "cocorahs.observed": "Read at {when}, the observer's own clock",
   "layers.riverGaugesDetail":
     "What the rivers near the storm read now, and what the forecast office expects them to reach. Nearby points only, from zoom 7 in.",
   "rivers.observed": "Observed {stage} at {when}",

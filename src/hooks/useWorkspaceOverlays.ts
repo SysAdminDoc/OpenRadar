@@ -17,6 +17,7 @@ import { alertsOfKind } from "../lib/overlays/alerts";
 import { METAR_MIN_ZOOM } from "../lib/overlays/metar";
 import { GAUGE_MIN_ZOOM } from "../lib/overlays/rivers";
 import { BUOY_MIN_ZOOM } from "../lib/overlays/buoys";
+import { COCORAHS_MIN_ZOOM } from "../lib/overlays/cocorahs";
 import { translate } from "../i18n";
 
 export interface WorkspaceOverlays {
@@ -98,6 +99,7 @@ export function useWorkspaceOverlays(options: {
     metar,
     riverGauges,
     buoys,
+    cocorahs,
     aviation,
   } = settings.layers;
   const zoom = settings.camera.zoom;
@@ -131,6 +133,12 @@ export function useWorkspaceOverlays(options: {
       // world in one file rather than per area, so the zoom here is only
       // about whether a coastline's worth of dots reads as anything.
       buoys: buoys && !replaying && zoom >= BUOY_MIN_ZOOM,
+      // Held back over a replay like every other reading: these are what
+      // people measured this morning, and drawing them over a storm from
+      // 2005 would be this morning's rain on somebody else's weather. The
+      // floor is about the request as much as the picture, since the service
+      // answers a whole state at a time.
+      cocorahs: cocorahs && !replaying && zoom >= COCORAHS_MIN_ZOOM,
       // Hazard areas and pilot reports are both about the air right now, so
       // they are held back over a replay the way every other current feed is.
       aviation: aviation && !replaying,
@@ -156,6 +164,7 @@ export function useWorkspaceOverlays(options: {
       metar,
       riverGauges,
       buoys,
+      cocorahs,
       aviation,
       smoke,
       spcOutlooks,
@@ -271,6 +280,7 @@ export function useWorkspaceOverlays(options: {
       metar: toggles.metar ? states.metar.data : null,
       riverGauges: toggles.riverGauges ? states.riverGauges.data : null,
       buoys: toggles.buoys ? states.buoys.data : null,
+      cocorahs: toggles.cocorahs ? states.cocorahs.data : null,
       aviation: toggles.aviation ? states.aviation.data : null,
       tropical: toggles.tropical ? states.tropical.data : null,
       spcOutlooks: toggles.spcOutlooks ? states.spcOutlooks.data : null,

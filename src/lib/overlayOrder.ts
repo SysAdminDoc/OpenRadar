@@ -31,10 +31,15 @@ export const OVERLAY_DEPTH: Record<OverlayId, number> = {
   // somebody turned the layer on to find, and the sea it reports is the one
   // thing under a hurricane track that is a measurement rather than a model.
   buoys: 11,
+  // Over the other point layers. A rain total somebody measured in their own
+  // garden is the densest thing on this map and the only figure on it that is
+  // neither an instrument's estimate nor a model's, so nothing else measured
+  // should be able to hide one.
+  cocorahs: 12,
   // Above the point layers and under the warnings, because a hazard area
   // is an area and the warnings are the thing anybody looks at first.
-  aviation: 12,
-  alerts: 13,
+  aviation: 13,
+  alerts: 14,
 };
 
 /**
