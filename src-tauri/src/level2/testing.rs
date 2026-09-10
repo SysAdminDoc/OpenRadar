@@ -1248,6 +1248,9 @@ pub(crate) fn ask(tilt_index: usize, product_name: &str) -> SweepRequest<'_> {
         persistence: false,
         reduced_motion: false,
         smooth: false,
+        // The standard atmosphere, which is what a reader with no sounding
+        // loaded gets and what these tests are about.
+        isotherms: None,
         within: None,
     }
 }
@@ -1304,6 +1307,61 @@ mod colour_vision {
         assert!(better > apart * 2.0);
     }
 
+    /// Every scale a worked product is drawn on, ordinary and high contrast.
+    ///
+    /// Named once, because three separate registers below read it and a scale
+    /// missing from one of them is a scale nothing checks.
+    const EVERY_WORKED_RAMP: [&[(f32, [u8; 3])]; 12] = [
+        SITE_SHEAR_RAMP,
+        HIGH_CONTRAST_SITE_SHEAR_RAMP,
+        SITE_ROTATION_RAMP,
+        HIGH_CONTRAST_SITE_ROTATION_RAMP,
+        ECHO_TOP_RAMP,
+        HIGH_CONTRAST_ECHO_TOP_RAMP,
+        VIL_RAMP,
+        HIGH_CONTRAST_VIL_RAMP,
+        VIL_DENSITY_RAMP,
+        HIGH_CONTRAST_VIL_DENSITY_RAMP,
+        HAIL_SIZE_RAMP,
+        HIGH_CONTRAST_HAIL_SIZE_RAMP,
+    ];
+
+    /// The column scales run low to high, so asking for more contrast has to
+    /// give a ladder that climbs in lightness: that is what survives when hue
+    /// is lost completely.
+    #[test]
+    fn the_high_contrast_column_scales_climb_in_lightness() {
+        for ramp in [
+            HIGH_CONTRAST_ECHO_TOP_RAMP,
+            HIGH_CONTRAST_VIL_RAMP,
+            HIGH_CONTRAST_VIL_DENSITY_RAMP,
+            HIGH_CONTRAST_HAIL_SIZE_RAMP,
+        ] {
+            assert!(lightness_climbs(ramp, 0.5));
+        }
+    }
+
+    /// And their steps have to be far enough apart to be told apart, which is
+    /// the other half of what contrast is for.
+    #[test]
+    fn the_high_contrast_column_scales_keep_their_steps_apart() {
+        for ramp in [
+            HIGH_CONTRAST_ECHO_TOP_RAMP,
+            HIGH_CONTRAST_VIL_RAMP,
+            HIGH_CONTRAST_VIL_DENSITY_RAMP,
+            HIGH_CONTRAST_HAIL_SIZE_RAMP,
+        ] {
+            for vision in EVERY_VISION {
+                let (apart, from, to) = worst_pair(ramp, vision);
+                assert!(
+                    apart >= NEIGHBOURS_APART,
+                    "{} brings {from} and {to} within {apart:.1}",
+                    vision.name()
+                );
+            }
+        }
+    }
+
     /// The derived scales say which way something is turning, which is the
     /// same job the velocity ramp does and the job the commonest colour
     /// blindness stops it doing.
@@ -1336,17 +1394,12 @@ mod colour_vision {
     /// another reading, so it may not be a colour either scale can produce.
     #[test]
     fn the_debris_mark_is_on_neither_scale() {
-        for ramp in [
-            SITE_SHEAR_RAMP,
-            HIGH_CONTRAST_SITE_SHEAR_RAMP,
-            SITE_ROTATION_RAMP,
-            HIGH_CONTRAST_SITE_ROTATION_RAMP,
-        ] {
+        for ramp in EVERY_WORKED_RAMP {
             let ends = (ramp[0].0, ramp[ramp.len() - 1].0);
             let mut at = ends.0;
             while at <= ends.1 {
                 let drawn = ramp_color(ramp, at);
-                assert_ne!(drawn, DEBRIS_MARK, "{at} draws the debris mark");
+                assert_ne!(drawn, FLAG_MARK, "{at} draws the signature mark");
                 at += (ends.1 - ends.0) / 200.0;
             }
         }
@@ -1397,11 +1450,10 @@ mod colour_vision {
             WIDE_VELOCITY_RAMP,
             HIGH_CONTRAST_VELOCITY_RAMP,
             HIGH_CONTRAST_WIDE_VELOCITY_RAMP,
-            SITE_SHEAR_RAMP,
-            HIGH_CONTRAST_SITE_SHEAR_RAMP,
-            SITE_ROTATION_RAMP,
-            HIGH_CONTRAST_SITE_ROTATION_RAMP,
-        ] {
+        ]
+        .into_iter()
+        .chain(EVERY_WORKED_RAMP)
+        {
             assert!(ramp.windows(2).all(|pair| pair[1].0 > pair[0].0));
         }
     }

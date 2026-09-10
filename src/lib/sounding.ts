@@ -5,6 +5,7 @@ import { MILES_TO_KM } from "./units";
 import { cachedUrl } from "./tileCache";
 import { translate } from "../i18n";
 import type { SoundingLevel } from "./thermo";
+import { isothermHeight } from "./thermo";
 
 /**
  * A vertical profile of the atmosphere, observed or forecast.
@@ -378,4 +379,90 @@ export async function forecastSounding(
     );
   }
   return parseForecastSounding(await response.json(), at);
+}
+
+/**
+ * The heights a hail algorithm weights between, and what to call the profile
+ * they came from.
+ *
+ * Kilometres above sea level, because that is what a beam height is measured
+ * against once the antenna's own altitude is added to it.
+ */
+export interface HailAir {
+  freezingKm: number;
+  minusTwentyKm: number;
+  source: string;
+}
+
+/**
+ * The last profile the workspace loaded, for the one thing outside the chart
+ * that needs it.
+ *
+ * Hail size is worked out between the freezing level and minus twenty, and
+ * those are a property of the air rather than of the radar: the native side
+ * decodes volumes and has no sounding at all. The chart is lazily loaded and
+ * lives in its own panel, so rather than hoist a fetch nobody has asked for
+ * into the workspace, the panel leaves what it found here and the radar reads
+ * it if it is there.
+ *
+ * The count is what tells a caller the answer has changed. A picture already
+ * drawn against the standard atmosphere is not wrong, only drawn against
+ * something the reader can now better; without a count nothing would know to
+ * ask again.
+ */
+let held: HailAir | null = null;
+let counted = 0;
+const listening = new Set<() => void>();
+
+/** Woken when the workspace learns something new about the air. */
+export function subscribeHailAir(listener: () => void): () => void {
+  listening.add(listener);
+  return () => {
+    listening.delete(listener);
+  };
+}
+
+export function rememberSounding(sounding: Sounding | null): void {
+  const next = hailAir(sounding);
+  const same =
+    (next === null && held === null) ||
+    (next !== null &&
+      held !== null &&
+      next.freezingKm === held.freezingKm &&
+      next.minusTwentyKm === held.minusTwentyKm &&
+      next.source === held.source);
+  if (same) return;
+  held = next;
+  counted += 1;
+  for (const listener of listening) listener();
+}
+
+/** What the workspace knows about the air, or nothing. */
+export function heldHailAir(): HailAir | null {
+  return held;
+}
+
+/** Bumped whenever that answer changes, and nothing else. */
+export function hailAirGeneration(): number {
+  return counted;
+}
+
+/**
+ * The two heights out of a profile, or nothing where it does not carry both.
+ *
+ * A profile that never reaches minus twenty cannot say where hail would grow,
+ * and half an answer here is worse than the stated default: the reader would
+ * be told a sounding was used for a number it could not have produced.
+ */
+export function hailAir(sounding: Sounding | null): HailAir | null {
+  if (!sounding) return null;
+  const freezing = isothermHeight(sounding.levels, 0);
+  const minusTwenty = isothermHeight(sounding.levels, -20);
+  if (freezing === null || minusTwenty === null) return null;
+  if (minusTwenty <= freezing) return null;
+  return {
+    freezingKm: freezing / 1000,
+    minusTwentyKm: minusTwenty / 1000,
+    source: sounding.label,
+  };
 }

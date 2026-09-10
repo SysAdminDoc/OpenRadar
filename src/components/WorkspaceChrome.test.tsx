@@ -58,6 +58,7 @@ function sweepOf(live: boolean): SweepImage {
     nextChunkAt: null,
     volumeEndsAt: null,
     stormMotion: null,
+    hailHeights: null,
     product: "Reflectivity",
     unit: "dBZ",
     elevationDegrees: 0.48,

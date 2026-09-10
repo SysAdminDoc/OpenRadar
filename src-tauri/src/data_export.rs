@@ -372,8 +372,8 @@ fn polar_csv_capped(
     if values.dealiased {
         derivation.push("velocity unfolded past the radar's Nyquist limit".to_string());
     }
-    if let Some(kind) = values.derived {
-        derivation.push(crate::shear::derivation(kind));
+    if let Some(line) = values.derivation.clone() {
+        derivation.push(line);
     }
     if let Some(motion) = values.storm_motion {
         derivation.push(format!(
@@ -1128,7 +1128,7 @@ mod tests {
             collected: DateTime::from_timestamp(1_756_747_931, 0),
             dealiased: false,
             storm_motion: None,
-            derived: None,
+            derivation: None,
             field,
         }
     }

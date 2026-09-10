@@ -29,6 +29,13 @@ pub struct SweepRequest<'a> {
     /// nearest one. The picture only; the numbers a reader inspects and the
     /// numbers an export writes are the gates themselves either way.
     pub smooth: bool,
+    /// The two heights the hail algorithm weights between, from whatever
+    /// sounding the workspace has loaded.
+    ///
+    /// Absent when none is, and the standard atmosphere is used instead. It
+    /// arrives from outside because it is a property of the air rather than of
+    /// the radar, and the picture says which of the two it was drawn with.
+    pub isotherms: Option<derive::Isotherms<'a>>,
     /// The ground to draw over, west, south, east and north, or the whole
     /// disc when nothing is asked for.
     ///
@@ -73,9 +80,9 @@ pub(crate) struct SweepValues {
     pub dealiased: bool,
     /// The motion subtracted, on a storm relative product.
     pub storm_motion: Option<StormMotion>,
-    /// Which derivation produced these readings, when they are not a moment
-    /// the radar recorded. The export says how it was worked out.
-    pub derived: Option<shear::Kind>,
+    /// How these readings were worked out, when they are not a moment the
+    /// radar recorded. The export writes it into the header.
+    pub derivation: Option<String>,
     pub field: SweepField,
 }
 
@@ -107,7 +114,7 @@ pub(crate) fn sweep_values(
         collected,
         dealiased: prepared.dealiased,
         storm_motion: prepared.storm_motion,
-        derived: prepared.derived,
+        derivation: prepared.derivation,
         field: prepared.chosen.field,
     })
 }
@@ -148,7 +155,16 @@ pub(crate) fn export_request<'a>(
     // export of the readings is not drawn.
     // Values rather than a picture, so neither the threshold nor any of the
     // drawing options apply.
-    requested_sweep(product, tilt, dealias, motion, None, Look::default(), None)
+    requested_sweep(
+        product,
+        tilt,
+        dealias,
+        motion,
+        None,
+        None,
+        Look::default(),
+        None,
+    )
 }
 
 /// The same, from a scan that has already been put together.
@@ -200,7 +216,11 @@ pub(crate) struct Prepared {
     label: &'static str,
     unit: &'static str,
     /// Which derivation this cut holds, when it is not the moment itself.
-    derived: Option<shear::Kind>,
+    derived: Option<Worked>,
+    /// The air a hail size was worked out against, on that product alone.
+    hail_heights: Option<HailHeights>,
+    /// One sentence saying how the readings were arrived at, for the export.
+    derivation: Option<String>,
     /// The gates a debris signature was found at, on the same geometry.
     debris: Option<SweepField>,
 }
@@ -225,8 +245,10 @@ pub(crate) fn prepare_sweep(
         persistence: _,
         reduced_motion: _,
         smooth: _,
+        isotherms,
         within: _,
     } = asked;
+    let isotherms = isotherms.unwrap_or_default();
     let (product, label, unit) = product_from_name(product_name)
         .ok_or_else(|| Level2Error::NoSweep(station.to_string(), product_name.to_string()))?;
 
@@ -248,18 +270,19 @@ pub(crate) fn prepare_sweep(
     // its neighbour. Unfolding is not a preference here, it is the difference
     // between rotation and an artefact, and a cut whose folding velocity the
     // volume does not carry cannot be derived at all.
-    let derived = derived_from_name(product_name);
+    let derived = worked_from_name(product_name);
     // Storm relative is the same moment with the ambient wind taken out, and
     // the wind is read off the sweep, so a folded sweep has to be unfolded
     // first whatever the switch says. A fit against a folded field collapses:
     // measured on a 20 m/s wind folded at 8, it comes back with 1.4.
     let mut dealiased = false;
     let mut unfolding = dealias::Dealiased::default();
-    if (unfold || storm_relative || derived.is_some()) && product == Product::Velocity {
+    let turning = matches!(derived, Some(Worked::Turning(_)));
+    if (unfold || storm_relative || turning) && product == Product::Velocity {
         if let Some(nyquist) = nyquist_for(chosen.elevation_number) {
             unfolding = unfold_velocity(&mut chosen.field, nyquist);
             dealiased = unfolding.moved > 0;
-        } else if derived.is_some() {
+        } else if turning {
             return Err(Level2Error::NoSweep(station.to_string(), label.to_string()));
         } else if storm_relative && manual_motion.is_none() {
             // No Nyquist velocity means no unfolding, and a wind read off a
@@ -288,12 +311,47 @@ pub(crate) fn prepare_sweep(
     }
 
     let mut debris = None;
-    if let Some(kind) = derived {
-        let beside = Alongside::at(scan, chosen.elevation_degrees);
-        let found = shear::derive(&chosen.field, beside.beside(), kind)
-            .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
-        chosen.field = found.field;
-        debris = found.debris;
+    let mut hail_heights = None;
+    let derivation = match derived {
+        Some(Worked::Turning(kind)) => Some(shear::derivation(kind)),
+        Some(Worked::Column(kind)) => Some(derive::derivation(kind, &isotherms)),
+        None => None,
+    };
+    match derived {
+        Some(Worked::Turning(kind)) => {
+            let beside = Alongside::at(scan, chosen.elevation_degrees);
+            let found = shear::derive(&chosen.field, beside.beside(), kind)
+                .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
+            chosen.field = found.field;
+            debris = found.debris;
+        }
+        Some(Worked::Column(kind)) => {
+            if kind == derive::Kind::HailSize {
+                hail_heights = Some(HailHeights {
+                    freezing_km: isotherms.freezing_km,
+                    minus_twenty_km: isotherms.minus_twenty_km,
+                    source: isotherms.source.to_string(),
+                    standard: asked.isotherms.is_none(),
+                });
+            }
+            // Not a cut at all: the whole volume, worked into the column over
+            // each point of ground. The chosen sweep is still what says when
+            // the picture was collected, which is the lowest cut's own time.
+            let site = registry::site_by_id(station)
+                .ok_or_else(|| Level2Error::UnknownSite(station.to_string()))?;
+            let antenna_km =
+                RadarCoordinateSystem::new(&site.to_site()).antenna_height_meters() / 1000.0;
+            let found = derive::derive(scan, kind, &isotherms, antenna_km)
+                .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
+            chosen.field = found.field;
+            debris = found.flagged;
+            // A column has no elevation. Reporting the cut this happened to be
+            // chosen from would put a tilt beside a picture that is every tilt
+            // at once, and the page reads this number to say what it is
+            // looking at and how high the beam was over the cursor.
+            chosen.elevation_degrees = 0.0;
+        }
+        None => {}
     }
 
     Ok(Prepared {
@@ -305,6 +363,8 @@ pub(crate) fn prepare_sweep(
         label,
         unit,
         derived,
+        hail_heights,
+        derivation,
         debris,
     })
 }
@@ -349,6 +409,8 @@ pub(crate) fn draw_sweep(
         label,
         unit,
         derived,
+        hail_heights,
+        derivation: _,
         debris,
     } = prepared;
     let threshold = asked.threshold;
@@ -461,6 +523,7 @@ pub(crate) fn draw_sweep(
             .unwrap_or_else(|| station.to_string()),
         product: label.to_string(),
         unit: unit.to_string(),
+        hail_heights,
         dealiased,
         // The larger of the two halves of a composite, not the newer one.
         // Both halves go through the same unfolding and both are on screen, so

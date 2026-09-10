@@ -2,6 +2,8 @@
 
 use super::*;
 
+use serde::Deserialize;
+
 /// The answers to "how should this be drawn" that are not about what is in
 /// the volume.
 ///
@@ -17,11 +19,27 @@ pub struct Look {
     pub smooth: bool,
 }
 
+/// The two heights the hail algorithm weights between, as the page sends them.
+///
+/// The workspace has a sounding when the reader has looked at one, and the
+/// native side has none at all: it decodes radar. So the freezing level and the
+/// minus twenty height come across with the request, along with what the page
+/// calls that sounding, and the picture says which it was drawn with.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HailAir {
+    pub freezing_km: f64,
+    pub minus_twenty_km: f64,
+    pub source: String,
+}
+
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn requested_sweep<'a>(
     product: &'a str,
     tilt: usize,
     dealias: bool,
     motion: Option<(f32, f32)>,
+    air: Option<&'a HailAir>,
     threshold: Option<f32>,
     look: Look,
     // The ground to draw over, when the page has asked for less than the disc.
@@ -46,6 +64,11 @@ pub(crate) fn requested_sweep<'a>(
         persistence: look.persistence,
         reduced_motion: look.reduced_motion,
         smooth: look.smooth,
+        isotherms: air.map(|air| derive::Isotherms {
+            freezing_km: air.freezing_km,
+            minus_twenty_km: air.minus_twenty_km,
+            source: &air.source,
+        }),
         within,
     }
 }
@@ -86,6 +109,10 @@ pub async fn level2_sweep(
     // only: the number the inspector answers with and the numbers an export
     // writes are the gates themselves either way.
     smooth: bool,
+    // The freezing level and the minus twenty height, from whatever sounding
+    // the workspace has loaded. Absent where it has none, and the standard
+    // atmosphere is used instead. Only hail size reads it.
+    air: Option<HailAir>,
     // The ground to draw over, west, south, east and north, or nothing for
     // the whole disc.
     //
@@ -137,6 +164,7 @@ pub async fn level2_sweep(
             tilt,
             dealias,
             motion,
+            air.as_ref(),
             threshold,
             Look {
                 high_contrast,
@@ -264,6 +292,10 @@ pub async fn level2_archive_sweep(
     motion: Option<(f32, f32)>,
     threshold: Option<f32>,
     high_contrast: bool,
+    // The freezing level and the minus twenty height, from whatever sounding
+    // the workspace has loaded. Absent where it has none, and the standard
+    // atmosphere is used instead. Only hail size reads it.
+    air: Option<HailAir>,
     // The ground to draw over, so a frame the loop holds covers the same
     // place as the live sweep beside it.
     within: Option<[f64; 4]>,
@@ -283,6 +315,7 @@ pub async fn level2_archive_sweep(
             tilt,
             dealias,
             motion,
+            air.as_ref(),
             threshold,
             Look {
                 high_contrast,
@@ -312,6 +345,10 @@ pub async fn level2_local_sweep(
     motion: Option<(f32, f32)>,
     threshold: Option<f32>,
     high_contrast: bool,
+    // The freezing level and the minus twenty height, from whatever sounding
+    // the workspace has loaded. Absent where it has none, and the standard
+    // atmosphere is used instead. Only hail size reads it.
+    air: Option<HailAir>,
     // The ground to draw over. None on a file the reader has just opened, and
     // a box on every ask after that: the first answer is what says where the
     // file's own site reaches, and the box is measured on that rather than on
@@ -328,6 +365,7 @@ pub async fn level2_local_sweep(
             tilt,
             dealias,
             motion,
+            air.as_ref(),
             threshold,
             Look {
                 high_contrast,

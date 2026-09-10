@@ -28,6 +28,7 @@ import {
   forecastSounding,
   nearestSite,
   observedSounding,
+  rememberSounding,
   type Sounding,
 } from "../lib/sounding";
 
@@ -186,6 +187,10 @@ function SoundingView({
       .then((sounding) => {
         if (request !== requestRef.current) return;
         setAnswer({ sounding, error: null });
+        // Left where the radar can read it. Hail size is worked out between
+        // the freezing level and minus twenty, and this chart is the only
+        // place in the app that knows either of them.
+        rememberSounding(sounding);
       })
       .catch((failure: unknown) => {
         if (request !== requestRef.current) return;

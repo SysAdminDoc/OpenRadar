@@ -19,6 +19,7 @@ mod crash;
 mod cross_section;
 mod data_export;
 mod dealias;
+mod derive;
 mod display;
 mod exports;
 #[cfg(test)]

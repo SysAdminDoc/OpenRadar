@@ -113,6 +113,15 @@ export function loopKey(parts: {
   motion: [number, number] | null;
   threshold: number | null;
   palette: number;
+  /**
+   * How many times the workspace has changed its mind about the air.
+   *
+   * Hail size is worked out between the freezing level and minus twenty, and a
+   * frame drawn before a sounding was loaded was drawn against the standard
+   * atmosphere. It is not a wrong picture, but it is not the one the reader can
+   * now have, and without this in the key nothing would ask for that one.
+   */
+  air: number;
   highContrast: boolean;
   /**
    * The ground the frame was drawn over, or null for the site's whole reach.
@@ -132,6 +141,7 @@ export function loopKey(parts: {
     parts.motion,
     parts.threshold,
     parts.palette,
+    parts.air,
     parts.highContrast,
     parts.within,
   ]);

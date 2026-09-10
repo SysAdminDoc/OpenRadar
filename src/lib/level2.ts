@@ -4,6 +4,7 @@ import { translate, type StringKey } from "../i18n";
 import { nativeErrorParams } from "./nativeError";
 import { en } from "../i18n/en";
 import { haversineMiles } from "./geo";
+import { heldHailAir } from "./sounding";
 import { formatDistance } from "./units";
 
 /** Below this the national mosaic is the better picture, and cheaper. */
@@ -49,6 +50,25 @@ export const LEVEL2_PRODUCTS = [
     unit: "0.001/s",
   },
   { id: "rotation", key: "product.rotation", unit: "NROT" },
+  // The other axis: not one cut but the column over each point of ground,
+  // which is where a storm's depth, the water in it and the hail it could be
+  // making all live. A composite is reflectivity, so it keeps that unit and
+  // that scale.
+  {
+    id: "composite-reflectivity",
+    column: true,
+    key: "product.compositeReflectivity",
+    unit: "dBZ",
+  },
+  { id: "echo-top", column: true, key: "product.echoTop", unit: "km" },
+  { id: "vil", column: true, key: "product.vil", unit: "kg/m2" },
+  {
+    id: "vil-density",
+    column: true,
+    key: "product.vilDensity",
+    unit: "g/m3",
+  },
+  { id: "hail-size", column: true, key: "product.hailSize", unit: "mm" },
   // A terminal radar's alone: reflectivity to 225 nautical miles on 300 m
   // gates. A WSR-88D's capabilities leave it out.
   {
@@ -60,6 +80,8 @@ export const LEVEL2_PRODUCTS = [
   id: string;
   key: StringKey;
   unit: string;
+  /** True for a product worked out of the whole volume rather than one cut. */
+  column?: boolean;
 }>;
 
 export type Level2ProductId = (typeof LEVEL2_PRODUCTS)[number]["id"];
@@ -67,8 +89,33 @@ export type Level2ProductId = (typeof LEVEL2_PRODUCTS)[number]["id"];
 /** Which kind of radar drew a sweep, which decides its products and reach. */
 export type RadarKind = "WSR-88D" | "TDWR";
 
+/**
+ * Whether a product is the whole volume rather than one cut of it.
+ *
+ * Five of them are, and none of those has a tilt: the reading over a point of
+ * ground came from every beam that passed through the column above it. So the
+ * picker has nothing to offer, the line under the picture has no angle to name,
+ * and the beam height under the cursor is a question about a cut that was never
+ * chosen. Saying 0.48 degrees beside an echo top would be inventing one.
+ */
+export function isColumnProduct(id: string): boolean {
+  return LEVEL2_PRODUCTS.some(
+    (product) => product.id === id && "column" in product,
+  );
+}
+
 export function isLevel2Product(value: unknown): value is Level2ProductId {
   return LEVEL2_PRODUCTS.some((product) => product.id === value);
+}
+
+/** The two heights a hail size was worked out between. */
+export interface HailHeights {
+  freezingKm: number;
+  minusTwentyKm: number;
+  /** What the sounding was called, or the standard atmosphere. */
+  source: string;
+  /** True when no sounding was loaded and the stated default was used. */
+  standard: boolean;
 }
 
 /** The motion subtracted from a storm relative sweep. */
@@ -117,6 +164,15 @@ export interface SweepImage {
   unplacedShare: number;
   /** What was taken out to make a storm relative sweep, when one was. */
   stormMotion: StormMotion | null;
+  /**
+   * The air a hail size was worked out against, on that product alone.
+   *
+   * Carried on the picture rather than read off the workspace beside it: the
+   * sweep on screen may have been drawn before the sounding the reader now has
+   * was loaded, and what they are owed is the air the number in front of them
+   * came from.
+   */
+  hailHeights: HailHeights | null;
   product: string;
   unit: string;
   elevationDegrees: number;
@@ -288,6 +344,11 @@ export async function fetchSweep(
     persistence,
     reducedMotion,
     smooth,
+    // Whatever the workspace knows about the air, read here rather than
+    // handed down: it is not a choice any caller makes, and only hail size
+    // reads it. Absent where no sounding has been loaded, and the native side
+    // says on the picture which of the two it used.
+    air: heldHailAir(),
     within,
   });
 }
@@ -381,6 +442,11 @@ export async function fetchArchiveSweep(
     motion,
     threshold,
     highContrast,
+    // Whatever the workspace knows about the air, read here rather than
+    // handed down: it is not a choice any caller makes, and only hail size
+    // reads it. Absent where no sounding has been loaded, and the native side
+    // says on the picture which of the two it used.
+    air: heldHailAir(),
     within,
   });
 }
@@ -408,6 +474,11 @@ export async function fetchLocalSweep(
     motion,
     threshold,
     highContrast,
+    // Whatever the workspace knows about the air, read here rather than
+    // handed down: it is not a choice any caller makes, and only hail size
+    // reads it. Absent where no sounding has been loaded, and the native side
+    // says on the picture which of the two it used.
+    air: heldHailAir(),
     within,
   });
 }

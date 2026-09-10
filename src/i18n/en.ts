@@ -727,6 +727,11 @@ export const en = {
   "radar.stormMotionSpeed": "Speed ({unit})",
   "radar.stormMotionFrom": "From",
   "radar.stormMotionClear": "Read it from the sweep instead",
+  "radar.hailAir": "Air the size was read against",
+  "radar.hailAirStandard":
+    "The standard atmosphere, because no sounding is loaded",
+  "radar.hailAirSounding": "From {source}",
+  "radar.hailAirHeights": "Freezing at {freezing}, minus twenty at {cold}",
   "product.velocity": "Velocity",
   "product.spectrumWidth": "Spectrum width",
   "product.differential": "Differential reflectivity",
@@ -734,6 +739,11 @@ export const en = {
   "product.longRange": "Long range reflectivity",
   "product.azimuthalShear": "Azimuthal shear",
   "product.rotation": "Rotation",
+  "product.compositeReflectivity": "Composite reflectivity",
+  "product.echoTop": "Echo top",
+  "product.vil": "Vertically integrated liquid",
+  "product.vilDensity": "VIL density",
+  "product.hailSize": "Hail size",
   "radar.eyebrow": "Radar product",
   "radar.title": "Composite Radar",
   "radar.composite": "Composite reflectivity",
@@ -780,6 +790,8 @@ export const en = {
   "radar.dealiasDetail":
     "A wind faster than the radar can measure wraps around and is drawn as if it were blowing the other way. This puts it back.",
   "radar.sweepLine": "{station} · {site} · {product} at {tilt}° · {age}",
+  "radar.columnSweepLine": "{station} · {site} · {product} · {age}",
+  "radar.columnHistoricalSweepLine": "{station}, {site}, {product}, {time}",
   "radar.historicalSweepLine":
     "{station}, {site}, {product} at {tilt} degrees, {time}",
   "radar.justIn": "just in",
@@ -809,6 +821,8 @@ export const en = {
   "radar.error.invalidTime": "{at} is not a UTC date and time.",
   "radar.error.localRead": "The selected file could not be read: {reason}",
   "radar.error.localTooLarge": "The selected file is larger than 128 MB.",
+  "radar.error.noSection":
+    "{product} is already an answer about the whole column, so there is no slice to take.",
   "radar.error.outOfRange":
     "Both ends of a cross-section have to be within range of {station}.",
   "radar.error.httpStatus": "The radar archive {answer}.",
@@ -1633,6 +1647,10 @@ export const en = {
   "chrome.composite": "Composite Radar",
   "chrome.sweepProduct": "{station} {product}",
   "chrome.tilt": "{degrees}° TILT",
+  "chrome.column": "WHOLE VOLUME",
+  "chrome.columnHistorical": "WHOLE VOLUME, HISTORICAL",
+  "chrome.columnLoop": "WHOLE VOLUME · VOLUME {index} OF {count}, {time}",
+  "chrome.columnLive": "WHOLE VOLUME · LIVE, {seconds} SEC OLD",
   "chrome.tiltHistorical": "{degrees}° TILT, HISTORICAL",
   "chrome.tiltLoop": "{degrees}° TILT · VOLUME {index} OF {count}, {time}",
   "chrome.levelTwoLate": "NOT HEARD FROM FOR {age}",

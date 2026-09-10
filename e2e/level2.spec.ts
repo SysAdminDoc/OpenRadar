@@ -43,8 +43,21 @@ async function fakeNativeSide(page: Page) {
           // the native side answers with its own labels and units for.
           "azimuthal-shear": ["Azimuthal shear", "0.001/s"],
           rotation: ["Rotation", "NROT"],
+          // The column over each point of ground rather than one cut of it.
+          "composite-reflectivity": ["Composite reflectivity", "dBZ"],
+          "echo-top": ["Echo top", "km"],
+          vil: ["Vertically integrated liquid", "kg/m2"],
+          "vil-density": ["VIL density", "g/m3"],
+          "hail-size": ["Hail size", "mm"],
         };
         const tilts = [0.48, 0.87, 1.31, 1.8];
+        const COLUMN_PRODUCTS = new Set([
+          "composite-reflectivity",
+          "echo-top",
+          "vil",
+          "vil-density",
+          "hail-size",
+        ]);
         const [label, unit] = products[product] ?? ["Reflectivity", "dBZ"];
         return {
           station,
@@ -63,9 +76,26 @@ async function fakeNativeSide(page: Page) {
                   manual: motion !== null,
                 }
               : null,
+          // The air the size was read against, which the native side answers
+          // with on that product alone. Standard here, because nothing in
+          // this stub has looked at a sounding.
+          hailHeights:
+            product === "hail-size"
+              ? {
+                  freezingKm: 2.3077,
+                  minusTwentyKm: 5.3846,
+                  source:
+                    "the international standard atmosphere, no sounding loaded",
+                  standard: true,
+                }
+              : null,
           product: label,
           unit,
-          elevationDegrees: tilts[Math.min(tilt, tilts.length - 1)],
+          // A column has no tilt. The native side reports none, and the page
+          // reads this to decide what to say beside the picture.
+          elevationDegrees: COLUMN_PRODUCTS.has(product)
+            ? 0
+            : tilts[Math.min(tilt, tilts.length - 1)],
           tilts,
           tiltIndex: tilt,
           collected: new Date().toISOString(),
@@ -1521,6 +1551,71 @@ test("offers rotation worked out from the site's own velocity", async ({
   );
   expect(asked).toContain("azimuthal-shear");
   expect(asked).toContain("rotation");
+});
+
+test("offers the products worked out of the whole volume", async ({ page }) => {
+  // The other axis. Every other product is one cut of the volume; these are
+  // the column over each point of ground, which is where a storm's depth, the
+  // water in it and the hail it could be making live.
+  await open(page, 9);
+  await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
+  const products = page.getByRole("combobox", { name: "Level II product" });
+
+  for (const [id, label] of [
+    ["composite-reflectivity", "Composite reflectivity"],
+    ["echo-top", "Echo top"],
+    ["vil", "Vertically integrated liquid"],
+    ["vil-density", "VIL density"],
+    ["hail-size", "Hail size"],
+  ]) {
+    await expect(products.getByRole("option", { name: label })).toHaveCount(1);
+    await products.selectOption(id);
+    await expect(page.getByText(`KDMX ${label}`)).toBeVisible();
+  }
+
+  // A column has no tilt, so nothing beside it names one. The line under the
+  // picture, the eyebrow over it and the picker all have to stop, because a
+  // reading over a point of ground came from every beam that passed through
+  // the column above it and not from a cut anybody chose.
+  await expect(page.getByText(/KDMX Hail size/)).toBeVisible();
+  await expect(page.getByText(/Hail size at [\d.]+°/)).toHaveCount(0);
+  await expect(
+    page.getByRole("combobox", { name: "Level II tilt" }),
+  ).toHaveCount(0);
+  await expect(page.getByText(/WHOLE VOLUME/)).toBeVisible();
+
+  // And the air it was read against is named, which is the standard
+  // atmosphere until a sounding has been looked at.
+  const air = page.locator("[data-hail-air]");
+  await expect(air).toContainText("no sounding is loaded");
+  await expect(air).toContainText("Freezing at");
+
+  // Back on a cut, the tilt is there again.
+  await products.selectOption("reflectivity");
+  await expect(
+    page.getByRole("combobox", { name: "Level II tilt" }),
+  ).toHaveCount(1);
+
+  // Each was asked for by name, so the native side is working the column out
+  // rather than the page relabelling one cut.
+  const asked = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __sweepCalls: Array<{ command: string; args: Record<string, unknown> }>;
+      }
+    ).__sweepCalls
+      .filter((call) => call.command === "level2_sweep")
+      .map((call) => call.args.product),
+  );
+  for (const id of [
+    "composite-reflectivity",
+    "echo-top",
+    "vil",
+    "vil-density",
+    "hail-size",
+  ]) {
+    expect(asked).toContain(id);
+  }
 });
 
 test("rings a storm cell in the lightness the basemap is not", async ({

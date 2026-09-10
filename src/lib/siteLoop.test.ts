@@ -132,6 +132,7 @@ describe("what one rendered volume is held under", () => {
       motion: null,
       threshold: null,
       palette: 1,
+      air: 0,
       highContrast: false,
       within: null,
     } as const;
@@ -207,6 +208,7 @@ describe("which frames a held picture answers for", () => {
     motion: null,
     threshold: null,
     palette: 1,
+    air: 0,
     highContrast: false,
   } as const;
 

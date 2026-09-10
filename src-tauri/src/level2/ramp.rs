@@ -2,27 +2,51 @@
 
 use super::*;
 
+/// A product that is worked out rather than recorded.
+///
+/// Two families, and what separates them is which axis they run along. One cut
+/// of velocity has a derivative across the beam, which is rotation; the whole
+/// volume has a column over each point of ground, which is everything a storm's
+/// depth says. Neither is a `Product`, because a `Product` is a moment the
+/// radar wrote down.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Worked {
+    Turning(shear::Kind),
+    Column(derive::Kind),
+}
+
 /// Which derivation a product name asks for, when it asks for one.
 ///
-/// Neither of these is a moment the radar recorded, so neither is a `Product`:
-/// both are worked out from the velocity of the same cut, and the name is what
-/// says which. Kept beside the table below because the two answers have to
-/// agree about what a name means.
-pub fn derived_from_name(name: &str) -> Option<shear::Kind> {
+/// Kept beside the table below because the two answers have to agree about
+/// what a name means.
+pub fn worked_from_name(name: &str) -> Option<Worked> {
     match name {
-        "azimuthal-shear" => Some(shear::Kind::AzimuthalShear),
-        "rotation" => Some(shear::Kind::Rotation),
+        "azimuthal-shear" => Some(Worked::Turning(shear::Kind::AzimuthalShear)),
+        "rotation" => Some(Worked::Turning(shear::Kind::Rotation)),
+        "composite-reflectivity" => Some(Worked::Column(derive::Kind::Composite)),
+        "echo-top" => Some(Worked::Column(derive::Kind::EchoTop)),
+        "vil" => Some(Worked::Column(derive::Kind::Vil)),
+        "vil-density" => Some(Worked::Column(derive::Kind::VilDensity)),
+        "hail-size" => Some(Worked::Column(derive::Kind::HailSize)),
         _ => None,
     }
 }
 
 /// The products a caller may ask for, kept as plain names the frontend can send.
 pub fn product_from_name(name: &str) -> Option<(Product, &'static str, &'static str)> {
-    if let Some(kind) = derived_from_name(name) {
-        let (label, unit) = shear::named(kind);
-        // Both are read off the Doppler cut, so that is the moment fetched and
-        // unfolded before either is worked out.
-        return Some((Product::Velocity, label, unit));
+    match worked_from_name(name) {
+        // Rotation is read off the Doppler cut, so that is the moment fetched
+        // and unfolded before it is worked out.
+        Some(Worked::Turning(kind)) => {
+            let (label, unit) = shear::named(kind);
+            return Some((Product::Velocity, label, unit));
+        }
+        // A column is built out of reflectivity, every cut of it.
+        Some(Worked::Column(kind)) => {
+            let (label, unit) = derive::named(kind);
+            return Some((Product::Reflectivity, label, unit));
+        }
+        None => {}
     }
     match name {
         "reflectivity" => Some((Product::Reflectivity, "Reflectivity", "dBZ")),
@@ -210,12 +234,121 @@ pub(crate) const HIGH_CONTRAST_SITE_ROTATION_RAMP: &[(f32, [u8; 3])] = &[
     (5.0, [0xb3, 0x4f, 0x1f]),
 ];
 
-/// The colour a gate meeting the debris criteria is marked in.
+/// The lightness ladder the column products take their high-contrast scales
+/// from.
 ///
-/// Neither ramp above holds white anywhere, which is the point: the mark has
-/// to be a mark rather than another reading on the scale, and it sits over
-/// whatever the shear there was.
-pub(crate) const DEBRIS_MARK: [u8; 3] = [0xff, 0xff, 0xff];
+/// One ladder rather than four, because what a high-contrast scale has to do
+/// is the same for all of them: climb in lightness so the reading survives
+/// where hue is lost, and swing along the blue-yellow axis that both red-green
+/// deficiencies keep. Each product applies it at its own stops.
+const COLUMN_STEPS: [[u8; 3]; 6] = [
+    [0x00, 0x25, 0x6c],
+    [0x00, 0x55, 0x70],
+    [0x2f, 0x83, 0x50],
+    [0x8a, 0x9f, 0x37],
+    [0xcf, 0xb5, 0x3c],
+    [0xff, 0xf2, 0xe3],
+];
+
+/// How high the echo reaches, in kilometres above sea level.
+///
+/// The top of the ramp is where a storm has run out of atmosphere to grow
+/// into, and the stops are close together low down because the difference
+/// between a six kilometre top and a nine is the difference between rain and
+/// a storm worth watching.
+pub(crate) const ECHO_TOP_RAMP: &[(f32, [u8; 3])] = &[
+    (2.0, [0x38, 0xbd, 0xf8]),
+    (5.0, [0x4a, 0xde, 0x80]),
+    (8.0, [0xfa, 0xcc, 0x15]),
+    (11.0, [0xfb, 0x92, 0x3c]),
+    (14.0, [0xf4, 0x3f, 0x5e]),
+    (18.0, [0xc0, 0x26, 0xd3]),
+];
+
+pub(crate) const HIGH_CONTRAST_ECHO_TOP_RAMP: &[(f32, [u8; 3])] = &[
+    (2.0, COLUMN_STEPS[0]),
+    (5.0, COLUMN_STEPS[1]),
+    (8.0, COLUMN_STEPS[2]),
+    (11.0, COLUMN_STEPS[3]),
+    (14.0, COLUMN_STEPS[4]),
+    (18.0, COLUMN_STEPS[5]),
+];
+
+/// The depth of water the column holds, in kilograms a square metre.
+pub(crate) const VIL_RAMP: &[(f32, [u8; 3])] = &[
+    (1.0, [0x38, 0xbd, 0xf8]),
+    (10.0, [0x4a, 0xde, 0x80]),
+    (20.0, [0xfa, 0xcc, 0x15]),
+    (35.0, [0xfb, 0x92, 0x3c]),
+    (50.0, [0xf4, 0x3f, 0x5e]),
+    (70.0, [0xc0, 0x26, 0xd3]),
+];
+
+pub(crate) const HIGH_CONTRAST_VIL_RAMP: &[(f32, [u8; 3])] = &[
+    (1.0, COLUMN_STEPS[0]),
+    (10.0, COLUMN_STEPS[1]),
+    (20.0, COLUMN_STEPS[2]),
+    (35.0, COLUMN_STEPS[3]),
+    (50.0, COLUMN_STEPS[4]),
+    (70.0, COLUMN_STEPS[5]),
+];
+
+/// The same water spread over the depth it is spread over, in grams a cubic
+/// metre.
+///
+/// Three and a half is the number this product is read for: above it the
+/// column is holding more than rain can account for, whatever its VIL says,
+/// and that is where the ramp turns.
+pub(crate) const VIL_DENSITY_RAMP: &[(f32, [u8; 3])] = &[
+    (0.5, [0x38, 0xbd, 0xf8]),
+    (1.5, [0x4a, 0xde, 0x80]),
+    (2.5, [0xfa, 0xcc, 0x15]),
+    (3.5, [0xfb, 0x92, 0x3c]),
+    (4.5, [0xf4, 0x3f, 0x5e]),
+    (6.0, [0xc0, 0x26, 0xd3]),
+];
+
+pub(crate) const HIGH_CONTRAST_VIL_DENSITY_RAMP: &[(f32, [u8; 3])] = &[
+    (0.5, COLUMN_STEPS[0]),
+    (1.5, COLUMN_STEPS[1]),
+    (2.5, COLUMN_STEPS[2]),
+    (3.5, COLUMN_STEPS[3]),
+    (4.5, COLUMN_STEPS[4]),
+    (6.0, COLUMN_STEPS[5]),
+];
+
+/// The largest hail the column could be making, in millimetres.
+///
+/// Two of these stops are the numbers the warning is written against rather
+/// than round numbers: 25.4 is the inch that makes a storm severe and 50.8 is
+/// the two inches that makes it significant. A threshold that falls between
+/// stops is a threshold nobody can find on the bar.
+pub(crate) const HAIL_SIZE_RAMP: &[(f32, [u8; 3])] = &[
+    (5.0, [0x38, 0xbd, 0xf8]),
+    (15.0, [0x4a, 0xde, 0x80]),
+    (25.4, [0xfa, 0xcc, 0x15]),
+    (38.0, [0xfb, 0x92, 0x3c]),
+    (50.8, [0xf4, 0x3f, 0x5e]),
+    (75.0, [0xc0, 0x26, 0xd3]),
+];
+
+pub(crate) const HIGH_CONTRAST_HAIL_SIZE_RAMP: &[(f32, [u8; 3])] = &[
+    (5.0, COLUMN_STEPS[0]),
+    (15.0, COLUMN_STEPS[1]),
+    (25.4, COLUMN_STEPS[2]),
+    (38.0, COLUMN_STEPS[3]),
+    (50.8, COLUMN_STEPS[4]),
+    (75.0, COLUMN_STEPS[5]),
+];
+
+/// The colour a gate carrying a signature is marked in.
+///
+/// No ramp above holds white anywhere, which is the point: a mark has to be a
+/// mark rather than another reading on the scale, and it sits over whatever
+/// the reading there was. Two products carry one, a tornado debris signature
+/// on rotation and a three-body scatter spike on hail size, and each says in
+/// its own legend what its mark means.
+pub(crate) const FLAG_MARK: [u8; 3] = [0xff, 0xff, 0xff];
 
 /// Low to high across whatever the moment's own range is.
 pub(crate) const GENERIC_RAMP: &[(f32, [u8; 3])] = &[

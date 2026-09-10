@@ -277,7 +277,16 @@ pub async fn level2_gate(
     };
 
     tauri::async_runtime::spawn_blocking(move || {
-        let asked = requested_sweep(&product, tilt, dealias, motion, None, Look::default(), None);
+        let asked = requested_sweep(
+            &product,
+            tilt,
+            dealias,
+            motion,
+            None,
+            None,
+            Look::default(),
+            None,
+        );
         let site = registry::site_by_id(&station)
             .ok_or_else(|| Level2Error::UnknownSite(station.to_string()))?;
         let coordinates = RadarCoordinateSystem::new(&site.to_site());

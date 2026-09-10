@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { isothermHeight } from "./thermo";
 import {
   SOUNDING_SITES,
+  hailAir,
+  hailAirGeneration,
+  heldHailAir,
+  rememberSounding,
+  subscribeHailAir,
+  type Sounding,
   forecastUrl,
   launchHour,
   nearestSite,
@@ -273,4 +280,76 @@ describe.runIf(LIVE)("against the live service", () => {
       );
     }
   }, 30_000);
+});
+
+/** A profile that crosses both temperatures the hail algorithm asks about. */
+function profile(): Sounding {
+  const levels = [
+    { pressure: 1000, height: 100, temperature: 24, dewpoint: 20 },
+    { pressure: 850, height: 1500, temperature: 12, dewpoint: 8 },
+    { pressure: 700, height: 3100, temperature: 0, dewpoint: -4 },
+    { pressure: 500, height: 5800, temperature: -12, dewpoint: -20 },
+    { pressure: 400, height: 7300, temperature: -24, dewpoint: -34 },
+  ].map((level) => ({ ...level, windKnots: null, windFrom: null }));
+  return {
+    kind: "observed",
+    label: "OAX 00Z",
+    valid: 0,
+    levels,
+    attribution: "",
+    attributionUrl: "",
+  };
+}
+
+describe("the air a hail size is worked out against", () => {
+  it("reads both heights out of a profile, in kilometres above sea level", () => {
+    const air = hailAir(profile());
+    // Zero is at 3,100 m exactly, and minus twenty is between 5,800 and 7,300:
+    // eight twelfths of the way, which is 6,800.
+    expect(air?.freezingKm).toBeCloseTo(3.1, 3);
+    expect(air?.minusTwentyKm).toBeCloseTo(6.8, 3);
+    expect(air?.source).toBe("OAX 00Z");
+  });
+
+  it("refuses a profile that never reaches minus twenty", () => {
+    const shallow = profile();
+    // Down to minus twelve and no further, so the freezing level is there and
+    // the other height is not. Half an answer is worse than the stated
+    // default: the reader would be told a sounding was used for a number it
+    // could not have produced.
+    shallow.levels = shallow.levels.slice(0, 4);
+    expect(isothermHeight(shallow.levels, 0)).toBeCloseTo(3100, 3);
+    expect(isothermHeight(shallow.levels, -20)).toBeNull();
+    expect(hailAir(shallow)).toBeNull();
+    expect(hailAir(null)).toBeNull();
+  });
+
+  it("holds what it was given and counts up only when it changes", () => {
+    rememberSounding(null);
+    const woken: number[] = [];
+    const stop = subscribeHailAir(() => woken.push(hailAirGeneration()));
+    const before = hailAirGeneration();
+
+    rememberSounding(profile());
+    expect(heldHailAir()?.source).toBe("OAX 00Z");
+    expect(hailAirGeneration()).toBe(before + 1);
+    expect(woken).toHaveLength(1);
+
+    // The same profile again is not news, and a picture already drawn against
+    // it must not be thrown away for nothing.
+    rememberSounding(profile());
+    expect(hailAirGeneration()).toBe(before + 1);
+    expect(woken).toHaveLength(1);
+
+    // Losing it is news, because the next picture goes back to the default.
+    rememberSounding(null);
+    expect(heldHailAir()).toBeNull();
+    expect(hailAirGeneration()).toBe(before + 2);
+    stop();
+
+    // And nothing is woken once it has stopped listening.
+    rememberSounding(profile());
+    expect(woken).toHaveLength(2);
+    rememberSounding(null);
+  });
 });
