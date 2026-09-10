@@ -394,14 +394,30 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
              {after} of them",
         measured.len()
     );
-    // Folded gates back on their own branch, over the stations together, on
-    // those same seven days: 0.433, 0.318, 0.316, 0.432, 0.291, 0.462 and
-    // 0.332. A fifth is under all of them with room to spare, and nothing
-    // that failed to unfold can reach it: a dealiaser that did nothing would
-    // score zero here, because no gate it left folded is back on its own
-    // branch.
+    // Folded gates back on their own branch, over the stations together.
+    //
+    // Re-recorded on 2026-09-10 because a fifth was failing on current
+    // weather: three runs that day read 0.213, 0.211 and 0.168. Nine distinct
+    // days are on record now, the seven to 2026-09-07 at 0.433, 0.318, 0.316,
+    // 0.432, 0.291, 0.462 and 0.332, and the two the fresh week added at
+    // 0.171 on 2026-09-08 and 0.414 on 2026-09-09. The five days the two
+    // recordings share read identically, which is what says the recorder is
+    // measuring the archive rather than the machine.
+    //
+    // What makes 0.171 possible, and what the old floor had not seen, is that
+    // this is a weighted mean: whichever station folds most that day sets it.
+    // On 2026-09-08 KDMX folded 105,576 of the set's 175,782 gates and
+    // rejoined 0.143 of them, and KGRR folded another 30,818 and rejoined
+    // 0.016. Two stations having a bad day is enough to halve the number
+    // however well the other four did, so a line drawn near the middle of the
+    // record is a line that fails on the weather rather than on the code.
+    //
+    // A tenth sits under the worst recorded day by a factor of one and seven
+    // tenths, and nothing that failed to unfold can reach it: a dealiaser
+    // that did nothing would score zero here, because no gate it left folded
+    // is back on its own branch.
     assert!(
-        rejoined * 5 > wrapped,
+        rejoined * 10 > wrapped,
         "only {rejoined} of {wrapped} folded gates came back to their own branch"
     );
 }
