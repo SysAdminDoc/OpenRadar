@@ -118,13 +118,24 @@ pub fn read(bytes: &[u8]) -> Result<Analysis, String> {
         return Err("the raster's georeferencing is incomplete".to_string());
     }
     let (cell_x, cell_y) = (scale[0], scale[1]);
-    // The tie point is raster (i, j, k) then model (x, y, z). A north-up grid
-    // ties its own origin, so the raster half is zero and the model half is
-    // the north-west corner.
-    let (west, north) = (tie[3], tie[4]);
     if !(cell_x > 0.0 && cell_y > 0.0) {
         return Err("the raster's cells have no size".to_string());
     }
+    // The tie point is raster (i, j, k) then model (x, y, z): the point of
+    // ground at pixel (i, j). Every file the office has published ties at
+    // (0, 0), so the model half was read as the north-west corner outright.
+    // A file tied anywhere else would have been placed by however many cells
+    // that is, with nothing said, which is the same failure this module
+    // already had once when it drew the country two hundred kilometres north.
+    //
+    // The third of each triple is the elevation, which a flat analysis has no
+    // use for and which cannot move a picture on a map.
+    let (raster_x, raster_y) = (tie[0], tie[1]);
+    if !(raster_x.is_finite() && raster_y.is_finite()) {
+        return Err("the raster's tie point is not a pixel".to_string());
+    }
+    let west = tie[3] - raster_x * cell_x;
+    let north = tie[4] + raster_y * cell_y;
     let extent = [
         west,
         north - cell_y * height as f64,
