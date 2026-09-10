@@ -1,5 +1,76 @@
 # OpenRadar Blocked Work
 
+## European radar from MET Norway and OPERA, where neither half can be drawn
+
+Found 2026-09-10, both halves checked live the same day. The item is `AUD-226`
+and is kept verbatim at the end of this entry.
+
+**MET Norway works and is keyless, and its pictures cannot be placed on a map.**
+`https://api.met.no/weatherapi/radar/2.0/available.json` answered 200 with
+`Access-Control-Allow-Origin: *` and 2,812 entries across 15 areas and 29
+types. A `nordic` / `reflectivity` / `image` fetch answered 200 with a 659 by
+761 PNG of 170,475 bytes, also with `Access-Control-Allow-Origin: *`. So the
+service is reachable, unmetered as far as anything visible says, and CORS-open.
+
+What comes back is a bare PNG with no georeferencing at all. The service's own
+documentation says only that version 2.0 "uses a Lambert Conformal Conic
+projection" and then, quoted from the page, that **"Bounding boxes and corner
+coordinates are not specified"**. There is no EPSG code, no proj4 string, no
+standard parallels and no corner pair anywhere in the documentation. Asking
+the API for them fails: `content=geotiff`, `content=tiff`, `content=json`,
+`content=xml` and `content=metadata` each answered 400 with
+`Invalid parameter 'content': Value 'geotiff' not allowed, possible values are
+image|animation`.
+
+Two other routes were tried and neither answers the question. The THREDDS
+server at `thredds.met.no` publishes
+`remotesensingradaraccr`, which is a different product: one-hour accumulated
+precipitation as NetCDF, on UTM zone 33 north at a kilometre
+(`norway.mos.sri-acrr-1h.…utm33-1000.20260910.nc`), archived by day rather than
+live, and Norway only. Its projection therefore says nothing about the PNG's.
+The catalogue root lists no reflectivity mosaic at all: its only sections are
+`arcticdata`, `metno`, `fou-kl`, `obs`, `fou-hi`, `projects` and `users`, and
+`obs.html` is a 404.
+
+Pinning an image whose corners nobody has published means guessing a
+projection and then eyeballing the coastline against the basemap until it
+looks right. That is the same class of mistake `snowfall.rs` was drawing 220
+km north of the snow for, and it is worse here because there would be no
+authority to check the guess against.
+
+**The OPERA composite's anonymous tier is already at zero.**
+`https://api.meteogate.eu/eu-eumetnet-weather-radar/collections` answered
+`HTTP/1.1 429 Too Many Requests` with `X-RateLimit-Limit: 200`,
+`X-RateLimit-Remaining: 0` and `X-RateLimit-Reset: 278`, before this session
+had made five requests to it. The anonymous pool is shared across everybody
+using it and it was drained by other callers. The item's own acceptance asks
+that "the live contract records the anonymous limit and the provider budget
+stays under it"; a budget under a limit that reads zero is no budget, and a
+live contract written against it would be red whenever somebody else had been
+using the service.
+
+**Blocked on:** a published georeferencing for the MET Norway radar images (a
+corner pair or a projection definition from MET, or a MET endpoint that serves
+the same picture as GeoTIFF), and an OPERA access route that is not the shared
+anonymous pool. The OPERA half specifically needs an API key from EUMETNET,
+which is a registration under somebody's identity and therefore not something
+this session can do. If a key is obtained, the MET Norway half is still
+blocked separately and for a different reason.
+
+The item, verbatim:
+
+```
+- [ ] AUD-226 (P3): Keyless European radar from MET Norway and the OPERA composite
+      Note 2026-09-07: HookEcho v0.12.0-beta.2 (2026-08-31) reads OPERA through a WMS bridge it hosts, which is the server class the blocked note rules out; MET Norway stays the keyless half of this item.
+      Note 2026-09-07 (evening): Nembo (fabioscarparo, 2026-09-04) reads Italian DPC radar with a 30-minute nowcast; whether the DPC API is keyless and answers cross-origin needs live validation before Italy joins this item.
+  Why: Outside NOAA, ECCC and DWD coverage the timeline falls to RainViewer, which now calls itself personal-use only and caps zoom at 7; MET Norway serves its radar with no usage restrictions and EUMETNET's OPERA composites are on MeteoGate with an anonymous tier under CC BY 4.0, which changes the `Roadmap_Blocked.md` verdict that European radar needs keys.
+  Evidence: https://api.met.no/weatherapi/radar/2.0/documentation and https://api.met.no/doc/TermsOfService (User-Agent required, 20 requests a second, CC BY 4.0); https://eumetnet.github.io/openradardata-documentation/1-ORD-API-overview/ (three composites as ODIM HDF5 and cloud-optimised GeoTIFF, anonymous tier with low rate limits, key optional); https://www.rainviewer.com/api/transition-faq.html. Needs live validation: the anonymous rate limit is undocumented as a number.
+  Touches: `src/lib/providers/` (a MET Norway PNG provider by area; a MeteoGate GeoTIFF lane through `src-tauri/src/geotiff.rs`), `src-tauri/src/http.rs` and the CSP (`api.met.no`, `api.meteogate.eu`), `docs/asset-ledger.md`, `src/lib/providers/coverage.ts` (Norway, then OPERA members), two live contracts that measure the anonymous limit, `src/i18n/*`.
+  Acceptance: Over Norway the timeline draws MET Norway radar with the CC BY credit; over OPERA members the composite draws with the EUMETNET credit and its cadence in the legend; the live contract records the anonymous limit and the provider budget stays under it; RainViewer remains only where neither reaches.
+  Complexity: L
+  Note 2026-09-04: FMI renames every radar layer in autumn 2026 (`Radar:suomi_dbz_eureffin` becomes `Radar:radar_finland_cappi_dbzh`, old names removed end of November 2026); KNMI rotated its anonymous key on 2026-06-30 (old key dead 2026-08-01); SMHI's old API docs page 404s. Use the new FMI names from the start if FMI is wired.
+```
+
 ## Three releases are built and never published, and only the owner can publish them
 
 Re-checked 2026-09-04: the published manifest still answers v0.4.0; the tree is v0.9.0 with an unreleased v0.10.0 in the changelog, so the gap is now five releases and the one-release gate below refuses to stage a build until the owner publishes.
