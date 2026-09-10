@@ -130,6 +130,7 @@ export function TidesPanel({ point, clock, onClose }: TidesPanelProps) {
       title={t("tides.title")}
       onClose={onClose}
       className="surface-panel--right"
+      busy={loading && !reading}
     >
       {loading && !reading ? (
         <div className="panel-loading">

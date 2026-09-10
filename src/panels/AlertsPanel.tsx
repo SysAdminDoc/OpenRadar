@@ -86,6 +86,7 @@ export function AlertsPanel({
       title={t("alerts.title")}
       onClose={onClose}
       className="surface-panel--right"
+      busy={loading}
     >
       {!layerOn ? (
         <div className="feature-card">

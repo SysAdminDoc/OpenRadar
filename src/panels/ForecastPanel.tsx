@@ -104,6 +104,11 @@ export function ForecastPanel({ point, onClose }: ForecastPanelProps) {
       title={t("forecast.title")}
       onClose={onClose}
       className="surface-panel--right"
+      // Saying so on the panel rather than only drawing a spinner
+      // inside it: a reader in a screen reader is in the panel, and
+      // the accessibility sweep waits on this rather than on a
+      // guess about how busy the machine is.
+      busy={!forecast && !error}
     >
       {!forecast && !error ? (
         <div className="panel-loading">

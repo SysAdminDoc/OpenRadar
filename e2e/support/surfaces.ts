@@ -92,6 +92,15 @@ export async function openSurface(page: Page, id: OpenSurface) {
   await surface.open(page);
   const dialog = page.getByRole("dialog", { name: surface.dialog });
   await expect(dialog).toBeVisible();
+  // A panel that is still fetching what it is about to show says so, and this
+  // waits for it to stop rather than for a length of time. Under the full
+  // suite the forecast sweep failed about one run in two: the panel's content
+  // arrived after the animations had settled, so axe read a tree that was
+  // still being replaced. A panel whose fetch fails stops being busy too, so
+  // this cannot hang on a service that is down.
+  await expect(dialog).not.toHaveAttribute("data-busy", "true", {
+    timeout: 15_000,
+  });
   // The panel's own animations, waited on rather than slept through. A fixed
   // three hundred milliseconds is a guess about how busy the machine is, and
   // under the full suite it was occasionally wrong: axe read a colour part of

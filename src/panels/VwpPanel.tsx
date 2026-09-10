@@ -231,6 +231,9 @@ export function VwpPanel({
       title={t("vwp.title")}
       onClose={onClose}
       className="surface-panel--right"
+      // Only once there is a site to read: with none held the panel is not
+      // waiting for anything, it is saying there is nothing to show.
+      busy={Boolean(read) && Boolean(station) && answer === null}
     >
       {!read || !station ? (
         <div className="empty-copy">

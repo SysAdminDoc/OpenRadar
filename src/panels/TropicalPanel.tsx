@@ -58,6 +58,7 @@ export function TropicalPanel({
       title={t("tropical.title")}
       onClose={onClose}
       className="surface-panel--right"
+      busy={loading}
     >
       {!layerOn ? (
         <div className="feature-card">
