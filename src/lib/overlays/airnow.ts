@@ -138,10 +138,16 @@ export function parseAirNow(text: string): OverlayData {
       properties: {
         area,
         state: words(parts[8]),
-        // Kept as the file writes them: a local clock and the zone it is in.
-        // The file carries no offset and no date on the hour, so turning
-        // this into an instant would mean guessing the zone from its
+        // Kept as the file writes them: a local date, a local clock and
+        // the zone it is in. There is no offset anywhere in the file, so
+        // turning this into an instant would mean guessing the zone from its
         // abbreviation, and "CST" alone is three different zones.
+        //
+        // The date is here because without it the hour says nothing about
+        // which day: a bucket that stopped being written would read "6:00
+        // EDT" for ever, and the freshness in the provenance table measures
+        // the age of the fetch rather than of the reading.
+        day: words(parts[1]),
         hour: words(parts[2]),
         zone: words(parts[3]),
         parameter: words(parts[11]),
@@ -249,11 +255,13 @@ export const airnowOverlay: OverlayAdapter = {
     }
     const hour = properties.hour;
     const zone = properties.zone;
+    const day = properties.day;
     if (typeof hour === "string") {
+      const clock = typeof zone === "string" ? `${hour} ${zone}` : hour;
       lines.push(
-        typeof zone === "string"
-          ? translate("airnow.measured", { hour, zone })
-          : translate("airnow.measuredAlone", { hour }),
+        typeof day === "string"
+          ? translate("airnow.measuredOn", { day, clock })
+          : translate("airnow.measuredAlone", { hour: clock }),
       );
     }
     const agency = properties.agency;

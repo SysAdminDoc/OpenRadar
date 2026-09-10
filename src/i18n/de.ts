@@ -1381,7 +1381,7 @@ export const de: Catalogue = {
   "airnow.indexAlone": "AQI {aqi}",
   "airnow.parameter": "Schlimmster Schadstoff: {parameter}",
   "airnow.actionDay": "Aktionstag für die Luftqualität",
-  "airnow.measured": "Gemessen um {hour} {zone}",
+  "airnow.measuredOn": "Gemessen am {day} um {clock}",
   "airnow.measuredAlone": "Gemessen um {hour}",
   "layer.firms": "Feuererkennungen",
   "layers.firmsDetail":

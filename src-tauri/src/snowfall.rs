@@ -276,18 +276,31 @@ fn from_mercator(y: f64) -> f64 {
 /// every total north of where it fell: two degrees of it in the middle of the
 /// country, which is Denver's snow drawn over Cheyenne. Every other grid in
 /// this app reprojects first, and `hrrr::to_image` says so in as many words.
-pub fn paint(analysis: &Analysis, high_contrast: bool) -> Picture {
+pub fn paint(analysis: &Analysis, high_contrast: bool) -> Result<Picture, String> {
     let ramp = ramp_for(high_contrast);
     let [west, south, east, north] = analysis.extent;
     let width = analysis.width;
     let top = mercator(north);
     let bottom = mercator(south);
-    // Enough rows that the tallest part of the picture, which is the top of
-    // it, keeps a row per row of grid. Mercator stretches towards the pole,
-    // so a picture sized on the average would blur the north.
+    // Enough rows that no row of the grid is skipped. The picture's row
+    // pitch in Mercator is the grid's row pitch in radians, and a grid row
+    // spans `dphi / cos(phi)` of Mercator, which is never less than `dphi`.
+    // So every grid row covers at least one picture row, and the binding
+    // case is the equatorward edge where the cosine is largest rather than
+    // the poleward one.
     let height = (((top - bottom) / (north - south).to_radians()) * analysis.height as f64)
         .round()
         .max(1.0) as usize;
+    // The same guard `hrrr::to_image` puts on its own picture, and for the
+    // same reason: the multiplier above grows without limit as a grid's
+    // north edge approaches the pole, and a sliver of a grid would size a
+    // picture in gigabytes before a single pixel was painted.
+    if height > analysis.height * 8 {
+        return Err(format!(
+            "a picture {height} rows tall for a grid of {}",
+            analysis.height
+        ));
+    }
     let mut pixels = vec![0u8; width * height * 4];
     let span = north - south;
     for row in 0..height {
@@ -320,11 +333,11 @@ pub fn paint(analysis: &Analysis, high_contrast: bool) -> Picture {
     // Longitude is linear in Mercator x, so the columns need nothing done to
     // them. `east` and `west` are read only to say that out loud.
     debug_assert!(east > west);
-    Picture {
+    Ok(Picture {
         pixels,
         width,
         height,
-    }
+    })
 }
 
 /// The key beside the map, which is the ramp said in the reader's own terms.
@@ -390,7 +403,7 @@ pub async fn snowfall_analysis(window: String, high_contrast: bool) -> Result<Sn
         };
         let drawn = tauri::async_runtime::spawn_blocking(move || {
             let analysis = read(&bytes)?;
-            let picture = paint(&analysis, high_contrast);
+            let picture = paint(&analysis, high_contrast)?;
             let png =
                 crate::level2::encode_png_sized(&picture.pixels, picture.width, picture.height)
                     .map_err(|error| error.to_string())?;

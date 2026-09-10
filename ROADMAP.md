@@ -11,6 +11,13 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
+- [ ] AUD-481 (P3): The FIRMS live contract cannot see Alaska, because Alaska is usually empty
+  Why: `firms.ts` now asks for six files, three spacecraft over two areas, and `firms.test.ts`'s live contract counts platforms rather than files. It has to: the Alaska file is header-only for most of the year, so a contract that insisted on rows from it would be red from September to May. That leaves the Alaska half of the layer held by nothing live. If NASA renames or moves that file, the layer goes back to drawing no fire in Alaska and the contract stays green.
+  Evidence: on 2026-09-10 all three Alaska files answered 200 with the right header and zero rows, while the contiguous files carried 1,238, 1,341 and 1,841. The omission of Alaska in the first version of this layer was invisible for exactly the same reason.
+  Touches: `src/lib/overlays/firms.test.ts`, and whatever records what a file answered last time it had rows in it.
+  Acceptance: The contract holds that every one of the six files answers with a readable header, separately from whether any of them carried a detection. A renamed file fails it in September as well as in July.
+  Complexity: S
+
 - [ ] AUD-480 (P3): The forecast accessibility sweep fails about one full run in two
   Why: `forecast is clean in dark, in light and with more contrast` in `e2e/accessibility.spec.ts` failed once in a full chromium run on 2026-09-10 and passed on the next full run and on every run of it alone. A gate that fails at random teaches everybody to re-run it, which is the same as not having it.
   Evidence: two full runs the same hour on the same tree, 430 passed with that one failing and then 431 passed with nothing failing. `retries` is 0, so the first run's failure was real rather than a retry. The web server log around it carries "Tropical failed: The service could not be reached" and a run of map tile failures, which is what a parallel run looks like when the network is busy.

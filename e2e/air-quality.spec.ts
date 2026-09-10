@@ -21,6 +21,10 @@ const FIRMS = `latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satell
 40.1200,-121.9000,309.42,0.4,0.37,2026-09-09,2015,N20,low,2.0NRT,293.34,1.66,D
 `;
 
+/** The header alone, which is what a file with nothing in it looks like. */
+const FIRMS_HEADER = `${FIRMS.split(String.fromCharCode(10))[0]}
+`;
+
 async function stub(page: Page, asked: string[]) {
   await page.route("**/airnow/today/reportingarea.dat*", async (route) => {
     asked.push(route.request().url());
@@ -31,8 +35,17 @@ async function stub(page: Page, asked: string[]) {
     });
   });
   await page.route("**/data/active_fire/**", async (route) => {
-    asked.push(route.request().url());
-    await route.fulfill({ status: 200, contentType: "text/csv", body: FIRMS });
+    const url = route.request().url();
+    asked.push(url);
+    // Only NOAA-20 over the contiguous states saw anything. The other five
+    // files answer with their header and no rows, which is what an ordinary
+    // quiet pass looks like and what Alaska looks like most of the year.
+    const seen = url.includes("J1_VIIRS_C2_USA_contiguous_and_Hawaii");
+    await route.fulfill({
+      status: 200,
+      contentType: "text/csv",
+      body: seen ? FIRMS : FIRMS_HEADER,
+    });
   });
 }
 
@@ -92,7 +105,10 @@ test("draws the monitor reading, its category and the hour it was measured", asy
   // The worst pollutant, which is what the index is being reported on. The
   // same area's PM10 row for the same hour is not a second dot.
   await expect(popup).toContainText("PM2.5");
-  // The hour the monitor measured, on its own clock and in its own zone.
+  // The day and hour the monitor measured, on its own clock and in its own
+  // zone. Without the day a bucket that stopped being written reads as this
+  // morning for ever.
+  await expect(popup).toContainText("09/10/26");
   await expect(popup).toContainText("6:00");
   await expect(popup).toContainText("PDT");
   await expect(popup).toContainText("Butte County AQMD");
@@ -152,8 +168,9 @@ test("asks each service once for the whole country, and a pan asks nothing", asy
   await check(page, "Fire Detections");
   await page.keyboard.press("Escape");
 
-  // One for the monitors, one per spacecraft for the detections.
-  await expect.poll(() => asked.length).toBe(3);
+  // One for the monitors, and one per spacecraft per area for the
+  // detections: three spacecraft over the contiguous states and Alaska.
+  await expect.poll(() => asked.length).toBe(7);
   for (const url of asked) {
     expect(url).not.toMatch(/bbox|bounds|lat=|lon=/i);
   }
@@ -169,5 +186,5 @@ test("asks each service once for the whole country, and a pan asks nothing", asy
     await page.mouse.up();
     await page.waitForTimeout(400 * step);
   }
-  expect(asked).toHaveLength(3);
+  expect(asked).toHaveLength(7);
 });

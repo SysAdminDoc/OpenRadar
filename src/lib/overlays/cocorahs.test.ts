@@ -3,6 +3,7 @@ import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import {
   COCORAHS_MIN_ZOOM,
   COCORAHS_REFRESH_MS,
+  COCORAHS_RETRY_MS,
   COCORAHS_STATES,
   cocorahsOverlay,
   forgetCocorahs,
@@ -237,6 +238,43 @@ describe("what people measured in their own gardens", () => {
     }
   });
 
+  it("leaves a state that would not answer alone for a while", async () => {
+    // The framework re-runs this whenever the reader pans past the box the
+    // last answer was asked for, which over one state is the same state
+    // again. A failure used to leave the state unheld, so a service that was
+    // down turned a reader following a storm line into an unbounded stream
+    // of requests, two per pan, with no ceiling.
+    const asked: string[] = [];
+    const held = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      asked.push(String(input));
+      return { ok: false, status: 503 } as Response;
+    }) as unknown as typeof fetch;
+    try {
+      const over = { west: -93.5, south: 41.4, east: -93.0, north: 41.8 };
+      const nearby = { west: -93.2, south: 41.5, east: -92.7, north: 41.9 };
+      // The one state on screen did not answer, so the layer fails rather
+      // than drawing an empty Iowa.
+      await expect(
+        cocorahsOverlay.fetchData(over, undefined, DEFAULT_OVERLAY_CHOICES),
+      ).rejects.toThrow();
+      const tried = asked.length;
+      expect(tried).toBe(2);
+
+      // And it goes on failing from what it holds, without asking again.
+      await expect(
+        cocorahsOverlay.fetchData(nearby, undefined, DEFAULT_OVERLAY_CHOICES),
+      ).rejects.toThrow();
+      expect(asked).toHaveLength(tried);
+      await expect(
+        cocorahsOverlay.fetchData(nearby, undefined, DEFAULT_OVERLAY_CHOICES),
+      ).rejects.toThrow();
+      expect(asked).toHaveLength(tried);
+    } finally {
+      globalThis.fetch = held;
+    }
+  });
+
   it("asks for nothing at all where the network does not reach", async () => {
     const asked: string[] = [];
     const held = globalThis.fetch;
@@ -295,6 +333,11 @@ describe("what people measured in their own gardens", () => {
     expect(cocorahsOverlay.refreshMs).toBe(COCORAHS_REFRESH_MS);
     expect(COCORAHS_REFRESH_MS).toBe(60 * 60_000);
     expect(cocorahsOverlay.minZoom).toBe(COCORAHS_MIN_ZOOM);
+    // A state that would not answer is left alone for a while too, but for
+    // less than the hour a good answer is kept: a service down for a minute
+    // should come back quickly.
+    expect(COCORAHS_RETRY_MS).toBeLessThan(COCORAHS_REFRESH_MS);
+    expect(COCORAHS_RETRY_MS).toBeGreaterThan(0);
     // Not `global`: the whole network is 2.7 MB and this layer asks for the
     // states on screen.
     expect(cocorahsOverlay.global).toBeFalsy();

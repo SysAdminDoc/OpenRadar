@@ -54,6 +54,11 @@ describe("what the monitors say the air is like", () => {
     // would mean guessing the zone from an abbreviation.
     expect(aberdeen.properties.hour).toBe("4:00");
     expect(aberdeen.properties.zone).toBe("CDT");
+    // And which day, which the file carries and the first version of this
+    // threw away. Without it a bucket that stopped being written reads
+    // "4:00 CDT" for ever, and the freshness in the provenance table is the
+    // age of the fetch rather than of the reading.
+    expect(aberdeen.properties.day).toBe("09/10/26");
   });
 
   it("does not read a blank index as clean air", () => {
@@ -131,6 +136,7 @@ describe("what the monitors say the air is like", () => {
     expect(lines).toContain("PM2.5");
     expect(lines).toContain("6:00");
     expect(lines).toContain("PDT");
+    expect(lines).toContain("09/10/26");
     // The flag the agency raises when it is asking people to change what
     // they do, which is the one line on this popup that is a request.
     expect(lines).toMatch(/action day/i);
