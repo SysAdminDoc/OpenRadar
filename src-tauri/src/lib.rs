@@ -300,6 +300,7 @@ pub fn run() {
             incident_packs::incident_pack_list,
             incident_packs::incident_pack_set_limit,
             incident_packs::incident_pack_create,
+            incident_packs::incident_pack_import,
             incident_packs::incident_pack_pause,
             incident_packs::incident_pack_resume,
             incident_packs::incident_pack_cancel,

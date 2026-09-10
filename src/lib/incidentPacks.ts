@@ -95,6 +95,38 @@ export function createIncidentPack(
   return native("incident_pack_create", { request });
 }
 
+/**
+ * Takes a PMTiles basemap the reader already has and puts it in the store.
+ *
+ * Every other pack in the store is one this app downloaded itself. This one
+ * arrives whole from somewhere else, so the native side reads it before it
+ * keeps it: the header, the tile type, the coverage, and one tile actually
+ * pulled out of it. A file it will not take comes back with its own reason.
+ *
+ * `attribution` is only needed where the archive does not carry one. A
+ * basemap draws with a credit line and an import with nothing to put in it is
+ * refused rather than drawn.
+ */
+export function importIncidentPack(
+  path: string,
+  name?: string,
+  attribution?: string,
+): Promise<IncidentPack> {
+  return native("incident_pack_import", { path, name, attribution });
+}
+
+/** Opens the operating system's picker for a PMTiles archive. */
+export async function pickPmTilesArchive(): Promise<string | null> {
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const chosen = await open({
+    title: translate("packs.importTitle"),
+    directory: false,
+    multiple: false,
+    filters: [{ name: "PMTiles", extensions: ["pmtiles"] }],
+  });
+  return typeof chosen === "string" ? chosen : null;
+}
+
 export function pauseIncidentPack(id: string): Promise<void> {
   return native("incident_pack_pause", { id });
 }

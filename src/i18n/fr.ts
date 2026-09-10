@@ -309,6 +309,22 @@ export const fr: Catalogue = {
   "packs.error.cancelled": "Le téléchargement s'est arrêté.",
   "packs.error.corrupt":
     "Le téléchargement n'est pas arrivé entier : il a été jeté. Réessayez.",
+  "packs.import": "Importer un fond de carte",
+  "packs.importAgain": "Importer avec ce crédit",
+  "packs.importTitle": "Choisir un fond de carte PMTiles",
+  "packs.importNote":
+    "Vous pouvez apporter un fond de carte PMTiles que vous avez déjà. OpenRadar le lit avant de le garder et affiche le crédit qu'il porte.",
+  "packs.importCredit": "À qui attribuer",
+  "packs.importNeedsCredit":
+    "Cette archive ne dit pas qui l'a faite. Saisissez le crédit sous lequel elle doit être affichée.",
+  "packs.imported": "Ce fond de carte est dans la réserve.",
+  "packs.error.importUnreadable":
+    "Ce fichier n'est pas une archive PMTiles qu'OpenRadar sache lire.",
+  "packs.error.importNotRaster":
+    "Cette archive contient des tuiles vectorielles. OpenRadar dessine un fond de carte importé comme des tuiles image et n'a pas de style pour un fond vectoriel.",
+  "packs.error.importNoCoverage":
+    "Cette archive ne dit pas quelle partie du monde elle couvre.",
+  "packs.error.importEmpty": "Cette archive ne contient aucune tuile.",
   "packs.error.refused": "OpenRadar n'a pas pu accepter cette demande.",
   "packs.error.failed":
     "Quelque chose a échoué sur cette machine et le téléchargement s'est arrêté. Le panneau Diagnostic en a le détail.",

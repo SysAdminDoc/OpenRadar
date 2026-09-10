@@ -320,6 +320,22 @@ export const de: Catalogue = {
   "packs.error.cancelled": "Der Download wurde abgebrochen.",
   "packs.error.corrupt":
     "Der Download kam nicht unversehrt an und wurde verworfen. Versuchen Sie es erneut.",
+  "packs.import": "Grundkarte importieren",
+  "packs.importAgain": "Mit diesem Nachweis importieren",
+  "packs.importTitle": "Eine PMTiles-Grundkarte wählen",
+  "packs.importNote":
+    "Sie können eine PMTiles-Grundkarte einbringen, die Sie schon haben. OpenRadar liest sie, bevor es sie behält, und zeigt den Nachweis, den sie trägt.",
+  "packs.importCredit": "Wem zuzuschreiben",
+  "packs.importNeedsCredit":
+    "Dieses Archiv sagt nicht, wer es gemacht hat. Geben Sie den Nachweis ein, unter dem es gezeigt werden soll.",
+  "packs.imported": "Diese Grundkarte liegt im Speicher.",
+  "packs.error.importUnreadable":
+    "Diese Datei ist kein PMTiles-Archiv, das OpenRadar lesen kann.",
+  "packs.error.importNotRaster":
+    "Dieses Archiv enthält Vektorkacheln. OpenRadar zeichnet eine importierte Grundkarte als Bildkacheln und hat für eine Vektorkarte keinen Stil.",
+  "packs.error.importNoCoverage":
+    "Dieses Archiv sagt nicht, welchen Teil der Welt es abdeckt.",
+  "packs.error.importEmpty": "Dieses Archiv enthält keine Kacheln.",
   "packs.error.refused": "OpenRadar konnte diese Anfrage nicht annehmen.",
   "packs.error.failed":
     "Auf diesem Rechner ist etwas schiefgegangen und der Download hat aufgehört. Im Diagnosefeld stehen die Einzelheiten.",

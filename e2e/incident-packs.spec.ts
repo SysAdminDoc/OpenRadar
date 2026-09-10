@@ -90,6 +90,46 @@ async function fakeIncidentPacks(page: Page) {
           state.packs = [pack];
           return { ...pack };
         }
+        // The picker the reader chooses an archive with. The dialog plugin
+        // goes through the same bridge every other command does.
+        if (command === "plugin:dialog|open") {
+          return "C:\\Users\\reader\\Downloads\\somebody-elses.pmtiles";
+        }
+        if (command === "incident_pack_import") {
+          const credit = String(args.attribution ?? "").trim();
+          // The archive in this test carries no credit of its own, which is
+          // the one refusal the reader can answer without finding another
+          // file. The native side refuses it as "refused".
+          if (!credit) {
+            throw {
+              code: "refused",
+              args: [],
+              text: "that pack name is not valid",
+            };
+          }
+          const timestamp = new Date().toISOString();
+          const pack = {
+            id: "89abcdef0123456789abcdef",
+            name: "somebody-elses",
+            bounds: { west: -94, south: 41, east: -93, north: 42 },
+            minZoom: 6,
+            maxZoom: 9,
+            status: "ready",
+            tileCount: 0,
+            downloadedTiles: 0,
+            downloadedBytes: 0,
+            estimatedBytes: 512_000,
+            archiveBytes: 512_000,
+            sha256: "b".repeat(64),
+            source: "Imported PMTiles archive",
+            attribution: credit,
+            error: null,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          };
+          state.packs = [pack];
+          return { ...pack };
+        }
         if (command === "incident_pack_pause") {
           state.packs[0].status = "paused";
           return null;
@@ -216,4 +256,39 @@ test("prepares, resumes, renders, and removes a checked offline pack", async ({
       ).__incidentPackTest.packs,
   );
   expect(packs).toEqual([]);
+});
+
+test("imports a basemap the reader already has, and asks who to credit", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+
+  // An archive that says nothing about who made it is refused, and the panel
+  // asks for the one thing it needs rather than sending the reader away.
+  await page.getByRole("button", { name: "Import a basemap" }).click();
+  await expect(
+    page.getByText("That archive does not say who made it.", { exact: false }),
+  ).toBeVisible();
+  const credit = page.getByLabel("Who to credit");
+  await expect(credit).toBeVisible();
+
+  await credit.fill("A regional archive, licensed");
+  await page.getByRole("button", { name: "Import with this credit" }).click();
+
+  await expect(page.getByText("Ready offline", { exact: true })).toBeVisible({
+    timeout: 3000,
+  });
+  // The credit the reader typed is on the pack, which is what the map will
+  // draw under it.
+  await expect(page.getByText("A regional archive, licensed")).toBeVisible();
+  await expectClean(page, "an imported incident pack");
+
+  // And it draws: selecting it puts the imported pack on the map.
+  await page.getByRole("button", { name: "Use offline" }).click();
+  await expect(
+    page.locator(
+      '.map-viewport[data-incident-pack="89abcdef0123456789abcdef"]',
+    ),
+  ).toBeVisible();
 });
