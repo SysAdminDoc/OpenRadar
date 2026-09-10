@@ -29,6 +29,18 @@ export const LIVE_CONTRACTS = [
     required: true,
   },
   {
+    id: "snowfall",
+    label: "NOHRSC snowfall analysis",
+    host: "www.nohrsc.noaa.gov",
+    kind: "native",
+    filter: "snowfall::",
+    // In September there is no snow anywhere and the analysis is almost all
+    // no-data, which is a real answer. What the contract holds is that the
+    // file is still published at the address this builds and still decodes to
+    // the grid this reads, not that anything fell.
+    required: false,
+  },
+  {
     id: "level2",
     label: "NEXRAD Level II archive",
     host: "unidata-nexrad-level2.s3.amazonaws.com",

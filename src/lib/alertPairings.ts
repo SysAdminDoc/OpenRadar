@@ -88,7 +88,10 @@ export const ALERT_PAIRINGS: AlertPairing[] = [
       name.includes("snow") ||
       name.includes("ice storm") ||
       name.includes("blizzard"),
-    layers: { precipType: true },
+    // And how much has already landed, which is what a winter warning is
+    // read against: a forecast of six more inches means something different
+    // on bare ground than on the eighteen that fell over the weekend.
+    layers: { precipType: true, snowfall: true },
   },
   {
     id: "tropical-surge",

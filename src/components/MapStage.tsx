@@ -74,6 +74,8 @@ interface MapStageProps {
   } | null;
   /** The model's smoke for the primary pane's frame, or null off the tail. */
   forecastSmoke: PinnedImage | null;
+  /** The national snowfall total, pinned, or null when the layer is off. */
+  snowfall: PinnedImage | null;
   /** What the severe-probability model expects of each storm. */
   probSevere: Record<string, unknown> | null;
   /** How solid each overlay is drawn, as a fraction of its own design. */
@@ -132,6 +134,7 @@ export function MapStage({
   cells,
   classification,
   forecastSmoke,
+  snowfall,
   probSevere,
   overlayOpacity,
   overlayOrder,
@@ -249,6 +252,7 @@ export function MapStage({
         satelliteTime={shownSatelliteTime}
         onSatelliteMissing={noteMissingSatellite}
         forecastSmoke={forecastSmoke}
+        snowfall={snowfall}
         onCameraChange={onCameraChange}
         onCameraMove={onPrimaryMove}
         onCursorChange={onCursorChange}

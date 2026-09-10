@@ -84,6 +84,11 @@ import {
   type SurgeCategory,
 } from "../lib/surge";
 import {
+  SNOWFALL_WINDOWS,
+  snowfallWindowKey,
+  type SnowfallWindow,
+} from "../lib/snowfall";
+import {
   bandFor,
   satelliteBand as satelliteBandInfo,
   satelliteBands,
@@ -212,6 +217,8 @@ interface LayersPanelProps {
   alertTypes: Partial<Record<AlertType, boolean>>;
   /** Which hurricane the surge picture is about. */
   surgeCategory: SurgeCategory;
+  /** How long a snowfall total covers. */
+  snowfallWindow: SnowfallWindow;
   /** Which GOES-East view the satellite layer draws. */
   satelliteBand: SatelliteBandId;
   /** Which satellite is over the middle of the view, worked out by the stage. */
@@ -219,6 +226,7 @@ interface LayersPanelProps {
   onLayers: (layers: LayerSettings) => void;
   onAlertTypes: (types: Partial<Record<AlertType, boolean>>) => void;
   onSurgeCategory: (category: SurgeCategory) => void;
+  onSnowfallWindow: (window: SnowfallWindow) => void;
   onSatelliteBand: (band: SatelliteBandId) => void;
   gaugeQpePeriod: GaugeQpePeriod;
   /** Read the national grids between their cells rather than at the nearest. */
@@ -571,6 +579,13 @@ const LAYER_OPTIONS: Array<{
     icon: Snowflake,
   },
   {
+    key: "snowfall",
+    group: "water",
+    labelKey: "layer.snowfall",
+    detailKey: "layers.snowfallDetail",
+    icon: Snowflake,
+  },
+  {
     key: "lightningDensity",
     group: "lightning",
     labelKey: "layer.lightningDensity",
@@ -650,9 +665,11 @@ export function LayersPanel({
   onRemoved,
   alertTypes,
   surgeCategory,
+  snowfallWindow,
   onLayers,
   onAlertTypes,
   onSurgeCategory,
+  onSnowfallWindow,
   satelliteBand,
   spacecraft,
   gaugeQpePeriod,
@@ -1688,6 +1705,33 @@ export function LayersPanel({
               </button>
             ))}
           </div>
+        </div>
+      ) : null}
+
+      {layers.snowfall && alongside("snowfall") ? (
+        <div className="settings-section" data-snowfall-window={snowfallWindow}>
+          <div className="settings-section__title">
+            <span>{t("layers.snowfallWindow")}</span>
+            <small>{t(snowfallWindowKey(snowfallWindow))}</small>
+          </div>
+          <div
+            className="segmented-control segmented-control--full"
+            role="group"
+            aria-label={t("layers.snowfallWindow")}
+          >
+            {SNOWFALL_WINDOWS.map((window) => (
+              <button
+                key={window}
+                type="button"
+                className={snowfallWindow === window ? "is-active" : ""}
+                aria-pressed={snowfallWindow === window}
+                onClick={() => onSnowfallWindow(window)}
+              >
+                {t(snowfallWindowKey(window))}
+              </button>
+            ))}
+          </div>
+          <p className="source-note">{t("layers.snowfallNote")}</p>
         </div>
       ) : null}
 

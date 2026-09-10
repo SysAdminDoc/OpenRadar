@@ -14,6 +14,7 @@ import type { ClassificationProduct } from "../classification";
 import type { Palette } from "../palette";
 import type { LanguageId } from "../../i18n";
 import type { SurgeCategory } from "../surge";
+import type { SnowfallWindow } from "../snowfall";
 import type { SatelliteBandId } from "../satelliteBands";
 import type { GaugeQpePeriod } from "../gaugeQpe";
 import type { ApproachSettings } from "../approach";
@@ -210,6 +211,8 @@ export interface LayerSettings {
   /** MRMS cloud-to-ground flash density over the past five minutes. */
   /** What kind of precipitation the network says is falling. */
   precipType: boolean;
+  /** How much snow the national analysis says has landed, over the window chosen. */
+  snowfall: boolean;
   lightningDensity: boolean;
   /** The MRMS chance that lightning strikes ground it has not struck yet. */
   lightningForecast: boolean;
@@ -400,6 +403,14 @@ export interface AppSettings {
   paletteAssignments: Record<string, string>;
   /** Which hurricane the surge picture is about, when that layer is on. */
   surgeCategory: SurgeCategory;
+  /**
+   * How long a snowfall total covers: one day, two or three.
+   *
+   * A day by default, because that is the one people mean when they ask how
+   * much fell. The longer windows are for a storm that ran over two nights,
+   * where a 24-hour total splits the same snow in half.
+   */
+  snowfallWindow: SnowfallWindow;
   watch: WatchState;
   /**
    * Take the map to a warning as it arrives.

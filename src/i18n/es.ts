@@ -989,6 +989,15 @@ export const es: Catalogue = {
   "layers.precipTypeDetail":
     "Qué está cayendo según la red, más que con cuánta fuerza",
   "keywords.precipType": "nieve aguanieve helada invierno tipo",
+  "layer.snowfall": "Nieve acumulada",
+  "layers.snowfallDetail":
+    "Cuánta nieve dice el análisis nacional que ha caído, en el último día, dos o tres",
+  "keywords.snowfall": "nieve total centimetros pulgadas invierno nohrsc",
+  "snowfall.24h": "24 horas",
+  "snowfall.48h": "48 horas",
+  "snowfall.72h": "72 horas",
+  "snowfall.band": "{low} a {high}",
+  "snowfall.bandTop": "{low} o más",
   "precipType.warmStratiform": "Lluvia",
   "precipType.coolStratiform": "Lluvia fría",
   "precipType.snow": "Nieve",
@@ -1540,6 +1549,7 @@ export const es: Catalogue = {
   "mrms.unanswered": "Las mallas MRMS no respondieron.",
   "wind.unread": "No se pudo leer el campo de viento.",
   "smoke.unanswered": "El humo previsto no llegó.",
+  "snowfall.unanswered": "El análisis de nieve no llegó.",
   "cells.unread": "No se pudieron leer las células de tormenta.",
   "cells.arriving": "{id} llega al punto vigilado en {count} min",
   "approach.title": "Tormenta en camino a {place}",
@@ -1748,6 +1758,10 @@ export const es: Catalogue = {
   "chrome.smokeAnalysed": "analizado el {when}",
   "chrome.forecastSmoke": "Humo previsto",
   "chrome.forecastSmokeValid": "Válido {time}.",
+  "chrome.snowfall": "Nieve acumulada",
+  "chrome.snowfallValid": "Válido {time}.",
+  "chrome.snowfallNote":
+    "Un análisis de la nieve que ya está en el suelo, no un pronóstico de la que falta por caer.",
   "chrome.forecastSmokeNote":
     "Lo que un modelo espera del humo cerca del suelo; nunca se dibuja sobre el análisis ni sobre nada observado.",
   "forecastSmoke.label": "HRRR {hour} +{lead} h · ciclo de hace {age} h",
@@ -2264,6 +2278,9 @@ export const es: Catalogue = {
   "layers.surgeDetail":
     "Hasta dónde podría llegar el agua con un huracán de esta fuerza",
   "layers.surgeCategory": "Fuerza del huracán",
+  "layers.snowfallWindow": "Periodo cubierto",
+  "layers.snowfallNote":
+    "Se arma con lo que informaron observadores y pluviómetros, se rellena entre ellos y se publica dos veces al día. Es lo que cayó, no lo que se pronostica.",
   "layers.surgeNote":
     "No es un pronóstico. La NOAA simuló miles de huracanes en cada tramo de costa y se quedó con el agua más alta que produjo cada uno, en marea alta. Para una tormenta que viene de verdad, consulta al Centro Nacional de Huracanes.",
   "keywords.surge": "marejada inundacion costa agua huracan",

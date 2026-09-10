@@ -25,6 +25,8 @@ const ALLOWED_HOSTS: &[&str] = &[
     // The buoy network, which publishes every station's latest observation
     // in one file and sends no CORS header with it.
     "www.ndbc.noaa.gov",
+    // The national snowfall analysis, published twice a day as a GeoTIFF.
+    "www.nohrsc.noaa.gov",
     "mesonet.agron.iastate.edu",
     "api.rainviewer.com",
     "tilecache.rainviewer.com",

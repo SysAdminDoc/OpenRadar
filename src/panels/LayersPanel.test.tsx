@@ -132,6 +132,8 @@ function panel(overrides: {
       onRemoved={overrides.onRemoved ?? vi.fn()}
       alertTypes={DEFAULT_SETTINGS.alertTypes}
       surgeCategory={DEFAULT_SETTINGS.surgeCategory}
+      snowfallWindow={DEFAULT_SETTINGS.snowfallWindow}
+      onSnowfallWindow={vi.fn()}
       onLayers={vi.fn()}
       onAlertTypes={vi.fn()}
       onSurgeCategory={vi.fn()}
@@ -595,11 +597,12 @@ describe("the seven headings the switches are read under", () => {
       expect(rows.length, `${group} has no switches`).toBeGreaterThan(0);
     }
     // And nothing was lost on the way: every switch the panel used to show
-    // is still on it, counted rather than named. Forty-eight since the buoys
-    // and the aviation hazards joined on 2026-09-10.
+    // is still on it, counted rather than named. Forty-nine since the
+    // snowfall analysis joined on 2026-09-10, after the buoys and the
+    // aviation hazards the same day.
     expect(
       container.querySelectorAll(".setting-list .toggle-row"),
-    ).toHaveLength(48);
+    ).toHaveLength(49);
   });
 
   it("names each heading in the reader's own language", () => {

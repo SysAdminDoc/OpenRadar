@@ -996,6 +996,15 @@ export const fr: Catalogue = {
   "layers.precipTypeDetail":
     "Ce que le réseau dit qui tombe vraiment, plutôt qu'avec quelle force",
   "keywords.precipType": "neige grésil verglas hiver type précipitation",
+  "layer.snowfall": "Neige tombée",
+  "layers.snowfallDetail":
+    "Combien de neige l'analyse nationale dit être tombée, sur le dernier jour, deux ou trois",
+  "keywords.snowfall": "neige cumul total centimetres hiver nohrsc",
+  "snowfall.24h": "24 heures",
+  "snowfall.48h": "48 heures",
+  "snowfall.72h": "72 heures",
+  "snowfall.band": "{low} à {high}",
+  "snowfall.bandTop": "{low} et plus",
   "precipType.warmStratiform": "Pluie",
   "precipType.coolStratiform": "Pluie, air froid",
   "precipType.snow": "Neige",
@@ -1552,6 +1561,7 @@ export const fr: Catalogue = {
   "mrms.unanswered": "Les grilles MRMS n'ont pas répondu.",
   "wind.unread": "Le champ de vent n'a pas pu être lu.",
   "smoke.unanswered": "La fumée prévue n'est pas arrivée.",
+  "snowfall.unanswered": "L'analyse de la neige n'est pas arrivée.",
   "cells.unread": "Les cellules orageuses n'ont pas pu être lues.",
   "cells.arriving":
     "{id} atteint l'endroit que vous surveillez dans {count} min",
@@ -1764,6 +1774,10 @@ export const fr: Catalogue = {
   "chrome.smokeAnalysed": "analysée {when}",
   "chrome.forecastSmoke": "Fumée prévue",
   "chrome.forecastSmokeValid": "Valide {time}.",
+  "chrome.snowfall": "Neige tombée",
+  "chrome.snowfallValid": "Valide {time}.",
+  "chrome.snowfallNote":
+    "Une analyse de la neige déjà au sol, pas une prévision de celle qui reste à tomber.",
   "chrome.forecastSmokeNote":
     "Ce qu'un modèle attend de la fumée près du sol, jamais dessiné par-dessus l'analyse ni par-dessus quoi que ce soit d'observé.",
   "forecastSmoke.label": "HRRR {hour} +{lead} h · cycle vieux de {age} h",
@@ -2285,6 +2299,9 @@ export const fr: Catalogue = {
   "layers.surgeDetail":
     "Jusqu'où l'eau pourrait monter avec un ouragan de cette force",
   "layers.surgeCategory": "Force de l'ouragan",
+  "layers.snowfallWindow": "Période couverte",
+  "layers.snowfallNote":
+    "Construite à partir de ce qu'ont rapporté les observateurs et les pluviomètres, comblée entre eux, et publiée deux fois par jour. C'est ce qui est tombé, pas ce qui est prévu.",
   "layers.surgeNote":
     "Ce n'est pas une prévision. La NOAA a simulé des milliers d'ouragans sur chaque tronçon de côte et a gardé la pire montée d'eau de chacun, à marée haute. Pour une tempête qui s'en vient vraiment, lisez le National Hurricane Center.",
   "keywords.surge": "onde submersion cote eau ouragan",

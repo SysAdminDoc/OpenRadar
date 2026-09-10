@@ -127,6 +127,7 @@ function chrome(
       smoke={null}
       classification={null}
       forecastSmoke={null}
+      snowfall={null}
       wind={null}
       windReduced={false}
       announcement={{ said: 0, text: "" }}

@@ -631,6 +631,8 @@ export default function App() {
     compareFrame,
     forecastSmoke,
     drawnForecastSmoke,
+    snowfall,
+    drawnSnowfall,
     satelliteTime,
     compareSatelliteTime,
   } = useWorkspaceFeeds({
@@ -688,6 +690,7 @@ export default function App() {
       classification,
       forecastSmoke,
       drawnForecastSmoke,
+      snowfall,
       lightning,
       wind,
       countiesDrawn,
@@ -1034,6 +1037,7 @@ export default function App() {
         cells={stormCells.features}
         classification={drawnClassification}
         forecastSmoke={drawnForecastSmoke}
+        snowfall={drawnSnowfall}
         probSevere={probSevere.features}
         overlayOpacity={settings.overlayOpacity}
         overlayOrder={settings.overlayOrder}
@@ -1101,6 +1105,7 @@ export default function App() {
               stormCells: stormCells.error,
               classification: classification.error,
               forecastSmoke: forecastSmoke.error,
+              snowfall: snowfall.error,
               probSevere: probSevere.error,
               earthquakes: overlays.states.earthquakes.error,
               wildfires: overlays.states.wildfires.error,
@@ -1267,6 +1272,9 @@ export default function App() {
             onOrderSaid={(said) => pushToast({ title: said })}
             onSurgeCategory={(surgeCategory) =>
               applySettings({ ...settingsRef.current, surgeCategory })
+            }
+            onSnowfallWindow={(snowfallWindow) =>
+              applySettings({ ...settingsRef.current, snowfallWindow })
             }
             onGaugeQpePeriod={(gaugeQpePeriod) =>
               applySettings({ ...settingsRef.current, gaugeQpePeriod })
@@ -1450,6 +1458,7 @@ export default function App() {
         smoke={drawnForecastSmoke ? null : (overlays.data.smoke ?? null)}
         classification={classification.report}
         forecastSmoke={drawnForecastSmoke ? forecastSmoke.field : null}
+        snowfall={drawnSnowfall ? snowfall.analysis : null}
         wind={singleSite.historical ? null : wind.field}
         windReduced={
           !singleSite.historical && settings.layers.wind && reducedMotion

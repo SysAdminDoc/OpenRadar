@@ -229,6 +229,7 @@ describe("settings normalization", () => {
       "satellite",
       "shi",
       "smoke",
+      "snowfall",
       "spcDiscussions",
       "spcOutlooks",
       "stormCells",

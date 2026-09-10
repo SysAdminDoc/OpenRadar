@@ -277,6 +277,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["snow", "sleet", "freezing", "rain", "type", "winter"],
   },
   {
+    layer: "snowfall",
+    key: "layer.snowfall",
+    extra: "keywords.snowfall",
+    keywords: ["snow", "snowfall", "accumulation", "total", "depth", "winter"],
+  },
+  {
     layer: "lightningDensity",
     key: "layer.lightningDensity",
     extra: "keywords.lightningDensity",

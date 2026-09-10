@@ -12,6 +12,7 @@ import { alertsOfKind } from "../lib/overlays/alerts";
 import { approachesFor, type Approach } from "../lib/approach";
 import { cellKey, livingNames, withName } from "../lib/cellNames";
 import { satelliteFrameTime } from "../lib/providers";
+import { SNOWFALL_OPACITY, snowfallCorners } from "../lib/snowfall";
 import { type RadarFrame } from "../lib/radar";
 import {
   useApproachWatch,
@@ -32,8 +33,9 @@ import {
 import { useMrmsOverlays } from "./useMrmsOverlays";
 import { useProbSevere } from "./useProbSevere";
 import { useRadarTimeline } from "./useRadarTimeline";
-import { useSecondClock } from "./useClock";
+import { useHighContrast, useSecondClock } from "./useClock";
 import { useSingleSiteRadar } from "./useSingleSiteRadar";
+import { useSnowfall } from "./useSnowfall";
 import { useStormCells } from "./useStormCells";
 import { useWind } from "./useWind";
 
@@ -329,6 +331,30 @@ export function useWorkspaceFeeds({
     [forecastSmoke.field],
   );
 
+  // How much snow has already landed, which is one national picture rather
+  // than anything to do with the frame on screen. The contrast preference is
+  // read here because the grid is coloured natively: the picture arrives
+  // already painted, so a reader turning contrast on has to be answered with
+  // a different one rather than with a different stylesheet.
+  const highContrast = useHighContrast();
+  const snowfall = useSnowfall({
+    ready: hydrated,
+    enabled: settings.layers.snowfall,
+    window: settings.snowfallWindow,
+    highContrast,
+  });
+  const drawnSnowfall = useMemo(
+    () =>
+      snowfall.analysis
+        ? {
+            url: snowfall.analysis.image,
+            coordinates: snowfallCorners(snowfall.analysis),
+            opacity: SNOWFALL_OPACITY,
+          }
+        : null,
+    [snowfall.analysis],
+  );
+
   // The satellite image that stands for a frame, held back to the newest slot
   // the archive has actually published.
   const satelliteFor = (frame: RadarFrame | undefined) =>
@@ -359,6 +385,8 @@ export function useWorkspaceFeeds({
     compareFrame,
     forecastSmoke,
     drawnForecastSmoke,
+    snowfall,
+    drawnSnowfall,
     satelliteTime,
     // The same question about the frame a comparison is showing, which is
     // the only other frame on screen.

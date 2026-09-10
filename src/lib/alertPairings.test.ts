@@ -45,10 +45,15 @@ describe("the layer that explains a warning", () => {
     expect(pairingFor("Snow Squall Warning")?.layers).toEqual({
       precipType: true,
     });
-    // And the same for the rest of winter, which is the more general rule
-    // sitting behind the specific one.
+    // The rest of winter gets the totals as well, which is the more general
+    // rule sitting behind the specific one. A squall is half an hour of
+    // heavy snow and a warning about the drive home, so what is falling is
+    // the whole of the answer there; a winter storm warning is read against
+    // what is already on the ground, and six more inches means something
+    // different on bare grass than on the eighteen that fell at the weekend.
     expect(pairingFor("Winter Storm Warning")?.layers).toEqual({
       precipType: true,
+      snowfall: true,
     });
   });
 

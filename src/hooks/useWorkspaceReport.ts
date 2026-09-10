@@ -22,6 +22,7 @@ import { type RadarFrame } from "../lib/radar";
 import { useCallback, useMemo } from "react";
 import { useClassification } from "./useClassification";
 import { useForecastSmoke } from "./useForecastSmoke";
+import { useSnowfall } from "./useSnowfall";
 import { useLightning } from "./useLightning";
 import { useRadarTimeline } from "./useRadarTimeline";
 import { useSingleSiteRadar } from "./useSingleSiteRadar";
@@ -73,6 +74,7 @@ export interface WorkspaceReportOptions {
    * here: a layer drawing nothing has no record.
    */
   drawnForecastSmoke: unknown;
+  snowfall: ReturnType<typeof useSnowfall>;
   lightning: ReturnType<typeof useLightning>;
   wind: ReturnType<typeof useWind>;
   countiesDrawn: boolean;
@@ -101,6 +103,7 @@ export function useWorkspaceReport({
   classification,
   forecastSmoke,
   drawnForecastSmoke,
+  snowfall,
   lightning,
   wind,
   countiesDrawn,
@@ -291,6 +294,7 @@ export function useWorkspaceReport({
         if (layer === "lightningFlashes" && !lightning.window) continue;
         if (layer === "classification" && !classification.report) continue;
         if (layer === "forecastSmoke" && !forecastSmoke.field) continue;
+        if (layer === "snowfall" && !snowfall.analysis) continue;
         const source = LAYER_SOURCES[layer];
         // Matched on the source rather than on the switch's own name, because
         // the two do not agree: the alerts adapter is `alerts` and the switch
@@ -304,6 +308,12 @@ export function useWorkspaceReport({
         if (layer === "counties" && !countiesDrawn) continue;
         const observedAt =
           (layer === "counties" ? COUNTY_VINTAGE : undefined) ??
+          // The analysis is what it observed, and it is up to three days
+          // back: dated to now it would report snow that fell at the weekend
+          // as measured this instant.
+          (layer === "snowfall" && snowfall.analysis
+            ? Date.parse(snowfall.analysis.valid)
+            : undefined) ??
           mrmsTimeFor(mrms.layers, layer, mrmsChoices) ??
           (layer === "lightningFlashes"
             ? // The flash window carries seconds, like the radar frames and
@@ -360,6 +370,7 @@ export function useWorkspaceReport({
       overlays.data,
       overlays.states,
       settings.layers,
+      snowfall.analysis,
       wind.field,
     ],
   );

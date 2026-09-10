@@ -145,7 +145,14 @@ const BUDGETS = [
     // column moves for the first time since it was written down, because two
     // layers is the first thing since then that added new prose rather than
     // more of the same markup.
-    raw: 29,
+    //
+    // Thirty on 2026-09-10 for the snowfall analysis (`AUD-195`), which is
+    // the first layer since the surge to bring a control of its own: a row
+    // and a detail string like any other, plus a segmented control choosing
+    // between 24, 48 and 72 hours, its heading, its note and the three
+    // window names. The gzip column holds at seven, which is what says this
+    // is the same shape of markup again rather than a new dependency.
+    raw: 30,
     gzip: 7,
     firstLoad: false,
   },
