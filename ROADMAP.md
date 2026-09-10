@@ -11,6 +11,55 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
+- [ ] AUD-486 (P2): The ambient readout's type scale is bounded by a character count, so a long name runs off the screen
+  Why: `ambientTypeScale` in `src/lib/ambientScreen.ts` estimates the widest line as `length * 0.5em`, and 0.55 for the clock. The real advance of `M`, `W`, capitals and CJK is 0.9 to 1.0em, so the bound is up to twice as generous as it should be and the readout overruns the window it was supposed to fit.
+  Evidence: measured in headless chromium against the real `index.css`, the real markup and the transpiled `ambientTypeScale` at 1024 by 680. A watch named `Mammoth Mountain, Mammoth` wraps the place line onto two lines at 2.5 m; `KMHX MOREHEAD CITY, NC` wraps at 4 m; a 45-character single word (Chargoggagoggmanchauggagoggchaubunagungamaugg, a real place in Massachusetts) runs 100 px off the right edge at both distances because one unbreakable word cannot wrap; a 16-character Japanese name puts the readout 141 px above the top of the window. `Atlanta, GA` is clean at every distance. `settings.watch.name` is free text capped at 60 characters in `src/panels/WatchSection.tsx`.
+  Touches: `src/lib/ambientScreen.ts`, `e2e/ambient-screen.spec.ts` (whose fixture watch name is `Casa`, four characters, the shortest in the suite, which is why its own assertions pass today).
+  Acceptance: The bound is taken from something that measures the text rather than counts it, and the e2e exercises at least one long name, one all-capitals name and one unbreakable long word at the widest distance the setting offers.
+  Complexity: M
+
+- [ ] AUD-487 (P2): The ambient type scale reads `window.innerWidth` while the app zooms the root
+  Why: `AmbientReadout.tsx` passes `{ width: window.innerWidth, height: window.innerHeight }` into the scale. `:root { zoom: var(--text-scale) }` in `src/index.css` shrinks the layout viewport without moving `innerWidth`, so at the larger text sizes the readout is scaled for a window bigger than the one it is in. `useSettings.ts` does the right thing three files away, dividing by `settings.textScale / 100`, with a comment naming this exact trap, and `index.css` names it again.
+  Evidence: measured at 1024 by 680 with `ambientMetres: 4` and ordinary short strings: text scale 100 gives `clientWidth` 1024 and a readout top of 183; 115 gives 890 and 108; 130 gives 788 and **minus 355**, which is the readout standing 355 px above the top of the window. All three scales ship in Settings (`TEXT_SCALES` in `src/lib/units.ts`).
+  Touches: `src/components/AmbientReadout.tsx`, and whatever the ambient e2e uses for a viewport.
+  Acceptance: The scale is computed against the viewport the layout actually has, and a test at text scale 130 on a small window keeps the readout inside it.
+  Complexity: S
+
+- [ ] AUD-488 (P3): Three stylesheet gates are weaker than the sweeps they are meant to hold
+  Why: `src/lib/cssRules.test.ts` swept eighty dead declarations out of `index.css` and is supposed to keep them out. Each of its three checks has a hole that lets the same class of defect back in. The duplicate check compares every earlier rule only against `list.at(-1)`, so a declaration killed by a *middle* duplicate is invisible, as is a longhand killed by a later shorthand, and it groups on raw selector text so `".a,.b"` and `".a, .b"` are different rules. The media-query check tests `later.selector !== rule.selector`, so a later rule that wins on specificity rather than on an identical string is invisible. And the literal allowlist exempts every rule whose first selector *starts with* `:root`, which is 58 of 744 rules including the whole `:root[data-narrow~="..."] .anything` family; its stated reason, that the palettes are there, is wrong, because palettes are custom properties the gate already skips.
+  Evidence: probes against a faithful reimplementation of each gate. `.x{color:red} .x{color:blue} .x{margin:0}` is silent where `.x{color:red} .x{color:blue}` fires; `.x{background-color:red} .x{background:blue}` is silent; `.app-shell .command-bar { background: var(--surface) }` placed after the forced-colors block is silent while the byte-identical control fires; `:root[data-narrow~="680"] .probe { color: #ff00ff }` is silent while the same declaration on `.probe` fires. A full pairwise, whitespace-normalised scan of the current file finds zero dead declarations, so this is latent rather than live: the sweep was complete and the gate that should keep it that way is not.
+  Touches: `src/lib/cssRules.test.ts`.
+  Acceptance: The duplicate check compares each rule against every later rule for the same normalised selector, understands shorthand-over-longhand, and normalises whitespace in a selector list; the media-query check compares on specificity rather than on string equality; the `:root` allowlist entry either goes or is narrowed to the three ambient washes it actually exists for, with the reason rewritten to say what it exempts. Each change is proved by the probe that is silent today.
+  Complexity: M
+
+- [ ] AUD-489 (P3): Two stylesheet allowlist reasons describe something other than what they exempt
+  Why: An allowlist entry whose reason does not match what it lets through is an entry nobody can review. `.command-bar` at `src/lib/cssRules.test.ts` says "the rail defines its own ink tokens", but what it exempts is `background: #0b1118`, the rail's own ground, which is deliberately dark in both themes for a good reason that is not the one written down; the ink tokens it names are custom properties the gate never sees. `.status-dot` says "answering or quiet, which is a reading of a source", but what it exempts is a `rgba(255,255,255,0.2)` hairline that already has a light counterpart; the answering and quiet colours are tokens, invisible to the gate. Separately `.surface-panel`'s reason is about two box-shadows, but the entry is a prefix that also reaches `__header`, `__body` and every modifier, so a hardcoded text colour on any of those passes under a shadow reason.
+  Evidence: read against `src/index.css` alongside the gate. A `:root .surface-panel__body { color: #fff }` probe is silent.
+  Touches: `src/lib/cssRules.test.ts`.
+  Acceptance: Each reason names the declaration it exempts and why that one is right, and an entry covers no more than what its reason describes.
+  Complexity: S
+
+- [ ] AUD-490 (P3): The ambient scale test passes with the feature deleted from the stylesheet
+  Why: `src/lib/ambientScreen.test.ts` matches `font-size:\s*calc\((\d+)px` and never requires the `* var(--ambient-scale)` that makes the size respond to the setting at all. `--ambient-scale` appears nowhere in `src/` or `e2e/` except the component and the three stylesheet rules, and `npm run check` does not run Playwright, so deleting the multiplier from all three kills the feature outright with the whole gate green.
+  Evidence: the regex returns 13 for both `calc(13px * var(--ambient-scale))` and `calc(13px)`.
+  Touches: `src/lib/ambientScreen.test.ts`.
+  Acceptance: The gate requires the multiplier as well as the base size, and deleting it from any of the three rules turns the gate red.
+  Complexity: S
+
+- [ ] AUD-491 (P3): The melting layer drops a named component of the method its threshold comes from
+  Why: `src-tauri/src/melting.rs` implements the normalised product of Z, ZDR and one minus rho against a threshold of 0.08, and `AUD-225`'s own Evidence line also names a second-derivative weight of 0.75. There is no second derivative anywhere in the file, so a constant lifted from the published method is calibrated against a quantity this code does not compute.
+  Evidence: `git show 835a9de -- ROADMAP.md` for the removed item's Evidence line. The rho term itself is right: `between(-c, -0.97, -0.90)` is arithmetically identical to one minus rho normalised over the same bounds, checked at 0.97, 0.90, 1.0 and 0.5.
+  Touches: `src-tauri/src/melting.rs`, `src-tauri/src/melting_tests.rs`.
+  Acceptance: Either the second-derivative term is computed and weighted as the method specifies, with the threshold re-checked against real volumes, or the file says in its own words which published variant it implements and why that one has no such term.
+  Complexity: M
+
+- [ ] AUD-492 (P3): Every tracked cell counts flashes in the same ten-mile circle, so a line of storms counts each flash several times
+  Why: `flashesNear` in `src/lib/lightningJump.ts` uses a fixed `JUMP_RADIUS_MILES` because `StormCell` carries a centroid and a motion and no size. Two cells twelve miles apart have overlapping circles, so a flash in the lens enters both series. Along a squall line every cell's flash rate is the line's rate near it, they all jump on the same bin, and the badge names five cells at once.
+  Evidence: `src/lib/cells.ts` `StormCell` has no area or extent field. The multi-cell badge this produces is what `RadarProductPanel.tsx` renders.
+  Touches: `src/lib/lightningJump.ts`, `src/lib/cells.ts` and whatever the Level III cell product carries about a cell's size.
+  Acceptance: A flash belongs to one cell, or the radius comes from something the product actually publishes about that cell, and a fixture with two cells twelve miles apart and one flash between them counts it once.
+  Complexity: M
+
 - [ ] AUD-481 (P3): The FIRMS live contract cannot see Alaska, because Alaska is usually empty
   Why: `firms.ts` now asks for six files, three spacecraft over two areas, and `firms.test.ts`'s live contract counts platforms rather than files. It has to: the Alaska file is header-only for most of the year, so a contract that insisted on rows from it would be red from September to May. That leaves the Alaska half of the layer held by nothing live. If NASA renames or moves that file, the layer goes back to drawing no fire in Alaska and the contract stays green.
   Evidence: on 2026-09-10 all three Alaska files answered 200 with the right header and zero rows, while the contiguous files carried 1,238, 1,341 and 1,841. The omission of Alaska in the first version of this layer was invisible for exactly the same reason.
@@ -154,15 +203,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
 
 ### P3
 
-- [ ] AUD-226 (P3): Keyless European radar from MET Norway and the OPERA composite
-      Note 2026-09-07: HookEcho v0.12.0-beta.2 (2026-08-31) reads OPERA through a WMS bridge it hosts, which is the server class the blocked note rules out; MET Norway stays the keyless half of this item.
-      Note 2026-09-07 (evening): Nembo (fabioscarparo, 2026-09-04) reads Italian DPC radar with a 30-minute nowcast; whether the DPC API is keyless and answers cross-origin needs live validation before Italy joins this item.
-  Why: Outside NOAA, ECCC and DWD coverage the timeline falls to RainViewer, which now calls itself personal-use only and caps zoom at 7; MET Norway serves its radar with no usage restrictions and EUMETNET's OPERA composites are on MeteoGate with an anonymous tier under CC BY 4.0, which changes the `Roadmap_Blocked.md` verdict that European radar needs keys.
-  Evidence: https://api.met.no/weatherapi/radar/2.0/documentation and https://api.met.no/doc/TermsOfService (User-Agent required, 20 requests a second, CC BY 4.0); https://eumetnet.github.io/openradardata-documentation/1-ORD-API-overview/ (three composites as ODIM HDF5 and cloud-optimised GeoTIFF, anonymous tier with low rate limits, key optional); https://www.rainviewer.com/api/transition-faq.html. Needs live validation: the anonymous rate limit is undocumented as a number.
-  Touches: `src/lib/providers/` (a MET Norway PNG provider by area; a MeteoGate GeoTIFF lane through `src-tauri/src/geotiff.rs`), `src-tauri/src/http.rs` and the CSP (`api.met.no`, `api.meteogate.eu`), `docs/asset-ledger.md`, `src/lib/providers/coverage.ts` (Norway, then OPERA members), two live contracts that measure the anonymous limit, `src/i18n/*`.
-  Acceptance: Over Norway the timeline draws MET Norway radar with the CC BY credit; over OPERA members the composite draws with the EUMETNET credit and its cadence in the legend; the live contract records the anonymous limit and the provider budget stays under it; RainViewer remains only where neither reaches.
-  Complexity: L
-  Note 2026-09-04: FMI renames every radar layer in autumn 2026 (`Radar:suomi_dbz_eureffin` becomes `Radar:radar_finland_cappi_dbzh`, old names removed end of November 2026); KNMI rotated its anonymous key on 2026-06-30 (old key dead 2026-08-01); SMHI's old API docs page 404s. Use the new FMI names from the start if FMI is wired.
 - [ ] AUD-227 (P3): MeteoAlarm warnings for the rest of Europe
       Note 2026-09-07: MeteoAlarm deprecated its legacy RSS feeds on 2026-01-14; target the Atom feeds (meteoalarm-legacy-atom-<country>). HookEcho ranks the warnings on its own severity scale rather than each service's.
   Why: Canadian and German warnings proved the adapter shape and MeteoAlarm publishes every other European service's warnings under CC BY 4.0 with no registration; HookEcho reads it, and a reader in France or Italy with the DWD composite on has no warnings at all.
