@@ -647,6 +647,36 @@ fn pmtiles_root_is_sane(internal_compression: u8, directory: &[u8]) -> bool {
     true
 }
 
+/// Runs archive work on a blocking thread, where a panic is caught.
+///
+/// The PMTiles reader parses a leaf directory on demand, inside the tile
+/// lookup, and a leaf's entry count reaches `vec![DirEntry::default(); n]`
+/// before an entry is read. A hostile count panics with "capacity overflow",
+/// and no check this side of the reader can see a leaf without reimplementing
+/// the directory walk. The root directory is checked before the reader opens
+/// the file; this is what holds the rest.
+///
+/// `spawn_blocking` is the containment: tokio catches a panic in one and
+/// hands it back as a join error, which is already a failure this module
+/// knows how to report. The backend reads a file synchronously and the
+/// futures never actually wait, so a current-thread runtime is all the work
+/// needs, and building one costs microseconds against a file read and a hash.
+async fn on_a_blocking_thread<T: Send + 'static>(
+    work: impl FnOnce() -> Result<T, IncidentPackError> + Send + 'static,
+) -> Result<T, IncidentPackError> {
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|error| IncidentPackError::Worker(error.to_string()))?
+}
+
+/// Drives an archive future to completion on the calling thread.
+fn drive<T>(work: impl std::future::Future<Output = T>) -> Result<T, IncidentPackError> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .build()
+        .map_err(|error| IncidentPackError::Worker(error.to_string()))?;
+    Ok(runtime.block_on(work))
+}
+
 /// Opens an archive after checking the one thing the reader does not.
 async fn open_archive(
     path: &Path,
@@ -1360,7 +1390,22 @@ fn build_archive(
 async fn verify_archive(
     path: &Path,
     records: &[TileRecord],
-    control: Option<&TaskControl>,
+    control: Option<&Arc<TaskControl>>,
+) -> Result<String, IncidentPackError> {
+    // The whole check moves across together, control and all: pause and
+    // cancel are read on every record, and snapshotting them would make a
+    // cancellation wait for a whole verification to finish.
+    let held = path.to_path_buf();
+    let records = records.to_vec();
+    let control = control.cloned();
+    on_a_blocking_thread(move || drive(verify_archive_here(&held, &records, control.as_ref()))?)
+        .await
+}
+
+async fn verify_archive_here(
+    path: &Path,
+    records: &[TileRecord],
+    control: Option<&Arc<TaskControl>>,
 ) -> Result<String, IncidentPackError> {
     if let Some(control) = control {
         control_mode(control)?;
@@ -1864,6 +1909,11 @@ fn archive_metadata(said: &str) -> (Option<String>, Option<String>) {
 /// vector archive is perfectly valid and this app has no style for one, so
 /// what it would draw is nothing at all.
 async fn inspect_archive(path: &Path) -> Result<ImportedArchive, IncidentPackError> {
+    let held = path.to_path_buf();
+    on_a_blocking_thread(move || drive(inspect_archive_here(&held))?).await
+}
+
+async fn inspect_archive_here(path: &Path) -> Result<ImportedArchive, IncidentPackError> {
     let reader = open_archive(path)
         .await
         .map_err(|_| IncidentPackError::ImportUnreadable)?;
@@ -2294,6 +2344,16 @@ async fn ensure_archive_verified(
         .map_err(|error| IncidentPackError::Worker(error.to_string()))?
 }
 
+/// One tile out of an archive, with the archive opened for it.
+async fn read_one_tile(archive: &Path, coord: TileCoord) -> Result<Vec<u8>, IncidentPackError> {
+    let reader = open_archive(archive).await?;
+    reader
+        .get_tile(coord)
+        .await?
+        .map(|bytes| bytes.to_vec())
+        .ok_or(IncidentPackError::NotFound)
+}
+
 pub async fn serve_tile(uri: &str) -> ServedTile {
     let result = async {
         let (id, tile) = parse_tile_uri(uri)?;
@@ -2315,12 +2375,12 @@ pub async fn serve_tile(uri: &str) -> ServedTile {
             mark_archive_failed(&pack_dir, &mut manifest, &error);
             return Err(error);
         }
-        let reader = open_archive(&archive).await?;
-        reader
-            .get_tile(tile.coord()?)
-            .await?
-            .map(|bytes| bytes.to_vec())
-            .ok_or(IncidentPackError::NotFound)
+        // On a blocking thread, where a panic out of the reader's leaf
+        // directory walk is caught and handed back rather than unwound
+        // through the scheme handler. Every tile of an imported basemap comes
+        // through here, and the archive is a file somebody else made.
+        let coord = tile.coord()?;
+        on_a_blocking_thread(move || drive(read_one_tile(&archive, coord))?).await
     }
     .await;
     match result {
@@ -2491,6 +2551,26 @@ mod tests {
         assert_eq!(summary.name, "My own basemap");
         assert_eq!(summary.attribution, "A regional archive, licensed");
         fs::remove_dir_all(root).unwrap();
+    }
+
+    /// What holds the panics no check this side of the reader can see.
+    #[tokio::test]
+    async fn a_parser_that_gives_way_comes_back_as_a_failure() {
+        // A leaf directory is parsed on demand inside the tile lookup, and a
+        // hostile entry count reaches `vec![DirEntry::default(); n]` before
+        // an entry is read: "capacity overflow", in the shipped profile, from
+        // a file somebody else made. Nothing this side of the reader can see
+        // a leaf without reimplementing the directory walk, so the three
+        // readers run where a panic is caught instead of unwound.
+        let answer: Result<(), IncidentPackError> =
+            on_a_blocking_thread(|| panic!("the parser gave way")).await;
+        assert!(
+            matches!(answer, Err(IncidentPackError::Worker(_))),
+            "{answer:?}"
+        );
+        // And the code a reader is shown for it is one they can act on.
+        let error = answer.unwrap_err();
+        assert_eq!(error.parts().0, "failed");
     }
 
     /// The second thing a fuzz run found: a count that decides an allocation.
