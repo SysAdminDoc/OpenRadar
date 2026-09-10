@@ -42,6 +42,7 @@ mod probsevere;
 mod radar_status;
 mod safe_start;
 mod settings_backup;
+mod shear;
 mod sound;
 mod tdwr;
 mod tiles;

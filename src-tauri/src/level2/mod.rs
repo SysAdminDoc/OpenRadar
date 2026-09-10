@@ -40,6 +40,7 @@ use crate::level3;
 use crate::palette;
 use crate::palette::Palette;
 use crate::radar_status;
+use crate::shear;
 use crate::tdwr;
 use crate::vad;
 use crate::vwp;

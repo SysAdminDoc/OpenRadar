@@ -2,8 +2,28 @@
 
 use super::*;
 
+/// Which derivation a product name asks for, when it asks for one.
+///
+/// Neither of these is a moment the radar recorded, so neither is a `Product`:
+/// both are worked out from the velocity of the same cut, and the name is what
+/// says which. Kept beside the table below because the two answers have to
+/// agree about what a name means.
+pub fn derived_from_name(name: &str) -> Option<shear::Kind> {
+    match name {
+        "azimuthal-shear" => Some(shear::Kind::AzimuthalShear),
+        "rotation" => Some(shear::Kind::Rotation),
+        _ => None,
+    }
+}
+
 /// The products a caller may ask for, kept as plain names the frontend can send.
 pub fn product_from_name(name: &str) -> Option<(Product, &'static str, &'static str)> {
+    if let Some(kind) = derived_from_name(name) {
+        let (label, unit) = shear::named(kind);
+        // Both are read off the Doppler cut, so that is the moment fetched and
+        // unfolded before either is worked out.
+        return Some((Product::Velocity, label, unit));
+    }
     match name {
         "reflectivity" => Some((Product::Reflectivity, "Reflectivity", "dBZ")),
         "velocity" => Some((Product::Velocity, "Velocity", "m/s")),
@@ -128,6 +148,74 @@ pub(crate) const HIGH_CONTRAST_WIDE_VELOCITY_RAMP: &[(f32, [u8; 3])] = &[
     (35.0, [0xb3, 0x4f, 0x1f]),
     (70.0, [0x8c, 0x19, 0x00]),
 ];
+
+/// Azimuthal shear from the site's own velocity, in thousandths of a
+/// reciprocal second.
+///
+/// The unit the national grids publish, deliberately, so a reader comparing
+/// this against the MRMS layer is comparing two numbers rather than two
+/// scales. The colours are not the national ones: that ramp runs low to high
+/// over cyclonic shear alone, and this is signed, so it needs a middle. Blue
+/// is turning the other way, and the two strongest cyclonic stops are the
+/// national ramp's own, which is where the reading matters.
+pub(crate) const SITE_SHEAR_RAMP: &[(f32, [u8; 3])] = &[
+    (-14.0, [0x1e, 0x3a, 0x8a]),
+    (-10.0, [0x25, 0x63, 0xeb]),
+    (-6.0, [0x60, 0xa5, 0xfa]),
+    (-2.0, [0xbf, 0xdb, 0xfe]),
+    (0.0, [0x6b, 0x6b, 0x6b]),
+    (2.0, [0xfe, 0xd7, 0xaa]),
+    (6.0, [0xfb, 0x92, 0x3c]),
+    (10.0, [0xf4, 0x3f, 0x5e]),
+    (14.0, [0xc0, 0x26, 0xd3]),
+];
+
+/// The same, for a reader who has asked for more contrast.
+///
+/// Blue against orange, the pair the velocity scale already uses for the same
+/// job: which way something is turning is the one thing this layer exists to
+/// say, and red against green is the pair that stops saying it.
+pub(crate) const HIGH_CONTRAST_SITE_SHEAR_RAMP: &[(f32, [u8; 3])] = &[
+    (-14.0, [0x00, 0x4f, 0x9f]),
+    (-6.0, [0x00, 0xa3, 0xd1]),
+    (-2.0, [0x9c, 0xd4, 0xed]),
+    (0.0, [0xe8, 0xe8, 0xe8]),
+    (2.0, [0xf5, 0xc0, 0xab]),
+    (6.0, [0xd7, 0x7f, 0x57]),
+    (14.0, [0xb3, 0x4f, 0x1f]),
+];
+
+/// The same shear normalised by what its range can resolve.
+///
+/// One and two and a half are stops rather than points between them, because
+/// they are the two numbers the operational decks are read against and a
+/// threshold that falls between stops is a threshold nobody can see on the bar.
+pub(crate) const SITE_ROTATION_RAMP: &[(f32, [u8; 3])] = &[
+    (-5.0, [0x1e, 0x3a, 0x8a]),
+    (-2.5, [0x25, 0x63, 0xeb]),
+    (-1.0, [0x60, 0xa5, 0xfa]),
+    (0.0, [0x6b, 0x6b, 0x6b]),
+    (1.0, [0xfe, 0xd7, 0xaa]),
+    (2.5, [0xf4, 0x3f, 0x5e]),
+    (5.0, [0xc0, 0x26, 0xd3]),
+];
+
+pub(crate) const HIGH_CONTRAST_SITE_ROTATION_RAMP: &[(f32, [u8; 3])] = &[
+    (-5.0, [0x00, 0x4f, 0x9f]),
+    (-2.5, [0x00, 0xa3, 0xd1]),
+    (-1.0, [0x9c, 0xd4, 0xed]),
+    (0.0, [0xe8, 0xe8, 0xe8]),
+    (1.0, [0xf5, 0xc0, 0xab]),
+    (2.5, [0xd7, 0x7f, 0x57]),
+    (5.0, [0xb3, 0x4f, 0x1f]),
+];
+
+/// The colour a gate meeting the debris criteria is marked in.
+///
+/// Neither ramp above holds white anywhere, which is the point: the mark has
+/// to be a mark rather than another reading on the scale, and it sits over
+/// whatever the shear there was.
+pub(crate) const DEBRIS_MARK: [u8; 3] = [0xff, 0xff, 0xff];
 
 /// Low to high across whatever the moment's own range is.
 pub(crate) const GENERIC_RAMP: &[(f32, [u8; 3])] = &[

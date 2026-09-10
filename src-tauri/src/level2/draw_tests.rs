@@ -108,8 +108,10 @@ fn decodes_and_draws_a_live_kdmx_volume() {
             unfolded: false,
             threshold: None,
             high_contrast: false,
+            derived: None,
         },
         false,
+        None,
         None,
     );
     let painted = pixels
@@ -910,9 +912,11 @@ fn the_sector_mask_is_measured_over_the_same_ground_the_picture_was_drawn_on() {
             unfolded: false,
             threshold: None,
             high_contrast: false,
+            derived: None,
         },
         false,
         Some(asked),
+        None,
     );
     assert_eq!(drawn, asked, "the box was not the ground drawn");
 
@@ -1152,4 +1156,221 @@ fn a_composite_reports_the_worse_of_its_two_halves() {
     )
     .expect("a composite");
     assert!((drawn.unplaced_share - 0.7).abs() < 1e-6);
+}
+
+/// A volume with a velocity couplet planted at a stated place and strength.
+///
+/// One cut, half a degree, with reflectivity everywhere so nothing is masked
+/// out, and a linear ramp of velocity across the core. The couplet is the
+/// shape a mesocyclone has: inbound on one side of the circulation and
+/// outbound on the other, with the change across it being the whole of what
+/// azimuthal shear measures.
+///
+/// Compact, rather than the two halves being held at full strength all the way
+/// round. A sweep whose velocity stays at plus twenty on one side of a
+/// circulation and minus twenty on the other has a second couplet in it, on
+/// the far side where the two meet, and it is not one anybody planted.
+fn volume_with_a_couplet(delta_v: f32, half_radials: i64, centre_radial: u16) -> (String, Vec<u8>) {
+    let at = Utc
+        .with_ymd_and_hms(2026, 9, 9, 21, 4, 0)
+        .single()
+        .expect("a UTC time");
+    let site = fixture::Site {
+        id: *b"KDMX",
+        latitude: 41.731,
+        longitude: -93.723,
+        height_metres: 299,
+    };
+    let radials = 720u16;
+    let gates = 400usize;
+    let spacing = 360.0 / radials as f32;
+    let cut: Vec<fixture::Radial> = (0..radials)
+        .map(|number| {
+            let half_turn = radials as i64 / 2;
+            let from_centre = (number as i64 - centre_radial as i64 + half_turn)
+                .rem_euclid(radials as i64)
+                - half_turn;
+            let away = from_centre as f32 / half_radials as f32;
+            // The core, then back to still air over twice its width again.
+            let across = if away.abs() <= 1.0 {
+                away
+            } else if away.abs() <= 3.0 {
+                (3.0 - away.abs()) / 2.0 * away.signum()
+            } else {
+                0.0
+            };
+            fixture::Radial {
+                azimuth_degrees: number as f32 * spacing,
+                azimuth_number: number + 1,
+                elevation_number: 1,
+                elevation_degrees: 0.5,
+                // Wide enough that the planted couplet does not fold, so what
+                // comes back is the couplet rather than the unfolder.
+                nyquist_ms: 32.0,
+                collected: at,
+                azimuth_spacing_degrees: spacing,
+                reflectivity: vec![fixture::Gate::Reading(40.0); gates],
+                velocity: vec![fixture::Gate::Reading(across * delta_v / 2.0); gates],
+            }
+        })
+        .collect();
+    let key = format!("KDMX/KDMX{}_V06", at.format("%Y%m%d_%H%M%S"));
+    (key.clone(), fixture::volume(&site, at, &[cut]))
+}
+
+/// The same cut with the folding velocity left out of the radial headers,
+/// which is what a volume whose Nyquist the records do not carry looks like.
+fn one_cut_no_nyquist() -> (DateTime<Utc>, String, Vec<u8>) {
+    let at = Utc
+        .with_ymd_and_hms(2026, 9, 9, 21, 9, 0)
+        .single()
+        .expect("a UTC time");
+    let site = fixture::Site {
+        id: *b"KDMX",
+        latitude: 41.731,
+        longitude: -93.723,
+        height_metres: 299,
+    };
+    let cut = fixture::flat_cut(
+        at,
+        fixture::Cut {
+            number: 1,
+            degrees: 0.5,
+            radials: 360,
+            gates: 200,
+            reflectivity: fixture::Gate::Reading(40.0),
+            velocity: Some(fixture::Gate::Reading(6.0)),
+            nyquist_ms: 0.0,
+        },
+    );
+    let key = format!("KDMX/KDMX{}_V06", at.format("%Y%m%d_%H%M%S"));
+    (at, key.clone(), fixture::volume(&site, at, &[cut]))
+}
+
+/// The whole path, from bytes to a reading: decode, choose the Doppler cut,
+/// unfold it, mask it against its own reflectivity and fit the derivative.
+///
+/// The expected number is the one planted rather than one read back out: a
+/// velocity difference of forty metres a second across sixteen radials of half
+/// a degree at fifty kilometres, which is the difference over the width.
+///
+/// Wider than the kernel, deliberately. The published method medians a gate
+/// against its neighbours and then fits a plane over 2,500 metres of arc, so a
+/// circulation exactly that wide reads about a tenth low: the fit is averaging
+/// the core with the calmer air at its edges, which is what a fixed kernel
+/// does and what the normalised scale exists to put back. Planting a core the
+/// kernel sits inside makes this a test of the path from bytes to a reading
+/// rather than of the kernel's own smoothing, which the unit tests cover.
+#[test]
+fn a_couplet_planted_in_a_volume_reads_its_own_shear() {
+    let _guard = decoded_cache_test();
+    clear_cache();
+    let (key, data) = volume_with_a_couplet(40.0, 8, 360);
+    let values = sweep_values(
+        "KDMX",
+        &key,
+        data,
+        SweepRequest {
+            product_name: "azimuthal-shear",
+            ..SweepRequest::default()
+        },
+    )
+    .expect("a derived cut");
+
+    assert_eq!(values.unit, "0.001/s");
+    assert_eq!(values.product, "Azimuthal shear");
+
+    let field = &values.field;
+    let gate = (((50.0 - field.first_gate_range_km()) / field.gate_interval_km()).round()) as usize;
+    let range_m = (field.first_gate_range_km() + gate as f64 * field.gate_interval_km()) * 1000.0;
+    let arc_m = range_m * (field.azimuth_spacing_degrees() as f64).to_radians();
+    // Sixteen radials of core, so twice the half width either side of centre.
+    let expected = 40.0 / (2.0 * 8.0 * arc_m) * 1000.0;
+
+    let at = field
+        .azimuths()
+        .iter()
+        .position(|angle| (angle - 180.0).abs() < 0.26)
+        .expect("a radial at the middle of the couplet");
+    let (found, status) = field.get(at, gate);
+    assert_eq!(status, GateStatus::Valid, "the couplet was masked out");
+    let error = ((found as f64) - expected).abs() / expected;
+    assert!(
+        error < 0.05,
+        "planted {expected:.2} per thousand seconds, read {found:.2}"
+    );
+
+    // And away from the couplet the air is still, whatever the fit does with
+    // the flat velocity either side of it.
+    let quiet = field
+        .azimuths()
+        .iter()
+        .position(|angle| (angle - 0.0).abs() < 0.26)
+        .expect("a radial opposite the couplet");
+    let (calm, status) = field.get(quiet, gate);
+    assert_eq!(status, GateStatus::Valid);
+    assert!(calm.abs() < 0.05, "still air read {calm}");
+}
+
+/// Rotation is that same reading against what the range can resolve, so it is
+/// the same couplet on a different scale rather than a different measurement.
+#[test]
+fn rotation_is_the_same_couplet_normalised() {
+    let _guard = decoded_cache_test();
+    clear_cache();
+    let (key, data) = volume_with_a_couplet(40.0, 3, 360);
+    let asked = |product_name| {
+        sweep_values(
+            "KDMX",
+            &key,
+            data.clone(),
+            SweepRequest {
+                product_name,
+                ..SweepRequest::default()
+            },
+        )
+        .expect("a derived cut")
+    };
+    let shear = asked("azimuthal-shear");
+    let rotation = asked("rotation");
+    assert_eq!(rotation.unit, "NROT");
+
+    let field = &shear.field;
+    let gate = (((50.0 - field.first_gate_range_km()) / field.gate_interval_km()).round()) as usize;
+    let at = field
+        .azimuths()
+        .iter()
+        .position(|angle| (angle - 180.0).abs() < 0.26)
+        .expect("a radial at the middle of the couplet");
+    let range_m = (field.first_gate_range_km() + gate as f64 * field.gate_interval_km()) * 1000.0;
+
+    let raw = field.get(at, gate).0 as f64 / 1000.0;
+    let normalised = rotation.field.get(at, gate).0 as f64;
+    let across = 2.0 * range_m * 1.0f64.to_radians();
+    assert!(
+        (normalised - raw * across / 20.0).abs() < 0.01,
+        "{normalised} is not {raw} against {across:.0} m of beam"
+    );
+}
+
+/// A volume whose folding velocity is not in the records cannot be derived:
+/// a fold is a larger jump between neighbouring gates than any circulation.
+#[test]
+fn a_cut_that_cannot_be_unfolded_is_refused_rather_than_drawn() {
+    let _guard = decoded_cache_test();
+    clear_cache();
+    let (_, key, data) = one_cut_no_nyquist();
+    let refused = sweep_values(
+        "KDMX",
+        &key,
+        data,
+        SweepRequest {
+            product_name: "azimuthal-shear",
+            ..SweepRequest::default()
+        },
+    );
+    assert!(
+        matches!(refused, Err(Level2Error::NoSweep(_, _))),
+        "a cut with no Nyquist velocity was derived anyway"
+    );
 }

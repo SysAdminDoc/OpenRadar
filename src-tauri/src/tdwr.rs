@@ -403,6 +403,9 @@ fn draw_product(
         unfolded: false,
         threshold,
         high_contrast,
+        // A terminal radar publishes finished products rather than a volume,
+        // so there is nothing here to take a derivative of.
+        derived: None,
     };
     let rendered = render(
         &image,
@@ -745,6 +748,7 @@ mod tests {
             unfolded: false,
             threshold: None,
             high_contrast: false,
+            derived: None,
         };
         let paint = |within| {
             render(
@@ -885,6 +889,7 @@ mod tests {
                 unfolded: false,
                 threshold: None,
                 high_contrast: false,
+                derived: None,
             },
             BASE_RANGE_KM,
             None,
@@ -952,6 +957,7 @@ mod tests {
             unfolded: false,
             threshold: None,
             high_contrast: false,
+            derived: None,
         };
         let rendered = render(
             &image,
@@ -1001,6 +1007,7 @@ mod tests {
                     unfolded: false,
                     threshold: Some(floor),
                     high_contrast: false,
+                    derived: None,
                 },
                 BASE_RANGE_KM,
                 None,
@@ -1030,6 +1037,7 @@ mod tests {
                 unfolded: false,
                 threshold: None,
                 high_contrast: false,
+                derived: None,
             },
             LONG_RANGE_KM,
             None,
@@ -1048,6 +1056,9 @@ mod tests {
             "differential-reflectivity",
             "correlation-coefficient",
             "storm-relative-velocity",
+            // Derived from a volume, which a terminal radar does not publish.
+            "azimuthal-shear",
+            "rotation",
             "anything",
         ] {
             assert!(
