@@ -530,6 +530,8 @@ export const de: Catalogue = {
   "alerts.officeEccc": "Environment and Climate Change Canada",
   "alerts.officeDwd": "Deutscher Wetterdienst",
   "alerts.officeMeteoalarm": "MeteoAlarm",
+  "alerts.warningsUnshaped":
+    "{count, plural, one {Eine geltende europäische Warnung wird nicht gezeichnet, weil der ausgebende Dienst einen Regionsnamen statt eines Umrisses veröffentlicht.} other {# geltende europäische Warnungen werden nicht gezeichnet, weil die ausgebenden Dienste Regionsnamen statt Umrissen veröffentlichen.}}",
   "alerts.countriesUnasked":
     "{count, plural, one {Ein weiteres europäisches Land ist auf dem Bildschirm und wurde nicht abgefragt; zoomen Sie hinein, um seine Warnungen zu sehen.} other {# weitere europäische Länder sind auf dem Bildschirm und wurden nicht abgefragt; zoomen Sie hinein, um ihre Warnungen zu sehen.}}",
   "alerts.officeUnanswered": "das Amt hat nicht geantwortet",
@@ -1697,7 +1699,7 @@ export const de: Catalogue = {
   "melting.nothingMelting":
     "Nichts in diesem Volumen sieht nach schmelzendem Schnee aus.",
   "jump.badge": "Sprung der Blitzrate bei {id}",
-  "jump.rate": "{id} liegt jetzt bei {rate} je Minute, {time}.",
+  "jump.rate": "{id} liegt jetzt bei {rate} je Minute, Stand {time}.",
   "jump.note":
     "Ein Signal, dass der Sturm sich verstärkt, keine Warnung. Vom Satelliten erkannte Blitze, keine Meldungen von Einschlägen am Boden.",
   "gridWatch.hailTitle": "Hagel geschätzt nahe {place}",

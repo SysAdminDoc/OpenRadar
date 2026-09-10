@@ -57,12 +57,18 @@ export const METEOALARM_COUNTRIES: ReadonlyArray<{
   /**
    * The service that issues the country's warnings, as it names itself.
    *
-   * Read out of each feed's own `senderName` on 2026-09-10 rather than
-   * written from memory, and absent for the six that had no warning at all
-   * that day. The Atom feed carries the geometry and the times and not the
-   * sender, so this is what puts the issuing office on the popup; a country
-   * with no entry here is credited to MeteoAlarm alone until somebody reads
-   * a live warning of theirs and fills it in.
+   * Read out of each feed's own English `senderName` on 2026-09-10 rather
+   * than written from memory, and absent for the six that had no warning at
+   * all that day. The first reading of this table took whichever block came
+   * first, which is not always the English one, and named the wrong
+   * institution for three countries.
+   *
+   * One name per country, which is not always one office: Bosnia and
+   * Herzegovina has two services and Poland has regional ones, so this names
+   * whichever answered its feed on the day it was read. The popup carries it
+   * beside MeteoAlarm's own credit rather than instead of it, which is what
+   * keeps a warning from a sibling office from being credited outright to
+   * the wrong one.
    */
   office?: string;
 }> = [
@@ -83,8 +89,7 @@ export const METEOALARM_COUNTRIES: ReadonlyArray<{
   {
     id: "bosnia-herzegovina",
     box: { west: 15.7, south: 42.5, east: 19.7, north: 45.3 },
-    office:
-      "Hydrometeorological Institute of Federation of Bosnia and Herzegovina",
+    office: "Republic Hydrometeorological Service of the Republic of Srpska",
   },
   {
     id: "bulgaria",
@@ -110,8 +115,11 @@ export const METEOALARM_COUNTRIES: ReadonlyArray<{
     office: "Danish Meteorological Institute",
   },
   {
+    // Widened west and north on 2026-09-10: the live feed's own polygons
+    // reached 21.387 and 59.938, so a view over Hiiumaa or the northern
+    // gulf never asked Estonia at all.
     id: "estonia",
-    box: { west: 21.7, south: 57.5, east: 28.3, north: 59.8 },
+    box: { west: 21.2, south: 57.3, east: 28.4, north: 60.1 },
     office: "Estonian Environment Agency",
   },
   {
@@ -127,7 +135,7 @@ export const METEOALARM_COUNTRIES: ReadonlyArray<{
   {
     id: "greece",
     box: { west: 19.3, south: 34.7, east: 28.3, north: 41.8 },
-    office: "Hellenic National Meteorological Service",
+    office: "Hnms Forecaster",
   },
   {
     id: "hungary",
@@ -184,8 +192,11 @@ export const METEOALARM_COUNTRIES: ReadonlyArray<{
     office: "Zavod za hidrometeorologiju i seizmologiju",
   },
   {
+    // Widened north on 2026-09-10: the live feed's own polygons reached
+    // 54.16, so the Wadden and the North Sea warnings, which is where the
+    // wind warnings are, fell outside the box and were never asked for.
     id: "netherlands",
-    box: { west: 3.3, south: 50.7, east: 7.3, north: 53.6 },
+    box: { west: 3.2, south: 50.7, east: 7.3, north: 54.4 },
     office: "KNMI Royal Netherlands Meteorological Institute",
   },
   {
@@ -196,7 +207,7 @@ export const METEOALARM_COUNTRIES: ReadonlyArray<{
   {
     id: "poland",
     box: { west: 14.1, south: 48.9, east: 24.2, north: 55.0 },
-    office: "IMGW-PIB",
+    office: "IMGW-PIB Regional Meteorological Forecasting Office",
   },
   // Wide enough for the Azores and Madeira, which the same service warns for.
   {
@@ -306,7 +317,9 @@ export function meteoalarmUrl(country: string): string {
  * Read from the hazard word MeteoAlarm itself puts in the entry's title,
  * which is a small closed vocabulary: Thunderstorm, Rain, Wind,
  * High-temperature, Low-temperature, Snow-ice, Coastalevent, Forest-fire,
- * Fog, Flooding, Rain-flood, Avalanches.
+ * Fog, Flooding, Rain-flood, Avalanches. Fog is deliberately not in the
+ * table below: there is no fog switch and no hazard group it belongs in, so
+ * it falls to "other" with everything else nobody has a switch for.
  *
  * Not from `cap:event`, which is each service's own words and is not a
  * vocabulary at all: the live feeds carry "Thunderstormwarning", "EXTREME
@@ -439,7 +452,7 @@ function child(entry: Element, tag: string): string {
 export function parseMeteoalarm(
   xml: string,
   options: { at: number; country: string },
-): OverlayFeature[] {
+): { features: OverlayFeature[]; unshaped: number } {
   const document = new DOMParser().parseFromString(xml, "text/xml");
   if (document.getElementsByTagName("parsererror").length) {
     throw new Error(translate("alerts.officeUnanswered"));
@@ -448,6 +461,13 @@ export function parseMeteoalarm(
     (country) => country.id === options.country,
   );
   const parsed: OverlayFeature[] = [];
+  // Warnings in force that this cannot draw, because the service publishes a
+  // region code instead of an outline. Twenty-eight of the thirty-seven
+  // member services do, so on a busy day over Austria or Spain the map is
+  // clean and there are two hundred warnings standing. Counted and said,
+  // because a country with nothing drawn must never read as a country with
+  // nothing happening.
+  let unshaped = 0;
 
   for (const entry of Array.from(document.getElementsByTagName("entry"))) {
     // A test message, an exercise and a system message are not warnings, and
@@ -476,9 +496,17 @@ export function parseMeteoalarm(
     // publishes a debugging string there.
     const headline = `${parts.colour} ${parts.hazard} Warning`;
 
-    for (const said of Array.from(entry.getElementsByTagName("cap:polygon"))) {
+    const rings = Array.from(entry.getElementsByTagName("cap:polygon"));
+    if (rings.length === 0) {
+      unshaped += 1;
+      continue;
+    }
+    for (const said of rings) {
       const ring = capRing(text(said.textContent));
-      if (!ring) continue;
+      if (!ring) {
+        unshaped += 1;
+        continue;
+      }
       parsed.push({
         type: "Feature",
         geometry: { type: "Polygon", coordinates: [ring] },
@@ -516,7 +544,7 @@ export function parseMeteoalarm(
     }
   }
 
-  return parsed;
+  return { features: parsed, unshaped };
 }
 
 /** MeteoAlarm's own page for one warning, from the entry's links. */

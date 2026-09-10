@@ -22,6 +22,8 @@ function series(counts: number[]): JumpSample[] {
   return counts.map((flashes, at) => ({
     at: AT - (counts.length - 1 - at) * JUMP_BIN_MS,
     flashes,
+    // A settled bin, which is what every one of these stands for.
+    covered: JUMP_BIN_MS,
   }));
 }
 
@@ -38,6 +40,19 @@ function flash(latitude: number, longitude: number, at: number = AT): Flash {
 }
 
 const CELL = { latitude: 41.6, longitude: -93.6 };
+
+/**
+ * A moment near the end of the nth bin after `AT`.
+ *
+ * `AT` is exactly on a bin boundary, so a window observed at `AT` is a bin
+ * that has run for no time at all: the fold refuses it, and before that
+ * refusal existed it was rated as a whole bin's worth. Every window here is
+ * observed a second before its bin closes, which is what a poll every minute
+ * actually looks like by the time a bin settles.
+ */
+function closing(bin: number): number {
+  return AT + (bin + 1) * JUMP_BIN_MS - 1_000;
+}
 
 beforeEach(() => forgetJumps());
 afterEach(() => forgetJumps());
@@ -158,18 +173,26 @@ describe("a storm's flash rate rising faster than it has been", () => {
     // would make a two-minute bin look like four of them and halve every
     // change the method takes.
     let held: JumpSample[] = [];
-    held = withSample(held, { at: AT, flashes: 10 });
-    held = withSample(held, { at: AT, flashes: 18 });
+    held = withSample(held, { at: AT, flashes: 10, covered: JUMP_BIN_MS });
+    held = withSample(held, { at: AT, flashes: 18, covered: JUMP_BIN_MS });
     expect(held).toHaveLength(1);
     expect(held[0].flashes).toBe(18);
 
-    held = withSample(held, { at: AT + JUMP_BIN_MS, flashes: 20 });
+    held = withSample(held, {
+      at: AT + JUMP_BIN_MS,
+      flashes: 20,
+      covered: JUMP_BIN_MS,
+    });
     expect(held).toHaveLength(2);
   });
 
   it("drops history it can no longer judge against", () => {
     let held: JumpSample[] = series(new Array(20).fill(10));
-    held = withSample(held, { at: AT + JUMP_BIN_MS, flashes: 10 });
+    held = withSample(held, {
+      at: AT + JUMP_BIN_MS,
+      flashes: 10,
+      covered: JUMP_BIN_MS,
+    });
     expect(held.length).toBeLessThanOrEqual(JUMP_HISTORY_BINS + 1);
   });
 
@@ -178,8 +201,8 @@ describe("a storm's flash rate rising faster than it has been", () => {
     // one two-minute step reads the change across it as three times what it
     // was, which is a jump made out of a gap.
     const gapped: JumpSample[] = [
-      { at: AT, flashes: 20 },
-      { at: AT + 3 * JUMP_BIN_MS, flashes: 44 },
+      { at: AT, flashes: 20, covered: JUMP_BIN_MS },
+      { at: AT + 3 * JUMP_BIN_MS, flashes: 44, covered: JUMP_BIN_MS },
     ];
     // Ten a minute to twenty-two a minute over six minutes is two.
     expect(changes(gapped)[0]).toBeCloseTo(2, 6);
@@ -204,22 +227,26 @@ describe("the series each tracked cell carries between windows", () => {
     let found = new Map<string, ReturnType<typeof jumpIn>>();
     const counts = [24, 26, 24, 26, 24, 26, 52];
     counts.forEach((count, at) => {
-      const when = AT + at * JUMP_BIN_MS;
+      const when = closing(at);
       const flashes = new Array(count)
         .fill(null)
         .map(() => flash(41.6, -93.6, when));
       found = rememberJumps([near], flashes, when);
     });
     expect(found.get("A1")?.at).not.toBeNull();
-    expect(found.get("A1")?.rate).toBe(26);
+    // Fifty-two flashes over the 119 seconds of the bin that had passed.
+    expect(found.get("A1")?.rate).toBeCloseTo(52 / (119 / 60), 6);
   });
 
   it("folds the same window twice to the same answer", () => {
     // What makes it safe to do while rendering. A second pass lands in the
     // bin it already filled and replaces it with the same count.
-    const flashes = new Array(24).fill(null).map(() => flash(41.6, -93.6));
-    const once = rememberJumps([near], flashes, AT);
-    const twice = rememberJumps([near], flashes, AT);
+    const when = closing(0);
+    const flashes = new Array(24)
+      .fill(null)
+      .map(() => flash(41.6, -93.6, when));
+    const once = rememberJumps([near], flashes, when);
+    const twice = rememberJumps([near], flashes, when);
     expect(twice.get("A1")).toEqual(once.get("A1"));
   });
 
@@ -235,21 +262,19 @@ describe("the series each tracked cell carries between windows", () => {
     const near_at = (at: number) =>
       new Array(counts[at])
         .fill(null)
-        .map(() => flash(41.6, -93.6, AT + at * JUMP_BIN_MS));
+        .map(() => flash(41.6, -93.6, closing(at)));
     for (let at = 0; at < 6; at += 1) {
-      rememberJumps([near, other], near_at(at), AT + at * JUMP_BIN_MS);
+      rememberJumps([near, other], near_at(at), closing(at));
     }
     // `B2` goes away and comes back, and comes back with nothing behind it.
-    rememberJumps([near], near_at(6), AT + 6 * JUMP_BIN_MS);
+    rememberJumps([near], near_at(6), closing(6));
     const back = rememberJumps(
       [near, other],
       [
         ...near_at(7),
-        ...new Array(100)
-          .fill(null)
-          .map(() => flash(43.0, -93.6, AT + 7 * JUMP_BIN_MS)),
+        ...new Array(100).fill(null).map(() => flash(43.0, -93.6, closing(7))),
       ],
-      AT + 7 * JUMP_BIN_MS,
+      closing(7),
     );
     expect(back.get("B2")?.sigma).toBeNull();
     // And the cell that stayed kept its own history.
@@ -262,7 +287,7 @@ describe("the series each tracked cell carries between windows", () => {
     // every rate two and a half times too high, put that number on the panel,
     // and let any storm above four flashes a minute past a floor written for
     // ten.
-    const now = AT + 4 * JUMP_BIN_MS;
+    const now = closing(4);
     const window = [
       ...new Array(20).fill(null).map(() => flash(41.6, -93.6, now)),
       ...new Array(30)
@@ -273,18 +298,56 @@ describe("the series each tracked cell carries between windows", () => {
         .map(() => flash(41.6, -93.6, now - 2 * JUMP_BIN_MS)),
     ];
     const found = rememberJumps([near], window, now);
-    // Twenty flashes in two minutes is ten a minute. The whole window is
-    // eighty, which read as forty.
-    expect(found.get("A1")?.rate).toBe(10);
+    // Twenty flashes over the 119 seconds of the bin that had passed. The
+    // whole window is eighty, which read as forty.
+    expect(found.get("A1")?.rate).toBeCloseTo(20 / (119 / 60), 6);
   });
 
   it("counts each cell only its own flashes", () => {
+    const when = closing(0);
     const flashes = [
-      ...new Array(30).fill(null).map(() => flash(41.6, -93.6)),
-      ...new Array(4).fill(null).map(() => flash(43.0, -93.6)),
+      ...new Array(30).fill(null).map(() => flash(41.6, -93.6, when)),
+      ...new Array(4).fill(null).map(() => flash(43.0, -93.6, when)),
     ];
-    const found = rememberJumps([near, other], flashes, AT);
-    expect(found.get("A1")?.rate).toBe(15);
-    expect(found.get("B2")?.rate).toBe(2);
+    const found = rememberJumps([near, other], flashes, when);
+    expect(found.get("A1")?.rate).toBeCloseTo(30 / (119 / 60), 6);
+    expect(found.get("B2")?.rate).toBeCloseTo(4 / (119 / 60), 6);
+  });
+
+  it("rates a bin by the part of it that has actually happened", () => {
+    // The window arrives every minute and a bin is two, so the newest bin is
+    // usually part way through. Dividing a minute of flashes by two minutes
+    // halves the rate; with the window landing near a bin's first instant it
+    // reads as almost nothing and the next arrival as almost double, so a
+    // storm flashing steadily at thirty a minute came out as 0.5, 15.5, 0.5,
+    // 15.5 and never once as thirty.
+    const half = AT + JUMP_BIN_MS + JUMP_BIN_MS / 2;
+    const flashes = new Array(30)
+      .fill(null)
+      .map(() => flash(41.6, -93.6, half - 1));
+    const found = rememberJumps([near], flashes, half);
+    // Thirty flashes over the minute of the bin that has passed.
+    expect(found.get("A1")?.rate).toBe(30);
+  });
+
+  it("does not rate a bin that has barely opened", () => {
+    // Four seconds of a two-minute bin is a rate with an enormous error bar
+    // on it, and the series is what the deviation is measured against: one
+    // noisy bin moves the sigma more than the storm does.
+    const opened = AT + JUMP_BIN_MS + 4_000;
+    const flashes = new Array(3)
+      .fill(null)
+      .map(() => flash(41.6, -93.6, opened - 1));
+    const found = rememberJumps([near], flashes, opened);
+    // Nothing was folded, so there is no rate at all rather than a wild one.
+    expect(found.get("A1")?.rate).toBe(0);
+
+    // And the same bin, once it has run long enough, is folded and rated.
+    const later = AT + 2 * JUMP_BIN_MS - 1_000;
+    const more = new Array(40)
+      .fill(null)
+      .map(() => flash(41.6, -93.6, later - 1));
+    const settled = rememberJumps([near], more, later);
+    expect(settled.get("A1")?.rate).toBeCloseTo(40 / (119 / 60), 6);
   });
 });

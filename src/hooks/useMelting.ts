@@ -46,8 +46,13 @@ export function useMelting(options: {
 
   useEffect(() => {
     if (!wanted || !station) return;
-    const reply = latest();
     const ask = async () => {
+      // One token per ask, not one per effect. `pollWhileOnline` fires this
+      // again every refresh inside the same effect run, so a token taken
+      // outside was current for every poll of the station and two answers for
+      // the same station that landed out of order overwrote in arrival order.
+      // `useLightning.ts`, the file this follows, counts per request.
+      const reply = latest();
       try {
         const answer = await fetchMelting(station);
         // Only if this is still the run the hook is waiting on. A cached
@@ -67,7 +72,9 @@ export function useMelting(options: {
     const stop = pollWhileOnline(() => void ask(), MELTING_REFRESH_MS);
     return () => {
       stop();
-      reply.close();
+      // Nothing still in flight for the station this effect was about counts
+      // once it is torn down.
+      latest().close();
     };
   }, [latest, station, wanted]);
 

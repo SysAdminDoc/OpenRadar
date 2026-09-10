@@ -90,6 +90,11 @@ ${(entries.length ? entries : [entry()]).join("\n")}
 
 const options = { at: AT, country: "switzerland" };
 
+/** Just the drawable half of a read, which is most of what these assert. */
+function drawnBy(xml: string, said: typeof options) {
+  return parseMeteoalarm(xml, said).features;
+}
+
 describe("which European feeds a view is worth asking", () => {
   it("asks only about countries the view actually reaches", () => {
     // A view over the Swiss plateau. Iceland is not in it.
@@ -152,7 +157,7 @@ describe("which European feeds a view is worth asking", () => {
 
 describe("reading one country's warnings", () => {
   it("draws the polygon the office published, the right way round", () => {
-    const [drawn] = parseMeteoalarm(feed(), options);
+    const [drawn] = drawnBy(feed(), options);
     expect(drawn).toBeTruthy();
     const ring = (drawn.geometry as { coordinates: [number, number][][] })
       .coordinates[0];
@@ -168,7 +173,7 @@ describe("reading one country's warnings", () => {
   });
 
   it("names the hazard, the office and the region", () => {
-    const [drawn] = parseMeteoalarm(feed(), options);
+    const [drawn] = drawnBy(feed(), options);
     expect(drawn.properties.headline).toBe("Orange Thunderstorm Warning");
     expect(drawn.properties.office).toBe("MeteoSwiss");
     expect(drawn.properties.severity).toBe("severe");
@@ -187,7 +192,7 @@ describe("reading one country's warnings", () => {
     // than naming the publication.
     const quiet = METEOALARM_COUNTRIES.find((one) => one.id === "malta");
     expect(quiet?.office).toBeUndefined();
-    const [drawn] = parseMeteoalarm(feed(), { ...options, country: "malta" });
+    const [drawn] = drawnBy(feed(), { ...options, country: "malta" });
     expect(drawn.properties.office).toBe("MeteoAlarm");
   });
 
@@ -200,7 +205,7 @@ describe("reading one country's warnings", () => {
         title: "Green Thunderstorm Warning issued for Switzerland - Luganese",
       }),
     );
-    expect(parseMeteoalarm(green, options)).toEqual([]);
+    expect(drawnBy(green, options)).toEqual([]);
     expect(noAwareness("Green")).toBe(true);
     expect(noAwareness("Yellow")).toBe(false);
   });
@@ -215,7 +220,7 @@ describe("reading one country's warnings", () => {
         expires: "2026-09-03T08:00:00+00:00",
       }),
     );
-    expect(parseMeteoalarm(over, options)).toEqual([]);
+    expect(drawnBy(over, options)).toEqual([]);
 
     const tomorrow = feed(
       entry({
@@ -224,23 +229,44 @@ describe("reading one country's warnings", () => {
         expires: "2026-09-10T18:00:00+00:00",
       }),
     );
-    expect(parseMeteoalarm(tomorrow, options)).toEqual([]);
+    expect(drawnBy(tomorrow, options)).toEqual([]);
   });
 
   it("drops a cancellation, a test and anything not actual", () => {
-    expect(
-      parseMeteoalarm(feed(entry({ message_type: "Cancel" })), options),
-    ).toEqual([]);
-    expect(parseMeteoalarm(feed(entry({ status: "Test" })), options)).toEqual(
+    expect(drawnBy(feed(entry({ message_type: "Cancel" })), options)).toEqual(
       [],
     );
-    expect(
-      parseMeteoalarm(feed(entry({ status: "Exercise" })), options),
-    ).toEqual([]);
+    expect(drawnBy(feed(entry({ status: "Test" })), options)).toEqual([]);
+    expect(drawnBy(feed(entry({ status: "Exercise" })), options)).toEqual([]);
     // And an ordinary update is a warning, not a cancellation.
     expect(
-      parseMeteoalarm(feed(entry({ message_type: "Update" })), options),
+      drawnBy(feed(entry({ message_type: "Update" })), options),
     ).toHaveLength(1);
+  });
+
+  it("counts a warning it cannot draw rather than dropping it silently", () => {
+    // Twenty-eight of the thirty-seven member services publish a region code
+    // instead of an outline. On a busy day over Austria that is two hundred
+    // warnings in force and a map with nothing on it, which is wrong data
+    // rather than missing data.
+    const coded = feed(entry({ polygon: "" }))
+      .replace("<cap:polygon></cap:polygon>", "")
+      .replace("<cap:polygon/>", "");
+    const read = parseMeteoalarm(coded, options);
+    expect(read.features).toEqual([]);
+    expect(read.unshaped).toBe(1);
+
+    // And a ring that is not a ring is counted the same way, because the
+    // reader is equally left with nothing drawn.
+    const broken = parseMeteoalarm(
+      feed(entry({ polygon: "46.1,8.7 46.2,8.8" })),
+      options,
+    );
+    expect(broken.features).toEqual([]);
+    expect(broken.unshaped).toBe(1);
+
+    // A warning that draws is not counted as one that did not.
+    expect(parseMeteoalarm(feed(), options).unshaped).toBe(0);
   });
 
   it("gives one warning covering two valleys one identity", () => {
@@ -250,15 +276,15 @@ describe("reading one country's warnings", () => {
       entry(),
       entry({ areaDesc: "Locarnese", polygon: square(46.3, 8.6) }),
     );
-    const drawn = parseMeteoalarm(both, options);
+    const drawn = drawnBy(both, options);
     expect(drawn).toHaveLength(2);
     expect(drawn[0].properties.capId).toBe(drawn[1].properties.capId);
     expect(drawn[0].properties.area).not.toBe(drawn[1].properties.area);
   });
 
   it("gives two countries' warnings two identities", () => {
-    const swiss = parseMeteoalarm(feed(), options);
-    const norwegian = parseMeteoalarm(
+    const swiss = drawnBy(feed(), options);
+    const norwegian = drawnBy(
       feed(
         entry({
           identifier: "2.49.0.0.578.0.NO.2609091538412e4b23873816297",
@@ -344,7 +370,7 @@ describe("the watch at a place in Europe", () => {
     // The whole point of putting these on the same layer rather than on a
     // switch of their own: a reader in Ticino gets told the same way a reader
     // in Kansas does, through the machinery that was already there.
-    const drawn = parseMeteoalarm(feed(), options);
+    const drawn = drawnBy(feed(), options);
     const said = alertsToAnnounce(
       { type: "FeatureCollection", features: drawn },
       {
@@ -386,7 +412,7 @@ describe("the watch at a place in Europe", () => {
 
 describe("whose warning a popup says it is", () => {
   it("names the European office rather than the American one", () => {
-    const [drawn] = parseMeteoalarm(feed(), options);
+    const [drawn] = drawnBy(feed(), options);
     const said = alertsOverlay.describe(drawn.properties);
     const source = said!.lines.at(-1)!;
     expect(source).toContain("MeteoSwiss");
@@ -395,6 +421,44 @@ describe("whose warning a popup says it is", () => {
 });
 
 describe.runIf(LIVE)("against the live service", () => {
+  it("keeps every country's warnings inside the box that asks for them", async () => {
+    // A box that stops short of where a service warns is a warning nobody is
+    // ever asked about. The Netherlands box cut off at 53.6 while the live
+    // polygons reached 54.16, which is the Wadden and the North Sea, which is
+    // where the wind warnings are; Estonia's cut off two islands. Nothing in
+    // the suite held the table: pulling the Dutch north edge down to 52.0,
+    // losing Amsterdam, left every other test green.
+    const outside: string[] = [];
+    for (const country of METEOALARM_COUNTRIES) {
+      const answer = await fetch(meteoalarmUrl(country.id));
+      expect(answer.ok, country.id).toBe(true);
+      const document = new DOMParser().parseFromString(
+        await answer.text(),
+        "text/xml",
+      );
+      for (const said of Array.from(
+        document.getElementsByTagName("cap:polygon"),
+      )) {
+        const ring = capRing(said.textContent ?? "");
+        if (!ring) continue;
+        for (const [lon, lat] of ring) {
+          if (
+            lon < country.box.west ||
+            lon > country.box.east ||
+            lat < country.box.south ||
+            lat > country.box.north
+          ) {
+            outside.push(
+              `${country.id}: ${lat.toFixed(3)}, ${lon.toFixed(3)} outside ${JSON.stringify(country.box)}`,
+            );
+            break;
+          }
+        }
+      }
+    }
+    expect([...new Set(outside)]).toEqual([]);
+  }, 180_000);
+
   it("still publishes the fields a European warning is drawn from", async () => {
     // Switzerland publishes geometry and is rarely completely quiet, but an
     // empty answer on a calm day is still the right answer. What this holds
@@ -431,7 +495,7 @@ describe.runIf(LIVE)("against the live service", () => {
     const drawn = parseMeteoalarm(xml, {
       at: Date.now(),
       country: "switzerland",
-    });
+    }).features;
     for (const feature of drawn) {
       expect(String(feature.properties.headline)).not.toBe("");
       expect(String(feature.properties.office)).not.toBe("");

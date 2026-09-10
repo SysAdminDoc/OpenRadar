@@ -53,6 +53,17 @@ export const JUMP_MIN_RATE = 10;
 export const JUMP_SIGMA = 2;
 
 /**
+ * The least of a bin that has to have happened before it is worth a rate.
+ *
+ * A quarter of it. A count over the first few seconds of a bin is a rate with
+ * an enormous error bar, and the series is what the deviation is measured
+ * against: one noisy bin moves the sigma more than the storm does. The bin is
+ * folded in as soon as this much of it has passed and replaced by every later
+ * arrival, so it settles on the fullest count anybody saw.
+ */
+export const JUMP_MIN_COVERED_MS = JUMP_BIN_MS / 4;
+
+/**
  * How far from a cell's centre a flash is counted as that cell's, in miles.
  *
  * The tracker publishes a centroid and a motion and no size, so this is a
@@ -68,6 +79,18 @@ export interface JumpSample {
   /** The end of the bin, in milliseconds. */
   at: number;
   flashes: number;
+  /**
+   * How much of the bin had actually happened when this was counted, in
+   * milliseconds.
+   *
+   * A bin is two minutes and the window arrives every minute, so the newest
+   * bin is usually part way through: counting a minute of flashes and
+   * dividing by two minutes halves the rate. With the window landing near a
+   * bin's first instant it reads as almost nothing, and the next arrival
+   * reads as almost double, so a storm flashing steadily at thirty a minute
+   * came out as 0.5, 15.5, 0.5, 15.5.
+   */
+  covered: number;
 }
 
 /** What a cell's series says about it now. */
@@ -119,7 +142,10 @@ export function binOf(at: number): number {
  * are adjacent.
  */
 export function rates(series: readonly JumpSample[]): number[] {
-  return series.map((sample) => sample.flashes / (JUMP_BIN_MS / 60_000));
+  return series.map((sample) => {
+    const minutes = Math.min(Math.max(sample.covered, 1), JUMP_BIN_MS) / 60_000;
+    return sample.flashes / minutes;
+  });
 }
 
 /**
@@ -239,16 +265,29 @@ export function rememberJumps(
   // came out as twenty-six, and the floor meant to keep small storms out let
   // anything above four through. The window is longer than a bin, so each bin
   // is fully covered by the window that closes it.
+  const opened = bin - JUMP_BIN_MS;
   const inBin = flashes.filter((flash) => {
     const when = flash.time * 1000;
-    return when >= bin - JUMP_BIN_MS && when < bin;
+    return when >= opened && when < bin;
   });
+  // How much of this bin the count actually covers. The window reaches up to
+  // the moment it was observed and no further, so a bin that has just opened
+  // has been watched for a few seconds and its count must be divided by that
+  // rather than by a whole bin.
+  const covered = Math.min(Math.max(at - opened, 0), JUMP_BIN_MS);
   const found = new Map<string, CellJump>();
   for (const cell of cells) {
-    const series = withSample(held.get(cell.id) ?? [], {
-      at: bin,
-      flashes: flashesNear(cell, inBin),
-    });
+    const kept = held.get(cell.id) ?? [];
+    // Too little of the bin has happened to rate it. The series keeps what it
+    // had rather than taking a count over four seconds as a minute's worth.
+    const series =
+      covered < JUMP_MIN_COVERED_MS
+        ? kept
+        : withSample(kept, {
+            at: bin,
+            flashes: flashesNear(cell, inBin),
+            covered,
+          });
     held.set(cell.id, series);
     found.set(cell.id, jumpIn(series));
   }

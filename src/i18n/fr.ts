@@ -518,6 +518,8 @@ export const fr: Catalogue = {
   "alerts.officeEccc": "Environnement et Changement climatique Canada",
   "alerts.officeDwd": "Deutscher Wetterdienst",
   "alerts.officeMeteoalarm": "MeteoAlarm",
+  "alerts.warningsUnshaped":
+    "{count, plural, one {Un avertissement européen en vigueur n'est pas dessiné, car le service qui l'a émis publie un nom de région et non un contour.} other {# avertissements européens en vigueur ne sont pas dessinés, car les services qui les ont émis publient des noms de région et non des contours.}}",
   "alerts.countriesUnasked":
     "{count, plural, one {Un autre pays européen est à l'écran et n'a pas été interrogé ; zoomez pour voir ses avertissements.} other {# autres pays européens sont à l'écran et n'ont pas été interrogés ; zoomez pour voir leurs avertissements.}}",
   "alerts.officeUnanswered": "le bureau n'a pas répondu",
@@ -1683,7 +1685,7 @@ export const fr: Catalogue = {
   "melting.nothingMelting":
     "Rien dans ce volume ne ressemble à de la neige en fusion.",
   "jump.badge": "Saut du taux d'éclairs sur {id}",
-  "jump.rate": "{id} est maintenant à {rate} par minute, {time}.",
+  "jump.rate": "{id} est maintenant à {rate} par minute, à {time}.",
   "jump.note":
     "Un signal que l'orage s'intensifie, pas une alerte. Des éclairs détectés par satellite, pas des signalements d'impacts au sol.",
   "gridWatch.hailTitle": "Grêle estimée près de {place}",
