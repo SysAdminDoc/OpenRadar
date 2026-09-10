@@ -1607,6 +1607,15 @@ export const en = {
     "Off, because a warning already makes one and this is not a warning",
   "lightningWatch.note":
     "Satellite-detected flashes, not ground strike reports.",
+  "melting.title": "Melting layer",
+  "melting.source": "From this volume's own {tilt}° cut",
+  "melting.band": "Around {peak}, between {bottom} and {top} above the radar.",
+  "melting.note":
+    "The bright band the radar can see, which is where snow is turning to rain. The hail size above is worked out against the sounding rather than this.",
+  "melting.noHighTilt": "This volume has no cut steep enough to read one from.",
+  "melting.missingMoment":
+    "The high cut is missing one of the three moments this needs.",
+  "melting.nothingMelting": "Nothing in this volume looks like melting snow.",
   "jump.badge": "Flash rate jumped on {id}",
   "jump.rate": "Now {rate} a minute, at {time}.",
   "jump.note":

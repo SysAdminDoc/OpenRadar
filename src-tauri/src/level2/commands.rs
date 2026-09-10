@@ -293,6 +293,31 @@ pub async fn level2_vwp(
     Ok(columns)
 }
 
+/// Where the melting layer is in a station's newest volume.
+///
+/// Answered as a result rather than an option, because "no cut goes high
+/// enough" and "nothing in the cut is melting" are different things and the
+/// panel says which. A volume in progress often has neither: the high cuts
+/// come last, so the layer arrives late in the scan and that is not a fault.
+#[tauri::command]
+pub async fn level2_melting(
+    station: String,
+) -> Result<Result<crate::melting::MeltingLayer, crate::melting::NoLayer>, Level2Error> {
+    let station = station.to_uppercase();
+    wsr88d_only(&station)?;
+    let (key, data) = volume_for_export(&station, None).await?;
+    // Decoding a volume is CPU work and must not sit on the async runtime.
+    tauri::async_runtime::spawn_blocking(move || {
+        // Read once and dropped, like the wind profile beside it: this is a
+        // panel line rather than the picture, and keeping the scan would
+        // evict the volume the map is drawing.
+        let (scan, _) = decoded_volume_once(&key, data)?;
+        Ok(crate::melting::from_volume(&scan))
+    })
+    .await
+    .map_err(|error| Level2Error::Decode(error.to_string()))?
+}
+
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn level2_archive_sweep(

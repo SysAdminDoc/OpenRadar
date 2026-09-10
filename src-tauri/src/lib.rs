@@ -38,6 +38,7 @@ mod kdp;
 mod level2;
 mod level3;
 mod lightning;
+mod melting;
 mod mrms;
 mod palette;
 mod probsevere;
@@ -323,6 +324,7 @@ pub fn run() {
             level2::level2_sites_in_reach,
             level2::level2_cross_section,
             snowfall::snowfall_analysis,
+            level2::level2_melting,
             level2::level2_vwp,
             level3::level3_cells,
             level3::level3_classification,

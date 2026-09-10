@@ -1665,6 +1665,17 @@ export const de: Catalogue = {
     "Aus, weil eine Warnung schon einen macht und dies keine Warnung ist",
   "lightningWatch.note":
     "Vom Satelliten erkannte Blitze, keine Meldungen von Einschlägen am Boden.",
+  "melting.title": "Schmelzschicht",
+  "melting.source": "Aus dem {tilt}°-Schnitt dieses Volumens selbst",
+  "melting.band": "Um {peak}, zwischen {bottom} und {top} über dem Radar.",
+  "melting.note":
+    "Das helle Band, das das Radar sieht, dort wo Schnee zu Regen wird. Die Hagelkorngröße darüber wird gegen die Radiosondierung gerechnet und nicht dagegen.",
+  "melting.noHighTilt":
+    "Dieses Volumen hat keinen Schnitt, der steil genug wäre, sie abzulesen.",
+  "melting.missingMoment":
+    "Dem hohen Schnitt fehlt eines der drei Momente, die dies braucht.",
+  "melting.nothingMelting":
+    "Nichts in diesem Volumen sieht nach schmelzendem Schnee aus.",
   "jump.badge": "Sprung der Blitzrate bei {id}",
   "jump.rate": "Jetzt {rate} je Minute, um {time}.",
   "jump.note":
