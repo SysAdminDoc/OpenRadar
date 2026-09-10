@@ -280,6 +280,15 @@ Tenth research pass, at `beae469`. Everything below came from the third refutati
 
 ### P3
 
+- [ ] AUD-496 (P3): Four files sit above the size ceiling under a waiver that only stops them growing
+      Category: maintainability
+      Where: `src/fileSize.test.ts` `ALREADY_OVER`; `src/components/MapViewport.tsx` (3,068 lines), `src/hooks/useSingleSiteRadar.test.tsx` (2,294), `src/hooks/useSingleSiteRadar.ts` (1,717), `src/App.tsx` (1,555).
+      Problem: The ceiling of 1,500 lines was set by `AUD-272` and measured only `src/panels` until the gate was widened, so the three files that motivated it were never held to it. Widening it without splitting them would have failed the suite on day one, so each is recorded at its current length and may not grow. That stops it getting worse and does not make it better. `useSingleSiteRadar` is the sharpest case: the hook and its test are both over, which is usually what a module doing several jobs looks like.
+      Evidence: Measured on 2026-09-10 by the gate itself, which prints the name and the length of anything over. The waiver expires by itself: a second test asserts every waived file is still over the ceiling, so splitting one below 1,500 fails until its entry is removed.
+      Fix: Split each along the seam it already has. `MapViewport.tsx` is a stack of independent lanes (vector, raster, cursor, ramps) that mostly do not read each other. `useSingleSiteRadar.ts` holds the volume fetch, the sweep decode and the frame timeline in one hook.
+      Acceptance: Each file is under 1,500 lines and its entry is gone from `ALREADY_OVER`, with no behaviour change: the existing tests for each pass unmodified, or a commit says which test was wrong and why.
+      Confidence: Certain
+
 
 
 
