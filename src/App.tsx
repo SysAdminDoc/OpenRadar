@@ -621,6 +621,7 @@ export default function App() {
     approaching,
     lightning,
     placeLightning,
+    cellJumps,
     wind,
     frames,
     frameIndex,
@@ -1204,6 +1205,7 @@ export default function App() {
             singleSite={level2Available() ? singleSite : null}
             siteStatus={siteStatus}
             stormCells={stormCells}
+            cellJumps={cellJumps}
             nearby={{ ...nearby, cellNames: namesHere, onNameCell: nameCell }}
             replaying={Boolean(replay)}
             nearbyPlaces={nearbyPlaces}

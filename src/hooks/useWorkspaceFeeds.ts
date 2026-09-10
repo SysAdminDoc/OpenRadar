@@ -31,6 +31,7 @@ import {
   lightningTitle,
 } from "./useLightningWatch";
 import { useGridWatch, gridBody, gridTitle } from "./useGridWatch";
+import { useLightningJump } from "./useLightningJump";
 import { useMrmsOverlays } from "./useMrmsOverlays";
 import { useProbSevere } from "./useProbSevere";
 import { useRadarTimeline } from "./useRadarTimeline";
@@ -277,6 +278,14 @@ export function useWorkspaceFeeds({
       }),
   });
 
+  // A sudden rise in a tracked storm's flash rate, which is the two halves
+  // the app already had with nothing joining them. Nothing is announced: a
+  // jump is a signal that a storm is intensifying, and the panel says so.
+  const cellJumps = useLightningJump({
+    report: stormCells.report,
+    window: lightning.window,
+  });
+
   // The two rules set on a grid rather than on a warning. Each asks the
   // native side for one number per watched place, on the network's own two
   // minute cadence, and says the same two things per storm the lightning
@@ -398,6 +407,7 @@ export function useWorkspaceFeeds({
     approaching,
     lightning,
     placeLightning,
+    cellJumps,
     placeHail,
     placeRotation,
     wind,

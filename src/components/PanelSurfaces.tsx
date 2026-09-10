@@ -138,6 +138,7 @@ import {
   type SatelliteBandId,
 } from "../lib/providers/satellite";
 import type { StormCellState } from "../hooks/useStormCells";
+import type { CellJump } from "../lib/lightningJump";
 import type { NearbyCell, NearbyWarning } from "../lib/nearby";
 import type { Approach } from "../lib/approach";
 import { cellsAvailable } from "../lib/cells";
@@ -223,6 +224,7 @@ interface PanelSurfacesProps {
   onOverlayFiles: (files: WorkspaceOverlayFile[]) => void;
   /** What the radar's tracking algorithm is following, for the radar panel. */
   stormCells: StormCellState;
+  cellJumps: Map<string, CellJump>;
   /** The map in words, computed once so the panel and the live region agree. */
   nearby: {
     warnings: NearbyWarning[];
@@ -709,6 +711,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           radar={settings.radar}
           singleSite={props.singleSite}
           stormCells={props.stormCells}
+          cellJumps={props.cellJumps}
           watch={settings.watch}
           siteStatus={props.siteStatus}
           clock={props.clock}

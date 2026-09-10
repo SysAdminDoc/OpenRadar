@@ -1637,6 +1637,10 @@ export const es: Catalogue = {
     "Apagado, porque un aviso ya suena y esto no es un aviso",
   "lightningWatch.note":
     "Destellos detectados por satélite, no informes de impactos en tierra.",
+  "jump.badge": "Salto en la tasa de rayos en {id}",
+  "jump.rate": "Ahora {rate} por minuto, a las {time}.",
+  "jump.note":
+    "Una señal de que la tormenta se está intensificando, no una advertencia. Rayos detectados por satélite, no informes de impactos en tierra.",
   "gridWatch.hailTitle": "Granizo estimado cerca de {place}",
   "gridWatch.hailTitleHome": "Granizo estimado cerca de usted",
   "gridWatch.hailBody":

@@ -20,6 +20,7 @@ import {
 import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import type { RadarSettings, WatchState } from "../lib/settings";
 import type { StormCellState } from "../hooks/useStormCells";
+import type { CellJump } from "../lib/lightningJump";
 import {
   CLASSIFICATION_PRODUCT_KEYS,
   CLASSIFICATION_PRODUCTS,
@@ -44,7 +45,7 @@ import {
 } from "../lib/units";
 import { formatNumber, translate, useT } from "../i18n";
 import { loopSpeedLabel } from "../lib/radar";
-import { formatDistanceKm } from "../lib/units";
+import { formatClock, formatDistanceKm } from "../lib/units";
 
 /**
  * A storm motion in the reader's own units, since it is a wind like any other.
@@ -95,6 +96,8 @@ interface RadarProductPanelProps {
   singleSite: SingleSiteState | null;
   /** What the radar's own tracking algorithm is following. */
   stormCells: StormCellState;
+  /** What each tracked storm's flash rate is doing, keyed by cell. */
+  cellJumps: Map<string, CellJump>;
   /** The place the reader asked to be told about. */
   watch: WatchState;
   /**
@@ -135,6 +138,7 @@ export function RadarProductPanel({
   clock,
   singleSite,
   stormCells,
+  cellJumps,
   watch,
   siteStatus,
   onRadar,
@@ -173,6 +177,12 @@ export function RadarProductPanel({
     : null;
   // The map draws rotation as a red ring, which somebody reading the panel
   // rather than the map would never see.
+  // Which storms the satellite's flash rate has just risen on. A signal
+  // that a storm is intensifying, not a warning and not a strike report,
+  // which is what the note under it says.
+  const jumping = (stormCells.report?.cells ?? [])
+    .map((cell) => ({ cell, jump: cellJumps.get(cell.id) }))
+    .filter((one) => one.jump?.at != null);
   const rotatingLine = stormCells.rotating.size
     ? t("cells.rotating", { id: [...stormCells.rotating].join(", ") })
     : null;
@@ -950,6 +960,20 @@ export function RadarProductPanel({
           {rotatingLine ? (
             <p className="source-note" data-cell-rotating>
               {rotatingLine}
+            </p>
+          ) : null}
+          {jumping.length > 0 ? (
+            <p className="source-note" data-cell-jump>
+              <strong>
+                {t("jump.badge", {
+                  id: jumping.map((one) => one.cell.id).join(", "),
+                })}
+              </strong>{" "}
+              {t("jump.rate", {
+                rate: formatNumber(Math.round(jumping[0].jump?.rate ?? 0)),
+                time: formatClock(jumping[0].jump?.at ?? 0),
+              })}{" "}
+              {t("jump.note")}
             </p>
           ) : null}
         </div>

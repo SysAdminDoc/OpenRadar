@@ -1607,6 +1607,10 @@ export const en = {
     "Off, because a warning already makes one and this is not a warning",
   "lightningWatch.note":
     "Satellite-detected flashes, not ground strike reports.",
+  "jump.badge": "Flash rate jumped on {id}",
+  "jump.rate": "Now {rate} a minute, at {time}.",
+  "jump.note":
+    "A signal that the storm is intensifying, not a warning. Satellite-detected flashes, not ground strike reports.",
   "gridWatch.hailTitle": "Hail estimated near {place}",
   "gridWatch.hailTitleHome": "Hail estimated near you",
   "gridWatch.hailBody":
