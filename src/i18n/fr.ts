@@ -1302,6 +1302,24 @@ export const fr: Catalogue = {
   "layers.metarDetail": "Rapports d'aéroport, en modèles de station",
   "layer.riverGauges": "Jauges de rivière",
   "layer.buoys": "Bouées",
+  "layer.aviation": "Dangers Aéronautiques",
+  "layers.aviationDetail":
+    "SIGMET, G-AIRMET, avis des centres de contrôle et comptes rendus de pilotes, de l’Aviation Weather Center. Ne sert pas à préparer un vol : utilisez un dossier officiel.",
+  "keywords.aviation":
+    "aviation sigmet airmet gairmet pirep turbulence givrage cwa vol",
+  "aviation.failed": "L’Aviation Weather Center {answer}.",
+  "aviation.title": "{what}",
+  "aviation.validBetween": "Valide de {from} à {to}",
+  "aviation.validAt": "Valide à partir de {time}",
+  "aviation.between": "{low} à {high} ft",
+  "aviation.upTo": "Jusqu’à {high} ft",
+  "aviation.notForFlight":
+    "Ne sert pas à préparer un vol. Utilisez un dossier officiel.",
+  "aviation.sigmets": "les SIGMET",
+  "aviation.gairmets": "les G-AIRMET",
+  "aviation.cwas": "les avis de centre",
+  "aviation.pireps": "les comptes rendus de pilotes",
+  "aviation.partial": "Dessiné sans {missing}, qui n’ont pas répondu.",
   "layers.buoysDetail":
     "Ce que mesurent les bouées ancrées : le vent au-dessus de l’eau, la mer qui les porte et la pression au-dessus. Un fichier national toutes les dix minutes, à partir du zoom 4.",
   "buoys.failed": "Le réseau de bouées {answer}.",

@@ -168,6 +168,7 @@ export interface LayerSettings {
   metar: boolean;
   riverGauges: boolean;
   buoys: boolean;
+  aviation: boolean;
   tropical: boolean;
   satellite: boolean;
   customOverlay: boolean;

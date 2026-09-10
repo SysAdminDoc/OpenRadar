@@ -98,6 +98,7 @@ export function useWorkspaceOverlays(options: {
     metar,
     riverGauges,
     buoys,
+    aviation,
   } = settings.layers;
   const zoom = settings.camera.zoom;
   const { spcOutlooks, spcDiscussions, stormReports } = settings.layers;
@@ -130,6 +131,9 @@ export function useWorkspaceOverlays(options: {
       // world in one file rather than per area, so the zoom here is only
       // about whether a coastline's worth of dots reads as anything.
       buoys: buoys && !replaying && zoom >= BUOY_MIN_ZOOM,
+      // Hazard areas and pilot reports are both about the air right now, so
+      // they are held back over a replay the way every other current feed is.
+      aviation: aviation && !replaying,
       // The Storm Prediction Center publishes what it thinks about today, and
       // a replay is showing some other day's weather. Painting this morning's
       // risk over Katrina would be worse than showing nothing.
@@ -152,6 +156,7 @@ export function useWorkspaceOverlays(options: {
       metar,
       riverGauges,
       buoys,
+      aviation,
       smoke,
       spcOutlooks,
       zoom,
@@ -266,6 +271,7 @@ export function useWorkspaceOverlays(options: {
       metar: toggles.metar ? states.metar.data : null,
       riverGauges: toggles.riverGauges ? states.riverGauges.data : null,
       buoys: toggles.buoys ? states.buoys.data : null,
+      aviation: toggles.aviation ? states.aviation.data : null,
       tropical: toggles.tropical ? states.tropical.data : null,
       spcOutlooks: toggles.spcOutlooks ? states.spcOutlooks.data : null,
       wpcExcessiveRain: toggles.wpcExcessiveRain

@@ -1291,6 +1291,24 @@ export const es: Catalogue = {
   "layers.metarDetail": "Informes de aeropuerto, en modelo de estación",
   "layer.riverGauges": "Estaciones de aforo",
   "layer.buoys": "Boyas",
+  "layer.aviation": "Peligros de Aviación",
+  "layers.aviationDetail":
+    "SIGMET, G-AIRMET, avisos de los centros de control e informes de pilotos, del Aviation Weather Center. No sirve para planificar vuelos: use una sesión informativa oficial.",
+  "keywords.aviation":
+    "sigmet airmet gairmet pirep turbulencia engelamiento cwa vuelo avion",
+  "aviation.failed": "El Aviation Weather Center {answer}.",
+  "aviation.title": "{what}",
+  "aviation.validBetween": "Válido de {from} a {to}",
+  "aviation.validAt": "Válido desde {time}",
+  "aviation.between": "{low} a {high} ft",
+  "aviation.upTo": "Hasta {high} ft",
+  "aviation.notForFlight":
+    "No sirve para planificar vuelos. Use una sesión informativa oficial.",
+  "aviation.sigmets": "los SIGMET",
+  "aviation.gairmets": "los G-AIRMET",
+  "aviation.cwas": "los avisos de centro",
+  "aviation.pireps": "los informes de pilotos",
+  "aviation.partial": "Dibujado sin {missing}, que no respondieron.",
   "layers.buoysDetail":
     "Lo que miden las boyas fondeadas: el viento sobre el agua, el mar que las mueve y la presión encima. Un archivo nacional cada diez minutos, desde el zoom 4.",
   "buoys.failed": "La red de boyas {answer}.",

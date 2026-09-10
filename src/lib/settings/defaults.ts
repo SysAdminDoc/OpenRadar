@@ -71,6 +71,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     metar: false,
     riverGauges: false,
     buoys: false,
+    aviation: false,
     tropical: true,
     satellite: false,
     customOverlay: false,

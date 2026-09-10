@@ -196,6 +196,7 @@ describe("settings normalization", () => {
     expect(settings.radar.product).toBe("reflectivity");
     expect(settings.radar.tilt).toBe(0);
     expect(Object.keys(settings.layers).sort()).toEqual([
+      "aviation",
       "azShear",
       "buoys",
       "cappi",

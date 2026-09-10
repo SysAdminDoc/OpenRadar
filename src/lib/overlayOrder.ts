@@ -31,7 +31,10 @@ export const OVERLAY_DEPTH: Record<OverlayId, number> = {
   // somebody turned the layer on to find, and the sea it reports is the one
   // thing under a hurricane track that is a measurement rather than a model.
   buoys: 11,
-  alerts: 12,
+  // Above the point layers and under the warnings, because a hazard area
+  // is an area and the warnings are the thing anybody looks at first.
+  aviation: 12,
+  alerts: 13,
 };
 
 /**
