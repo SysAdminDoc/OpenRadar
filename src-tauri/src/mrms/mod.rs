@@ -316,10 +316,25 @@ mod window;
 pub(crate) use cache::*;
 pub(crate) use decode::*;
 pub(crate) use listing::*;
+// Only the Tauri command registration and the tile scheme reach these, and
+// both are compiled out under the fuzzing feature, which would otherwise make
+// the fuzz check's whole output two warnings about them. Said here rather
+// than allowed everywhere: a new warning in that build is meant to be the
+// only thing in it.
+#[cfg_attr(feature = "fuzzing", allow(unused_imports))]
 pub(crate) use peak::*;
 pub(crate) use products::*;
+#[cfg_attr(feature = "fuzzing", allow(unused_imports))]
 pub(crate) use tiles::*;
 pub(crate) use window::*;
+
+/// Widened for the fuzz facade, which is a separate crate and cannot see a
+/// `pub(crate)`. The same repair `level2/mod.rs` carries, for the same
+/// reason: this file became a directory on 2026-09-09 and the glob above
+/// narrowed what `lib.rs` had been re-exporting, which broke the whole fuzz
+/// workspace with nothing in the ordinary gates to say so.
+#[cfg(feature = "fuzzing")]
+pub use decode::decode_grib;
 
 #[cfg(test)]
 mod testing;

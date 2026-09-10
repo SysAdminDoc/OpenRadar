@@ -11,11 +11,11 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
-- [ ] AUD-493 (P3): Fuzz the PMTiles reader, now that a stranger's archive can reach it
-  Why: Until `AUD-228` shipped, every pack the reader opened was one this app had downloaded, hashed tile by tile and renamed into place under its own app-data folder. A reader can now hand it an archive from anywhere, and `AsyncPmTilesReader` begins by parsing a header and a directory tree somebody else wrote. `inspect_archive` refuses what it can see is wrong; it cannot refuse what the parser does before it returns.
-  Evidence: `src-tauri/src/incident_packs.rs` `inspect_archive` and `import_archive`; the 2026-09-07 note on `AUD-228` that put this here rather than with `AUD-338`, which shipped the `.orb` half; `cargo-fuzz` is already known to work on this machine.
-  Touches: `src-tauri/fuzz/`, a target over `AsyncPmTilesReader` with an in-memory `AsyncBackend` over a slice and a current-thread runtime per case, because the shipped backend reads a file.
-  Acceptance: A fuzz target that opens an arbitrary byte slice as a PMTiles archive and asks it for a tile, run long enough to be worth the line in the changelog, with any panic it finds either fixed or refused before the parser sees it.
+- [ ] AUD-495 (P2): An imported basemap's leaf directories can still panic the parser
+  Why: The PMTiles fuzz target from `AUD-493` found three crash classes. Two are fixed at this app's own door: a root directory whose offset or length points outside what the reader took, and a root entry count that decides an allocation before an entry is read. The third is in a LEAF directory, which the reader parses on demand inside `get_tile`, and which cannot be checked before the reader sees it without reimplementing the directory walk: a leaf's entry count reaches `vec![DirEntry::default(); n]` and a hostile one panics with "capacity overflow".
+  Evidence: `cargo +nightly fuzz run -O pmtiles_archive` on 2026-09-10, which is the shipped profile with overflow checks off, panicked with `capacity overflow` after about 1,500 executions from a seeded corpus. The default profile also panics in `varint-rs` with "attempt to shift left with overflow" at `lib.rs:195` and `:210`; that one is an overflow check and wraps in the shipped build, but the capacity overflow does not. No reproducer file: libFuzzer's Windows fast-fail (0xc0000409) takes the process before it writes the artifact.
+  Touches: `src-tauri/src/incident_packs.rs` (`open_archive`, `serve_tile`, `verify_archive`), and either a validation of the leaf region at import time or moving every archive read onto a blocking task where a panic is caught rather than unwound through the runtime.
+  Acceptance: A ten-minute `cargo fuzz run -O` from the seeded corpus finds no panic, and the fixture that reproduces one is a test in `incident_packs.rs`.
   Complexity: M
 
 - [ ] AUD-491 (P3): The melting layer drops a named component of the method its threshold comes from

@@ -74,6 +74,7 @@ pub mod fuzzing {
     pub use crate::bundles::MAGIC as BUNDLE_MAGIC;
     pub use crate::gfs::{decode_complex, decode_message};
     pub use crate::hrrr::{parse_grid, read_message};
+    pub use crate::incident_packs::read_pmtiles;
     pub use crate::level2::{scan_volume, Level2Error};
     pub use crate::level3::{read_mesocyclones, read_storm_cells};
     pub use crate::lightning::decode_flashes;
