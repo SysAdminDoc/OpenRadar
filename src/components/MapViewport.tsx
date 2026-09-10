@@ -85,7 +85,7 @@ import { loadCounties } from "../lib/counties";
 import { nightPolygon } from "../lib/terminator";
 import { MRMS_MAX_ZOOM } from "../lib/providers/mrms";
 import { casingFor } from "../lib/lineOnMap";
-import { paleGround } from "../lib/mapStyles";
+import { MAP_GROUND_LIGHT, paleGround } from "../lib/mapStyles";
 import { inkFor, MAP_INK_HALO } from "../lib/lineOnMap";
 import { useMapSync } from "../hooks/useMapSync";
 import { syncRasterLane, type RasterLane } from "../lib/mapLayers/raster";
@@ -125,6 +125,7 @@ import {
   layerStackOrder,
   MRMS_LAYER_IDS,
   MRMS_SOURCE_PREFIX,
+  PROBSEVERE_CASING_LAYER_ID,
   PROBSEVERE_FILL_LAYER_ID,
   PROBSEVERE_LINE_LAYER_ID,
   RADAR_LAYER_ID,
@@ -134,6 +135,7 @@ import {
   COUNTY_SOURCE_ID,
   NIGHT_LAYER_ID,
   NIGHT_SOURCE_ID,
+  ROUTE_CASING_LAYER_ID,
   ROUTE_LAYER_ID,
   SATELLITE_LAYER_ID,
   SURGE_LAYER_ID,
@@ -1165,6 +1167,22 @@ function MapViewportInner(
     sourceId: ROUTE_SOURCE_ID,
     layers: () => [
       {
+        // The same casing, for the same reason: at thirty per cent the route
+        // line is `#facc15`, which reads 1.30 to one on the light ground, and
+        // its "no reading" grey reads 2.18. Both are below three.
+        id: ROUTE_CASING_LAYER_ID,
+        type: "line",
+        source: ROUTE_SOURCE_ID,
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-width": 8,
+          // The same rule as the ProbSevere casing above: only over a pale
+          // ground, and opaque when it is drawn at all.
+          "line-opacity": overLightRef.current ? 1 : 0,
+          "line-color": casingFor(MAP_GROUND_LIGHT),
+        },
+      },
+      {
         id: ROUTE_LAYER_ID,
         type: "line",
         source: ROUTE_SOURCE_ID,
@@ -1351,6 +1369,41 @@ function MapViewportInner(
           // Light enough to read the radar through: this is guidance about
           // the storm underneath, not a replacement for looking at it.
           "fill-opacity": 0.18,
+        },
+      },
+      {
+        // The casing, which is what makes the low end of the ramp readable
+        // over a pale basemap. `#fde68a` on the light ground reads 1.06 to
+        // one, which is a line nobody can see; the ramp itself cannot be
+        // changed, because the colour is what the value means.
+        //
+        // The ground rather than the line decides the casing's own lightness:
+        // a ramp has no one lightness to be the opposite of.
+        id: PROBSEVERE_CASING_LAYER_ID,
+        type: "line",
+        source: PROBSEVERE_SOURCE_ID,
+        paint: {
+          "line-color": casingFor(MAP_GROUND_LIGHT),
+          // Only over a pale ground. Over the dark one every stop of this
+          // ramp already reads at 3.7 to one or better against what is behind
+          // it, and a light casing there would take the red end down to 1.2:
+          // a casing that is not needed is a casing that hurts.
+          //
+          // Opaque rather than the half the county lines use. At three
+          // quarters it composites with the ground to a mid grey, and the red
+          // end of this ramp reads 2.0 against that; the whole point is that
+          // every stop reads.
+          "line-opacity": overLightRef.current ? 1 : 0,
+          // Wider than the line it sits under, at every stop of it.
+          "line-width": [
+            "interpolate",
+            ["linear"],
+            ["get", "severe"],
+            10,
+            3,
+            90,
+            5,
+          ],
         },
       },
       {

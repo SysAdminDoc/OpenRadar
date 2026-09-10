@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   casingFor,
@@ -151,5 +153,74 @@ describe("a mark drawn straight onto the basemap", () => {
       expect(inkFor(role, true), role).toBe(MAP_INK[role].light);
       expect(inkFor(role, false), role).toBe(MAP_INK[role].dark);
     }
+  });
+});
+
+describe("a ramp whose colour is the value", () => {
+  /**
+   * The two ramps `MAP_INK` could not fix, written out as the map draws them.
+   *
+   * A ramp cannot take that table's answer, which is to give a mark the
+   * lightness the ground is not: here the colour is what the value means. So
+   * they get a casing instead, and what has to be measured is the casing
+   * against the ground rather than the ramp against it.
+   */
+  const PROBSEVERE_STOPS = ["#fde68a", "#fb923c", "#dc2626"];
+  const ROUTE_STOPS = ["#94a3b8", "#4ade80", "#facc15", "#fb923c", "#f43f5e"];
+
+  const contrast = (first: string, second: string) => {
+    const one = lightness(first);
+    const other = lightness(second);
+    if (one === null || other === null) return 0;
+    const high = Math.max(one, other);
+    const low = Math.min(one, other);
+    return (high + 0.05) / (low + 0.05);
+  };
+
+  it("has stops a pale ground swallows, which is what the casing is for", () => {
+    // The finding this exists for, in the colours it was found in. Without
+    // this the assertion below could pass on a ramp that never needed one.
+    const swallowed = [...PROBSEVERE_STOPS, ...ROUTE_STOPS].filter(
+      (stop) => contrast(stop, MAP_GROUND_LIGHT) < 3,
+    );
+    expect(swallowed).toContain("#fde68a");
+    expect(swallowed).toContain("#facc15");
+    expect(swallowed).toContain("#94a3b8");
+  });
+
+  it("puts a stroke under it that the pale ground cannot swallow", () => {
+    // The casing is chosen against the ground rather than against the line,
+    // because a ramp has no one lightness to be the opposite of.
+    const casing = casingFor(MAP_GROUND_LIGHT);
+    expect(
+      contrast(casing, MAP_GROUND_LIGHT),
+      "the casing over the light ground",
+    ).toBeGreaterThan(3);
+    for (const stop of [...PROBSEVERE_STOPS, ...ROUTE_STOPS]) {
+      expect(
+        contrast(stop, casing),
+        `${stop} over the casing`,
+      ).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it("draws no casing over the dark ground, where none is needed", () => {
+    // Every stop already reads there, and the casing that would go under it
+    // is light: it would take the red end of the ProbSevere ramp from 3.7 to
+    // one down to 1.2. A casing that is not needed is a casing that hurts.
+    for (const stop of [...PROBSEVERE_STOPS, ...ROUTE_STOPS]) {
+      expect(
+        contrast(stop, MAP_GROUND_DARK),
+        `${stop} over the dark ground`,
+      ).toBeGreaterThanOrEqual(3);
+    }
+    // And the map is what decides not to draw it: the layer is there in both
+    // lightnesses and its opacity is what turns it off, so the stack does not
+    // change shape with the theme.
+    const drawn = readFileSync(
+      join(process.cwd(), "src", "components", "MapViewport.tsx"),
+      "utf8",
+    );
+    expect(drawn).toContain('"line-opacity": overLightRef.current ? 1 : 0,');
   });
 });
