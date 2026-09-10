@@ -7,7 +7,6 @@ import {
   binOf,
   changes,
   flashesByCell,
-  flashesNear,
   jumpIn,
   rates,
   withSample,
@@ -41,7 +40,7 @@ function flash(latitude: number, longitude: number, at: number = AT): Flash {
   };
 }
 
-const CELL = { latitude: 41.6, longitude: -93.6 };
+const CELL = { id: "A1", latitude: 41.6, longitude: -93.6 };
 
 /**
  * A moment near the end of the nth bin after `AT`.
@@ -69,10 +68,10 @@ describe("a storm's flash rate rising faster than it has been", () => {
     // seven and two tenths is about fourteen.
     const near = flash(41.7, -93.6);
     const far = flash(41.8, -93.6);
-    expect(flashesNear(CELL, [near, far])).toBe(1);
+    expect(flashesByCell([CELL], [near, far]).get("A1")).toBe(1);
     // The radius is what decides, not the count: widened, both belong to it.
-    expect(flashesNear(CELL, [near, far], 20)).toBe(2);
-    expect(flashesNear(CELL, [])).toBe(0);
+    expect(flashesByCell([CELL], [near, far], 20).get("A1")).toBe(2);
+    expect(flashesByCell([CELL], []).get("A1")).toBe(0);
   });
 
   it("reads a rate per minute out of a two-minute bin", () => {
@@ -288,6 +287,60 @@ describe("the series each tracked cell carries between windows", () => {
     expect(back.get("A1")?.sigma).not.toBeNull();
   });
 
+  it("does not call a neighbour's death a jump", () => {
+    // Two cells twelve miles apart with a storm flashing steadily between
+    // them. Every flash goes to whichever is nearer, so each reads about half
+    // the line's rate. When the tracker drops one, all of its flashes fall to
+    // the other and that cell's count doubles with nothing about the weather
+    // having changed. Counted against the series it built while it had a
+    // neighbour, the doubling is a jump at many times the bar.
+    const west = { id: "A1", latitude: 41.6, longitude: -93.6 };
+    const east = { id: "A2", latitude: 41.774, longitude: -93.6 };
+    // About twenty a bin either side of the midpoint, which is ten a minute
+    // each. The counts wobble rather than being flat, because a storm whose
+    // rate has never moved has no spread to judge a rise against and would
+    // give a null sigma for a reason that has nothing to do with this.
+    const counts = [20, 22, 20, 22, 20, 22, 20, 20];
+    const both = (at: number) => [
+      ...new Array(counts[at])
+        .fill(null)
+        .map(() => flash(41.63, -93.6, closing(at))),
+      ...new Array(counts[at])
+        .fill(null)
+        .map(() => flash(41.73, -93.6, closing(at))),
+    ];
+    for (let at = 0; at < 7; at += 1) {
+      rememberJumps([west, east], both(at), closing(at));
+    }
+    // The same forty flashes, and now only one cell to take them.
+    const after = rememberJumps([west], both(7), closing(7));
+    expect(after.get("A1")?.rate).toBeCloseTo(20, 6);
+    // The rate is real. The comparison is not: those bins were measured
+    // against a different set of storms, so there is no series to judge it
+    // against and nothing is claimed.
+    expect(after.get("A1")?.sigma).toBeNull();
+    expect(after.get("A1")?.at).toBeNull();
+  });
+
+  it("keeps a cell's history while the same neighbours are around it", () => {
+    // The other half of it: a cell whose competitors have not changed keeps
+    // the series it built, or the check above would be a way of saying
+    // nothing ever.
+    const west = { id: "A1", latitude: 41.6, longitude: -93.6 };
+    const east = { id: "A2", latitude: 41.774, longitude: -93.6 };
+    const counts = [20, 22, 20, 22, 20, 22, 20, 44];
+    for (let at = 0; at < counts.length; at += 1) {
+      const flashes = new Array(counts[at])
+        .fill(null)
+        .map(() => flash(41.63, -93.6, closing(at)));
+      const found = rememberJumps([west, east], flashes, closing(at));
+      if (at === counts.length - 1) {
+        expect(found.get("A1")?.sigma).not.toBeNull();
+        expect(found.get("A1")?.at).not.toBeNull();
+      }
+    }
+  });
+
   it("counts only the flashes that fell inside the bin", () => {
     // The window the map hands over is a rolling five minutes, which is two
     // and a half bins of it. Counting the whole window into one bin read
@@ -355,13 +408,10 @@ describe("the series each tracked cell carries between windows", () => {
     const west = { id: "A1", latitude: 41.6, longitude: -93.6 };
     const east = { id: "A2", latitude: 41.774, longitude: -93.6 };
     const between = { latitude: 41.68, longitude: -93.6 };
-    // Both circles hold it, which is the case at all.
-    expect(
-      flashesNear(west, [flash(between.latitude, between.longitude)]),
-    ).toBe(1);
-    expect(
-      flashesNear(east, [flash(between.latitude, between.longitude)]),
-    ).toBe(1);
+    // Either circle alone holds it, which is the case at all.
+    const alone = flash(between.latitude, between.longitude);
+    expect(flashesByCell([west], [alone]).get("A1")).toBe(1);
+    expect(flashesByCell([east], [alone]).get("A2")).toBe(1);
 
     const shared = flashesByCell(
       [west, east],
