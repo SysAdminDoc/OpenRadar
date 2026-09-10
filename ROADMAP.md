@@ -11,13 +11,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
-- [ ] AUD-494 (P3): The rotation rule can never fire outside the lower forty-eight, and nothing says so
-  Why: `AUD-223`'s fix gave `mrms_peak_near` the domain that covers the place, which fixed the hail rule everywhere. MRMS publishes no merged azimuthal shear product for ALASKA at all, so a rotation rule set at Anchorage asks for frames that do not exist, fails, logs a warning, and records a null reading every two minutes forever. The reader is told nothing: the rule sits in the panel switched on, looking like it works.
-  Evidence: all 147 product prefixes under `noaa-mrms-pds/ALASKA/` listed on 2026-09-10; none matches Shear or Rotation, and `ALASKA/MergedAzShear_0-2kmAGL_00.50/` is empty. The other four domains were not checked one by one. Found by the refutation pass over `060b4b1`.
-  Touches: `src/lib/gridWatch.ts` or `src-tauri/src/mrms/products.rs` (which products a domain actually publishes), `src/panels/WatchSection.tsx` (the rule says it cannot work here), `src/i18n/*`.
-  Acceptance: A rule set on a grid its domain does not publish says so where it is set, rather than polling forever in silence; the check is against what the bucket holds rather than a list written by hand.
-  Complexity: S
-
 - [ ] AUD-493 (P3): Fuzz the PMTiles reader, now that a stranger's archive can reach it
   Why: Until `AUD-228` shipped, every pack the reader opened was one this app had downloaded, hashed tile by tile and renamed into place under its own app-data folder. A reader can now hand it an archive from anywhere, and `AsyncPmTilesReader` begins by parsing a header and a directory tree somebody else wrote. `inspect_archive` refuses what it can see is wrong; it cannot refuse what the parser does before it returns.
   Evidence: `src-tauri/src/incident_packs.rs` `inspect_archive` and `import_archive`; the 2026-09-07 note on `AUD-228` that put this here rather than with `AUD-338`, which shipped the `.orb` half; `cargo-fuzz` is already known to work on this machine.

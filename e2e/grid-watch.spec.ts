@@ -53,6 +53,16 @@ async function openWith(
           ) => [unknown] | undefined;
         }
       ).__answer = (command: string, args?: Record<string, unknown>) => {
+        // Which grids the network publishes where the reader watches. The
+        // panel asks the bucket rather than reading a table, because MRMS
+        // publishes no shear at all for some regions.
+        if (command === "mrms_frames") {
+          const published = (window as unknown as { __gridPublished?: boolean })
+            .__gridPublished;
+          return [
+            published === false ? [] : [{ time: 1_756_000_000, key: "k" }],
+          ];
+        }
         if (command !== "mrms_peak_near") return undefined;
         asked.push(JSON.stringify(args ?? {}));
         // Null is the network having seen none of the circle, which is not
@@ -161,4 +171,34 @@ test("asks for nothing at all until the rule is switched on", async ({
   await expect(
     page.locator(".toast", { hasText: "Hail estimated" }),
   ).toHaveCount(0);
+});
+
+test("says so where the network publishes no grid for a rule", async ({
+  page,
+}) => {
+  // MRMS has no merged azimuthal shear product for Alaska at all, so a
+  // rotation rule set at Anchorage asked for frames that do not exist,
+  // failed, and recorded nothing every two minutes forever while the switch
+  // sat on looking like it worked.
+  await page.addInitScript(() => {
+    (window as unknown as { __gridPublished: boolean }).__gridPublished = false;
+  });
+  await openWith(page, { hailMm: null, size: 1, enabled: true });
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+  const rotation = page.locator('[data-grid-watch="rotation"]');
+  await expect(rotation).toContainText("does not publish this grid");
+});
+
+test("says nothing about the grid where the network does publish it", async ({
+  page,
+}) => {
+  // The control. Without it the line above passes just as well on a panel
+  // that says the same thing everywhere.
+  await openWith(page, { hailMm: null, size: 1, enabled: true });
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+  const rotation = page.locator('[data-grid-watch="rotation"]');
+  await expect(rotation).not.toContainText("does not publish this grid");
 });
