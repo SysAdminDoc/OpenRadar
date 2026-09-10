@@ -1607,6 +1607,45 @@ export const en = {
     "Off, because a warning already makes one and this is not a warning",
   "lightningWatch.note":
     "Satellite-detected flashes, not ground strike reports.",
+  "gridWatch.hailTitle": "Hail estimated near {place}",
+  "gridWatch.hailTitleHome": "Hail estimated near you",
+  "gridWatch.hailBody":
+    "The network is estimating {reading} within {miles} {unit}. An estimate from the energy in the storm, not a report of hail on the ground.",
+  "gridWatch.hailQuietTitle":
+    "{place} has been under the size for half an hour",
+  "gridWatch.hailQuietTitleHome": "Under the size for half an hour",
+  "gridWatch.hailQuietBody":
+    "Nothing that size estimated within the radius for thirty minutes.",
+  "gridWatch.rotationTitle": "Rotation near {place}",
+  "gridWatch.rotationTitleHome": "Rotation near you",
+  "gridWatch.rotationBody":
+    "The network is merging shear of {reading} within {miles} {unit}. Shear the radars measured, not a tornado and not a report of one.",
+  "gridWatch.rotationQuietTitle": "{place} has been quiet for half an hour",
+  "gridWatch.rotationQuietTitleHome": "Quiet for half an hour",
+  "gridWatch.rotationQuietBody":
+    "No shear that strong within the radius for thirty minutes.",
+  "gridWatch.shear":
+    "{shear, plural, one {# thousandth a second} other {# thousandths a second}}",
+  "gridWatch.hailSetting": "Tell me about hail near a watched place",
+  "gridWatch.hailSettingDetail":
+    "Watches the size the network estimates within a radius you set, and says when it first meets your size and when it has been under it for half an hour",
+  "gridWatch.rotationSetting": "Tell me about rotation near a watched place",
+  "gridWatch.rotationSettingDetail":
+    "The same, on the shear the network merges through the lowest two kilometres of the storm",
+  "gridWatch.needsPlace":
+    "Needs a place to watch, since that is what the radius is around.",
+  "gridWatch.desktopOnly":
+    "The grids are decoded by the desktop app, so this is one of the things a browser cannot do.",
+  "gridWatch.radius": "How far around each place",
+  "gridWatch.hailSize": "The size worth saying",
+  "gridWatch.rotationLevel": "The shear worth saying",
+  "gridWatch.sound": "Make a sound for it",
+  "gridWatch.soundDetail":
+    "Off, because a warning already makes one and this is not a warning",
+  "gridWatch.hailNote":
+    "An estimate from the radar, not a report of hail anybody saw. It runs high on a warm day and low on a cold one.",
+  "gridWatch.rotationNote":
+    "Shear merged from the radars that could see the storm. It is not a tornado, and a warning is still the thing to act on.",
   "lightningWatch.chipSince": "Last flash {since} ago",
   "lightningWatch.chipClear": "Quiet for {since}",
   "lightningWatch.chipNearest": "Nearest was {distance} to the {direction}",

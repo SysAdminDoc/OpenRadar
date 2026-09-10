@@ -22,6 +22,15 @@ import {
 } from "../lib/watch";
 import { APPROACH_MINUTES } from "../lib/approach";
 import { LIGHTNING_COUNTS, LIGHTNING_RADII } from "../lib/lightningWatch";
+import {
+  GRID_RADII,
+  HAIL_SIZES,
+  ROTATION_LEVELS,
+  type GridRule,
+  type GridRuleId,
+} from "../lib/gridWatch";
+import { gridReadingLabel } from "../hooks/useGridWatch";
+import { mrmsAvailable } from "../lib/providers/mrms";
 import { ToggleSetting } from "../components/ToggleSetting";
 import { LightningChip } from "../components/LightningChip";
 import type { PlaceLightning } from "../lib/lightningWatch";
@@ -121,6 +130,10 @@ export function WatchSection({
   // been showing as off. Each feed now runs for its own watch.
   const approachPossible = watchedPlaceCount > 0;
   const lightningPossible = watchedPlaceCount > 0;
+  // The grids are decoded natively, so a rule set on one has nothing to
+  // read in a browser preview. Said rather than hidden: a switch that is
+  // simply absent reads as a feature that does not exist.
+  const gridPossible = watchedPlaceCount > 0 && mrmsAvailable();
   // Whether the machine can reach anything at all, which is a different
   // answer from whether a service is answering.
   const offlineSince = useOfflineSince();
@@ -474,6 +487,134 @@ export function WatchSection({
           />
         </>
       ) : null}
+      {/* The two rules set on a number the network publishes rather than
+          on a warning somebody issued. Both need the same one thing the
+          lightning rule does, which is somewhere for the weather to happen,
+          and one more: the grids are decoded natively, so a browser preview
+          has nothing to read. */}
+      {(
+        [
+          ["hail", settings.hailWatch, HAIL_SIZES],
+          ["rotation", settings.rotationWatch, ROTATION_LEVELS],
+        ] as Array<[GridRuleId, GridRule, readonly number[]]>
+      ).map(([which, rule, thresholds]) => {
+        const key = which === "hail" ? "hailWatch" : "rotationWatch";
+        const set = (next: Partial<GridRule>) =>
+          onSettings({ ...settings, [key]: { ...rule, ...next } });
+        const detail = !gridPossible
+          ? t("gridWatch.desktopOnly")
+          : watchedPlaceCount === 0
+            ? t("gridWatch.needsPlace")
+            : t(
+                which === "hail"
+                  ? "gridWatch.hailSettingDetail"
+                  : "gridWatch.rotationSettingDetail",
+              );
+        return (
+          <div key={which} data-grid-watch={which}>
+            <div className="settings-field">
+              <label className="toggle-row toggle-row--plain">
+                <span>
+                  <strong>
+                    {t(
+                      which === "hail"
+                        ? "gridWatch.hailSetting"
+                        : "gridWatch.rotationSetting",
+                    )}
+                  </strong>
+                  <small>{detail}</small>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={rule.enabled && gridPossible}
+                  disabled={!gridPossible}
+                  onChange={(event) => set({ enabled: event.target.checked })}
+                />
+                <i className="toggle-track" aria-hidden="true" />
+              </label>
+            </div>
+            {rule.enabled && gridPossible ? (
+              <>
+                <div className="settings-field" data-grid-radius={which}>
+                  <div className="settings-section__title">
+                    <span>
+                      <strong>{t("gridWatch.radius")}</strong>
+                    </span>
+                  </div>
+                  <div
+                    className="segmented-control segmented-control--full"
+                    role="group"
+                    aria-label={t("gridWatch.radius")}
+                  >
+                    {GRID_RADII.map((miles) => (
+                      <button
+                        key={miles}
+                        type="button"
+                        className={
+                          rule.radiusMiles === miles ? "is-active" : ""
+                        }
+                        aria-pressed={rule.radiusMiles === miles}
+                        onClick={() => set({ radiusMiles: miles })}
+                      >
+                        {formatDistance(miles)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="settings-field" data-grid-threshold={which}>
+                  <div className="settings-section__title">
+                    <span>
+                      <strong>
+                        {t(
+                          which === "hail"
+                            ? "gridWatch.hailSize"
+                            : "gridWatch.rotationLevel",
+                        )}
+                      </strong>
+                      <small>
+                        {t(
+                          which === "hail"
+                            ? "gridWatch.hailNote"
+                            : "gridWatch.rotationNote",
+                        )}
+                      </small>
+                    </span>
+                  </div>
+                  <div
+                    className="segmented-control segmented-control--full"
+                    role="group"
+                    aria-label={t(
+                      which === "hail"
+                        ? "gridWatch.hailSize"
+                        : "gridWatch.rotationLevel",
+                    )}
+                  >
+                    {thresholds.map((threshold) => (
+                      <button
+                        key={threshold}
+                        type="button"
+                        className={
+                          rule.threshold === threshold ? "is-active" : ""
+                        }
+                        aria-pressed={rule.threshold === threshold}
+                        onClick={() => set({ threshold })}
+                      >
+                        {gridReadingLabel(which, threshold)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <ToggleSetting
+                  label={t("gridWatch.sound")}
+                  detail={t("gridWatch.soundDetail")}
+                  checked={rule.sound}
+                  onChange={(sound) => set({ sound })}
+                />
+              </>
+            ) : null}
+          </div>
+        );
+      })}
       <ToggleSetting
         label={t("watch.followNew")}
         detail={t("watch.followNewDetail")}

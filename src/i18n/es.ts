@@ -1637,6 +1637,45 @@ export const es: Catalogue = {
     "Apagado, porque un aviso ya suena y esto no es un aviso",
   "lightningWatch.note":
     "Destellos detectados por satélite, no informes de impactos en tierra.",
+  "gridWatch.hailTitle": "Granizo estimado cerca de {place}",
+  "gridWatch.hailTitleHome": "Granizo estimado cerca de usted",
+  "gridWatch.hailBody":
+    "La red estima {reading} dentro de {miles} {unit}. Una estimación a partir de la energía de la tormenta, no un informe de granizo en el suelo.",
+  "gridWatch.hailQuietTitle": "{place} lleva media hora por debajo del tamaño",
+  "gridWatch.hailQuietTitleHome": "Media hora por debajo del tamaño",
+  "gridWatch.hailQuietBody":
+    "Nada de ese tamaño estimado dentro del radio durante treinta minutos.",
+  "gridWatch.rotationTitle": "Rotación cerca de {place}",
+  "gridWatch.rotationTitleHome": "Rotación cerca de usted",
+  "gridWatch.rotationBody":
+    "La red combina una cizalladura de {reading} dentro de {miles} {unit}. Cizalladura medida por los radares, no un tornado ni un informe de uno.",
+  "gridWatch.rotationQuietTitle": "{place} lleva media hora en calma",
+  "gridWatch.rotationQuietTitleHome": "Media hora en calma",
+  "gridWatch.rotationQuietBody":
+    "Ninguna cizalladura tan fuerte dentro del radio durante treinta minutos.",
+  "gridWatch.shear":
+    "{shear, plural, one {# milésima por segundo} other {# milésimas por segundo}}",
+  "gridWatch.hailSetting": "Avísame del granizo cerca de un lugar vigilado",
+  "gridWatch.hailSettingDetail":
+    "Vigila el tamaño que estima la red dentro de un radio que usted fija, y avisa cuando alcanza su tamaño por primera vez y cuando lleva media hora por debajo",
+  "gridWatch.rotationSetting":
+    "Avísame de la rotación cerca de un lugar vigilado",
+  "gridWatch.rotationSettingDetail":
+    "Lo mismo, con la cizalladura que la red combina en los dos kilómetros más bajos de la tormenta",
+  "gridWatch.needsPlace":
+    "Necesita un lugar que vigilar, porque es en torno a él donde va el radio.",
+  "gridWatch.desktopOnly":
+    "Las cuadrículas las descodifica la aplicación de escritorio, así que esto es de lo que un navegador no puede hacer.",
+  "gridWatch.radius": "A qué distancia de cada lugar",
+  "gridWatch.hailSize": "El tamaño que merece un aviso",
+  "gridWatch.rotationLevel": "La cizalladura que merece un aviso",
+  "gridWatch.sound": "Que suene por ello",
+  "gridWatch.soundDetail":
+    "Apagado, porque una advertencia ya suena y esto no es una advertencia",
+  "gridWatch.hailNote":
+    "Una estimación del radar, no un informe de granizo que alguien haya visto. Sube en un día cálido y baja en uno frío.",
+  "gridWatch.rotationNote":
+    "Cizalladura combinada de los radares que veían la tormenta. No es un tornado, y lo que hay que atender sigue siendo la advertencia.",
   "lightningWatch.chipSince": "Último destello hace {since}",
   "lightningWatch.chipClear": "En calma desde hace {since}",
   "lightningWatch.chipNearest": "El más cercano a {distance} al {direction}",

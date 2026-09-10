@@ -154,13 +154,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
 
 ### P3
 
-- [ ] AUD-223 (P3): Hail and rotation thresholds per watched place
-  Why: The watch answers warnings; a reader who wants "tell me when the radar estimates hail over an inch within ten miles of the ballfield" has MESH and rotation tracks on screen and no rule to set on them. MyRadar 7.122 added hail alerts and Watch Duty's flood alerts are personal gauge thresholds; the arrival (`AUD-178`) and lightning (`AUD-179`) rules give this its shape.
-  Evidence: `src/lib/watch.ts` (warning rules only); `src-tauri/src/mrms.rs` (`MESH_00.50`, `RotationTrack60min_00.50` decoded); https://apps.apple.com/us/app/myradar-accurate-weather-radar/id322439990; https://support.watchduty.org/hc/en-us/articles/46400067603341-Flooding-Notifications-FAQs.
-  Touches: `src/lib/watch.ts` (rules: MESH at or above a size within a radius, rotation track within a radius), `src/hooks/useAlertWatch.ts` (sample the decoded grid at the place, not a new fetch), `src/panels/MapOptionsPanels.tsx` watch settings, the `appendJournalRow` writers gate, `src/i18n/*`, e2e with planted grids.
-  Acceptance: A place with a hail rule announces once when MESH within its radius first meets the size, labelled as a radar estimate, silent by default, standing down under quiet hours, and again only after the grid has been quiet for thirty minutes; the journal gate still lists exactly its documented writers.
-  Complexity: M
-
 - [ ] AUD-224 (P3): A lightning jump on each tracked cell
       Note 2026-09-07 (evening): Ritvanen et al. 2026 (AMT 19:1853) link cells as a directed acyclic graph: VIL at or above 1.0 kg/m2, at least 10 km2, a 3 km open and close, two steps linked when the overlap is at least 10 per cent of the smaller cell after advection by the mean field motion; merges and splits occur in 7.2 per cent of 735,163 cells and 17.9 per cent above 20 kg/m2. TINT's defaults: `FIELD_THRESH 32` dBZ, `MIN_SIZE 8` km2, `SEARCH_MARGIN 4000` m, `FLOW_MARGIN 10000` m, `MAX_FLOW_MAG 50` m/s. SCIT: 30 to 60 dBZ in 5 dB steps, 50 km2 components on two consecutive scans.
   Why: A sudden rise in a cell's flash rate precedes severe weather by minutes and the app has both halves, cells and GLM flashes, with nothing joining them; HookEcho ships a lightning proximity alarm and no open-source app ships the jump.

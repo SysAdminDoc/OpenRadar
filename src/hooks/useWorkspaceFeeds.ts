@@ -30,6 +30,7 @@ import {
   lightningBody,
   lightningTitle,
 } from "./useLightningWatch";
+import { useGridWatch, gridBody, gridTitle } from "./useGridWatch";
 import { useMrmsOverlays } from "./useMrmsOverlays";
 import { useProbSevere } from "./useProbSevere";
 import { useRadarTimeline } from "./useRadarTimeline";
@@ -276,6 +277,28 @@ export function useWorkspaceFeeds({
       }),
   });
 
+  // The two rules set on a grid rather than on a warning. Each asks the
+  // native side for one number per watched place, on the network's own two
+  // minute cadence, and says the same two things per storm the lightning
+  // rule does. Held back over a replay like every other current reading:
+  // hail falling in 2005 is not hail falling now.
+  const placeHail = useGridWatch({
+    rule: "hail",
+    settings: settings.hailWatch,
+    places: watchedForJournal,
+    ready: hydrated && !singleSite.historical,
+    onFallback: (notice) =>
+      pushToast({ title: gridTitle(notice), detail: gridBody(notice) }),
+  });
+  const placeRotation = useGridWatch({
+    rule: "rotation",
+    settings: settings.rotationWatch,
+    places: watchedForJournal,
+    ready: hydrated && !singleSite.historical,
+    onFallback: (notice) =>
+      pushToast({ title: gridTitle(notice), detail: gridBody(notice) }),
+  });
+
   // Animated particles are motion for its own sake, so a viewer who has asked
   // for less of it does not get them at all.
   const wind = useWind({
@@ -375,6 +398,8 @@ export function useWorkspaceFeeds({
     approaching,
     lightning,
     placeLightning,
+    placeHail,
+    placeRotation,
     wind,
     frames,
     frameIndex,

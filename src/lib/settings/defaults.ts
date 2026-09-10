@@ -9,6 +9,7 @@
 import { DEFAULT_AMBIENT_METRES } from "../ambientScreen";
 import { DEFAULT_APPROACH } from "../approach";
 import { DEFAULT_CUBE_LEVEL } from "../cappi";
+import { DEFAULT_HAIL_RULE, DEFAULT_ROTATION_RULE } from "../gridWatch";
 import { DEFAULT_LIGHTNING_RULE } from "../lightningWatch";
 import { DEFAULT_LOOP_VOLUMES } from "../siteLoop";
 import { DEFAULT_QUIET_HOURS } from "../watch";
@@ -131,6 +132,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   satelliteBand: "geocolor",
   approach: DEFAULT_APPROACH,
   lightningWatch: DEFAULT_LIGHTNING_RULE,
+  hailWatch: DEFAULT_HAIL_RULE,
+  rotationWatch: DEFAULT_ROTATION_RULE,
   wpcDay: 1,
   spcDay: 1,
   spcHazard: "categorical",

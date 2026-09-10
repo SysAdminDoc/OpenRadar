@@ -308,6 +308,7 @@ impl Grid {
 mod cache;
 mod decode;
 mod listing;
+mod peak;
 mod products;
 mod tiles;
 mod window;
@@ -315,6 +316,7 @@ mod window;
 pub(crate) use cache::*;
 pub(crate) use decode::*;
 pub(crate) use listing::*;
+pub(crate) use peak::*;
 pub(crate) use products::*;
 pub(crate) use tiles::*;
 pub(crate) use window::*;
