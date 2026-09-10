@@ -19,6 +19,8 @@
 
 use nexrad_model::data::{GateStatus, SweepField};
 
+use crate::gates::reading_at;
+
 /// The kernel the published method fits over, in metres.
 ///
 /// Azimuthal first, radial second, as the paper states them, and both are the
@@ -252,9 +254,12 @@ fn median_prefilter(velocity: &SweepField, reflectivity: Option<&SweepField>) ->
 /// Whether there is weather at a gate, from the cut's own reflectivity.
 ///
 /// The two fields are separate sweeps at the same tilt with their own gate
-/// spacing, so this asks by where the gate is rather than by its index. A
-/// volume with no reflectivity for the cut is taken at its word rather than
-/// masked to nothing.
+/// spacing, so this asks by where the gate is rather than by its index, and
+/// through `gates` rather than the model's own reader: that one treats the
+/// first gate's range as an edge where the ICD calls it a centre, and a mask
+/// half a gate out from the velocity it is masking is a mask that keeps the
+/// wrong gates at the edge of every echo. A volume with no reflectivity for
+/// the cut is taken at its word rather than masked to nothing.
 fn echoing(
     velocity: &SweepField,
     reflectivity: Option<&SweepField>,
@@ -268,7 +273,7 @@ fn echoing(
         return false;
     };
     let range_km = range_m(velocity, gate) / 1000.0;
-    match reflectivity.value_at_polar(angle, range_km) {
+    match reading_at(reflectivity, angle, range_km) {
         Some((dbz, GateStatus::Valid)) => dbz >= MASK_DBZ,
         _ => false,
     }
@@ -468,21 +473,19 @@ fn debris_flag(
                 continue;
             }
             let range_km = range_m(velocity, gate) / 1000.0;
-            let Some((dbz, GateStatus::Valid)) = reflectivity.value_at_polar(angle, range_km)
-            else {
+            let Some((dbz, GateStatus::Valid)) = reading_at(reflectivity, angle, range_km) else {
                 continue;
             };
             if dbz <= DEBRIS_DBZ {
                 continue;
             }
-            let Some((rho, GateStatus::Valid)) = correlation.value_at_polar(angle, range_km) else {
+            let Some((rho, GateStatus::Valid)) = reading_at(correlation, angle, range_km) else {
                 continue;
             };
             if rho >= DEBRIS_CORRELATION {
                 continue;
             }
-            let Some((zdr, GateStatus::Valid)) = differential.value_at_polar(angle, range_km)
-            else {
+            let Some((zdr, GateStatus::Valid)) = reading_at(differential, angle, range_km) else {
                 continue;
             };
             if zdr.abs() > DEBRIS_DIFFERENTIAL_DB {
