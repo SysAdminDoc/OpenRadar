@@ -66,6 +66,25 @@ function number(value: unknown): number | null {
   return Number.isFinite(held) ? held : null;
 }
 
+/**
+ * A height the graphical AIRMETs write in hundreds of feet.
+ *
+ * `410` is flight level 410 and `080` is eight thousand feet. The same fields
+ * also carry words where a height would not say it, and those come back as
+ * nothing here and as themselves from `levelWord`.
+ */
+function flightLevel(value: unknown): number | null {
+  const hundreds = number(value);
+  return hundreds === null ? null : hundreds * 100;
+}
+
+/** `SFC` for the surface, `FZL` for the freezing level, and nothing else. */
+function levelWord(value: unknown): string | null {
+  const said = text(value);
+  if (said === null || number(said) !== null) return null;
+  return said;
+}
+
 /** An ISO stamp or an epoch in milliseconds, as an instant. */
 function instant(value: unknown): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
@@ -107,6 +126,11 @@ function parseAirSigmets(payload: unknown): OverlayFeature[] {
         validTo: instant(from.validTimeTo),
         lowFeet: number(from.altitudeLow1),
         highFeet: number(from.altitudeHi1),
+        lowText: null,
+        highText: null,
+        severity: null,
+        because: null,
+        contourFeet: null,
         raw: text(from.rawAirSigmet),
       },
     };
@@ -130,11 +154,25 @@ function parseGairmets(payload: unknown): OverlayFeature[] {
         kind: "gairmet" satisfies AviationKind,
         title: text(from.product) ?? "G-AIRMET",
         hazard: text(from.hazard),
+        // What the forecaster actually said about it. A turbulence area with
+        // no severity is the word "turbulence" and nothing else, and an IFR
+        // area's whole content is why it is IFR.
+        severity: text(from.severity),
+        because: text(from.dueTo),
         validFrom: instant(from.validTime),
         validTo: null,
-        lowFeet: null,
-        highFeet:
-          number(from.level) === null ? null : number(from.level)! * 100,
+        // The turbulence and icing areas carry a base and a top in hundreds
+        // of feet. Only the freezing level contours carry `level`, and
+        // reading that alone left every one of those areas, which are the
+        // hazards this layer is turned on for, drawn with no altitude at all.
+        lowFeet: flightLevel(from.base),
+        lowText: levelWord(from.base),
+        highFeet: flightLevel(from.top),
+        highText: levelWord(from.top),
+        // A freezing level contour is a line saying where the freezing level
+        // is, not an area reaching up to it.
+        contourFeet:
+          text(from.hazard) === "FZLVL" ? flightLevel(from.level) : null,
         raw: null,
         forecastHours: number(from.forecast),
       },
@@ -155,10 +193,17 @@ function parseCwas(payload: unknown): OverlayFeature[] {
         hazard: text(from.hazard),
         validFrom: instant(from.validtimef),
         validTo: instant(from.validtimet),
-        // The service publishes these in hundreds of feet, the way a flight
-        // level is written.
-        lowFeet: number(from.base) === null ? null : number(from.base)! * 100,
-        highFeet: number(from.top) === null ? null : number(from.top)! * 100,
+        // Feet already, which the service says in its own field aliases:
+        // "Lowest Altitude in Feet". Treating them as flight levels and
+        // multiplying by a hundred put a Miami advisory reading TOPS FL440,
+        // which the field carries as 44000, into a popup saying 4,400,000 ft.
+        lowFeet: number(from.base),
+        highFeet: number(from.top),
+        lowText: null,
+        highText: null,
+        severity: null,
+        because: null,
+        contourFeet: null,
         raw: text(from.cwatext) ?? text(from.rawtext),
       },
     };
@@ -180,6 +225,11 @@ function parsePireps(payload: unknown): OverlayFeature[] {
         validTo: null,
         lowFeet: null,
         highFeet: number(from.altitude_ft_msl),
+        lowText: null,
+        highText: null,
+        severity: null,
+        because: null,
+        contourFeet: null,
         raw: text(from.raw_text),
       },
     };
@@ -339,18 +389,45 @@ export const aviationOverlay: OverlayAdapter = {
       lines.push(translate("aviation.validAt", { time: formatClock(from) }));
     }
 
-    const low = properties.lowFeet;
-    const high = properties.highFeet;
-    if (typeof low === "number" && typeof high === "number") {
-      lines.push(
-        translate("aviation.between", {
-          low: formatNumber(low),
-          high: formatNumber(high),
-        }),
-      );
-    } else if (typeof high === "number") {
-      lines.push(translate("aviation.upTo", { high: formatNumber(high) }));
+    const severity = properties.severity;
+    if (typeof severity === "string") {
+      lines.push(translate("aviation.severity", { severity }));
     }
+
+    // A freezing level contour is a line saying where the freezing level is.
+    // Read as a ceiling it said the air was hazardous up to eight thousand
+    // feet, which is not what a contour means.
+    const contour = properties.contourFeet;
+    if (typeof contour === "number") {
+      lines.push(
+        translate("aviation.freezingLevel", { high: formatNumber(contour) }),
+      );
+    } else {
+      // The surface and the freezing level are words rather than heights, and
+      // the service writes them where a height would go.
+      // Each key named rather than built, so a string is findable by the
+      // name it is written under and nothing is left behind when one goes.
+      const said = (feet: unknown, word: unknown) => {
+        if (word === "SFC") return translate("aviation.sfc");
+        if (word === "FZL") return translate("aviation.fzl");
+        // Any other word is the service's own and is shown as it wrote it,
+        // which is better than dropping the altitude entirely.
+        if (typeof word === "string") return word;
+        return typeof feet === "number"
+          ? translate("aviation.feet", { feet: formatNumber(feet) })
+          : null;
+      };
+      const low = said(properties.lowFeet, properties.lowText);
+      const high = said(properties.highFeet, properties.highText);
+      if (low && high) {
+        lines.push(translate("aviation.between", { low, high }));
+      } else if (high) {
+        lines.push(translate("aviation.upTo", { high }));
+      }
+    }
+
+    const because = properties.because;
+    if (typeof because === "string") lines.push(because);
 
     const raw = properties.raw;
     if (typeof raw === "string") lines.push(raw);

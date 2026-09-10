@@ -41,10 +41,18 @@ const SIGMET = {
   ],
 };
 
-/** A G-AIRMET, which carries the freezing level as a line rather than an area. */
+/**
+ * Two G-AIRMETs, in the shapes the service actually answers with.
+ *
+ * The freezing level is the odd one out: it is the only hazard carrying
+ * `level`, and it arrives as a line. Turbulence and icing are areas carrying
+ * `base` and `top` in hundreds of feet, with the severity that is the whole
+ * content of a turbulence area. A fixture with only the first of those is why
+ * the second went unread.
+ */
 const GAIRMET = {
   type: "FeatureCollection",
-  num: 1,
+  num: 2,
   features: [
     {
       type: "Feature",
@@ -62,6 +70,29 @@ const GAIRMET = {
         coordinates: [
           [-106.63, 25.09],
           [-107.04, 24.69],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: {
+        product: "TANGO",
+        hazard: "TURB-HI",
+        validTime: "2026-09-10T09:00:00.000Z",
+        forecast: 3,
+        severity: "MOD",
+        base: "290",
+        top: "410",
+      },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-100, 40],
+            [-98, 40],
+            [-98, 42],
+            [-100, 40],
+          ],
         ],
       },
     },
@@ -92,7 +123,15 @@ const PIREP = {
   ],
 };
 
-/** A centre weather advisory, on the field names the service defines. */
+/**
+ * A centre weather advisory, in the shape the service answers with.
+ *
+ * `base` and `top` are feet, which the service's own field aliases say and
+ * which the earlier fixture here got wrong: it invented flight-level shaped
+ * values so that multiplying by a hundred produced the right answer, and the
+ * assertion beneath it agreed with the bug. The values below are a live
+ * record's, and its own text says FL440 beside a `top` of 44000.
+ */
 const CWA = {
   type: "FeatureCollection",
   features: [
@@ -110,14 +149,16 @@ const CWA = {
         ],
       },
       properties: {
-        cwsu: "ZKC",
-        cwaid: "1",
+        cwsu: "ZMA",
+        cwaid: "5",
         hazard: "TS",
-        validtimef: 1789023900000,
-        validtimet: 1789031100000,
-        base: 40,
-        top: 350,
-        cwatext: "ISOLD TS MOV LTL. TOPS TO FL350.",
+        // The stamps arrive as the service writes them, which is a string
+        // with an offset on it rather than an epoch.
+        validtimef: "2026/09/09 23:50:00+00",
+        validtimet: "2026/09/10 01:50:00+00",
+        base: null,
+        top: "44000",
+        cwatext: "ZMA CWA 503. TOPS EST FL440. EXP LTL CHG THRU PD.",
       },
     },
   ],
@@ -149,9 +190,9 @@ describe("what the air is doing to aircraft", () => {
       );
       expect(data.partial).toBeUndefined();
       const kinds = data.features.map((one) => one.properties.kind);
-      expect(kinds).toEqual(["sigmet", "gairmet", "cwa", "pirep"]);
+      expect(kinds).toEqual(["sigmet", "gairmet", "gairmet", "cwa", "pirep"]);
 
-      const [sigmet, gairmet, cwa, pirep] = data.features;
+      const [sigmet, gairmet, turbulence, cwa, pirep] = data.features;
       expect(sigmet.properties.hazard).toBe("CONVECTIVE");
       expect(sigmet.properties.validFrom).toBe(
         Date.parse("2026-09-10T06:55:00.000Z"),
@@ -162,15 +203,29 @@ describe("what the air is doing to aircraft", () => {
       expect(sigmet.properties.highFeet).toBe(34000);
 
       // The freezing level comes as a line, which is why the layer draws
-      // lines at all, and its level is written in hundreds of feet.
+      // lines at all. Its level is written in hundreds of feet and it is a
+      // contour rather than a ceiling: an area reaching up to sixteen
+      // thousand feet is a different statement.
       expect(gairmet.geometry.type).toBe("LineString");
-      expect(gairmet.properties.highFeet).toBe(16000);
+      expect(gairmet.properties.contourFeet).toBe(16000);
+      expect(gairmet.properties.highFeet).toBeNull();
 
-      // A centre advisory's base and top are flight levels for the same
-      // reason, so 40 and 350 are 4,000 and 35,000 feet.
-      expect(cwa.properties.lowFeet).toBe(4000);
-      expect(cwa.properties.highFeet).toBe(35000);
-      expect(cwa.properties.validTo).toBe(1789031100000);
+      // Turbulence is an area between two flight levels, and the severity is
+      // the whole of what it says.
+      expect(turbulence.properties.hazard).toBe("TURB-HI");
+      expect(turbulence.properties.severity).toBe("MOD");
+      expect(turbulence.properties.lowFeet).toBe(29000);
+      expect(turbulence.properties.highFeet).toBe(41000);
+      expect(turbulence.properties.contourFeet).toBeNull();
+
+      // A centre advisory's base and top are already feet. Its own text says
+      // FL440 and the field carries 44000; reading that as a flight level and
+      // multiplying put the top of a thunderstorm 833 miles up.
+      expect(cwa.properties.highFeet).toBe(44000);
+      expect(cwa.properties.lowFeet).toBeNull();
+      expect(cwa.properties.validTo).toBe(
+        Date.parse("2026-09-10T01:50:00.000Z"),
+      );
 
       // The two the item names for a pilot report.
       expect(pirep.properties.highFeet).toBe(39000);
@@ -267,5 +322,42 @@ describe.runIf(LIVE)("against the live service", () => {
     expect(grid.every((one) => typeof one.properties.hazard === "string")).toBe(
       true,
     );
+
+    // Every altitude this draws has to be an altitude. The contract used to
+    // check only that features arrived, which is why a centre advisory read
+    // as flight levels and multiplied by a hundred shipped saying the top of
+    // a thunderstorm was 833 miles up. Nothing in these products is above the
+    // Karman line or below the sea.
+    for (const feature of data.features) {
+      for (const key of ["lowFeet", "highFeet", "contourFeet"]) {
+        const feet = feature.properties[key];
+        if (typeof feet !== "number") continue;
+        const said = `${String(feature.properties.kind)} ${key} is ${feet} ft`;
+        expect(feet, said).toBeGreaterThanOrEqual(-1000);
+        expect(feet, said).toBeLessThanOrEqual(100_000);
+      }
+    }
+
+    // And the turbulence and icing areas, which are what this layer is turned
+    // on for, have to carry the altitudes and the severity a forecaster put on
+    // them rather than only the freezing level contours doing so.
+    const areas = grid.filter((one) =>
+      ["TURB-HI", "TURB-LO", "ICE"].includes(String(one.properties.hazard)),
+    );
+    if (areas.length > 0) {
+      expect(
+        areas.some((one) => typeof one.properties.highFeet === "number"),
+      ).toBe(true);
+      expect(
+        areas.some((one) => typeof one.properties.severity === "string"),
+      ).toBe(true);
+    }
+
+    // The mapping service is the other half of this layer and the contract
+    // never touched it. Its two products answer around the clock.
+    const charted = data.features.filter((one) =>
+      ["cwa", "pirep"].includes(String(one.properties.kind)),
+    );
+    expect(charted.length).toBeGreaterThan(0);
   });
 });

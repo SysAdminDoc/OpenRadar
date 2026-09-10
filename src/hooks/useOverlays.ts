@@ -207,7 +207,14 @@ export function useOverlays(
       if (enabled[adapter.id]) continue;
       requests.get(adapter.id)?.controller.abort();
       requests.delete(adapter.id);
-      delete coverage[adapter.id];
+      // A worldwide feed keeps what it knows about when it goes off. Dropping
+      // it made the switch, and the zoom floor behind it, into a way to ask
+      // again with no interval at all: a reader wheeling across the floor
+      // that turns the buoys off and on pulled the whole national file every
+      // time, from a service that asks callers to retrieve as little as they
+      // can. What a global feed holds is not about where the reader is, so
+      // going away and coming back does not make it stale.
+      if (!adapter.global) delete coverage[adapter.id];
     }
 
     if (!viewport) return;
@@ -329,7 +336,7 @@ export function useOverlays(
             // failed request never stamped it, so an unconditional delete
             // here would turn every failure into an immediate retry.
             if (coverage[adapter.id]?.variant !== asking) {
-              delete coverage[adapter.id];
+              if (!adapter.global) delete coverage[adapter.id];
             }
             setStates((current) => {
               // Asked of the snapshot itself rather than of the coverage

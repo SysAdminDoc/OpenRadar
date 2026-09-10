@@ -1130,6 +1130,16 @@ export default function App() {
                   ? translate("rivers.zoom")
                   : overlays.states.riverGauges.error,
               tropical: overlays.states.tropical.error,
+              // The two layers added on 2026-09-10. Left out, a buoy network
+              // that refused said nothing at all, and the aviation layer's
+              // own note about a product that did not answer was written into
+              // a field nothing rendered: four hazard services could all be
+              // down and the layer would draw clear air, call itself fresh,
+              // and say nothing about it.
+              buoys: overlays.states.buoys.error,
+              aviation:
+                overlays.states.aviation.error ??
+                overlays.states.aviation.partial,
               rotationTracks: mrms.error,
               hail: mrms.error,
               hailSwath: mrms.error,
