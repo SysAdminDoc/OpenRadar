@@ -134,6 +134,13 @@ const HAZARD_KEYS: Record<string, StringKey> = {
   SFC_WND: "aviation.hazardSurfaceWind",
   FZLVL: "aviation.hazardFreezingLevel",
   M_FZLVL: "aviation.hazardFreezingLevels",
+  // The SIGMET vocabulary, which is not the grid's. Its schema writes the
+  // whole of it out as "TURB, ICE, IFR, CONVECTIVE, ASH, MTN OBSCN", and the
+  // last two had no phrase: a volcanic ash SIGMET reached a reader in Madrid
+  // as the word `ASH`. Neither is live today and neither is rare over a year,
+  // which is the same seasonal blind spot the icing vocabulary had.
+  ASH: "aviation.hazardAsh",
+  "MTN OBSCN": "aviation.hazardMountains",
 };
 
 /** The hazard in the reader's own words, or the service's code. */
@@ -167,11 +174,18 @@ const SEVERITY_KEYS: Record<string, StringKey> = {
   mod: "aviation.severityModerate",
   "mod-sev": "aviation.severityModerateSevere",
   sev: "aviation.severitySevere",
-  // A pilot report writes two of these differently and adds one the
-  // forecast products have no use for: a pilot can report meeting nothing,
-  // and a forecaster cannot forecast it.
+  // A pilot report writes one of these differently and adds two the forecast
+  // products have no use for: a pilot can report meeting nothing, and can
+  // report a trace of ice, and a forecaster forecasts neither.
+  //
+  // The distinct values the mapping service answers with on 2026-09-10 are
+  // LGT, LGT-MOD, MOD, MOD-SEV and NEG for turbulence and LGT, TRC and NEG
+  // for icing. `TRC` had no phrase and reached a reader as the letters. A
+  // `MOD-SVR` spelling was carried here for a while on the belief that a
+  // pilot report writes it that way; the service does not publish it, and a
+  // key nothing can reach is a key that cannot be wrong out loud.
   "lgt-mod": "aviation.severityLightModerate",
-  "mod-svr": "aviation.severityModerateSevere",
+  trc: "aviation.severityTrace",
   neg: "aviation.severityNone",
 };
 
@@ -297,33 +311,72 @@ function parseCwas(payload: unknown): OverlayFeature[] {
   });
 }
 
+/**
+ * What the pilot actually met, or nothing where the answer was that they met
+ * nothing.
+ *
+ * `NEG` in one of these fields is a report of no turbulence or no ice, which
+ * is the opposite of a hazard. Read as one it drew a turbulence marker over a
+ * pilot who had reported smooth air and put "Severity: None reported"
+ * underneath it.
+ */
+function met(value: unknown): string | null {
+  const said = text(value);
+  if (!said) return null;
+  return said.trim().toUpperCase() === "NEG" ? null : said;
+}
+
+/** Which of two intensities the map should draw, by the vocabulary's order. */
+function worse(one: string | null, two: string | null): string | null {
+  if (!one) return two;
+  if (!two) return one;
+  const rank = (said: string) =>
+    SEVERITY_WORDS.indexOf(
+      said.trim().toLowerCase() as (typeof SEVERITY_WORDS)[number],
+    );
+  return rank(two) > rank(one) ? two : one;
+}
+
 /** Somebody who flew through it and said what it was like. */
 function parsePireps(payload: unknown): OverlayFeature[] {
   return collection(payload).map((feature) => {
     const from = feature.properties ?? {};
+    // What the pilot met, and how bad it was, as two things. The intensity
+    // used to be written into `hazard`, so a report of moderate turbulence
+    // reached the popup as the word "MOD" with nothing saying what was
+    // moderate.
+    const turbulence = met(from.turbulence_intensity);
+    const icing = met(from.icing_intensity);
+    // Turbulence was preferred outright, which threw away the icing on a
+    // report carrying both. Almost every live report carrying both has one of
+    // them negative, so this mostly settles itself now; where it does not,
+    // the worse of the two is what a map should be drawing.
+    const drawn = worse(turbulence, icing);
+    const asked =
+      text(from.turbulence_intensity) ?? text(from.icing_intensity) ?? null;
     return {
       type: "Feature",
       geometry: feature.geometry,
       properties: {
         kind: "pirep" satisfies AviationKind,
         title: text(from.aircraft_ref) ?? "PIREP",
-        // What the pilot met, and how bad it was, as two things. The
-        // intensity used to be written into `hazard`, so a report of
-        // moderate turbulence reached the popup as the word "MOD" with
-        // nothing saying what was moderate, and a report of none at all
-        // reached it as "NEG".
-        hazard: text(from.turbulence_intensity)
-          ? "TURB"
-          : text(from.icing_intensity)
-            ? "ICE"
-            : null,
+        hazard: drawn === null ? null : drawn === icing ? "ICE" : "TURB",
         validFrom: instant(from.observation_time),
         validTo: null,
         lowFeet: null,
-        highFeet: number(from.altitude_ft_msl),
+        // Zero is what the service writes where the pilot did not give a
+        // level: `FLUNKN`, `FLDURC` and `FLDURD` all arrive as 0, and so the
+        // popup told a reader a report had come from the ground. A genuine
+        // `FL000` report is the surface, which an aviation hazard map has
+        // nothing to say about either.
+        highFeet: number(from.altitude_ft_msl) || null,
         lowText: null,
         highText: null,
-        severity: text(from.turbulence_intensity) ?? text(from.icing_intensity),
+        severity: drawn,
+        // A pilot who met nothing said something worth reading, and it is not
+        // a severity. Left as one it read "Severity: None reported" under a
+        // hazard that was never there.
+        metNothing: drawn === null && asked !== null,
         because: null,
         contourFeet: null,
         raw: text(from.raw_text),
@@ -488,6 +541,8 @@ export const aviationOverlay: OverlayAdapter = {
     const severity = severityWords(properties.severity);
     if (severity) {
       lines.push(translate("aviation.severity", { severity }));
+    } else if (properties.metNothing === true) {
+      lines.push(translate("aviation.pirepNothing"));
     }
 
     // Which step of the three-hourly grid this area is. A G-AIRMET is a

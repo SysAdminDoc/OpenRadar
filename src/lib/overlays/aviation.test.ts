@@ -442,6 +442,16 @@ describe.runIf(LIVE)("against the live service", () => {
         said,
         `${String(feature.properties.kind)} severity ${raw}`,
       ).not.toBe(null);
+      // And not the code back. A word with no phrase is passed through as the
+      // service wrote it, which is the right thing for the reader and made
+      // this check unable to fail: `TRC` was live and untranslated the day
+      // this was written and the contract was green.
+      if (typeof raw === "string") {
+        expect(
+          said,
+          `${String(feature.properties.kind)} severity ${raw} has no phrase`,
+        ).not.toBe(raw.trim());
+      }
       // A number is an index into that list and must land inside it. A word
       // the service invented is shown as it wrote it, which is why only the
       // numeric form is held to the vocabulary.
@@ -536,12 +546,125 @@ describe("what the hazard actually is", () => {
     // `NEG` is a pilot reporting no turbulence where somebody expected some,
     // which is worth knowing and is not a hazard code.
     expect(severityWords("NEG")).toBe(en["aviation.severityNone"]);
-    // And the two spellings a pilot report uses for the levels the forecast
-    // products write differently.
+    // And the spelling a pilot report uses for a level the forecast products
+    // write differently, and the one they have no use for at all.
     expect(severityWords("LGT-MOD")).toBe(en["aviation.severityLightModerate"]);
-    expect(severityWords("MOD-SVR")).toBe(
-      en["aviation.severityModerateSevere"],
-    );
+    expect(severityWords("TRC")).toBe(en["aviation.severityTrace"]);
+  });
+
+  it("names the whole of both vocabularies the services publish", () => {
+    // Read off the service rather than out of the parser. These are the
+    // distinct values `returnDistinctValues` answered with on 2026-09-10 for
+    // the two intensity fields, and the whole of the SIGMET hazard list as
+    // its own schema writes it: "TURB, ICE, IFR, CONVECTIVE, ASH, MTN OBSCN".
+    //
+    // A vocabulary is seasonal. `TRC` was live and untranslated the day this
+    // was written and no test could see it, because the contract asked only
+    // that the answer was not null and a code returned verbatim is not null.
+    for (const code of ["LGT", "LGT-MOD", "MOD", "MOD-SEV", "NEG", "TRC"]) {
+      expect(severityWords(code), code).not.toBe(code);
+    }
+    for (const code of [
+      "TURB",
+      "ICE",
+      "IFR",
+      "CONVECTIVE",
+      "ASH",
+      "MTN OBSCN",
+    ]) {
+      expect(hazardWords(code), code).not.toBe(code);
+    }
+  });
+
+  it("does not draw a pilot who met nothing as a hazard", async () => {
+    // A live record from 2026-09-10: `/TB NEG/IC NEG` is a pilot saying the
+    // air was smooth and clear of ice. Read as a hazard it drew a turbulence
+    // marker over that pilot and wrote "Severity: None reported" underneath.
+    // The service also writes zero into the altitude where the pilot gave no
+    // level, which `FLUNKN`, `FLDURC` and `FLDURD` all arrive as, so the
+    // popup said the report had come from the ground.
+    const held = globalThis.fetch;
+    globalThis.fetch = serve([
+      { type: "FeatureCollection", features: [] },
+      { type: "FeatureCollection", features: [] },
+      { type: "FeatureCollection", features: [] },
+      {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [-93.6, 41.6] },
+            properties: {
+              observation_time: 1789023900000,
+              altitude_ft_msl: 0,
+              aircraft_ref: "PC12",
+              turbulence_intensity: "NEG",
+              icing_intensity: "NEG",
+              raw_text: "AKN UA /OV PAKN/TM 1724/FLDURD/TP PC12/TB NEG/IC NEG",
+            },
+          },
+          {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [-93.6, 41.6] },
+            properties: {
+              observation_time: 1789023900000,
+              altitude_ft_msl: 6000,
+              aircraft_ref: "C208",
+              // Both fields carried, one of them a real report. Turbulence
+              // was preferred outright, so this one lost its icing.
+              turbulence_intensity: "NEG",
+              icing_intensity: "TRC",
+              raw_text: "OTZ UA /OV OTZ085070/TM 1800/FL060/TB NEG/IC TRC",
+            },
+          },
+          {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [-93.6, 41.6] },
+            properties: {
+              observation_time: 1789023900000,
+              altitude_ft_msl: 8000,
+              aircraft_ref: "PA46",
+              // Both halves real, and the worse of them is the icing. A fixed
+              // preference for turbulence drew the lighter of the two.
+              turbulence_intensity: "LGT",
+              icing_intensity: "MOD",
+              raw_text: "VSF UA /OV VSF/TM 1651/FL080/TB LGT/IC MOD",
+            },
+          },
+        ],
+      },
+    ]) as typeof fetch;
+    try {
+      const data = await aviationOverlay.fetchData(
+        { west: -180, south: -90, east: 180, north: 90 },
+        undefined,
+        DEFAULT_OVERLAY_CHOICES,
+      );
+      const [nothing, ice, both] = data.features;
+      expect(nothing.properties.hazard).toBeNull();
+      expect(nothing.properties.severity).toBeNull();
+      expect(nothing.properties.highFeet).toBeNull();
+      const said = aviationOverlay.describe!(nothing.properties).lines.join(
+        " ",
+      );
+      expect(said).toContain(en["aviation.pirepNothing"]);
+      expect(said).not.toContain(en["aviation.hazardTurbulence"]);
+      expect(said).not.toContain(en["aviation.severityNone"]);
+      expect(said).not.toContain("0 ft");
+
+      // And the one real half of a report carrying both is what is drawn.
+      expect(ice.properties.hazard).toBe("ICE");
+      expect(ice.properties.severity).toBe("TRC");
+      const about = aviationOverlay.describe!(ice.properties).lines.join(" ");
+      expect(about).toContain(en["aviation.hazardIcing"]);
+      expect(about).toContain(en["aviation.severityTrace"]);
+
+      // And where both halves are real, the worse of them is what is drawn.
+      expect(both.properties.hazard).toBe("ICE");
+      expect(both.properties.severity).toBe("MOD");
+    } finally {
+      globalThis.fetch = held;
+    }
   });
 
   it("puts the words on the popup rather than the code", () => {
