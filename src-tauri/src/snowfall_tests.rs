@@ -129,16 +129,110 @@ fn the_analyses_tried_are_the_two_a_day_walking_back() {
 #[test]
 fn nothing_is_drawn_where_nothing_fell() {
     let read = read(ANALYSIS).expect("a published analysis");
-    let pixels = paint(&read, false);
-    assert_eq!(pixels.len(), read.width * read.height * 4);
-    for (at, depth) in read.inches.iter().enumerate() {
-        let alpha = pixels[at * 4 + 3];
-        if !depth.is_finite() || *depth < TRACE_INCHES {
-            assert_eq!(alpha, 0, "cell {at} at {depth} was drawn");
-        } else {
-            assert!(alpha > 0, "cell {at} at {depth} was not drawn");
+    let picture = paint(&read, false);
+    assert_eq!(picture.pixels.len(), picture.width * picture.height * 4);
+    assert_eq!(picture.width, read.width);
+    // Row by row of the picture, against the row of the grid that row was
+    // sampled from. The two are not the same row, which is the point of the
+    // test below this one.
+    for row in 0..picture.height {
+        let lat = source_latitude(&read, &picture, row);
+        let source = grid_row(&read, lat) * read.width;
+        for column in 0..read.width {
+            let depth = read.inches[source + column];
+            let alpha = picture.pixels[(row * picture.width + column) * 4 + 3];
+            if !depth.is_finite() || depth < TRACE_INCHES {
+                assert_eq!(alpha, 0, "row {row} column {column} at {depth} was drawn");
+            } else {
+                assert!(
+                    alpha > 0,
+                    "row {row} column {column} at {depth} was not drawn"
+                );
+            }
         }
     }
+}
+
+/// The latitude the middle of one picture row sits at.
+fn source_latitude(analysis: &Analysis, picture: &Picture, row: usize) -> f64 {
+    let [_, south, _, north] = analysis.extent;
+    let top = mercator(north);
+    let bottom = mercator(south);
+    from_mercator(top - (row as f64 + 0.5) / picture.height as f64 * (top - bottom))
+}
+
+/// Which row of the grid a latitude falls in, counting from the north edge.
+fn grid_row(analysis: &Analysis, lat: f64) -> usize {
+    let [_, south, _, north] = analysis.extent;
+    (((north - lat) / (north - south) * analysis.height as f64).floor() as usize)
+        .min(analysis.height - 1)
+}
+
+/// A grid whose rows are a fixed number of degrees apart, with snow in one.
+fn one_row(at: usize) -> Analysis {
+    let (width, height) = (4, 850);
+    let mut inches = vec![f32::NAN; width * height];
+    for column in 0..width {
+        inches[at * width + column] = 6.0;
+    }
+    Analysis {
+        width,
+        height,
+        inches,
+        extent: [-126.0, 21.0, -66.0, 55.0],
+    }
+}
+
+/// The one thing about this picture that would put the snow in another state.
+///
+/// The grid is four hundredths of a degree per row. The map draws a pinned
+/// picture by stretching it linearly between four Mercator corners, so a
+/// picture handed over in the grid's own rows lands north of where it fell,
+/// by two degrees in the middle of the country. That is Denver's snow drawn
+/// over Cheyenne, and nothing about the picture looks wrong while it happens.
+#[test]
+fn a_row_is_drawn_at_the_latitude_it_was_measured_at() {
+    // The grid row holding 40 degrees north, which is (55 - 40) / 0.04.
+    let planted = 375;
+    let analysis = one_row(planted);
+    let picture = paint(&analysis, false);
+
+    // Taller than the grid, because Mercator stretches towards the pole and
+    // the picture keeps a row per row of grid at its tallest.
+    assert!(
+        picture.height > analysis.height,
+        "{} rows for {}",
+        picture.height,
+        analysis.height
+    );
+
+    let mut drawn: Vec<usize> = Vec::new();
+    for row in 0..picture.height {
+        if picture.pixels[row * picture.width * 4 + 3] > 0 {
+            drawn.push(row);
+        }
+    }
+    assert!(!drawn.is_empty(), "the planted row was not drawn at all");
+
+    // Every row drawn sits at the latitude the planted row covers, which is
+    // 39.96 to 40.00 north. Handed over unprojected the snow lands at 42.0,
+    // which is Nebraska rather than Colorado.
+    for row in &drawn {
+        let lat = source_latitude(&analysis, &picture, *row);
+        assert!(
+            (39.96..=40.00).contains(&lat),
+            "row {row} was drawn at {lat} north"
+        );
+        assert_eq!(grid_row(&analysis, lat), planted);
+    }
+
+    // And the row the grid put it in is not the row the picture puts it in,
+    // which is what says the projection happened rather than that the two
+    // numbers agree by luck.
+    assert!(
+        !drawn.contains(&planted),
+        "the picture drew it in the grid's own row"
+    );
 }
 
 /// The scale climbs, and the key beside the map is the scale itself.
@@ -152,12 +246,33 @@ fn the_key_is_the_scale_the_picture_was_painted_with() {
         for pair in key.windows(2) {
             assert!(pair[1].inches > pair[0].inches, "{key:?}");
         }
-        // And each band's colour is the one the painter would use there.
-        for band in &key {
-            let painted = colour(ramp_for(high_contrast), band.inches);
-            let said = format!("#{:02x}{:02x}{:02x}", painted[0], painted[1], painted[2]);
-            assert_eq!(said, band.color, "{band:?}");
+        // Every depth a band covers, not only the depth it starts at.
+        //
+        // Checking the stops alone was the one place a blend and a step
+        // agree, so it passed while the top of every band was painted the
+        // next band's colour exactly: 11.99 inches came out the swatch
+        // labelled "12 in to 18 in". A reader matching a colour against the
+        // key read a foot of snow where eleven and a half had fallen.
+        for (at, band) in key.iter().enumerate() {
+            let next = key.get(at + 1).map(|one| one.inches);
+            let mut depths = vec![band.inches];
+            if let Some(next) = next {
+                let span = next - band.inches;
+                depths.push(band.inches + span * 0.5);
+                depths.push(next - span * 0.001);
+            } else {
+                depths.push(band.inches * 4.0);
+            }
+            for depth in depths {
+                let painted = colour(ramp_for(high_contrast), depth);
+                let said = format!("#{:02x}{:02x}{:02x}", painted[0], painted[1], painted[2]);
+                assert_eq!(said, band.color, "{depth} in, under {band:?}");
+            }
         }
+        // And the bottom of the key is the bottom of the picture. They were
+        // different: a hundredth of an inch was drawn in the colour of the
+        // band starting at a tenth, under a swatch reading "0.1 in to 1 in".
+        assert_eq!(key[0].inches, TRACE_INCHES);
     }
 }
 

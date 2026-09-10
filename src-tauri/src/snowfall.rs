@@ -12,6 +12,7 @@
 //! are arithmetic. What there is instead is a no-data value that is not NaN,
 //! and reading it as a depth would bury the country under a kilometre of snow.
 
+use std::f64::consts::{FRAC_PI_4, PI};
 use std::io::Cursor;
 
 use base64::Engine;
@@ -84,9 +85,15 @@ const NO_DATA: f32 = -99_999.0;
 ///
 /// The analysis carries very small positive values over most of the country
 /// in winter, and drawing them paints the whole map faintly rather than
-/// showing where snow actually fell. A hundredth of an inch is the smallest
-/// depth the office itself reports.
-pub const TRACE_INCHES: f32 = 0.01;
+/// showing where snow actually fell.
+///
+/// It is the bottom of the scale rather than the smallest depth the office
+/// reports, which is a hundredth of an inch. Those two were different, and
+/// the difference was a lie in the key: a hundredth and a tenth painted the
+/// same pixel, under a swatch labelled "0.1 in to 1 in". The picture's floor
+/// and the key's first line have to be the same number or the key is not the
+/// scale the picture was painted with.
+pub const TRACE_INCHES: f32 = 0.1;
 
 /// Reads one analysis out of the bytes the office published.
 pub fn read(bytes: &[u8]) -> Result<Analysis, String> {
@@ -224,55 +231,100 @@ fn ramp_for(high_contrast: bool) -> &'static [(f32, [u8; 3])] {
     }
 }
 
-/// The colour a depth is drawn in, blending between the stops it sits between.
+/// The colour a depth is drawn in: the band it falls in, flat.
+///
+/// A step rather than a blend. The key beside the map is a list of bands and
+/// each swatch is labelled with the range it covers, so a colour a reader
+/// matches against a swatch has to be the colour that band is actually
+/// painted in. Blending between the stops meant the top of every band was
+/// painted the next band's colour exactly: 11.99 inches came out `#7c3aed`,
+/// the swatch reading "12 in to 18 in", and a reader matching it read a foot
+/// of snow where eleven and a half had fallen.
 fn colour(ramp: &[(f32, [u8; 3])], inches: f32) -> [u8; 3] {
-    if inches <= ramp[0].0 {
-        return ramp[0].1;
-    }
-    for pair in ramp.windows(2) {
-        let (low, low_colour) = pair[0];
-        let (high, high_colour) = pair[1];
-        if inches <= high {
-            let span = high - low;
-            let along = if span > 0.0 {
-                (inches - low) / span
-            } else {
-                0.0
-            };
-            return [
-                blend(low_colour[0], high_colour[0], along),
-                blend(low_colour[1], high_colour[1], along),
-                blend(low_colour[2], high_colour[2], along),
-            ];
+    let mut found = ramp[0].1;
+    for (at, stop) in ramp {
+        if inches < *at {
+            break;
         }
+        found = *stop;
     }
-    ramp[ramp.len() - 1].1
+    found
 }
 
-fn blend(low: u8, high: u8, along: f32) -> u8 {
-    (low as f32 + (high as f32 - low as f32) * along).round() as u8
+/// The picture, and the shape it came out.
+pub struct Picture {
+    pub pixels: Vec<u8>,
+    pub width: usize,
+    pub height: usize,
+}
+
+fn mercator(lat_degrees: f64) -> f64 {
+    (FRAC_PI_4 + lat_degrees.to_radians() / 2.0).tan().ln()
+}
+
+fn from_mercator(y: f64) -> f64 {
+    (2.0 * y.exp().atan() - PI / 2.0).to_degrees()
 }
 
 /// The analysis as pixels, clear wherever it said nothing and wherever it said
 /// less than a trace.
-pub fn paint(analysis: &Analysis, high_contrast: bool) -> Vec<u8> {
+///
+/// Rows are spaced in Mercator rather than in degrees, which is the whole of
+/// what this does beyond colouring. The grid is four hundredths of a degree
+/// per row and the map draws a pinned picture by stretching it linearly
+/// between four Mercator corners, so handing over the grid's own rows put
+/// every total north of where it fell: two degrees of it in the middle of the
+/// country, which is Denver's snow drawn over Cheyenne. Every other grid in
+/// this app reprojects first, and `hrrr::to_image` says so in as many words.
+pub fn paint(analysis: &Analysis, high_contrast: bool) -> Picture {
     let ramp = ramp_for(high_contrast);
-    let mut pixels = vec![0u8; analysis.width * analysis.height * 4];
-    for (at, depth) in analysis.inches.iter().enumerate() {
-        // Bare ground is not a light dusting. The analysis carries very small
-        // positive values across most of the country, and drawing those paints
-        // the whole map faintly rather than showing where snow fell.
-        if !depth.is_finite() || *depth < TRACE_INCHES {
+    let [west, south, east, north] = analysis.extent;
+    let width = analysis.width;
+    let top = mercator(north);
+    let bottom = mercator(south);
+    // Enough rows that the tallest part of the picture, which is the top of
+    // it, keeps a row per row of grid. Mercator stretches towards the pole,
+    // so a picture sized on the average would blur the north.
+    let height = (((top - bottom) / (north - south).to_radians()) * analysis.height as f64)
+        .round()
+        .max(1.0) as usize;
+    let mut pixels = vec![0u8; width * height * 4];
+    let span = north - south;
+    for row in 0..height {
+        let lat = from_mercator(top - (row as f64 + 0.5) / height as f64 * (top - bottom));
+        // Which row of the grid that latitude sits in. Row 0 is the north
+        // edge, and the tiepoint is the corner of the first cell rather than
+        // its centre, so this is a plain floor rather than a rounding.
+        let source = ((north - lat) / span * analysis.height as f64).floor();
+        if source < 0.0 || source >= analysis.height as f64 {
             continue;
         }
-        let [red, green, blue] = colour(ramp, *depth);
-        let into = at * 4;
-        pixels[into] = red;
-        pixels[into + 1] = green;
-        pixels[into + 2] = blue;
-        pixels[into + 3] = 0xdc;
+        let source = source as usize * width;
+        for column in 0..width {
+            let depth = analysis.inches[source + column];
+            // Bare ground is not a light dusting. The analysis carries very
+            // small positive values across most of the country, and drawing
+            // those paints the whole map faintly rather than showing where
+            // snow fell.
+            if !depth.is_finite() || depth < TRACE_INCHES {
+                continue;
+            }
+            let [red, green, blue] = colour(ramp, depth);
+            let into = (row * width + column) * 4;
+            pixels[into] = red;
+            pixels[into + 1] = green;
+            pixels[into + 2] = blue;
+            pixels[into + 3] = 0xdc;
+        }
     }
-    pixels
+    // Longitude is linear in Mercator x, so the columns need nothing done to
+    // them. `east` and `west` are read only to say that out loud.
+    debug_assert!(east > west);
+    Picture {
+        pixels,
+        width,
+        height,
+    }
 }
 
 /// The key beside the map, which is the ramp said in the reader's own terms.
@@ -338,9 +390,10 @@ pub async fn snowfall_analysis(window: String, high_contrast: bool) -> Result<Sn
         };
         let drawn = tauri::async_runtime::spawn_blocking(move || {
             let analysis = read(&bytes)?;
-            let pixels = paint(&analysis, high_contrast);
-            let png = crate::level2::encode_png_sized(&pixels, analysis.width, analysis.height)
-                .map_err(|error| error.to_string())?;
+            let picture = paint(&analysis, high_contrast);
+            let png =
+                crate::level2::encode_png_sized(&picture.pixels, picture.width, picture.height)
+                    .map_err(|error| error.to_string())?;
             Ok::<_, String>((analysis.extent, png))
         })
         .await
