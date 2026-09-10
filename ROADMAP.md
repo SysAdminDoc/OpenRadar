@@ -25,41 +25,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
   Acceptance: A fuzz target that opens an arbitrary byte slice as a PMTiles archive and asks it for a tile, run long enough to be worth the line in the changelog, with any panic it finds either fixed or refused before the parser sees it.
   Complexity: M
 
-- [ ] AUD-486 (P2): The ambient readout's type scale is bounded by a character count, so a long name runs off the screen
-  Why: `ambientTypeScale` in `src/lib/ambientScreen.ts` estimates the widest line as `length * 0.5em`, and 0.55 for the clock. The real advance of `M`, `W`, capitals and CJK is 0.9 to 1.0em, so the bound is up to twice as generous as it should be and the readout overruns the window it was supposed to fit.
-  Evidence: measured in headless chromium against the real `index.css`, the real markup and the transpiled `ambientTypeScale` at 1024 by 680. A watch named `Mammoth Mountain, Mammoth` wraps the place line onto two lines at 2.5 m; `KMHX MOREHEAD CITY, NC` wraps at 4 m; a 45-character single word (Chargoggagoggmanchauggagoggchaubunagungamaugg, a real place in Massachusetts) runs 100 px off the right edge at both distances because one unbreakable word cannot wrap; a 16-character Japanese name puts the readout 141 px above the top of the window. `Atlanta, GA` is clean at every distance. `settings.watch.name` is free text capped at 60 characters in `src/panels/WatchSection.tsx`.
-  Touches: `src/lib/ambientScreen.ts`, `e2e/ambient-screen.spec.ts` (whose fixture watch name is `Casa`, four characters, the shortest in the suite, which is why its own assertions pass today).
-  Acceptance: The bound is taken from something that measures the text rather than counts it, and the e2e exercises at least one long name, one all-capitals name and one unbreakable long word at the widest distance the setting offers.
-  Complexity: M
-
-- [ ] AUD-487 (P2): The ambient type scale reads `window.innerWidth` while the app zooms the root
-  Why: `AmbientReadout.tsx` passes `{ width: window.innerWidth, height: window.innerHeight }` into the scale. `:root { zoom: var(--text-scale) }` in `src/index.css` shrinks the layout viewport without moving `innerWidth`, so at the larger text sizes the readout is scaled for a window bigger than the one it is in. `useSettings.ts` does the right thing three files away, dividing by `settings.textScale / 100`, with a comment naming this exact trap, and `index.css` names it again.
-  Evidence: measured at 1024 by 680 with `ambientMetres: 4` and ordinary short strings: text scale 100 gives `clientWidth` 1024 and a readout top of 183; 115 gives 890 and 108; 130 gives 788 and **minus 355**, which is the readout standing 355 px above the top of the window. All three scales ship in Settings (`TEXT_SCALES` in `src/lib/units.ts`).
-  Touches: `src/components/AmbientReadout.tsx`, and whatever the ambient e2e uses for a viewport.
-  Acceptance: The scale is computed against the viewport the layout actually has, and a test at text scale 130 on a small window keeps the readout inside it.
-  Complexity: S
-
-- [ ] AUD-488 (P3): Three stylesheet gates are weaker than the sweeps they are meant to hold
-  Why: `src/lib/cssRules.test.ts` swept eighty dead declarations out of `index.css` and is supposed to keep them out. Each of its three checks has a hole that lets the same class of defect back in. The duplicate check compares every earlier rule only against `list.at(-1)`, so a declaration killed by a *middle* duplicate is invisible, as is a longhand killed by a later shorthand, and it groups on raw selector text so `".a,.b"` and `".a, .b"` are different rules. The media-query check tests `later.selector !== rule.selector`, so a later rule that wins on specificity rather than on an identical string is invisible. And the literal allowlist exempts every rule whose first selector *starts with* `:root`, which is 58 of 744 rules including the whole `:root[data-narrow~="..."] .anything` family; its stated reason, that the palettes are there, is wrong, because palettes are custom properties the gate already skips.
-  Evidence: probes against a faithful reimplementation of each gate. `.x{color:red} .x{color:blue} .x{margin:0}` is silent where `.x{color:red} .x{color:blue}` fires; `.x{background-color:red} .x{background:blue}` is silent; `.app-shell .command-bar { background: var(--surface) }` placed after the forced-colors block is silent while the byte-identical control fires; `:root[data-narrow~="680"] .probe { color: #ff00ff }` is silent while the same declaration on `.probe` fires. A full pairwise, whitespace-normalised scan of the current file finds zero dead declarations, so this is latent rather than live: the sweep was complete and the gate that should keep it that way is not.
-  Touches: `src/lib/cssRules.test.ts`.
-  Acceptance: The duplicate check compares each rule against every later rule for the same normalised selector, understands shorthand-over-longhand, and normalises whitespace in a selector list; the media-query check compares on specificity rather than on string equality; the `:root` allowlist entry either goes or is narrowed to the three ambient washes it actually exists for, with the reason rewritten to say what it exempts. Each change is proved by the probe that is silent today.
-  Complexity: M
-
-- [ ] AUD-489 (P3): Two stylesheet allowlist reasons describe something other than what they exempt
-  Why: An allowlist entry whose reason does not match what it lets through is an entry nobody can review. `.command-bar` at `src/lib/cssRules.test.ts` says "the rail defines its own ink tokens", but what it exempts is `background: #0b1118`, the rail's own ground, which is deliberately dark in both themes for a good reason that is not the one written down; the ink tokens it names are custom properties the gate never sees. `.status-dot` says "answering or quiet, which is a reading of a source", but what it exempts is a `rgba(255,255,255,0.2)` hairline that already has a light counterpart; the answering and quiet colours are tokens, invisible to the gate. Separately `.surface-panel`'s reason is about two box-shadows, but the entry is a prefix that also reaches `__header`, `__body` and every modifier, so a hardcoded text colour on any of those passes under a shadow reason.
-  Evidence: read against `src/index.css` alongside the gate. A `:root .surface-panel__body { color: #fff }` probe is silent.
-  Touches: `src/lib/cssRules.test.ts`.
-  Acceptance: Each reason names the declaration it exempts and why that one is right, and an entry covers no more than what its reason describes.
-  Complexity: S
-
-- [ ] AUD-490 (P3): The ambient scale test passes with the feature deleted from the stylesheet
-  Why: `src/lib/ambientScreen.test.ts` matches `font-size:\s*calc\((\d+)px` and never requires the `* var(--ambient-scale)` that makes the size respond to the setting at all. `--ambient-scale` appears nowhere in `src/` or `e2e/` except the component and the three stylesheet rules, and `npm run check` does not run Playwright, so deleting the multiplier from all three kills the feature outright with the whole gate green.
-  Evidence: the regex returns 13 for both `calc(13px * var(--ambient-scale))` and `calc(13px)`.
-  Touches: `src/lib/ambientScreen.test.ts`.
-  Acceptance: The gate requires the multiplier as well as the base size, and deleting it from any of the three rules turns the gate red.
-  Complexity: S
-
 - [ ] AUD-491 (P3): The melting layer drops a named component of the method its threshold comes from
   Why: `src-tauri/src/melting.rs` implements the normalised product of Z, ZDR and one minus rho against a threshold of 0.08, and `AUD-225`'s own Evidence line also names a second-derivative weight of 0.75. There is no second derivative anywhere in the file, so a constant lifted from the published method is calibrated against a quantity this code does not compute.
   Evidence: `git show 835a9de -- ROADMAP.md` for the removed item's Evidence line. The rho term itself is right: `between(-c, -0.97, -0.90)` is arithmetically identical to one minus rho normalised over the same bounds, checked at 0.97, 0.90, 1.0 and 0.5.
