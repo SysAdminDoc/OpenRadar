@@ -42,6 +42,8 @@ export const CACHED_HOSTS = [
   "aviationweather.gov",
   "www.ndbc.noaa.gov",
   "data.cocorahs.org",
+  "files.airnowtech.org",
+  "firms.modaps.eosdis.nasa.gov",
 ];
 
 let base: string | null = null;

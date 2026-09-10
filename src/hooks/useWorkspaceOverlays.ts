@@ -18,6 +18,8 @@ import { METAR_MIN_ZOOM } from "../lib/overlays/metar";
 import { GAUGE_MIN_ZOOM } from "../lib/overlays/rivers";
 import { BUOY_MIN_ZOOM } from "../lib/overlays/buoys";
 import { COCORAHS_MIN_ZOOM } from "../lib/overlays/cocorahs";
+import { AIRNOW_MIN_ZOOM } from "../lib/overlays/airnow";
+import { FIRMS_MIN_ZOOM } from "../lib/overlays/firms";
 import { translate } from "../i18n";
 
 export interface WorkspaceOverlays {
@@ -100,6 +102,8 @@ export function useWorkspaceOverlays(options: {
     riverGauges,
     buoys,
     cocorahs,
+    airnow,
+    firms,
     aviation,
   } = settings.layers;
   const zoom = settings.camera.zoom;
@@ -139,6 +143,12 @@ export function useWorkspaceOverlays(options: {
       // floor is about the request as much as the picture, since the service
       // answers a whole state at a time.
       cocorahs: cocorahs && !replaying && zoom >= COCORAHS_MIN_ZOOM,
+      // Both are readings taken in the last hour or the last day, held
+      // back over a replay for the reason every other reading is: the
+      // air over a storm from 2005 was not this air, and a fire burning
+      // today was not burning then.
+      airnow: airnow && !replaying && zoom >= AIRNOW_MIN_ZOOM,
+      firms: firms && !replaying && zoom >= FIRMS_MIN_ZOOM,
       // Hazard areas and pilot reports are both about the air right now, so
       // they are held back over a replay the way every other current feed is.
       aviation: aviation && !replaying,
@@ -165,6 +175,8 @@ export function useWorkspaceOverlays(options: {
       riverGauges,
       buoys,
       cocorahs,
+      airnow,
+      firms,
       aviation,
       smoke,
       spcOutlooks,
@@ -281,6 +293,8 @@ export function useWorkspaceOverlays(options: {
       riverGauges: toggles.riverGauges ? states.riverGauges.data : null,
       buoys: toggles.buoys ? states.buoys.data : null,
       cocorahs: toggles.cocorahs ? states.cocorahs.data : null,
+      airnow: toggles.airnow ? states.airnow.data : null,
+      firms: toggles.firms ? states.firms.data : null,
       aviation: toggles.aviation ? states.aviation.data : null,
       tropical: toggles.tropical ? states.tropical.data : null,
       spcOutlooks: toggles.spcOutlooks ? states.spcOutlooks.data : null,

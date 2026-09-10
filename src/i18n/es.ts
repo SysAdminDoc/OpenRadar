@@ -1343,6 +1343,31 @@ export const es: Catalogue = {
   "layer.cocorahs": "Pluviómetros voluntarios",
   "layers.cocorahsDetail":
     "Lo que midió la gente en su propio jardín esta mañana, y el granizo que informó. Un estado a la vez, desde el zoom 6.",
+  "layer.airnow": "Calidad del aire",
+  "layers.airnowDetail":
+    "Lo que midieron los monitores en tierra esta hora, con el índice de la EPA. Una observación, a diferencia del humo previsto que va al lado.",
+  "keywords.airnow": "aire calidad ica humo ozono contaminacion pm25 respirar",
+  "airnow.failed": "La red de calidad del aire {answer}.",
+  "airnow.area": "{area}, {state}",
+  "airnow.index": "ICA {aqi}, {category}",
+  "airnow.indexAlone": "ICA {aqi}",
+  "airnow.parameter": "Contaminante peor: {parameter}",
+  "airnow.actionDay": "Día de acción por la calidad del aire",
+  "airnow.measured": "Medido a las {hour} {zone}",
+  "airnow.measuredAlone": "Medido a las {hour}",
+  "layer.firms": "Focos de calor",
+  "layers.firmsDetail":
+    "Cada píxel que un satélite vio arder en el último día, horas antes de que alguien dibuje un perímetro. Desde el zoom 4.",
+  "keywords.firms": "fuego foco viirs satelite deteccion firms incendio",
+  "firms.failed": "Los focos de calor {answer}.",
+  "firms.partial": "Dibujado sin {satellites}, que no respondió.",
+  "firms.detection": "Píxel caliente, {satellite}",
+  "firms.confidence": "Confianza: {confidence}",
+  "firms.power": "Irradia {power} MW",
+  "firms.brightness": "Canal de fuego a {brightness} K",
+  "firms.seen": "Visto a las {time}",
+  "firms.note":
+    "Un píxel caliente, no un incendio confirmado. Antorchas, hornos y reflejos del sol también encienden uno.",
   "cocorahs.failed": "La red de voluntarios {answer}.",
   "cocorahs.partial":
     "Sin respuesta para {states}, así que ahí no se dibuja nada.",

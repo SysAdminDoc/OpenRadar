@@ -9,6 +9,8 @@ import { metarOverlay } from "./metar";
 import { riverGaugesOverlay } from "./rivers";
 import { buoysOverlay } from "./buoys";
 import { cocorahsOverlay } from "./cocorahs";
+import { airnowOverlay } from "./airnow";
+import { firmsOverlay } from "./firms";
 import { aviationOverlay } from "./aviation";
 import { wpcExcessiveRainOverlay, wpcWinterSeverityOverlay } from "./wpc";
 import type {
@@ -31,6 +33,8 @@ export const OVERLAY_ADAPTERS: OverlayAdapter[] = [
   riverGaugesOverlay,
   buoysOverlay,
   cocorahsOverlay,
+  airnowOverlay,
+  firmsOverlay,
   aviationOverlay,
   tropicalOverlay,
   wpcExcessiveRainOverlay,

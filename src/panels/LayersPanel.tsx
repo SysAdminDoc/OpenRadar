@@ -163,6 +163,8 @@ const OVERLAY_LAYERS: Array<{
   },
   { key: "buoys", overlayId: "buoys", labelKey: "layer.buoys" },
   { key: "cocorahs", overlayId: "cocorahs", labelKey: "layer.cocorahs" },
+  { key: "airnow", overlayId: "airnow", labelKey: "layer.airnow" },
+  { key: "firms", overlayId: "firms", labelKey: "layer.firms" },
   { key: "aviation", overlayId: "aviation", labelKey: "layer.aviation" },
   { key: "tropical", overlayId: "tropical", labelKey: "layer.tropical" },
 ];
@@ -424,6 +426,20 @@ const LAYER_OPTIONS: Array<{
     labelKey: "layer.cocorahs",
     detailKey: "layers.cocorahsDetail",
     icon: CloudRain,
+  },
+  {
+    key: "airnow",
+    group: "hazards",
+    labelKey: "layer.airnow",
+    detailKey: "layers.airnowDetail",
+    icon: Wind,
+  },
+  {
+    key: "firms",
+    group: "hazards",
+    labelKey: "layer.firms",
+    detailKey: "layers.firmsDetail",
+    icon: Flame,
   },
   {
     key: "aviation",

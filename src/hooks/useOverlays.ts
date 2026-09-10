@@ -173,6 +173,8 @@ export function useOverlays(
     riverGauges: IDLE_OVERLAY,
     buoys: IDLE_OVERLAY,
     cocorahs: IDLE_OVERLAY,
+    airnow: IDLE_OVERLAY,
+    firms: IDLE_OVERLAY,
     aviation: IDLE_OVERLAY,
     tropical: IDLE_OVERLAY,
     spcOutlooks: IDLE_OVERLAY,
