@@ -477,6 +477,9 @@ export const en = {
     "{office} could not be reached, so any warnings it has are not on the map.",
   "alerts.officeEccc": "Environment and Climate Change Canada",
   "alerts.officeDwd": "Deutscher Wetterdienst",
+  "alerts.officeMeteoalarm": "MeteoAlarm",
+  "alerts.countriesUnasked":
+    "{count, plural, one {One more European country is on screen and was not asked; zoom in to see its warnings.} other {# more European countries are on screen and were not asked; zoom in to see their warnings.}}",
   "alerts.officeUnanswered": "the office did not answer",
   "earthquakes.failed": "The USGS earthquake service {answer}.",
   "smoke.failed": "The NOAA smoke analysis {answer}.",
@@ -2257,6 +2260,7 @@ export const en = {
   "journal.sourceNws": "NWS",
   "journal.sourceEccc": "ECCC",
   "journal.sourceDwd": "DWD",
+  "journal.sourceMeteoalarm": "MeteoAlarm",
   "journal.obtainedWatch": "a warning that reached a place you watch",
   "journal.obtainedStation": "a station report near a place you watch",
   "journal.search": "Search the record",

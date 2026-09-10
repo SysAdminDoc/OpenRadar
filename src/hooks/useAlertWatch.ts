@@ -80,6 +80,7 @@ const JOURNAL_SOURCE = {
   nws: "journal.sourceNws",
   eccc: "journal.sourceEccc",
   dwd: "journal.sourceDwd",
+  meteoalarm: "journal.sourceMeteoalarm",
 } as const;
 
 export function useAlertWatch(
