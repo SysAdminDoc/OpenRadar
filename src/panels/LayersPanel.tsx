@@ -72,7 +72,7 @@ import { ALERT_TYPES, type AlertType } from "../lib/alertTypes";
 import { overlayBandOrder } from "../lib/overlayOrder";
 import { ERO_DAYS, WSSI_DAYS } from "../lib/overlays";
 
-/** One key per hazard, written out so the copy gate can see every one. */
+/** Everything the panel is handed, which is the whole of what it draws. */
 interface LayersPanelProps {
   layers: LayerSettings;
   /**
@@ -169,13 +169,11 @@ interface LayersPanelProps {
 }
 
 /**
- * The seven headings the switches are read under.
+ * Every layer the map can draw, as switches read under seven headings.
  *
- * Forty-six of them ran together in the order they were added, so finding
- * "Rain or Snow" meant reading past thirty rows and the command list was the
- * only grouped view of the same switches. Grouped by where the thing on the
- * map comes from rather than by what it is about: that is the question a
- * reader is answering when they go looking for one.
+ * What each switch is and which heading it sits under is a table in
+ * `layerCatalogue.ts`. This reads the table and renders it, which is what
+ * keeps the panel from growing a row at a time.
  */
 export function LayersPanel({
   layers,

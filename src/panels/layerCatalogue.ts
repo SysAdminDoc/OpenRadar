@@ -44,6 +44,7 @@ import type { LayerSettings } from "../lib/settings";
 import type { OverlayHealth } from "../hooks/useOverlays";
 import type { Spacecraft } from "../lib/providers/satellite";
 
+/** One key per hazard, written out so the copy gate can see every one. */
 export const HAZARD_LABELS = {
   categorical: "layers.spcCategorical",
   tornado: "layers.spcTornado",
@@ -128,6 +129,15 @@ export const SATELLITE_NAMES: Record<Spacecraft, StringKey> = {
   himawari: "satellite.himawari",
 };
 
+/**
+ * The seven headings the switches are read under.
+ *
+ * Forty-six of them ran together in the order they were added, so finding
+ * "Rain or Snow" meant reading past thirty rows and the command list was the
+ * only grouped view of the same switches. Grouped by where the thing on the
+ * map comes from rather than by what it is about: that is the question a
+ * reader is answering when they go looking for one.
+ */
 export const LAYER_GROUPS: Array<{ id: LayerGroup; labelKey: StringKey }> = [
   { id: "hazards", labelKey: "layers.groupHazards" },
   { id: "radar", labelKey: "layers.groupRadar" },

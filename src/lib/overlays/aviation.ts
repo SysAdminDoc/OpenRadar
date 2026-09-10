@@ -597,8 +597,15 @@ export const aviationOverlay: OverlayAdapter = {
       }
     }
 
+    // Why a grid area is what it is, which the service writes as a mix of
+    // hazard codes and forecaster shorthand: `ICE`, `MTN WAVE`,
+    // `CIG BLW 010 VIS BLW 3SM BR`. A code with a phrase gets the phrase, and
+    // a bare `ICE` under an icing area says nothing the line above it did not.
     const because = properties.because;
-    if (typeof because === "string") lines.push(because);
+    if (typeof because === "string") {
+      const why = hazardWords(because);
+      if (why && why !== hazard) lines.push(why);
+    }
 
     const raw = properties.raw;
     if (typeof raw === "string") lines.push(raw);

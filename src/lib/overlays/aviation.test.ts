@@ -475,7 +475,11 @@ describe.runIf(LIVE)("against the live service", () => {
     expect(untranslated, "hazard codes with no phrase").toEqual([]);
 
     // And the forecast step on the grid, which is what says an area is
-    // standing over the reader now rather than nine hours out.
+    // standing over the reader now rather than nine hours out. Every area
+    // has to carry one, which is the part read off the live answer; the five
+    // it may be are the product's own definition and are written here
+    // because the service publishes one step at a time and a live reading
+    // would only ever see today's.
     for (const feature of grid) {
       const ahead = feature.properties.forecastHours;
       expect(typeof ahead, String(feature.properties.hazard)).toBe("number");
@@ -665,6 +669,41 @@ describe("what the hazard actually is", () => {
     } finally {
       globalThis.fetch = held;
     }
+  });
+
+  it("says why a grid area is there, in words, and not twice", () => {
+    // The service writes this as a mix of hazard codes and shorthand. Live on
+    // 2026-09-10 it answered with `ICE`, `MTN WAVE` and
+    // `CIG BLW 010 VIS BLW 3SM BR` among others, and the code went to the
+    // popup as the letters, under a heading that had already said it.
+    const because = (hazard: string, why: string) =>
+      aviationOverlay.describe!({
+        kind: "gairmet",
+        title: "G-AIRMET",
+        hazard,
+        severity: null,
+        because: why,
+        validFrom: Date.parse("2026-09-10T18:00:00Z"),
+        validTo: null,
+        lowFeet: null,
+        highFeet: null,
+        lowText: null,
+        highText: null,
+        contourFeet: null,
+        raw: null,
+      })!.lines.join(" | ");
+
+    // A code with a phrase gets the phrase.
+    expect(because("IFR", "ICE")).toContain(en["aviation.hazardIcing"]);
+    expect(because("IFR", "ICE")).not.toContain("| ICE");
+    // And saying the same thing as the heading is saying nothing.
+    const twice = because("ICE", "ICE");
+    expect(twice.split(en["aviation.hazardIcing"]).length - 1, twice).toBe(1);
+    // Forecaster shorthand has no phrase and is passed on as written, which
+    // says more than dropping it.
+    expect(because("MT_OBSC", "MTNS OBSC BY CLDS BR")).toContain(
+      "MTNS OBSC BY CLDS BR",
+    );
   });
 
   it("puts the words on the popup rather than the code", () => {
