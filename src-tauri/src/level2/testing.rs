@@ -426,6 +426,8 @@ mod golden {
                 "dB",
             ),
             ("correlation-coefficient", "Correlation coefficient", ""),
+            ("azimuthal-shear", "Azimuthal shear", "0.001/s"),
+            ("rotation", "Rotation", "NROT"),
         ] {
             let named = product_from_name(product).expect(product);
             assert_eq!((named.1, named.2), (label, unit), "{product}");
@@ -1302,6 +1304,54 @@ mod colour_vision {
         assert!(better > apart * 2.0);
     }
 
+    /// The derived scales say which way something is turning, which is the
+    /// same job the velocity ramp does and the job the commonest colour
+    /// blindness stops it doing.
+    ///
+    /// Both scales are held to the separation under every vision, the ordinary
+    /// one included. Velocity needs a second scale because green against red
+    /// is the pair that collapses, and these were built on blue against red
+    /// instead, so the ordinary scale already survives and there is no reason
+    /// to let it stop.
+    #[test]
+    fn the_derived_scales_keep_cyclonic_apart_from_anticyclonic() {
+        for ramp in [
+            SITE_SHEAR_RAMP,
+            HIGH_CONTRAST_SITE_SHEAR_RAMP,
+            SITE_ROTATION_RAMP,
+            HIGH_CONTRAST_SITE_ROTATION_RAMP,
+        ] {
+            for vision in EVERY_VISION {
+                let apart = opposite_directions(ramp, vision);
+                assert!(
+                    apart >= DIRECTIONS_APART,
+                    "{} brings the two directions within {apart:.1}",
+                    vision.name()
+                );
+            }
+        }
+    }
+
+    /// The mark a debris signature is drawn in has to be a mark rather than
+    /// another reading, so it may not be a colour either scale can produce.
+    #[test]
+    fn the_debris_mark_is_on_neither_scale() {
+        for ramp in [
+            SITE_SHEAR_RAMP,
+            HIGH_CONTRAST_SITE_SHEAR_RAMP,
+            SITE_ROTATION_RAMP,
+            HIGH_CONTRAST_SITE_ROTATION_RAMP,
+        ] {
+            let ends = (ramp[0].0, ramp[ramp.len() - 1].0);
+            let mut at = ends.0;
+            while at <= ends.1 {
+                let drawn = ramp_color(ramp, at);
+                assert_ne!(drawn, DEBRIS_MARK, "{at} draws the debris mark");
+                at += (ends.1 - ends.0) / 200.0;
+            }
+        }
+    }
+
     #[test]
     fn the_high_contrast_velocity_ramps_keep_toward_apart_from_away() {
         for ramp in [
@@ -1347,6 +1397,10 @@ mod colour_vision {
             WIDE_VELOCITY_RAMP,
             HIGH_CONTRAST_VELOCITY_RAMP,
             HIGH_CONTRAST_WIDE_VELOCITY_RAMP,
+            SITE_SHEAR_RAMP,
+            HIGH_CONTRAST_SITE_SHEAR_RAMP,
+            SITE_ROTATION_RAMP,
+            HIGH_CONTRAST_SITE_ROTATION_RAMP,
         ] {
             assert!(ramp.windows(2).all(|pair| pair[1].0 > pair[0].0));
         }

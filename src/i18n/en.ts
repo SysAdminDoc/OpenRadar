@@ -732,6 +732,8 @@ export const en = {
   "product.differential": "Differential reflectivity",
   "product.correlation": "Correlation coefficient",
   "product.longRange": "Long range reflectivity",
+  "product.azimuthalShear": "Azimuthal shear",
+  "product.rotation": "Rotation",
   "radar.eyebrow": "Radar product",
   "radar.title": "Composite Radar",
   "radar.composite": "Composite reflectivity",

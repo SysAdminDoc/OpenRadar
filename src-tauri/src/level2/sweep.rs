@@ -328,6 +328,40 @@ pub fn sweep_field_at(scan: &Scan, product: Product, wanted: f32) -> Option<Chos
     best
 }
 
+/// The other moments of the same cut, held so a derivation can borrow them.
+///
+/// A derived product is worked out from the velocity and read against the
+/// rest: reflectivity says where there is weather to fit a plane through, and
+/// the two dual-pol moments are three of the four debris criteria. They are
+/// separate sweeps at the same tilt with their own gate spacing, which is why
+/// they are handed over whole rather than as indices into the velocity.
+///
+/// Owned rather than borrowed because `sweep_field_at` builds each field, so
+/// something has to hold them for as long as the fit runs.
+pub(crate) struct Alongside {
+    reflectivity: Option<ChosenSweep>,
+    correlation: Option<ChosenSweep>,
+    differential: Option<ChosenSweep>,
+}
+
+impl Alongside {
+    pub(crate) fn at(scan: &Scan, angle: f32) -> Self {
+        Self {
+            reflectivity: sweep_field_at(scan, Product::Reflectivity, angle),
+            correlation: sweep_field_at(scan, Product::CorrelationCoefficient, angle),
+            differential: sweep_field_at(scan, Product::DifferentialReflectivity, angle),
+        }
+    }
+
+    pub(crate) fn beside(&self) -> shear::Beside<'_> {
+        shear::Beside {
+            reflectivity: self.reflectivity.as_ref().map(|cut| &cut.field),
+            correlation: self.correlation.as_ref().map(|cut| &cut.field),
+            differential: self.differential.as_ref().map(|cut| &cut.field),
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "sweep_tests.rs"]
 mod tests;

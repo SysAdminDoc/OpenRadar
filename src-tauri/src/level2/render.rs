@@ -18,8 +18,17 @@ pub struct Shading {
     pub threshold: Option<f32>,
     /// Draw with the ramps built for a reader who asked for more contrast.
     pub high_contrast: bool,
+    /// Which derivation the readings are of, when they are not a moment the
+    /// radar recorded.
+    ///
+    /// Here rather than beside the `Product` because the source moment is
+    /// still velocity and the whole of what changes is which scale the answer
+    /// is drawn on: a derived field handed to the velocity ramp reads as a
+    /// sweep of dead air, every gate within a metre a second of zero.
+    pub derived: Option<shear::Kind>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn render_sweep(
     field: &SweepField,
     coordinates: &RadarCoordinateSystem,
@@ -39,6 +48,10 @@ pub fn render_sweep(
     // disc affords is to spend the same pixels on less ground. Clipped to the
     // disc, because a box outside it is pixels spent on nothing.
     within: Option<[f64; 4]>,
+    // The gates a debris signature was found at, on the same geometry as the
+    // field. Drawn over whatever the reading there was, because a signature is
+    // a mark rather than a value on the scale.
+    debris: Option<&SweepField>,
 ) -> (Vec<u8>, [f64; 4]) {
     // A loaded colour table replaces the built-in ramp for the product it says
     // it is for, and nothing else. That is the whole point of loading one: two
@@ -60,7 +73,9 @@ pub fn render_sweep(
     let elevation = field.elevation_degrees();
 
     // A generic moment has no standard ramp, so it is scaled to what it holds.
+    // A derived one has a fixed scale of its own, so it does not.
     let range = match product {
+        _ if shading.derived.is_some() => None,
         Product::Reflectivity | Product::Velocity => None,
         _ => field.value_range(),
     };
@@ -92,6 +107,13 @@ pub fn render_sweep(
             else {
                 continue;
             };
+            let marked = debris.is_some_and(|flags| {
+                matches!(
+                    reading_at(flags, polar.azimuth_degrees, polar.range_km),
+                    Some((_, GateStatus::Valid))
+                )
+            });
+            let color = if marked { DEBRIS_MARK } else { color };
 
             let at = (row * IMAGE_SIZE + column) * 4;
             pixels[at] = color[0];
@@ -229,19 +251,37 @@ pub(crate) fn gate_color(
         unfolded,
         threshold,
         high_contrast,
+        derived,
     } = shading;
     match status {
         GateStatus::Valid => {
             // Velocity runs either side of zero and both sides are the storm,
-            // so its threshold is on how fast rather than on which way.
-            // Everything else reads low to high and compares as it is.
-            let measured = if matches!(product, Product::Velocity) {
+            // so its threshold is on how fast rather than on which way. The
+            // derived scales are signed for the same reason: which way a storm
+            // is turning is not how much it is turning. Everything else reads
+            // low to high and compares as it is.
+            let measured = if derived.is_some() || matches!(product, Product::Velocity) {
                 value.abs()
             } else {
                 value
             };
             if threshold.is_some_and(|floor| measured < floor) {
                 return None;
+            }
+            if let Some(kind) = derived {
+                // Before the loaded table, because a table is matched by unit
+                // and these two carry units of their own. A reader who has
+                // loaded one for either gets it; nothing else reaches this.
+                let ramp = match (kind, high_contrast) {
+                    (shear::Kind::AzimuthalShear, false) => SITE_SHEAR_RAMP,
+                    (shear::Kind::AzimuthalShear, true) => HIGH_CONTRAST_SITE_SHEAR_RAMP,
+                    (shear::Kind::Rotation, false) => SITE_ROTATION_RAMP,
+                    (shear::Kind::Rotation, true) => HIGH_CONTRAST_SITE_ROTATION_RAMP,
+                };
+                return Some(match table {
+                    Some(table) => (table.color(value), MAX_ALPHA),
+                    None => (ramp_color(ramp, value), MAX_ALPHA),
+                });
             }
             match table {
                 Some(table) => {

@@ -104,8 +104,10 @@ fn smoothing_never_paints_where_the_radar_read_nothing() {
                 unfolded: false,
                 threshold: None,
                 high_contrast: false,
+                derived: None,
             },
             smooth,
+            None,
             None,
         );
         pixels
@@ -191,8 +193,10 @@ fn the_smoothed_picture_is_the_one_that_was_pinned() {
             unfolded: false,
             threshold: None,
             high_contrast: false,
+            derived: None,
         },
         true,
+        None,
         None,
     );
     let (plain, _) = render_sweep(
@@ -204,8 +208,10 @@ fn the_smoothed_picture_is_the_one_that_was_pinned() {
             unfolded: false,
             threshold: None,
             high_contrast: false,
+            derived: None,
         },
         false,
+        None,
         None,
     );
     // It is a different picture from the unsmoothed one, or the switch
@@ -254,8 +260,10 @@ fn the_threshold_reaches_the_picture_that_is_drawn() {
                 unfolded: false,
                 threshold: floor,
                 high_contrast: false,
+                derived: None,
             },
             false,
+            None,
             None,
         );
         pixels
@@ -290,6 +298,7 @@ fn a_threshold_hides_what_is_under_it_and_keeps_what_is_on_it() {
                 unfolded: false,
                 threshold: floor,
                 high_contrast: false,
+                derived: None,
             },
         )
     };
@@ -321,6 +330,7 @@ fn a_threshold_hides_what_is_under_it_and_keeps_what_is_on_it() {
             unfolded: false,
             threshold: Some(60.0),
             high_contrast: false,
+            derived: None,
         },
     )
     .is_some());
@@ -336,6 +346,7 @@ fn a_threshold_hides_what_is_under_it_and_keeps_what_is_on_it() {
             unfolded: false,
             threshold: None,
             high_contrast: false,
+            derived: None,
         },
     )
     .is_none());
@@ -358,6 +369,7 @@ fn a_folded_gate_takes_the_loaded_table_s_colour() {
                 unfolded: false,
                 threshold: None,
                 high_contrast: false,
+                derived: None,
             },
         ),
         Some(([0x77, 0x00, 0x7d], MAX_ALPHA))
@@ -377,6 +389,7 @@ fn a_folded_gate_takes_the_loaded_table_s_colour() {
                 unfolded: false,
                 threshold: None,
                 high_contrast: false,
+                derived: None,
             },
         ),
         Some((RANGE_FOLDED, MAX_ALPHA))
@@ -392,6 +405,7 @@ fn a_folded_gate_takes_the_loaded_table_s_colour() {
                 unfolded: false,
                 threshold: None,
                 high_contrast: false,
+                derived: None,
             },
         ),
         Some((RANGE_FOLDED, MAX_ALPHA))
@@ -412,6 +426,7 @@ fn a_gate_under_the_table_s_floor_is_left_clear() {
                 unfolded: false,
                 threshold: None,
                 high_contrast: false,
+                derived: None,
             },
         ),
         None,
@@ -428,6 +443,7 @@ fn a_gate_under_the_table_s_floor_is_left_clear() {
                 unfolded: false,
                 threshold: None,
                 high_contrast: false,
+                derived: None,
             },
         ),
         Some(([0x04, 0xe9, 0xe7], MAX_ALPHA))
@@ -444,6 +460,7 @@ fn a_gate_under_the_table_s_floor_is_left_clear() {
                 unfolded: false,
                 threshold: None,
                 high_contrast: false,
+                derived: None,
             },
         ),
         None
@@ -459,6 +476,7 @@ fn a_gate_under_the_table_s_floor_is_left_clear() {
                 unfolded: false,
                 threshold: None,
                 high_contrast: false,
+                derived: None,
             },
         ),
         None
@@ -482,9 +500,11 @@ fn drawing_over_less_ground_spends_the_same_pixels_on_more_of_the_radar() {
                 unfolded: false,
                 threshold: None,
                 high_contrast: false,
+                derived: None,
             },
             false,
             within,
+            None,
         )
     };
 

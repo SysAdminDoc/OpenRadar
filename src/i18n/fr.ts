@@ -755,6 +755,8 @@ export const fr: Catalogue = {
   "product.differential": "Réflectivité différentielle",
   "product.correlation": "Coefficient de corrélation",
   "product.longRange": "Réflectivité longue portée",
+  "product.azimuthalShear": "Cisaillement azimutal",
+  "product.rotation": "Rotation",
   "radar.eyebrow": "Produit radar",
   "radar.title": "Radar composite",
   "radar.composite": "Réflectivité composite",

@@ -72,6 +72,11 @@ const THRESHOLD_RANGE: Record<
   "spectrum-width": { min: 0, max: 15, step: 1, unit: "speed" },
   "differential-reflectivity": { min: -2, max: 6, step: 0.5, unit: "own" },
   "correlation-coefficient": { min: 0, max: 1, step: 0.01, unit: "own" },
+  // Both derived scales run either side of zero, so the threshold is on how
+  // hard something is turning rather than on which way, and it is set in the
+  // product's own unit for the same reason a reflectivity threshold is.
+  "azimuthal-shear": { min: 0, max: 14, step: 0.5, unit: "own" },
+  rotation: { min: 0, max: 5, step: 0.1, unit: "own" },
 };
 
 interface RadarProductPanelProps {

@@ -39,6 +39,10 @@ async function fakeNativeSide(page: Page) {
           "differential-reflectivity": ["Differential reflectivity", "dB"],
           "correlation-coefficient": ["Correlation coefficient", ""],
           "storm-relative-velocity": ["Storm relative velocity", "m/s"],
+          // Worked out from the Doppler cut rather than recorded, and the two
+          // the native side answers with its own labels and units for.
+          "azimuthal-shear": ["Azimuthal shear", "0.001/s"],
+          rotation: ["Rotation", "NROT"],
         };
         const tilts = [0.48, 0.87, 1.31, 1.8];
         const [label, unit] = products[product] ?? ["Reflectivity", "dBZ"];
@@ -1477,6 +1481,46 @@ test("reads the storm motion off the sweep, and takes yours instead", async ({
   // And it can be handed back to the sweep to work out again.
   await motion.getByRole("button", { name: /Read it from the sweep/ }).click();
   await expect(motion).toContainText("Read from the sweep");
+});
+
+test("offers rotation worked out from the site's own velocity", async ({
+  page,
+}) => {
+  // The national mosaic publishes azimuthal shear every two minutes. This is
+  // the same quantity off the held site's own Doppler cut, at the resolution
+  // the radar recorded it, and it is the thing a couplet is found in.
+  await open(page, 9);
+  await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
+  const products = page.getByRole("combobox", { name: "Level II product" });
+
+  // Both are offered on a WSR-88D, which is the radar that publishes the
+  // volume they are worked out from.
+  await expect(
+    products.getByRole("option", { name: "Azimuthal shear" }),
+  ).toHaveCount(1);
+  await expect(products.getByRole("option", { name: "Rotation" })).toHaveCount(
+    1,
+  );
+
+  await products.selectOption("azimuthal-shear");
+  await expect(page.getByText("KDMX Azimuthal shear")).toBeVisible();
+
+  await products.selectOption("rotation");
+  await expect(page.getByText("KDMX Rotation")).toBeVisible();
+
+  // Both were asked for by name, so the native side is deriving rather than
+  // the page relabelling velocity.
+  const asked = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __sweepCalls: Array<{ command: string; args: Record<string, unknown> }>;
+      }
+    ).__sweepCalls
+      .filter((call) => call.command === "level2_sweep")
+      .map((call) => call.args.product),
+  );
+  expect(asked).toContain("azimuthal-shear");
+  expect(asked).toContain("rotation");
 });
 
 test("rings a storm cell in the lightness the basemap is not", async ({

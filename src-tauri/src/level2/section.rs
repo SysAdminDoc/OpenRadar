@@ -97,6 +97,10 @@ pub fn cross_section_from_scan(
 ) -> Result<CrossSection, Level2Error> {
     let (product, label, unit) = product_from_name(asked.product_name)
         .ok_or_else(|| Level2Error::NoSweep(station.to_string(), asked.product_name.to_string()))?;
+    // A derived product is worked out cut by cut, the same way it is for one
+    // sweep. A slice of it is what says how deep a circulation goes, which is
+    // the question a vertical cut through a mesocyclone is asked.
+    let derived = derived_from_name(asked.product_name);
 
     let site = registry::site_by_id(station)
         .map(|entry| entry.to_site())
@@ -134,7 +138,7 @@ pub fn cross_section_from_scan(
         let Some(mut cut) = sweep_field_at(scan, product, *angle) else {
             continue;
         };
-        if asked.unfold && product == Product::Velocity {
+        if (asked.unfold || derived.is_some()) && product == Product::Velocity {
             if let Some(folds_at) = nyquist_for(cut.elevation_number) {
                 let found = unfold_velocity(&mut cut.field, folds_at);
                 dealiased |= found.moved > 0;
@@ -143,7 +147,19 @@ pub fn cross_section_from_scan(
                 unfolding.valid += found.valid;
                 unfolding.unplaced += found.unplaced;
                 unfolding.moved += found.moved;
+            } else if derived.is_some() {
+                // A fold is the largest shear in the sweep, so a cut that
+                // cannot be unfolded is left out rather than drawn as
+                // rotation. The cuts that could be are still the slice.
+                continue;
             }
+        }
+        if let Some(kind) = derived {
+            let beside = Alongside::at(scan, cut.elevation_degrees);
+            let Some(found) = shear::derive(&cut.field, beside.beside(), kind) else {
+                continue;
+            };
+            cut.field = found.field;
         }
         chosen.push(cut);
     }
@@ -172,6 +188,7 @@ pub fn cross_section_from_scan(
     // same way a sweep is scaled to what that sweep holds.
     let table = palette::for_unit(unit);
     let range = match product {
+        _ if derived.is_some() => None,
         Product::Reflectivity | Product::Velocity => None,
         _ => slice_range(&taken),
     };
@@ -179,6 +196,7 @@ pub fn cross_section_from_scan(
         unfolded: dealiased,
         threshold: asked.threshold,
         high_contrast: asked.high_contrast,
+        derived,
     };
 
     let mut pixels = vec![0u8; taken.width * taken.height * 4];

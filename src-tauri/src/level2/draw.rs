@@ -73,6 +73,9 @@ pub(crate) struct SweepValues {
     pub dealiased: bool,
     /// The motion subtracted, on a storm relative product.
     pub storm_motion: Option<StormMotion>,
+    /// Which derivation produced these readings, when they are not a moment
+    /// the radar recorded. The export says how it was worked out.
+    pub derived: Option<shear::Kind>,
     pub field: SweepField,
 }
 
@@ -104,6 +107,7 @@ pub(crate) fn sweep_values(
         collected,
         dealiased: prepared.dealiased,
         storm_motion: prepared.storm_motion,
+        derived: prepared.derived,
         field: prepared.chosen.field,
     })
 }
@@ -195,6 +199,10 @@ pub(crate) struct Prepared {
     product: Product,
     label: &'static str,
     unit: &'static str,
+    /// Which derivation this cut holds, when it is not the moment itself.
+    derived: Option<shear::Kind>,
+    /// The gates a debris signature was found at, on the same geometry.
+    debris: Option<SweepField>,
 }
 
 pub(crate) fn prepare_sweep(
@@ -235,16 +243,24 @@ pub(crate) fn prepare_sweep(
     // the radar's own reading, and saying otherwise would have the legend claim
     // a change that was not made.
     let storm_relative = product_name == "storm-relative-velocity";
+    // Shear is the derivative of the velocity, so a fold is the largest shear
+    // anywhere in the sweep: twice the Nyquist velocity between one gate and
+    // its neighbour. Unfolding is not a preference here, it is the difference
+    // between rotation and an artefact, and a cut whose folding velocity the
+    // volume does not carry cannot be derived at all.
+    let derived = derived_from_name(product_name);
     // Storm relative is the same moment with the ambient wind taken out, and
     // the wind is read off the sweep, so a folded sweep has to be unfolded
     // first whatever the switch says. A fit against a folded field collapses:
     // measured on a 20 m/s wind folded at 8, it comes back with 1.4.
     let mut dealiased = false;
     let mut unfolding = dealias::Dealiased::default();
-    if (unfold || storm_relative) && product == Product::Velocity {
+    if (unfold || storm_relative || derived.is_some()) && product == Product::Velocity {
         if let Some(nyquist) = nyquist_for(chosen.elevation_number) {
             unfolding = unfold_velocity(&mut chosen.field, nyquist);
             dealiased = unfolding.moved > 0;
+        } else if derived.is_some() {
+            return Err(Level2Error::NoSweep(station.to_string(), label.to_string()));
         } else if storm_relative && manual_motion.is_none() {
             // No Nyquist velocity means no unfolding, and a wind read off a
             // sweep that may still be folded is not a wind. A motion the
@@ -271,6 +287,15 @@ pub(crate) fn prepare_sweep(
         });
     }
 
+    let mut debris = None;
+    if let Some(kind) = derived {
+        let beside = Alongside::at(scan, chosen.elevation_degrees);
+        let found = shear::derive(&chosen.field, beside.beside(), kind)
+            .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
+        chosen.field = found.field;
+        debris = found.debris;
+    }
+
     Ok(Prepared {
         chosen,
         dealiased,
@@ -279,6 +304,8 @@ pub(crate) fn prepare_sweep(
         product,
         label,
         unit,
+        derived,
+        debris,
     })
 }
 
@@ -321,6 +348,8 @@ pub(crate) fn draw_sweep(
         product,
         label,
         unit,
+        derived,
+        debris,
     } = prepared;
     let threshold = asked.threshold;
 
@@ -337,9 +366,11 @@ pub(crate) fn draw_sweep(
             unfolded: dealiased,
             threshold,
             high_contrast: asked.high_contrast,
+            derived,
         },
         asked.smooth,
         asked.within,
+        debris.as_ref(),
     );
 
     // Read before the composite consumes it. Both halves of a composite go
@@ -363,11 +394,13 @@ pub(crate) fn draw_sweep(
                 unfolded: under.dealiased,
                 threshold,
                 high_contrast: asked.high_contrast,
+                derived: under.derived,
             },
             asked.smooth,
             // The same ground as the sweep above it, which is what lets the
             // two composite pixel for pixel.
             asked.within,
+            under.debris.as_ref(),
         );
         // The older cut's own time, which is what the legend says the oldest
         // thing on screen is. Without it a composite reports only the age of

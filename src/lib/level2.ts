@@ -39,6 +39,16 @@ export const LEVEL2_PRODUCTS = [
     key: "product.correlation",
     unit: "",
   },
+  // Worked out from the Doppler cut rather than recorded: the azimuthal
+  // derivative of the velocity, and the same divided by what the beam can
+  // resolve at that range. In the unit the national grids publish, so the two
+  // are the same number rather than two scales.
+  {
+    id: "azimuthal-shear",
+    key: "product.azimuthalShear",
+    unit: "0.001/s",
+  },
+  { id: "rotation", key: "product.rotation", unit: "NROT" },
   // A terminal radar's alone: reflectivity to 225 nautical miles on 300 m
   // gates. A WSR-88D's capabilities leave it out.
   {
