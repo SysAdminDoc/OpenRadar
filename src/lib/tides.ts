@@ -40,6 +40,34 @@ export interface TideReading {
   station: TideStation;
   distanceMiles: number;
   extremes: TideExtreme[];
+  /**
+   * What the water is actually doing, where the station measures it.
+   *
+   * Absent at a station that only publishes predictions, which is most of the
+   * subordinate ones: a harmonic station has a gauge in the water and a
+   * subordinate one is an offset applied to somebody else's.
+   */
+  observed: ObservedLevel | null;
+}
+
+/**
+ * The water level a gauge is reading, against what the tide said it would be.
+ *
+ * The difference is the whole reason this is here. A tide prediction is
+ * astronomy and it is very good; what it does not know about is wind and
+ * pressure, and a storm pushing water ashore shows up as the gauge reading
+ * above the prediction. That gap is the surge, and it is the number somebody
+ * on a coast in a hurricane is looking for.
+ */
+export interface ObservedLevel {
+  /** Milliseconds since the epoch. A real instant, not a wall clock. */
+  time: number;
+  /** Feet above the same chart datum the predictions use, which is MLLW. */
+  feet: number;
+  /** What the tide alone said the water would be at that instant. */
+  predictedFeet: number | null;
+  /** Observed minus predicted: what the weather is adding or taking away. */
+  differenceFeet: number | null;
 }
 
 let loading: Promise<TideStation[]> | null = null;
@@ -152,6 +180,117 @@ export function parsePredictions(payload: unknown): TideExtreme[] {
   return extremes;
 }
 
+/**
+ * One 6-minute series off the service, as instants and feet.
+ *
+ * Both the observed water level and the prediction beside it come back in
+ * this shape, under different names, so they are read by the same function
+ * rather than by two that could drift apart.
+ */
+export function parseLevelSeries(
+  payload: unknown,
+  key: "data" | "predictions",
+): Array<{ time: number; feet: number }> {
+  const raw = payload as Record<string, unknown>;
+  const rows = Array.isArray(raw?.[key]) ? (raw[key] as unknown[]) : [];
+  const series: Array<{ time: number; feet: number }> = [];
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const entry = row as { t?: unknown; v?: unknown };
+    if (typeof entry.t !== "string") continue;
+    const time = parseStationTime(entry.t);
+    if (!Number.isFinite(time)) continue;
+    // An empty string is not a zero, and `Number("")` is. CO-OPS sends the
+    // row with a blank value where the instrument was down or the reading was
+    // flagged, and zero feet is mean lower low water: a real height, and a
+    // very alarming one to draw beside a hurricane.
+    if (typeof entry.v !== "string" && typeof entry.v !== "number") continue;
+    if (typeof entry.v === "string" && entry.v.trim() === "") continue;
+    const feet = Number(entry.v);
+    if (!Number.isFinite(feet)) continue;
+    series.push({ time, feet });
+  }
+  return series;
+}
+
+/**
+ * How far a prediction may be from the reading it is compared against.
+ *
+ * The service publishes both on the same six minute step, so a match is
+ * usually exact. Half a step of slack rather than none, because the two
+ * requests are separate and a reading can land between two predictions; more
+ * than that and the difference is being taken against a different moment,
+ * which on a fast-running tide is worth several inches of nothing.
+ */
+const LEVEL_MATCH_MS = 3 * 60_000;
+
+/** The predicted level at an instant, or nothing where none is near it. */
+export function predictedAt(
+  series: ReadonlyArray<{ time: number; feet: number }>,
+  time: number,
+): number | null {
+  let best: { time: number; feet: number } | null = null;
+  for (const point of series) {
+    if (
+      best === null ||
+      Math.abs(point.time - time) < Math.abs(best.time - time)
+    ) {
+      best = point;
+    }
+  }
+  if (best === null || Math.abs(best.time - time) > LEVEL_MATCH_MS) return null;
+  return best.feet;
+}
+
+/**
+ * What the gauge reads now, and what the tide alone said it would.
+ *
+ * Two requests because the service answers one product at a time. Neither is
+ * allowed to fail the panel: a station with no gauge is ordinary, and the
+ * predictions beside it are still worth showing.
+ */
+export async function fetchObservedLevel(
+  station: TideStation,
+  signal?: AbortSignal,
+): Promise<ObservedLevel | null> {
+  const ask = async (product: string) => {
+    const url = new URL(SERVICE);
+    url.searchParams.set("product", product);
+    url.searchParams.set("application", "OpenRadar");
+    url.searchParams.set("station", station.id);
+    url.searchParams.set("date", "latest");
+    url.searchParams.set("datum", "MLLW");
+    url.searchParams.set("units", "english");
+    url.searchParams.set("time_zone", "gmt");
+    url.searchParams.set("format", "json");
+    const response = await fetch(cachedUrl(url.toString()), {
+      signal,
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as unknown;
+  };
+
+  const measured = await ask("water_level");
+  if (measured === null) return null;
+  const [latest] = parseLevelSeries(measured, "data");
+  if (!latest) return null;
+
+  // The prediction is a nicety: without it the reading still says what the
+  // water is doing, and only the difference goes unsaid.
+  const forecast = await ask("predictions");
+  const predictedFeet =
+    forecast === null
+      ? null
+      : predictedAt(parseLevelSeries(forecast, "predictions"), latest.time);
+  return {
+    time: latest.time,
+    feet: latest.feet,
+    predictedFeet,
+    differenceFeet: predictedFeet === null ? null : latest.feet - predictedFeet,
+  };
+}
+
 export async function fetchTides(
   station: TideStation,
   distanceMiles: number,
@@ -183,11 +322,12 @@ export async function fetchTides(
       translate("tides.failed", { answer: serviceAnswer(response.status) }),
     );
   }
-  return {
-    station,
-    distanceMiles,
-    extremes: parsePredictions(await response.json()),
-  };
+  const extremes = parsePredictions(await response.json());
+  // After the predictions rather than beside them: the panel is useless
+  // without the tide and merely quieter without the gauge, so a gauge that
+  // refuses must not take the predictions down with it.
+  const observed = await fetchObservedLevel(station, signal).catch(() => null);
+  return { station, distanceMiles, extremes, observed };
 }
 
 /** How many times a day the tide turns where this station is. */

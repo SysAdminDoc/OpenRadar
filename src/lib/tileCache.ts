@@ -40,6 +40,7 @@ export const CACHED_HOSTS = [
   "services3.arcgis.com",
   "satepsanone.nesdis.noaa.gov",
   "aviationweather.gov",
+  "www.ndbc.noaa.gov",
 ];
 
 let base: string | null = null;

@@ -171,6 +171,7 @@ export function useOverlays(
     smoke: IDLE_OVERLAY,
     metar: IDLE_OVERLAY,
     riverGauges: IDLE_OVERLAY,
+    buoys: IDLE_OVERLAY,
     tropical: IDLE_OVERLAY,
     spcOutlooks: IDLE_OVERLAY,
     spcDiscussions: IDLE_OVERLAY,

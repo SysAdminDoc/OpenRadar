@@ -22,6 +22,9 @@ const ALLOWED_HOSTS: &[&str] = &[
     "services3.arcgis.com",
     "satepsanone.nesdis.noaa.gov",
     "aviationweather.gov",
+    // The buoy network, which publishes every station's latest observation
+    // in one file and sends no CORS header with it.
+    "www.ndbc.noaa.gov",
     "mesonet.agron.iastate.edu",
     "api.rainviewer.com",
     "tilecache.rainviewer.com",

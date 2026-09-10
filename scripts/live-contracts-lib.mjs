@@ -282,6 +282,17 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "buoys",
+    label: "NDBC latest observations",
+    host: "www.ndbc.noaa.gov",
+    kind: "browser",
+    files: ["src/lib/overlays/buoys.test.ts"],
+    liveBlock: "against the live service",
+    // Nine hundred hulls in the water reporting all day, so this one can
+    // insist on an answer rather than on a shape.
+    required: false,
+  },
+  {
     id: "smoke",
     label: "NOAA HMS smoke analysis",
     host: "satepsanone.nesdis.noaa.gov",

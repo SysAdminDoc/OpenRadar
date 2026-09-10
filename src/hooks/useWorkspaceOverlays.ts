@@ -16,6 +16,7 @@ import { useOverlays, type OverlayStates } from "./useOverlays";
 import { alertsOfKind } from "../lib/overlays/alerts";
 import { METAR_MIN_ZOOM } from "../lib/overlays/metar";
 import { GAUGE_MIN_ZOOM } from "../lib/overlays/rivers";
+import { BUOY_MIN_ZOOM } from "../lib/overlays/buoys";
 import { translate } from "../i18n";
 
 export interface WorkspaceOverlays {
@@ -96,6 +97,7 @@ export function useWorkspaceOverlays(options: {
     smoke,
     metar,
     riverGauges,
+    buoys,
   } = settings.layers;
   const zoom = settings.camera.zoom;
   const { spcOutlooks, spcDiscussions, stormReports } = settings.layers;
@@ -123,6 +125,11 @@ export function useWorkspaceOverlays(options: {
       // gauge rather than per area so it waits for a view close enough to
       // read as well.
       riverGauges: riverGauges && !replaying && zoom >= GAUGE_MIN_ZOOM,
+      // A buoy reading is current the same way a river reading is, so it is
+      // held back over a replay for the same reason. It answers for the whole
+      // world in one file rather than per area, so the zoom here is only
+      // about whether a coastline's worth of dots reads as anything.
+      buoys: buoys && !replaying && zoom >= BUOY_MIN_ZOOM,
       // The Storm Prediction Center publishes what it thinks about today, and
       // a replay is showing some other day's weather. Painting this morning's
       // risk over Katrina would be worse than showing nothing.
@@ -144,6 +151,7 @@ export function useWorkspaceOverlays(options: {
       replayWindow,
       metar,
       riverGauges,
+      buoys,
       smoke,
       spcOutlooks,
       zoom,
@@ -257,6 +265,7 @@ export function useWorkspaceOverlays(options: {
       smoke: toggles.smoke ? states.smoke.data : null,
       metar: toggles.metar ? states.metar.data : null,
       riverGauges: toggles.riverGauges ? states.riverGauges.data : null,
+      buoys: toggles.buoys ? states.buoys.data : null,
       tropical: toggles.tropical ? states.tropical.data : null,
       spcOutlooks: toggles.spcOutlooks ? states.spcOutlooks.data : null,
       wpcExcessiveRain: toggles.wpcExcessiveRain

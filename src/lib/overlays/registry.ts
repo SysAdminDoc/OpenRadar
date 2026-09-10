@@ -16,6 +16,7 @@ export type OverlayId =
   | "spcDiscussions"
   | "stormReports"
   | "riverGauges"
+  | "buoys"
   | "wpcExcessiveRain"
   | "wpcWinterSeverity";
 

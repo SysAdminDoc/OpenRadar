@@ -155,6 +155,7 @@ const OVERLAY_LAYERS: Array<{
     overlayId: "riverGauges",
     labelKey: "layer.riverGauges",
   },
+  { key: "buoys", overlayId: "buoys", labelKey: "layer.buoys" },
   { key: "tropical", overlayId: "tropical", labelKey: "layer.tropical" },
 ];
 
@@ -397,6 +398,13 @@ const LAYER_OPTIONS: Array<{
     group: "water",
     labelKey: "layer.riverGauges",
     detailKey: "layers.riverGaugesDetail",
+    icon: Waves,
+  },
+  {
+    key: "buoys",
+    group: "water",
+    labelKey: "layer.buoys",
+    detailKey: "layers.buoysDetail",
     icon: Waves,
   },
   {

@@ -113,6 +113,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["river", "flood", "gauge", "stage", "crest", "water"],
   },
   {
+    layer: "buoys",
+    key: "layer.buoys",
+    extra: "keywords.buoys",
+    keywords: ["buoy", "wave", "swell", "marine", "sea", "ndbc", "offshore"],
+  },
+  {
     layer: "tropical",
     key: "layer.tropical",
     extra: "keywords.tropical",

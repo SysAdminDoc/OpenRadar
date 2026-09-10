@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  parseLevelSeries,
+  predictedAt,
   MAX_STATION_MILES,
   fetchTides,
   nearestStation,
@@ -344,5 +346,73 @@ describe("what CO-OPS says when it will not answer", () => {
     });
     expect(read).toHaveLength(1);
     expect(read[0].high).toBe(true);
+  });
+});
+
+describe("what the gauge reads against what the tide said", () => {
+  /** The shape CO-OPS answers `product=water_level&date=latest` with. */
+  const measured = {
+    metadata: { id: "8723214", name: "Virginia Key" },
+    data: [{ t: "2026-09-10 06:54", v: "0.63", s: "0.007", f: "1,0,0,0" }],
+  };
+
+  /** And `product=predictions&date=latest`, on the same six minute step. */
+  const forecast = {
+    predictions: [
+      { t: "2026-09-10 06:48", v: "0.278" },
+      { t: "2026-09-10 06:54", v: "0.283" },
+      { t: "2026-09-10 07:00", v: "0.291" },
+    ],
+  };
+
+  it("reads both series with the same reader", () => {
+    expect(parseLevelSeries(measured, "data")).toEqual([
+      { time: Date.UTC(2026, 8, 10, 6, 54), feet: 0.63 },
+    ]);
+    expect(parseLevelSeries(forecast, "predictions")).toHaveLength(3);
+  });
+
+  it("leaves out a step the gauge had no reading for", () => {
+    // CO-OPS sends the row with an empty value where the instrument was down
+    // or the reading was flagged. Zero feet is mean lower low water, which is
+    // a real height and a very alarming one to draw during a storm, so a
+    // blank has to be absent rather than a number.
+    const gappy = {
+      data: [
+        { t: "2026-09-10 06:48", v: "" },
+        { t: "2026-09-10 06:54", v: "0.63" },
+      ],
+    };
+    expect(parseLevelSeries(gappy, "data")).toEqual([
+      { time: Date.UTC(2026, 8, 10, 6, 54), feet: 0.63 },
+    ]);
+  });
+
+  it("takes the prediction from the same moment as the reading", () => {
+    const series = parseLevelSeries(forecast, "predictions");
+    const at = Date.UTC(2026, 8, 10, 6, 54);
+    expect(predictedAt(series, at)).toBe(0.283);
+    // The surge is the gap: 0.63 measured against 0.283 predicted is a third
+    // of a foot of water the tide alone does not account for.
+    expect(0.63 - (predictedAt(series, at) ?? 0)).toBeCloseTo(0.347, 3);
+  });
+
+  it("refuses a prediction from a different moment rather than using it", () => {
+    const series = parseLevelSeries(forecast, "predictions");
+    // Twenty minutes past the end of what came back. On a fast-running tide
+    // that is several inches of nothing, and a difference taken against it
+    // would be this app inventing surge.
+    expect(predictedAt(series, Date.UTC(2026, 8, 10, 7, 20))).toBeNull();
+    // And one inside the six minute step is still the nearest point.
+    expect(predictedAt(series, Date.UTC(2026, 8, 10, 6, 56))).toBe(0.283);
+  });
+
+  it("answers with nothing for a station that publishes no gauge", () => {
+    // A subordinate station is an offset applied to somebody else's harmonic
+    // constants, so there is no hull in the water to read.
+    expect(
+      parseLevelSeries({ error: { message: "No data was found." } }, "data"),
+    ).toEqual([]);
+    expect(predictedAt([], Date.now())).toBeNull();
   });
 });
