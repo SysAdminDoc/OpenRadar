@@ -1734,7 +1734,7 @@ export const fr: Catalogue = {
   "gridWatch.rotationSettingDetail":
     "La même chose, sur le cisaillement que le réseau combine dans les deux kilomètres les plus bas de l'orage",
   "gridWatch.notPublishedHere":
-    "Le réseau ne publie pas cette grille là où vous surveillez, donc cette règle n'a rien à lire.",
+    "Le réseau ne publie pas cette grille partout où vous surveillez, donc cette règle n'a rien à lire là-bas.",
   "gridWatch.needsPlace":
     "A besoin d'un lieu à surveiller, puisque c'est autour de lui que va le rayon.",
   "gridWatch.desktopOnly":

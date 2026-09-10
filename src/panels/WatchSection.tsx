@@ -139,28 +139,39 @@ export function WatchSection({
   const gridPossible = watchedPlaceCount > 0 && mrmsAvailable();
 
   /**
-   * Whether the network publishes each rule's grid where the reader watches.
+   * Whether the network publishes each rule's grid everywhere the reader
+   * watches.
    *
    * It does not everywhere. MRMS has no merged azimuthal shear product for
    * Alaska at all, so a rotation rule set at Anchorage asked for frames that
    * do not exist, failed, and recorded nothing every two minutes forever
    * while the switch in this panel sat on looking like it worked.
    *
-   * Asked of the bucket rather than answered from a table written here, once
-   * when the panel opens and again if the reader moves home: which products a
-   * region publishes is the network's to change, and a list of them here
-   * would be one more thing to go stale without saying so.
+   * Every watched place, not the first one. The rule polls all of them, each
+   * against the national grid that covers it, so asking about home alone said
+   * nothing was wrong for a reader whose second place is in Alaska, and said
+   * something was wrong for a reader whose first place is.
+   *
+   * Asked of the bucket rather than answered from a table written here: which
+   * products a region publishes is the network's to change, and a list of
+   * them here would be one more thing to go stale without saying so.
    */
   const latestGrids = useLatestReply();
   const [asked, setAsked] = useState<{
     at: string;
     grids: Record<GridRuleId, boolean>;
   } | null>(null);
-  const home = watchedPlaces(settings).find((place) => place.enabled) ?? null;
-  const homeAt = home ? `${home.center[0]},${home.center[1]}` : "";
+  const watched = watchedPlaces(settings).filter((place) => place.enabled);
+  // The distinct regions those places fall in, which is what actually decides
+  // the answer. A place in none of the five has no grid at all, which the
+  // empty string stands for: reading it as the lower forty-eight is what the
+  // native side does with an absent domain and is exactly the wrong answer.
+  const domains = [
+    ...new Set(watched.map((place) => domainFor(place.center)?.id ?? "")),
+  ].sort();
+  const watchedAt = domains.join("|");
   useEffect(() => {
-    if (!gridPossible || !home) return;
-    const domain = domainFor(home.center);
+    if (!gridPossible || domains.length === 0) return;
     const reply = latestGrids();
     void (async () => {
       const answers: Record<GridRuleId, boolean> = {
@@ -168,30 +179,41 @@ export function WatchSection({
         rotation: true,
       };
       for (const which of ["hail", "rotation"] as GridRuleId[]) {
-        try {
-          const frames = await mrmsFrames(
-            GRID_RULE_SOURCES[which].product,
-            1,
-            domain?.id,
-          );
-          answers[which] = frames.length > 0;
-        } catch {
-          // A region that publishes nothing for this product answers with an
-          // error rather than an empty list. Either way the rule has nothing
-          // to read, which is what the panel says.
-          answers[which] = false;
+        for (const domain of domains) {
+          if (!domain) {
+            // Nowhere the network publishes anything, which is a thing the
+            // panel can say without asking.
+            answers[which] = false;
+            continue;
+          }
+          try {
+            const frames = await mrmsFrames(
+              GRID_RULE_SOURCES[which].product,
+              1,
+              domain,
+            );
+            if (frames.length === 0) answers[which] = false;
+          } catch {
+            // A region that publishes nothing for this product answers with
+            // an empty listing rather than an error, so an error here is the
+            // machine or the service having a bad minute. Telling a reader
+            // their rule cannot work because a listing timed out is worse
+            // than saying nothing, so the ask is abandoned rather than
+            // answered: offline, the panel says what it said before.
+            return;
+          }
         }
       }
-      if (reply.current()) setAsked({ at: homeAt, grids: answers });
+      if (reply.current()) setAsked({ at: watchedAt, grids: answers });
     })();
     return reply.close;
-    // The place, not the whole settings object: this asks the network.
+    // The regions, not the whole settings object: this asks the network.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gridPossible, homeAt]);
-  // The answer only counts for the place it was asked about. Held with its
+  }, [gridPossible, watchedAt]);
+  // The answer only counts for the places it was asked about. Held with its
   // own question beside it rather than cleared in an effect, which is what
   // the linter refuses and what would put a render between the two anyway.
-  const gridsHere = asked?.at === homeAt ? asked.grids : null;
+  const gridsHere = asked?.at === watchedAt ? asked.grids : null;
   // Whether the machine can reach anything at all, which is a different
   // answer from whether a service is answering.
   const offlineSince = useOfflineSince();

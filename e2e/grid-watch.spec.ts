@@ -17,10 +17,17 @@ async function openWith(
     /** Inches, the size the rule is set to. */
     size?: number;
     enabled?: boolean;
+    /** A second watched place, for the rules that poll every one of them. */
+    alsoAt?: [number, number];
   },
 ) {
   await page.addInitScript(
-    (value: { hailMm: number | null; size: number; enabled: boolean }) => {
+    (value: {
+      hailMm: number | null;
+      size: number;
+      enabled: boolean;
+      alsoAt: [number, number] | null;
+    }) => {
       const now = Date.now();
       const settings = {
         schemaVersion: 3,
@@ -37,6 +44,19 @@ async function openWith(
           threshold: value.size,
           sound: false,
         },
+        watchPlaces: value.alsoAt
+          ? [
+              {
+                id: "cabin",
+                name: "The cabin",
+                enabled: true,
+                center: value.alsoAt,
+                radiusMiles: 25,
+                minSeverity: "severe",
+                sound: false,
+              },
+            ]
+          : [],
       };
       window.localStorage.setItem(
         "openradar.settings",
@@ -45,6 +65,7 @@ async function openWith(
       (window as unknown as { __settings: unknown }).__settings = settings;
       const asked: string[] = [];
       (window as unknown as { __gridAsked: string[] }).__gridAsked = asked;
+      (window as unknown as { __framesAsked: string[] }).__framesAsked = [];
       (
         window as unknown as {
           __answer: (
@@ -57,11 +78,20 @@ async function openWith(
         // panel asks the bucket rather than reading a table, because MRMS
         // publishes no shear at all for some regions.
         if (command === "mrms_frames") {
-          const published = (window as unknown as { __gridPublished?: boolean })
-            .__gridPublished;
-          return [
-            published === false ? [] : [{ time: 1_756_000_000, key: "k" }],
-          ];
+          const domain = String(args?.domain ?? "CONUS");
+          (window as unknown as { __framesAsked: string[] }).__framesAsked.push(
+            domain,
+          );
+          const published = (
+            window as unknown as {
+              __gridPublished?: boolean | Record<string, boolean>;
+            }
+          ).__gridPublished;
+          const has =
+            typeof published === "object" && published !== null
+              ? published[domain] !== false
+              : published !== false;
+          return [has ? [{ time: 1_756_000_000, key: "k" }] : []];
         }
         if (command !== "mrms_peak_near") return undefined;
         asked.push(JSON.stringify(args ?? {}));
@@ -77,6 +107,7 @@ async function openWith(
       hailMm: options.hailMm,
       size: options.size ?? 1,
       enabled: options.enabled ?? true,
+      alsoAt: options.alsoAt ?? null,
     },
   );
   await fakeDesktop(page, { settingsFromPage: true });
@@ -189,6 +220,35 @@ test("says so where the network publishes no grid for a rule", async ({
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
   const rotation = page.locator('[data-grid-watch="rotation"]');
   await expect(rotation).toContainText("does not publish this grid");
+});
+
+test("asks about every watched place, not only the first", async ({ page }) => {
+  // The rule polls every enabled place, each against the national grid that
+  // covers it. Asking about home alone said nothing was wrong for a reader
+  // whose second place is in a region that publishes no shear at all.
+  await page.addInitScript(() => {
+    (
+      window as unknown as { __gridPublished: Record<string, boolean> }
+    ).__gridPublished = { CONUS: true, ALASKA: false };
+  });
+  await openWith(page, {
+    hailMm: null,
+    size: 1,
+    enabled: true,
+    // Anchorage, in a region the network publishes no shear for at all.
+    alsoAt: [-149.9, 61.22],
+  });
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+  await expect(page.locator('[data-grid-watch="rotation"]')).toContainText(
+    "does not publish this grid",
+  );
+  // And the regions it actually asked about, which is both rather than home.
+  const regions = await page.evaluate(
+    () => (window as unknown as { __framesAsked: string[] }).__framesAsked,
+  );
+  expect([...new Set(regions)].sort()).toEqual(["ALASKA", "CONUS"]);
 });
 
 test("says nothing about the grid where the network does publish it", async ({

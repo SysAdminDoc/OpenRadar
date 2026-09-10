@@ -138,6 +138,31 @@ describe("which European feeds a view is worth asking", () => {
     expect(asked).toContain("france");
   });
 
+  it("keeps every box big enough to be the country it names", () => {
+    // The live contract below holds each box against the polygons its feed
+    // publishes, which is the real check and which covers only the nine
+    // countries that publish any: collapsing Austria's box to a tenth of a
+    // degree left the whole suite green while two hundred and ten Austrian
+    // warnings were in force. This is the part that does not depend on the
+    // weather. The smallest member is Andorra at about 0.4 by 0.3 degrees.
+    const tiny: string[] = [];
+    for (const country of METEOALARM_COUNTRIES) {
+      const across = country.box.east - country.box.west;
+      const down = country.box.north - country.box.south;
+      if (across < 0.25 || down < 0.25) {
+        tiny.push(`${country.id}: ${across.toFixed(2)} by ${down.toFixed(2)}`);
+      }
+    }
+    expect(tiny).toEqual([]);
+    // And no box wanders off Europe, which is where a copied line lands.
+    for (const country of METEOALARM_COUNTRIES) {
+      expect(country.box.west, country.id).toBeGreaterThan(-32);
+      expect(country.box.east, country.id).toBeLessThan(41);
+      expect(country.box.south, country.id).toBeGreaterThan(8);
+      expect(country.box.north, country.id).toBeLessThan(72);
+    }
+  });
+
   it("leaves Germany to the office that publishes its geometry", () => {
     // The German feed carries warning cell codes and no polygons, and
     // `dwdWarnings.ts` reads the DWD's own service for the same warnings.
@@ -267,6 +292,53 @@ describe("reading one country's warnings", () => {
 
     // A warning that draws is not counted as one that did not.
     expect(parseMeteoalarm(feed(), options).unshaped).toBe(0);
+
+    // One warning over seven regions is one warning. MeteoAlarm splits an
+    // alert into an entry per language, area and polygon, so counting
+    // entries said "seven European warnings in force are not drawn" for a
+    // single French thunderstorm warning: eighty-three entries against
+    // sixty-nine warnings across the thirty-seven feeds.
+    const spread = feed(
+      entry({ polygon: "", areaDesc: "Ardèche" }),
+      entry({ polygon: "", areaDesc: "Aude" }),
+      entry({ polygon: "", areaDesc: "Gard" }),
+    )
+      .replaceAll("<cap:polygon></cap:polygon>", "")
+      .replaceAll("<cap:polygon/>", "");
+    const many = parseMeteoalarm(spread, options);
+    expect(many.features).toEqual([]);
+    expect(many.unshaped).toBe(1);
+
+    // Two different warnings are two.
+    const both = feed(
+      entry({ polygon: "" }),
+      entry({ polygon: "", identifier: "2.49.0.0.250.0.FR.20260910160022.1" }),
+    )
+      .replaceAll("<cap:polygon></cap:polygon>", "")
+      .replaceAll("<cap:polygon/>", "");
+    expect(parseMeteoalarm(both, options).unshaped).toBe(2);
+
+    // And a warning with one good outline and one bad is drawn, so it is not
+    // one the reader is missing.
+    const half = feed(entry(), entry({ polygon: "46.1,8.7 46.2,8.8" }));
+    const mixed = parseMeteoalarm(half, options);
+    expect(mixed.features).toHaveLength(1);
+    expect(mixed.unshaped).toBe(0);
+  });
+
+  it("credits MeteoAlarm alone where a country has more than one office", () => {
+    // Bosnia and Herzegovina has two services, and the same day's feed
+    // carried 47 warnings from one and 7 from the other. One name in the
+    // table would credit seven of those to an office that did not issue
+    // them, and the Atom feed does not carry the sender.
+    const two = METEOALARM_COUNTRIES.find(
+      (one) => one.id === "bosnia-herzegovina",
+    );
+    expect(two?.office).toBeUndefined();
+    // Poland has three offices under one institute, so the institute is what
+    // is named: every live sender began with it.
+    const poland = METEOALARM_COUNTRIES.find((one) => one.id === "poland");
+    expect(poland?.office).toBe("IMGW-PIB");
   });
 
   it("gives one warning covering two valleys one identity", () => {

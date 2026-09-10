@@ -64,6 +64,24 @@ export const JUMP_SIGMA = 2;
 export const JUMP_MIN_COVERED_MS = JUMP_BIN_MS / 4;
 
 /**
+ * How much time one satellite file covers, in milliseconds.
+ *
+ * The mapper writes a file every twenty seconds and every flash in one is
+ * stamped with the file's own start, which is what `key_time` reads and what
+ * `observed` is the newest of. So a window observed at a moment actually
+ * reaches twenty seconds past it, and a bin's count covers that much more
+ * than the moment suggests.
+ *
+ * Twenty seconds against a two-minute bin is a sixth of it, and leaving it
+ * out read a storm flashing steadily at thirty a minute as 45, 36, 45, 36:
+ * half again too high a minute into a bin and a fifth too high at the end of
+ * one. The name of a file the app itself lists says the length: the `s` and
+ * `e` fields of `OR_GLM-L2-LCFA_G19_s…0900000_e…0900200_…` are twenty seconds
+ * apart.
+ */
+export const FLASH_GRANULE_MS = 20_000;
+
+/**
  * How far from a cell's centre a flash is counted as that cell's, in miles.
  *
  * The tracker publishes a centroid and a motion and no size, so this is a
@@ -270,11 +288,15 @@ export function rememberJumps(
     const when = flash.time * 1000;
     return when >= opened && when < bin;
   });
-  // How much of this bin the count actually covers. The window reaches up to
-  // the moment it was observed and no further, so a bin that has just opened
-  // has been watched for a few seconds and its count must be divided by that
-  // rather than by a whole bin.
-  const covered = Math.min(Math.max(at - opened, 0), JUMP_BIN_MS);
+  // How much of this bin the count actually covers. A bin that has just
+  // opened has been watched for a few seconds and its count must be divided
+  // by that rather than by a whole bin. The observation reaches one file past
+  // the moment it was observed at, because every flash in a file carries that
+  // file's own start.
+  const covered = Math.min(
+    Math.max(at + FLASH_GRANULE_MS - opened, 0),
+    JUMP_BIN_MS,
+  );
   const found = new Map<string, CellJump>();
   for (const cell of cells) {
     const kept = held.get(cell.id) ?? [];
