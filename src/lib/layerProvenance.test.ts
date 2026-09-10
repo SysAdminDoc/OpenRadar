@@ -284,3 +284,23 @@ describe("the MRMS layers and the grids that feed them", () => {
     }
   });
 });
+
+describe("how long a snowfall analysis is worth having", () => {
+  it("holds the window against the measurement it came from", () => {
+    // Not the nominal cadence. The office publishes at 00Z and 12Z and takes
+    // hours over it, so the newest analysis that exists is routinely older
+    // than twelve hours by its own valid time: thirty cycles checked on
+    // 2026-09-10 had the day's 12Z modified 4.9 hours after its valid hour,
+    // its 00Z 8.9 hours after, and the previous day's 12Z being rewritten
+    // twenty-one hours after. Twelve of cadence plus up to nine to publish is
+    // a day.
+    expect(LAYER_SOURCES.snowfall.freshForMs).toBe(24 * 3_600_000);
+
+    // The newest analysis a reader can have, at the worst moment of a cycle,
+    // is inside the window rather than outside it.
+    const worstCase = 21 * 3_600_000;
+    expect(LAYER_SOURCES.snowfall.freshForMs!).toBeGreaterThan(worstCase);
+    // And it is not so wide that a day-old analysis passes for a fresh one.
+    expect(LAYER_SOURCES.snowfall.freshForMs!).toBeLessThan(36 * 3_600_000);
+  });
+});

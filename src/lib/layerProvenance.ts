@@ -446,9 +446,24 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     // grid from what observers and gauges reported and what fell where
     // nobody was standing is interpolated between them.
     kind: "observation",
-    // Published at 00Z and 12Z, so a total is worth having for twelve hours
-    // and nothing about it changes in between.
-    freshForMs: 12 * 3_600_000,
+    // A day, measured rather than taken from the cadence.
+    //
+    // The nominal cadence is 00Z and 12Z, and twelve hours was what this used
+    // to say. Both halves of that were wrong. Thirty cycles were checked on
+    // 2026-09-10: the office publishes a cycle several hours after its valid
+    // hour, so the newest analysis that exists is routinely older than twelve
+    // hours by its own valid time. That day's 12Z file was modified 4.9 hours
+    // after its valid hour and its 00Z file 8.9 hours after (and again later
+    // still); the previous day's 12Z was being rewritten twenty-one hours
+    // after its valid hour. Twelve hours of cadence plus up to nine to
+    // publish is a day, which is also the window these totals cover.
+    //
+    // And nothing about it does change in between: `Last-Modified` on every
+    // cycle older than about five days reads 121.6 to 122.5 hours after its
+    // valid hour, which is the office rewriting each analysis on a rolling
+    // five-day schedule rather than any publication time. That also means a
+    // cached copy of a cycle can be a superseded revision of it.
+    freshForMs: 24 * 3_600_000,
   },
   lightningDensity: {
     sourceId: "lightning",

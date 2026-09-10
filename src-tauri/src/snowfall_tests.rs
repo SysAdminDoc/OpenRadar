@@ -336,3 +336,71 @@ fn the_office_still_publishes_what_this_reads() {
     }
     assert_eq!(reached, 3, "only {reached} of the three windows answered");
 }
+
+/// A file tied at a pixel other than its own origin.
+///
+/// Every analysis the office has published ties at (0, 0), so this rewrites
+/// the raster half of the real file's tie point rather than inventing a
+/// GeoTIFF: the tag is six doubles, `i, j, k` then `x, y, z`, and the
+/// published one reads `0, 0, 0, -126, 55, 0`. Moving the pixel it is tied to
+/// has to move the corner by that many cells, or the country is drawn
+/// somewhere it is not.
+fn tied_at(pixel_x: f64, pixel_y: f64) -> Vec<u8> {
+    let mut published = Vec::new();
+    for value in [0.0f64, 0.0, 0.0, -126.0, 55.0, 0.0] {
+        published.extend_from_slice(&value.to_le_bytes());
+    }
+    let mut moved = Vec::new();
+    for value in [pixel_x, pixel_y, 0.0, -126.0f64, 55.0, 0.0] {
+        moved.extend_from_slice(&value.to_le_bytes());
+    }
+    let at = ANALYSIS
+        .windows(published.len())
+        .position(|window| window == published.as_slice())
+        .expect("the published file ties its own origin");
+    let mut bytes = ANALYSIS.to_vec();
+    bytes[at..at + moved.len()].copy_from_slice(&moved);
+    bytes
+}
+
+#[test]
+fn a_grid_tied_at_another_pixel_is_placed_where_that_pixel_says() {
+    // Ten cells east and five south of the corner, at four hundredths of a
+    // degree a cell: the corner is 0.4 degrees further west and 0.2 further
+    // north than the point the file names.
+    let read = match read(&tied_at(10.0, 5.0)) {
+        Ok(read) => read,
+        Err(error) => panic!("an analysis tied elsewhere: {error}"),
+    };
+    let [west, south, east, north] = read.extent;
+    assert!((west - -126.4).abs() < 1e-6, "{west}");
+    assert!((north - 55.2).abs() < 1e-6, "{north}");
+    // The size does not change: only where the corner is.
+    assert!((east - west - 60.0).abs() < 1e-6, "{east} against {west}");
+    assert!(
+        (north - south - 34.0).abs() < 1e-6,
+        "{north} against {south}"
+    );
+
+    // And the published file, which ties its own origin, is untouched by any
+    // of this: without that this passes on a reader that ignores the tag.
+    let published = read_published();
+    assert!((published.extent[0] - -126.0).abs() < 1e-9);
+    assert!((published.extent[3] - 55.0).abs() < 1e-9);
+}
+
+#[test]
+fn a_tie_point_that_is_not_a_pixel_is_refused() {
+    let Err(error) = read(&tied_at(f64::NAN, 0.0)) else {
+        panic!("a tie point that is not a pixel was accepted");
+    };
+    assert!(error.contains("tie point"), "{error}");
+}
+
+/// The real file, read once, for the control above.
+fn read_published() -> Analysis {
+    match read(ANALYSIS) {
+        Ok(read) => read,
+        Err(error) => panic!("a published analysis: {error}"),
+    }
+}
