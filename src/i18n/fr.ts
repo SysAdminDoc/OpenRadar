@@ -753,7 +753,8 @@ export const fr: Catalogue = {
   "radar.hailAir": "Air ayant servi au calcul de la taille",
   "radar.hailAirStandard": "L’atmosphère standard, faute de sondage chargé",
   "radar.hailAirSounding": "D’après {source}",
-  "radar.hailAirHeights": "Isotherme 0 à {freezing}, moins vingt à {cold}",
+  "radar.hailAirHeights":
+    "Isotherme 0 à {freezing}, moins vingt à {cold}, au-dessus du niveau de la mer",
   "product.velocity": "Vitesse",
   "product.spectrumWidth": "Largeur du spectre",
   "product.differential": "Réflectivité différentielle",
@@ -1653,7 +1654,7 @@ export const fr: Catalogue = {
   "melting.title": "Couche de fusion",
   "melting.source": "De la coupe à {tilt}° de ce volume même",
   "melting.band":
-    "Autour de {peak}, entre {bottom} et {top} au-dessus du radar.",
+    "Autour de {peak}, entre {bottom} et {top} au-dessus du niveau de la mer.",
   "melting.note":
     "La bande brillante que le radar voit, là où la neige se change en pluie. La taille de la grêle au-dessus est calculée avec le sondage et non avec ceci.",
   "melting.noHighTilt":
@@ -1798,6 +1799,7 @@ export const fr: Catalogue = {
   "palette.none": "Rien ici ne correspond. Essayez un mot plus court.",
   "legend.hidden": "RADAR MASQUÉ",
   "legend.smoothed": "Lissé entre les portes",
+  "legend.melting": "Couche de fusion à {height}, de la coupe à {tilt}°",
   "legend.partlyUnfolded": "{share} % encore replié",
   "legend.scale": "{product} de {min} à {max} {unit}",
   "timeline.label": "Animation du radar",

@@ -731,7 +731,8 @@ export const en = {
   "radar.hailAirStandard":
     "The standard atmosphere, because no sounding is loaded",
   "radar.hailAirSounding": "From {source}",
-  "radar.hailAirHeights": "Freezing at {freezing}, minus twenty at {cold}",
+  "radar.hailAirHeights":
+    "Freezing at {freezing}, minus twenty at {cold}, above sea level",
   "product.velocity": "Velocity",
   "product.spectrumWidth": "Spectrum width",
   "product.differential": "Differential reflectivity",
@@ -1609,7 +1610,7 @@ export const en = {
     "Satellite-detected flashes, not ground strike reports.",
   "melting.title": "Melting layer",
   "melting.source": "From this volume's own {tilt}° cut",
-  "melting.band": "Around {peak}, between {bottom} and {top} above the radar.",
+  "melting.band": "Around {peak}, between {bottom} and {top} above sea level.",
   "melting.note":
     "The bright band the radar can see, which is where snow is turning to rain. The hail size above is worked out against the sounding rather than this.",
   "melting.noHighTilt": "This volume has no cut steep enough to read one from.",
@@ -1747,6 +1748,7 @@ export const en = {
   "palette.none": "Nothing here matches that. Try a shorter word.",
   "legend.hidden": "RADAR HIDDEN",
   "legend.smoothed": "Smoothed between gates",
+  "legend.melting": "Melting layer at {height}, from the {tilt}° cut",
   "legend.partlyUnfolded": "{share}% still folded",
   "legend.scale": "{product} from {min} to {max} {unit}",
   "timeline.label": "Radar animation",
