@@ -63,15 +63,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
   Acceptance: A flare is flagged on a stored volume that has one, and no gate is flagged on a stored volume with a 60 dBZ core and clear-air return behind it; the test that proves the first is a positive control that fails when the flag is disabled; the mark is labelled a signature rather than a confirmation.
   Complexity: M
 
-
-- [ ] AUD-472 (P3): The layers panel is above the ceiling AUD-272 set for a panel
-  Why: `AUD-272` split the two hottest files and set 1,500 lines as what a file of this kind may be. Its own 2026-09-05 note recorded `src/panels/LayersPanel.tsx` at 1,440 after the September panel split. It is 1,715 now, so the rule that item established is being broken by the file the item was partly about, and the next switch group added makes it worse.
-  Evidence: `wc -l src/panels/LayersPanel.tsx` reads 1,715 on 2026-09-09; the `AUD-272` close named only `src/App.tsx` and a `MapOptionsPanels.tsx` that no longer exists, so the panel half went unmeasured.
-  Touches: `src/panels/LayersPanel.tsx`, and whatever section files come out of it under `src/panels/`.
-  Acceptance: No file under `src/panels/` is above 1,500 lines; adding a switch group edits one section file rather than the panel; a test reads the directory and fails on the next file to cross it, rather than naming files one at a time.
-  Complexity: M
-
-
 ## Character and personalization
 
 These came out of a different question than the audit did: what makes somebody keep a weather app open on a second monitor for a year rather than opening it twice during a storm and forgetting it. None of it outranks a correctness, security, or release item, which is why it sits after P3 instead of being folded into the priority ladder.
