@@ -110,9 +110,11 @@ pub fn derive(phase: &SweepField, correlation: Option<&SweepField>) -> Option<Sw
     let mut slope: Vec<Option<f32>> = vec![None; gates];
     let mut rebuilt: Vec<Option<f32>> = vec![None; gates];
     let mut measured: Vec<bool> = vec![false; gates];
+    let mut refused: Vec<bool> = vec![false; gates];
     for (at, azimuth) in angles.iter().enumerate() {
         read_ray(phase, correlation, at, *azimuth, &mut ray);
         despeckle(&mut ray);
+        refused.fill(false);
         // Which gates the radar actually measured, kept before the ray is
         // filled in. The reconciliation below runs over the whole ray because
         // an integral cannot skip a stretch and carry on, but a gate the radar
@@ -125,13 +127,21 @@ pub fn derive(phase: &SweepField, correlation: Option<&SweepField>) -> Option<Sw
         slopes(&ray, interval_km, window, &mut slope);
         unfold(&mut ray, &slope);
         slopes(&ray, interval_km, window, &mut slope);
-        for value in slope.iter_mut() {
+        // A slope outside the band is not a slope. It is set to zero so the
+        // integral below can carry across it, and refused so it is never
+        // drawn: a gate the radar measured, whose answer the method threw
+        // out, is a gate with no answer. Drawn as zero it says no rain, and
+        // the readings that land outside the band are the heaviest rain on
+        // the ray, so the one field a forecaster reads for rain rate would
+        // paint a downpour as a dry hole.
+        for (gate, value) in slope.iter_mut().enumerate() {
             let found = value.unwrap_or(0.0);
-            *value = Some(if found <= MIN_SLOPE || found >= MAX_SLOPE {
-                0.0
+            if found <= MIN_SLOPE || found >= MAX_SLOPE {
+                refused[gate] = true;
+                *value = Some(0.0);
             } else {
-                found
-            });
+                *value = Some(found);
+            }
         }
         // Phase and slope reconciled against each other: the phase a slope
         // implies, then the slope that phase implies. A field already
@@ -141,7 +151,7 @@ pub fn derive(phase: &SweepField, correlation: Option<&SweepField>) -> Option<Sw
             slopes(&rebuilt, interval_km, window, &mut slope);
         }
         for (gate, found) in slope.iter().enumerate() {
-            if !measured[gate] {
+            if !measured[gate] || refused[gate] {
                 continue;
             }
             if let Some(value) = found {

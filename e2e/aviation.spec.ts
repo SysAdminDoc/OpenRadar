@@ -122,3 +122,45 @@ test("draws the hazard areas and refuses to be a flight plan", async ({
   expect(asked).toHaveLength(4);
   expect(asked.some((url) => url.includes("bbox"))).toBe(false);
 });
+
+test("says which product did not answer rather than drawing clear air", async ({
+  page,
+}) => {
+  // The whole point of asking four services and drawing what answers. A
+  // product that refused used to be written into a field nothing rendered,
+  // so the layer drew three quarters of the hazards, called itself fresh and
+  // said nothing: a switched-on hazard layer showing clear air over an
+  // outbreak is worse than one that failed outright.
+  await page.route("**/api/data/airsigmet*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(SIGMET),
+    });
+  });
+  await page.route("**/api/data/gairmet*", async (route) => {
+    await route.fulfill({ status: 503, body: "" });
+  });
+  await page.route("**/awc_aviation_weather/**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(EMPTY),
+    });
+  });
+
+  await page.goto("/?testMode=1&lon=-94.5&lat=40.5&zoom=6&bearing=0&pitch=0");
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  const row = page
+    .locator(".toggle-row")
+    .filter({ hasText: "Aviation Hazards" });
+  await row.getByRole("checkbox").check();
+
+  // The note is on the switch, where a reader deciding whether to trust the
+  // layer is already looking.
+  await expect(row).toContainText(/G-AIRMET/);
+});

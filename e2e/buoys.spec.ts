@@ -113,3 +113,47 @@ test("asks for the whole world once, and a pan does not ask again", async ({
   }
   expect(asked).toHaveLength(1);
 });
+
+test("crossing the zoom floor does not pull the file again", async ({
+  page,
+}) => {
+  // The layer has a zoom floor, and a floor turns the switch off and on as
+  // the reader wheels across it. Dropping what the feed already knew on the
+  // way out meant coming back asked for the whole national file again, with
+  // no interval at all: five crossings, five fetches, from a service that
+  // asks callers to retrieve as little as they can. The acceptance says once
+  // per ten minutes regardless of pans, and this is the part panning never
+  // reached.
+  await stubBuoys(page, FILE);
+  const asked: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("latest_obs.txt")) asked.push(request.url());
+  });
+  await openAt(page, 8);
+  await turnOn(page);
+  await page.keyboard.press("Escape");
+  await expect.poll(() => asked.length).toBe(1);
+
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  const out = page.getByRole("button", { name: "Zoom out" });
+  const back = page.getByRole("button", { name: "Zoom in" });
+
+  // Out below the floor and back in, twice. The layer leaving the stack and
+  // returning is what says the floor was actually crossed: without that this
+  // passes whether or not anything happened.
+  for (const round of [1, 2]) {
+    for (let step = 0; step < 5; step += 1) await out.click();
+    await expect(
+      pane,
+      `round ${round}: the layer should be off below the floor`,
+    ).not.toHaveAttribute("data-layer-stack", new RegExp(LAYER));
+    for (let step = 0; step < 5; step += 1) await back.click();
+    await expect(
+      pane,
+      `round ${round}: the layer should be back above it`,
+    ).toHaveAttribute("data-layer-stack", new RegExp(LAYER));
+  }
+  expect(asked).toHaveLength(1);
+});

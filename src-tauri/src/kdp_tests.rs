@@ -200,6 +200,13 @@ fn a_phase_that_wraps_is_put_back_before_the_slope_is_taken() {
 
 /// A rate past the ceiling is more rain than falls, so it is discarded rather
 /// than drawn.
+///
+/// This test used to assert the opposite of its own name and of the module's
+/// own doc: it required the gate to come back `Valid` and read zero. That is
+/// not discarding it, it is drawing it as no rain at all, and the readings
+/// that land outside the band are the heaviest rain on the ray. A downpour
+/// rendered as a dry hole in the one field read for rain rate is worse than
+/// no reading, which is what this now asks for.
 #[test]
 fn a_slope_outside_the_believable_band_is_discarded() {
     let correlation = clean();
@@ -207,9 +214,10 @@ fn a_slope_outside_the_believable_band_is_discarded() {
     // twenty the method allows.
     let field = derive(&ramp(60.0, 0.0), Some(&correlation)).expect("a derived cut");
     for gate in [60usize, 150] {
+        let (_, status) = field.get(4, gate);
         assert!(
-            at(&field, gate).abs() < 1e-3,
-            "gate {gate} kept an impossible rate"
+            !matches!(status, GateStatus::Valid),
+            "gate {gate} was drawn despite an impossible rate"
         );
     }
 }
