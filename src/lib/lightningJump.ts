@@ -46,6 +46,14 @@ export const JUMP_HISTORY_BINS = 7;
  * per cent rise against almost no variance, which is arithmetic rather than a
  * storm doing something. Ten a minute is the figure the published method uses
  * and the one the skill studies settle on.
+ *
+ * It is a rate for one storm, which is why it did not move when the counting
+ * changed. While every cell counted the flashes in its own circle, a cell in
+ * the middle of a squall line carried the line's rate near it and cleared the
+ * floor on its neighbours' lightning; now it carries its own share and some
+ * of those cells fall below. That is the floor doing what it is for rather
+ * than a floor that needs re-deriving: the number and the count are finally
+ * about the same thing.
  */
 export const JUMP_MIN_RATE = 10;
 
@@ -121,23 +129,6 @@ export interface CellJump {
   at: number | null;
 }
 
-/** How many of a window's flashes belong to a cell. */
-export function flashesNear(
-  cell: Pick<StormCell, "latitude" | "longitude">,
-  flashes: readonly Flash[],
-  radiusMiles: number = JUMP_RADIUS_MILES,
-): number {
-  let found = 0;
-  for (const flash of flashes) {
-    const miles = haversineMiles(
-      { lat: cell.latitude, lon: cell.longitude },
-      { lat: flash.latitude, lon: flash.longitude },
-    );
-    if (miles <= radiusMiles) found += 1;
-  }
-  return found;
-}
-
 /**
  * Each cell's share of a window's flashes, with every flash counted once.
  *
@@ -172,6 +163,30 @@ export function flashesByCell(
     if (nearest) counts.set(nearest.id, (counts.get(nearest.id) ?? 0) + 1);
   }
   return counts;
+}
+
+/**
+ * Which other cells could take flashes out of this one's circle, as a key.
+ *
+ * Only a cell whose own circle overlaps this one's can: two radii apart is
+ * where the lens closes. The key is sorted, so it is the set rather than the
+ * order the tracker happened to list them in.
+ */
+function rivalsOf(
+  cell: Pick<StormCell, "id" | "latitude" | "longitude">,
+  cells: readonly Pick<StormCell, "id" | "latitude" | "longitude">[],
+  radiusMiles: number = JUMP_RADIUS_MILES,
+): string {
+  const facing: string[] = [];
+  for (const other of cells) {
+    if (other.id === cell.id) continue;
+    const miles = haversineMiles(
+      { lat: cell.latitude, lon: cell.longitude },
+      { lat: other.latitude, lon: other.longitude },
+    );
+    if (miles <= radiusMiles * 2) facing.push(other.id);
+  }
+  return facing.sort().join(" ");
 }
 
 /**
@@ -297,6 +312,26 @@ export function withSample(
 const held = new Map<string, JumpSample[]>();
 
 /**
+ * Which cells were competing for each cell's flashes when its series was
+ * built.
+ *
+ * A flash belongs to exactly one cell, so a cell's count depends on which
+ * other cells existed at the time. When a neighbour dies the flashes it held
+ * fall to whoever is nearest, and that cell's rate doubles with nothing about
+ * the weather having changed: two cells twelve miles apart splitting forty
+ * flashes read ten a minute each, and the moment the tracker dropped one the
+ * other read twenty and reported a jump at nine times the bar. Cells are born
+ * and die on every volume scan, so this was not a corner.
+ *
+ * The bins either side of such a change were measured against different
+ * storms and are not a series. Saying nothing until a new one has built up is
+ * the honest answer, and it is the same one the published method needs: a
+ * jump is only meaningful where the storm object it is measured on held
+ * still.
+ */
+const rivals = new Map<string, string>();
+
+/**
  * Folds one window into every live cell's series and reads the jump off each.
  *
  * A cell the tracker has dropped takes its series with it: identifiers get
@@ -311,7 +346,10 @@ export function rememberJumps(
   const bin = binOf(at);
   const live = new Set(cells.map((cell) => cell.id));
   for (const id of [...held.keys()]) {
-    if (!live.has(id)) held.delete(id);
+    if (!live.has(id)) {
+      held.delete(id);
+      rivals.delete(id);
+    }
   }
   // Only the flashes that fell inside this bin. The window handed over is a
   // rolling five minutes, and counting all of it into a two-minute bin read
@@ -336,7 +374,10 @@ export function rememberJumps(
   const mine = flashesByCell(cells, inBin);
   const found = new Map<string, CellJump>();
   for (const cell of cells) {
-    const kept = held.get(cell.id) ?? [];
+    const facing = rivalsOf(cell, cells);
+    const comparable = rivals.get(cell.id) === facing;
+    rivals.set(cell.id, facing);
+    const kept = comparable ? (held.get(cell.id) ?? []) : [];
     // Too little of the bin has happened to rate it. The series keeps what it
     // had rather than taking a count over four seconds as a minute's worth.
     const series =
@@ -356,4 +397,5 @@ export function rememberJumps(
 /** Forgets every cell, for a test that needs an app that has seen nothing. */
 export function forgetJumps(): void {
   held.clear();
+  rivals.clear();
 }
