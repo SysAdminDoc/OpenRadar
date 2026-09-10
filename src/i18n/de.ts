@@ -1665,6 +1665,10 @@ export const de: Catalogue = {
     "Aus, weil eine Warnung schon einen macht und dies keine Warnung ist",
   "lightningWatch.note":
     "Vom Satelliten erkannte Blitze, keine Meldungen von Einschlägen am Boden.",
+  "jump.badge": "Sprung der Blitzrate bei {id}",
+  "jump.rate": "Jetzt {rate} je Minute, um {time}.",
+  "jump.note":
+    "Ein Signal, dass der Sturm sich verstärkt, keine Warnung. Vom Satelliten erkannte Blitze, keine Meldungen von Einschlägen am Boden.",
   "gridWatch.hailTitle": "Hagel geschätzt nahe {place}",
   "gridWatch.hailTitleHome": "Hagel geschätzt in Ihrer Nähe",
   "gridWatch.hailBody":

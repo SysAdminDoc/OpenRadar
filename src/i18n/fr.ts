@@ -1650,6 +1650,10 @@ export const fr: Catalogue = {
     "Désactivé, parce qu'une alerte en fait déjà un et ceci n'en est pas une",
   "lightningWatch.note":
     "Éclairs détectés par satellite, pas des relevés d'impacts au sol.",
+  "jump.badge": "Saut du taux d'éclairs sur {id}",
+  "jump.rate": "Maintenant {rate} par minute, à {time}.",
+  "jump.note":
+    "Un signal que l'orage s'intensifie, pas une alerte. Des éclairs détectés par satellite, pas des signalements d'impacts au sol.",
   "gridWatch.hailTitle": "Grêle estimée près de {place}",
   "gridWatch.hailTitleHome": "Grêle estimée près de vous",
   "gridWatch.hailBody":

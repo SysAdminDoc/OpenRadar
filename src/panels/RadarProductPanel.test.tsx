@@ -30,6 +30,7 @@ describe("radar product mode", () => {
         clock={Date.now()}
         singleSite={null}
         siteStatus={[]}
+        cellJumps={new Map()}
         stormCells={{
           report: null,
           features: null,
@@ -88,6 +89,7 @@ describe("the site picker and what the office says", () => {
         clock={Date.parse("2026-09-03T02:06:00Z")}
         singleSite={{ ...singleSite, sweep } as SingleSiteState}
         siteStatus={siteStatus}
+        cellJumps={new Map()}
         stormCells={CELLS}
         watch={DEFAULT_SETTINGS.watch}
         onRadar={vi.fn()}
@@ -252,6 +254,7 @@ describe("the site picker and what the office says", () => {
           clock={Date.parse("2026-09-03T02:06:00Z")}
           singleSite={{ ...singleSite, sweep: null } as SingleSiteState}
           siteStatus={[]}
+          cellJumps={new Map()}
           stormCells={CELLS}
           watch={DEFAULT_SETTINGS.watch}
           onRadar={vi.fn()}
@@ -286,6 +289,7 @@ describe("the site picker and what the office says", () => {
           clock={Date.parse("2026-09-03T02:06:00Z")}
           singleSite={{ ...singleSite, sweep: null } as SingleSiteState}
           siteStatus={[]}
+          cellJumps={new Map()}
           stormCells={CELLS}
           watch={DEFAULT_SETTINGS.watch}
           onRadar={vi.fn()}
@@ -356,6 +360,7 @@ describe("every slider in the panel", () => {
           } as unknown as SingleSiteState
         }
         siteStatus={[]}
+        cellJumps={new Map()}
         stormCells={CELLS}
         watch={DEFAULT_SETTINGS.watch}
         onRadar={vi.fn()}
@@ -405,6 +410,7 @@ describe("the numbers the panel puts on its chips", () => {
         clock={Date.now()}
         singleSite={null}
         siteStatus={[]}
+        cellJumps={new Map()}
         stormCells={{
           report: null,
           features: null,
