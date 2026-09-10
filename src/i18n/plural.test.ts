@@ -3,6 +3,7 @@ import { ensureLanguage, setLanguage, translate } from "./index";
 import { en } from "./en";
 import { es } from "./es";
 import { fr } from "./fr";
+import { de } from "./de";
 import { hailLine } from "../lib/overlays/alerts";
 import { setUnits } from "../lib/units";
 
@@ -121,6 +122,7 @@ describe("counting things in the reader's own language", () => {
       ["en", en],
       ["es", es],
       ["fr", fr],
+      ["de", de],
     ] as const) {
       await ensureLanguage(language);
       setLanguage(language);

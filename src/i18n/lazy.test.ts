@@ -3,9 +3,10 @@ import { ensureLanguage, setLanguage, translate } from "./index";
 import { en } from "./en";
 import { es } from "./es";
 import { fr } from "./fr";
+import { de } from "./de";
 
-// Spanish and French are fetched when first wanted, so that a reader of one
-// never downloads the others. Importing the catalogues here does not install
+// Spanish, French and German are fetched when first wanted, so that a reader
+// of one never downloads the others. Importing the catalogues here does not install
 // them: what is being checked is that the workspace stays readable in the
 // window before one arrives, and turns that language once it has.
 
@@ -14,6 +15,7 @@ afterEach(() => setLanguage("en"));
 const FETCHED = [
   ["es", es],
   ["fr", fr],
+  ["de", de],
 ] as const;
 
 describe("copy that is not in the first load", () => {
