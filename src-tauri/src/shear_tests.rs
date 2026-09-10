@@ -254,6 +254,60 @@ fn gates_without_enough_echo_are_not_fitted() {
     assert!((found - 0.01).abs() < 1e-4, "{found}");
 }
 
+/// The mask reads the reflectivity gate the ICD says it is reading.
+///
+/// A split cut puts reflectivity on kilometre gates and velocity on quarter
+/// kilometre ones, and the model's own reader treats the range it is given as
+/// a gate's near edge where the ICD calls it a centre. Half a kilometre out,
+/// on the edge of an echo, is the difference between masking a gate and
+/// keeping it, and every reading in this crate goes through `gates` so there
+/// is one answer to where a gate is.
+#[test]
+fn the_mask_reads_the_gate_the_range_is_in() {
+    let field = constant_shear(0.01);
+    // Reflectivity on kilometre gates: storm out to the centre of gate 49,
+    // nothing beyond it.
+    let angles: Vec<f32> = (0..AZIMUTHS).map(|at| at as f32 * SPACING).collect();
+    let mut reflectivity = SweepField::new_empty(
+        "Reflectivity",
+        "dBZ",
+        0.5,
+        angles,
+        SPACING,
+        FIRST_KM,
+        1.0,
+        110,
+    );
+    for azimuth in 0..AZIMUTHS {
+        for gate in 0..110 {
+            let dbz = if gate <= 49 { 25.0 } else { 10.0 };
+            reflectivity.set(azimuth, gate, dbz, GateStatus::Valid);
+        }
+    }
+    let beside = Beside {
+        reflectivity: Some(&reflectivity),
+        ..Beside::default()
+    };
+    let derived = derive(&field, beside, Kind::AzimuthalShear).expect("a derived cut");
+
+    // 51.125 km is a quarter of a kilometre inside the storm's last gate, and
+    // both readings of the range agree it is gate 49.
+    let inside = gate_at(51.125);
+    assert!(
+        matches!(derived.field.get(360, inside).1, GateStatus::Valid),
+        "the storm itself was masked out"
+    );
+
+    // 51.875 km is three quarters of the way to the centre of gate 50, so the
+    // gate it is in is 50 and there is nothing there. Read as an edge it is
+    // still gate 49, and the fit runs over air.
+    let past = gate_at(51.875);
+    assert!(
+        !matches!(derived.field.get(360, past).1, GateStatus::Valid),
+        "a gate past the echo was fitted, so the mask is half a gate out"
+    );
+}
+
 /// A gate with almost nothing around it is dropped rather than fitted.
 #[test]
 fn a_gate_with_too_few_neighbours_is_dropped() {
