@@ -734,18 +734,25 @@ fn recording_the_days_unfolding_is_held_against() {
     println!(
         "station,day,broken_before,broken_after,rejoined,wrapped,invented,misplaced,misplaced_share,rejoined_share,rpg_comparable,rpg_before,rpg_after,rpg_share"
     );
-    for day in 1..=7 {
+    // The seven days ending yesterday, rather than a week written into the
+    // file. A recorder pinned to fixed dates records the same week however
+    // many times it is run, which is the opposite of what re-recording a
+    // floor against fresh weather is for; yesterday is the newest day the
+    // archive certainly holds a whole day of.
+    let last = Utc::now()
+        .date_naive()
+        .pred_opt()
+        .expect("a day before today");
+    for back in (0..7).rev() {
+        let day = last - chrono::Duration::days(back);
         for station in ["KDMX", "KTLX", "KAMX", "KTBW", "KGRR", "KFWS"] {
             // Held one volume at a time: 42 decoded volumes at once is a
             // machine swapping rather than a measurement.
             clear_cache();
-            let at = Utc
-                .with_ymd_and_hms(2026, 9, day, 21, 0, 0)
-                .single()
-                .expect("a UTC time");
+            let at = day.and_hms_opt(21, 0, 0).expect("a UTC time").and_utc();
             match measure_unfolding_at(&runtime, station, at) {
                 Some(found) => println!(
-                    "{station},2026-09-{day:02},{},{},{},{},{},{},{:.4},{:.4},{}",
+                    "{station},{day},{},{},{},{},{},{},{:.4},{:.4},{}",
                     found.broken_before,
                     found.broken_after,
                     found.rejoined,
@@ -767,7 +774,7 @@ fn recording_the_days_unfolding_is_held_against() {
                 ),
                 // A station with no Doppler cut worth measuring that day,
                 // which the contract also passes over.
-                None => println!("{station},2026-09-{day:02},none,,,,,,,,,,,"),
+                None => println!("{station},{day},none,,,,,,,,,,,"),
             }
         }
     }

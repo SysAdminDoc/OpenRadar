@@ -315,6 +315,81 @@ Eleventh research pass, at `8c19165`, an hour after the tenth. It ran the headle
 
 ### P3
 
+### Notes on existing items
+
+- `AUD-295`: the 2026-09-07 sweep of `en.ts` adds these to the list: `export.note` says "Both" under four export buttons (`ExportPanel.tsx:121-168`); `toast.bundleMissing` has no plural block, so one missing frame reads "1 of them could not be fetched and are listed"; `packs.error.httpStatus` and `radar.error.httpStatus` end in a bare status ("could not be reached. 404"); `wpc.serviceStatus` drops the word "service" and the full stop every sibling has; `settings.watching` (`WatchSection.tsx:611`, `:802`) prints raw coordinates where the toast beside it names the place; `toast.placesFull` ("That is every place") has no next step while `settings.placesFull` for the same condition does; `search.none` and `journal.noneMatch` are dead ends beside `history.none` and `palette.none`, which coach; `toast.notABackupBody` refers to "the button beside it", a positional reference; `chrome.nextPiece` says "piece" where every neighbour says volume or sweep; terminology runs two ways for colour table and palette, loop and animation, site and station, tilt (camera) and tilt (radar), and six namings of the watched place. The `{0}` family and the WDTD, isotherm and Title Case points already listed stand.
+
+
+## Research-Driven Additions, 2026-09-07 (evening)
+
+Ninth pass. Evidence in RESEARCH.md of the same date. Numbered on from `AUD-378`. Every host named below is already in `ALLOWED_HOSTS`. Nothing here outranks an open audit item of the same priority; `AUD-378` is the first thing to drain.
+
+### P1
+
+### P2
+
+### P3
+
+- [ ] AUD-420 (P3): Uninstalling with the desktop wallpaper switched on leaves the desktop pointing at OpenRadar's picture
+      Category: reliability
+      Where: `src-tauri/src/wallpaper.rs:44-54` (the picture is written to `<app data>/wallpaper.png` and the reader's own wallpaper is remembered in `wallpaper-previous.txt` beside it); `src/App.tsx:1552-1563` (the only call to `restoreWallpaper`, when `wallpaperMinutes` goes to 0); `src-tauri/tauri.conf.json` (no `installerHooks`); nothing in `src/` or `src-tauri/src` restores on window close or app exit.
+      Problem: The feature restores the reader's wallpaper only when they switch it off in Settings. Closing the app leaves the last frame on the desktop with its age burned in, which is the documented design. Uninstalling is not: nothing runs at uninstall, so the desktop is left set to a file in a folder the uninstaller may remove, and the note that could put the original back goes with it. The reader ends up with either a stale radar picture they cannot switch off without reinstalling, or a blank desktop, and their own picture is gone in both cases.
+      Evidence: Read on 2026-09-08; `grep -rn wallpaper_restore src/` shows one caller; the config has no NSIS hooks. Not run, because the uninstaller needs a built installer and a desktop session.
+      Fix: An NSIS pre-uninstall hook (`bundle.windows.nsis.installerHooks` with `NSIS_HOOK_PREUNINSTALL`) that reads `wallpaper-previous.txt` and applies it with `SystemParametersInfo` through the same path `restore_with` uses, or a small `--restore-wallpaper` mode in the binary the hook invokes. Say in `README.md`'s wallpaper paragraph what closing the app leaves on the desktop.
+      Acceptance: With the wallpaper on, running the uninstaller puts the reader's previous wallpaper back; a scripted check reads `HKCU\Control Panel\Desktop\Wallpaper` before install and after uninstall and finds the same value.
+      Confidence: Likely
+      Effort: M
+
+
+- [ ] AUD-445 (P3): `misplaced` mixes the boundary's mistakes with the wind's, so neither can be bounded on its own
+  Why: `misplaced` counts gates that never folded and came back on a branch other than the picture's own, whatever put them there. Two different passes can do it: a boundary vote that gets a whole patch wrong, and the reference wind placing an unreached group. The first dominates. Recorded over the week of 2026-09-01 to 2026-09-07, 159,771 of these exist with no reference pass running at all, against 167,180 with the pass and its plausibility bar. That is why `AUD-388` could not be finished as written: a per-station line drawn on the total clears the recorded week at 1.285 and still clears it at 1.329 with the bar removed, so no line both leaves room for the weather and answers for the wind. Split at the point of placement and the wind's own contribution becomes a number that can carry a line.
+  Evidence: measured 2026-09-08 while draining `AUD-388`, from two full runs of `recording_the_days_unfolding_is_held_against`, 42 station-days with the plausibility bar and 38 comparable without. Per-station worst with the bar 0.166, 0.633, 0.835, 0.953, 1.263, 1.285; without it 0.200, 0.699, 0.910, 0.962, 1.285, 1.329. Worst single station-day movement 0.122, aggregate over the shared days 152,398 against 160,430. `src-tauri/src/level2/testing.rs` (where `misplaced` is counted), `src-tauri/src/level2/decode_tests.rs` (the bound and the reasoning beside it).
+  Touches: `src-tauri/src/level2/testing.rs` (carry which pass placed a gate through to the count, as two fields rather than one), `src-tauri/src/level2/decode_tests.rs` (a line on the wind's share, recorded from a week), `src-tauri/src/dealias.rs` if the placement has to be reported out.
+  Acceptance: the recorder prints boundary-placed and wind-placed separately; a per-station line on the wind's share is drawn from a recorded week and fails when the plausibility bar is removed, which the combined figure cannot do; the existing bound on the total stays.
+  Complexity: M
+
+- `AUD-295` (drained 2026-09-09, the parts it did not carry): the period rule, the numbered placeholders, the Title Case names and the six specific strings it listed are done and gated. What it collected in its notes and this pass did not take on, because each needs a decision rather than a sweep: `toast.bundleMissing` has no plural block; `settings.watching` prints raw coordinates where the toast beside it names the place; `toast.placesFull` has no next step where the settings string for the same condition does; `search.none` and `journal.noneMatch` are dead ends beside `history.none` and `palette.none`, which coach; `toast.notABackupBody` refers to "the button beside it"; and terminology still runs two ways for colour table and palette, loop and animation, site and station, and the watched place. Worth a new item when somebody is deciding the wording rather than applying a rule.
+- `AUD-370`: `scripts/build-counties.mjs` (94 statements, 0 per cent) is a third script with no test; the one rule it carries, refusing an output over a megabyte, is the kind the item's fix pins for the other two.
+- `AUD-272`: `src/panels/MapOptionsPanels.tsx` no longer exists; it was split into `LayersPanel.tsx` (1,440 lines), `SettingsPanel.tsx` (900), `WatchSection.tsx` (825) and the sections beside them, which is the panel half of the item done. `src/App.tsx` is 3,138 lines on 2026-09-08 against the 2,814 the item measured and the 1,500 it asks for, so the other half has moved the wrong way. `AUD-423` is the same shape in `settings.ts`.
+
+### Unaudited, needs a pass
+
+- The installed build's desktop-only paths were read and not run: the updater against a published `latest.json`, the tray and glance window on a real desktop, wallpaper restore through the registry, the autostart entry, an `openradar://` link arriving from another program while the app is running, and an incident pack download against the live USGS host. `Roadmap_Blocked.md` records why: no signing key on this machine and no desktop session for a terminal pass. `AUD-420` is the one finding from that reading.
+- The export encoders' output was not played back: whether the WebM, MP4 and GIF a loop writes open cleanly in the players the README names (iMessage, a phone gallery, QGIS for the GeoTIFF). The unit tests hold the container layouts, not a player.
+- The Rust decoders' internals were not re-read this pass. They are fuzzed (seven targets, `README.md` "Fuzzing the decoders") and the sweep of panic sites in the network-facing modules on 2026-09-08 found none outside `gfs.rs`, whose eight `unwrap()` calls sit behind length checks the `grib_complex` target exercises.
+- Spanish and French were swept as text and rendered only by the existing `language.spec.ts` at 1024 wide; the panels were not opened in either language by hand. The thirteen keys `AUD-416` lists as clipping risks (`storm.status.LO`, `chrome.now`, `palette.on`, `timeline.live`, `chrome.rainRate`, `panel.upload`, `bar.locate`, `chrome.justIn` and their siblings, each 1.6 to 3.3 times its English length) should be looked at in the running window in both languages, not only in the pseudolocale.
+- The German radar and warnings (DWD) and the Canadian radar (GeoMet) were not driven against their live services this pass; `npm run check:live` covers them and was not run because it is a network gate the read-only pass keeps off.
+
+## Research-Driven Additions, 2026-09-08 (evening)
+
+Tenth research pass, at `beae469`. Everything below came from the third refutation report of 2026-09-08 (against `db461ff..4450979`), the full browser run that landed `AUD-334`, the recon of the tree, and a twenty-four hour watch of the ecosystem. Each finding was re-verified by reading the code or by arithmetic before it was written down; the arithmetic is in `RESEARCH.md`. Items are numbered on from `AUD-447`.
+
+### P1
+
+### P2
+
+### P3
+
+
+
+
+### Notes on existing items
+
+- `AUD-355` (drained 2026-09-09): taken at the versions live on the day rather than the ones the note recorded, which had already gone stale: maplibre-gl 6.9.0 not 6.8.0 and lucide-react 1.43.0 not 1.42.0. Raising `rust-version` to 1.90 turns on clippy lints for APIs stabilised since 1.85, which is twenty-three `chunks_exact` calls, one of them the mutable spelling, and six modulo tests across five lines; TypeScript 5.9 narrows `BlobPart` so that anything handed to a `Blob` has to say its buffer is not shared, which is nine sites and one real narrowing bug in the MP4 encoder's parameter-set copy. The one acceptance line that could not be met as written is the 204 tile: it names `src/lib/providers/health.ts`, and nothing in that file fetches anything, it records what other code reports. Our own catalogue fetches already treat a 204 as a success, because it is a 2xx, and then fail on the empty body, which is the right answer for a catalogue with no frames in it. The tile behaviour the line is about is MapLibre's own and arrives with 6.8.0. What is ours to hold is the floor, so `src/lib/dependencyFloors.test.ts` fails if either the range or the lockfile drops below it, for that fix and for the September advisory.
+- `AUD-440` (drained 2026-09-09, and one line of its acceptance that could not be met as written): the item asked for three things at once, and two of them cannot both hold. "A terminal base product stops at the step that resolves its bins" reads as one or two pixels a bin, since 177.6 km over 1,024 pixels is already 173 m against 150 m bins. "A WSR-88D is no worse off than it is today" needs the same rule to allow nine pixels a gate, because that is what a sixteenth of a 460 km disc comes to. One factor cannot be both: a terminal base product needs 1.7297 pixels a gate or fewer to stop at two steps, and anywhere at or below that a WSR-88D falls from sixteen steps to four. The rule shipped honours the WSR-88D line, which is the one the item states as a constraint rather than as a hope, and takes what the other one can have at that factor: a terminal base product loses one of its four halvings rather than three, and the long range product gains one it always had bins for. The remaining two halvings on a terminal base product are still spending a fetch each on interpolation, and closing that means deciding a WSR-88D may be given a wider box than it gets today. That is a decision about what a reader sees, not an arithmetic gap, so it wants its own item and somebody's judgement rather than another pass.
+- `AUD-378`: re-verified live on 2026-09-08. `api.weather.gov/radar/stations` lists 159 ids including KHDC (295 objects on the bucket that day), KBHX, KDOX, KLGX and PAPD; KLIX answers 404 and has zero objects on 2026-09-07 and 09-08 and no folders in the chunk bucket. `danielway/nexrad` PR #148 is open with zero comments and no crate has been published since 2026-04-03. The app's own table remains the route.
+- `AUD-345`: three more sources for the same ask since 2026-09-07, none of them a radar app's tracker: a Substack post on syncing a phone video to MRMS that found acquisitions "up to 10 minutes late" (on Hacker News 2026-09-07), a Hacker News comment on rain cut off at a tile boundary, and HookEcho's six rendering fixes of 2026-09-08 evening, all of which are about a reader being able to tell what the picture is doing.
+- `AUD-273` (blocked): wry 0.57.0 shipped 2026-09-08 (MSRV 1.85, the `windows` crate at 0.62, drops Windows 7) and PR #15996 pulls it into the 2.12 milestone, which is at 15 open and 32 closed with 76 pending change files. The tree stays on wry 0.55.1 until 2.12 ships.
+- The placefile-host decision in `Roadmap_Blocked.md`: MesoPulse has not launched. The PlacefileNation countdown still reads "launching September 1, 2026" a week later, `/mesopulse` is 404 and `mesopulse.com` does not resolve (2026-09-08). The argument the ninth pass built on it is weaker than written; the decision is still the owner's.
+
+## Research-Driven Additions, 2026-09-08 (late evening)
+
+Eleventh research pass, at `8c19165`, an hour after the tenth. It ran the headless UI inspection the tenth had no machine for (108 captures, both themes, both widths, axe and the overflow check on every one: zero violations, zero overflow, so what follows is what a person sees), read the destructive, import and recovery flows in code, and refreshed the academic, platform and curated-list source classes against 2026. Every finding below was verified against the code and, where there is one, the screenshot; `RESEARCH.md` records what was looked at and judged fine or an artefact so it is not re-filed. Items are numbered on from `AUD-461`.
+
+### P2
+
+### P3
+
 
 
 

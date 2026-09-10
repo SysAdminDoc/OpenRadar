@@ -63,6 +63,17 @@ export const WATCH_RING_LAYER_IDS = [
   WATCH_RING_LAYER_ID,
   WATCH_RING_LABEL_LAYER_ID,
 ];
+/**
+ * The wider stroke that goes under a ramped line so it reads on a pale
+ * ground.
+ *
+ * The county lines have carried one since `AUD-333`. These two could not
+ * take that item's other fix, which is to give a mark the lightness the
+ * ground is not: on a ramp the colour is the value, so a casing is the only
+ * cartographic answer left.
+ */
+export const PROBSEVERE_CASING_LAYER_ID = "openradar-probsevere-casing";
+export const ROUTE_CASING_LAYER_ID = "openradar-route-casing";
 export const TOOL_LINE_LAYER_ID = "openradar-tool-line";
 export const TOOL_POINT_LAYER_ID = "openradar-tool-points";
 /** The keyboard cursor, which is a reader's own place on the map. */
@@ -113,6 +124,9 @@ export const CELL_LABEL_LAYER_ID = "openradar-cell-labels";
 
 export const PROBSEVERE_LAYER_IDS = [
   PROBSEVERE_FILL_LAYER_ID,
+  // Under the line it cases and over the fill, so a wider stroke of the
+  // opposite lightness sits behind the outline without hiding the wash.
+  PROBSEVERE_CASING_LAYER_ID,
   PROBSEVERE_LINE_LAYER_ID,
 ];
 
@@ -254,6 +268,7 @@ export function layerStackOrder(overlays: readonly string[]): string[] {
     // reader draws with: they are the radar's own reading of the storm, and
     // nothing should hide them.
     ...CELL_LAYER_IDS,
+    ROUTE_CASING_LAYER_ID,
     ROUTE_LAYER_ID,
     // The reader's own radius, over everything a service published and under
     // the tools they draw with. It is a line about their rules rather than
