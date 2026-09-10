@@ -1,6 +1,7 @@
 import {
   Database,
   Download,
+  FolderOpen,
   MapPinned,
   Pause,
   Play,
@@ -15,6 +16,8 @@ import {
   asIncidentPackReference,
   cancelIncidentPack,
   createIncidentPack,
+  importIncidentPack,
+  pickPmTilesArchive,
   deleteIncidentPack,
   reapIncidentPack,
   restoreIncidentPack,
@@ -108,6 +111,9 @@ export function IncidentPackManager({
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** The archive waiting on a credit, once one has been refused for want of it. */
+  const [needsCredit, setNeedsCredit] = useState<string | null>(null);
+  const [credit, setCredit] = useState("");
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -257,6 +263,50 @@ export function IncidentPackManager({
       () => createIncidentPack({ name, bounds, minZoom, maxZoom }),
       t("packs.started"),
     );
+  };
+
+  /**
+   * Imports a basemap the reader already has.
+   *
+   * The credit field is only shown once an archive has been refused for not
+   * carrying one, because almost every archive does and a field asking for
+   * something that is usually already there is a field nobody reads.
+   */
+  const importArchive = async (path: string, credit?: string) => {
+    setBusy("import");
+    setError(null);
+    setNotice(null);
+    try {
+      await importIncidentPack(path, undefined, credit);
+      await refresh();
+      setNotice(t("packs.imported"));
+      setNeedsCredit(null);
+      setCredit("");
+    } catch (failure) {
+      const code =
+        failure && typeof failure === "object" && "code" in failure
+          ? String((failure as { code?: unknown }).code)
+          : "";
+      // The one refusal the reader can answer here rather than by finding a
+      // different file: the archive says nothing about who made it.
+      if (code === "refused") {
+        setNeedsCredit(path);
+        setError(t("packs.importNeedsCredit"));
+      } else {
+        setNeedsCredit(null);
+        setError(packErrorText(failure));
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const chooseArchive = async () => {
+    setNeedsCredit(null);
+    setCredit("");
+    const path = await pickPmTilesArchive();
+    if (!path) return;
+    await importArchive(path);
   };
 
   const removeReference = (id: string) => {
@@ -513,6 +563,41 @@ export function IncidentPackManager({
               onClick={create}
             >
               <Download size={16} /> {t("packs.download")}
+            </button>
+          </div>
+
+          {/* A basemap the reader already has, rather than one this app
+              fetches. It is read before it is kept and refused with a reason
+              it can act on. */}
+          <div className="incident-pack-form" data-pack-import>
+            <p className="source-note">{t("packs.importNote")}</p>
+            {needsCredit ? (
+              <label>
+                <span>{t("packs.importCredit")}</span>
+                <input
+                  type="text"
+                  value={credit}
+                  maxLength={120}
+                  onChange={(event) => setCredit(event.target.value)}
+                />
+              </label>
+            ) : null}
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={
+                busy !== null || (needsCredit !== null && !credit.trim())
+              }
+              onClick={() => {
+                if (needsCredit) {
+                  void importArchive(needsCredit, credit.trim());
+                  return;
+                }
+                void chooseArchive();
+              }}
+            >
+              <FolderOpen size={16} />{" "}
+              {needsCredit ? t("packs.importAgain") : t("packs.import")}
             </button>
           </div>
 

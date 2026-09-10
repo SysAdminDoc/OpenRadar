@@ -302,6 +302,22 @@ export const es: Catalogue = {
   "packs.error.cancelled": "La descarga se detuvo.",
   "packs.error.corrupt":
     "La descarga no llegó entera, así que se descartó. Vuelve a intentarlo.",
+  "packs.import": "Importar un mapa base",
+  "packs.importAgain": "Importar con esta atribución",
+  "packs.importTitle": "Elige un mapa base PMTiles",
+  "packs.importNote":
+    "Puedes traer un mapa base PMTiles que ya tengas. OpenRadar lo lee antes de guardarlo y muestra la atribución que lleva.",
+  "packs.importCredit": "A quién atribuirlo",
+  "packs.importNeedsCredit":
+    "Ese archivo no dice quién lo hizo. Escribe la atribución con la que debe mostrarse.",
+  "packs.imported": "Ese mapa base está en el almacén.",
+  "packs.error.importUnreadable":
+    "Ese archivo no es un PMTiles que OpenRadar pueda leer.",
+  "packs.error.importNotRaster":
+    "Ese archivo contiene teselas vectoriales. OpenRadar dibuja un mapa base importado como teselas de imagen y no tiene un estilo para uno vectorial.",
+  "packs.error.importNoCoverage":
+    "Ese archivo no dice qué parte del mundo cubre.",
+  "packs.error.importEmpty": "Ese archivo no tiene ninguna tesela.",
   "packs.error.refused": "OpenRadar no pudo aceptar esa petición.",
   "packs.error.failed":
     "Algo falló en esta máquina y la descarga se detuvo. El panel de Diagnóstico tiene los detalles.",

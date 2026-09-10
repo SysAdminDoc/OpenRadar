@@ -53,6 +53,8 @@ const MAX_ZOOM: u8 = 15;
 const DOWNLOAD_CONCURRENCY: usize = 4;
 const DOWNLOAD_BATCH: usize = 16;
 const SOURCE_NAME: &str = "USGS The National Map Topo";
+/// What a pack the reader brought in themselves records as its source.
+const IMPORT_SOURCE: &str = "Imported PMTiles archive";
 const ATTRIBUTION: &str = "USGS The National Map";
 const SOURCE_ROOT: &str =
     "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile";
@@ -99,6 +101,14 @@ pub enum IncidentPackError {
     ArchiveVerification,
     #[error("the PMTiles archive failed its SHA-256 check")]
     ArchiveHashMismatch,
+    #[error("that file is not a PMTiles archive this app can read")]
+    ImportUnreadable,
+    #[error("that archive holds vector tiles, which this app has no style for")]
+    ImportNotRaster,
+    #[error("that archive does not say what part of the world it covers")]
+    ImportNoCoverage,
+    #[error("that archive has no tile in it")]
+    ImportEmpty,
     #[error("the incident pack worker stopped unexpectedly: {0}")]
     Worker(String),
     #[error("the incident pack could not be read or written: {0}")]
@@ -138,6 +148,13 @@ impl IncidentPackError {
             | Self::ArchiveHashMismatch => ("corrupt", Vec::new()),
             // The app refusing the request, before anything was downloaded.
             Self::InvalidRegion | Self::InvalidName => ("refused", Vec::new()),
+            // An imported file the app will not take, each with its own
+            // reason, because "refused" tells a reader nothing about which
+            // archive to go and find instead.
+            Self::ImportUnreadable => ("importUnreadable", Vec::new()),
+            Self::ImportNotRaster => ("importNotRaster", Vec::new()),
+            Self::ImportNoCoverage => ("importNoCoverage", Vec::new()),
+            Self::ImportEmpty => ("importEmpty", Vec::new()),
             // Something on this machine, which the reader cannot act on
             // beyond trying again and sending the diagnostics block.
             // Nothing the reader did, and nothing they can change: the
@@ -1551,6 +1568,242 @@ pub async fn incident_pack_create(
     Ok(PackSummary::from(&manifest))
 }
 
+/// What a chosen archive says about itself, once it has been read.
+struct ImportedArchive {
+    bounds: PackBounds,
+    min_zoom: u8,
+    max_zoom: u8,
+    name: String,
+    attribution: String,
+}
+
+/// The `attribution` and `name` an archive carries in its own metadata block.
+///
+/// PMTiles metadata is a JSON object by the specification and every writer
+/// this app has met puts those two keys in it, including this app's own. A
+/// file with neither is still importable: the reader is asked for the credit
+/// instead, because the credit is the one thing that must be on screen.
+fn archive_metadata(said: &str) -> (Option<String>, Option<String>) {
+    let Ok(serde_json::Value::Object(map)) = serde_json::from_str(said) else {
+        return (None, None);
+    };
+    let text = |key: &str| {
+        map.get(key)
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+    };
+    (text("name"), text("attribution"))
+}
+
+/// Reads a chosen archive and says whether this app can draw it.
+///
+/// Everything here is a refusal with a reason rather than a silent import
+/// that draws a blank map. The vector refusal is the one worth naming: a
+/// vector archive is perfectly valid and this app has no style for one, so
+/// what it would draw is nothing at all.
+async fn inspect_archive(path: &Path) -> Result<ImportedArchive, IncidentPackError> {
+    let reader = AsyncPmTilesReader::try_from_source(PackFileBackend {
+        path: path.to_path_buf(),
+    })
+    .await
+    .map_err(|_| IncidentPackError::ImportUnreadable)?;
+    let header = reader.get_header();
+
+    match header.tile_type {
+        TileType::Png | TileType::Jpeg | TileType::Webp => {}
+        TileType::Mvt | TileType::Mlt => return Err(IncidentPackError::ImportNotRaster),
+        // AVIF is a raster format the map cannot decode, and Unknown is a
+        // file that does not say. Neither is a basemap this app can draw.
+        _ => return Err(IncidentPackError::ImportUnreadable),
+    }
+
+    let bounds = PackBounds {
+        west: header.min_longitude,
+        south: header.min_latitude,
+        east: header.max_longitude,
+        north: header.max_latitude,
+    };
+    // An archive whose header leaves the four corners at nought says it
+    // covers a point off the coast of Africa, which is what a whole-world
+    // basemap would be drawn as if this were let through.
+    if !bounds.valid() {
+        return Err(IncidentPackError::ImportNoCoverage);
+    }
+    if header.min_zoom > header.max_zoom {
+        return Err(IncidentPackError::ImportNoCoverage);
+    }
+
+    // One tile, actually read. A header can promise anything; a file with a
+    // directory tree and no tile data behind it would import and then draw
+    // nothing, with no reason anywhere on screen.
+    let mut found = false;
+    'search: for zoom in header.min_zoom..=header.max_zoom.min(header.min_zoom + 3) {
+        let west = tile_x(bounds.west, zoom);
+        let east = tile_x(bounds.east - f64::EPSILON * 180.0, zoom);
+        let north = tile_y(bounds.north - f64::EPSILON * 90.0, zoom);
+        let south = tile_y(bounds.south, zoom);
+        // Bounded, because an archive of the whole world at zoom 15 is a
+        // billion tiles and this is a check rather than a survey.
+        for y in north..=south.min(north.saturating_add(7)) {
+            for x in west..=east.min(west.saturating_add(7)) {
+                let coord = TileCoord::new(zoom, x, y).map_err(IncidentPackError::PmTiles)?;
+                if reader
+                    .get_tile(coord)
+                    .await
+                    .map_err(|_| IncidentPackError::ImportUnreadable)?
+                    .is_some()
+                {
+                    found = true;
+                    break 'search;
+                }
+            }
+        }
+    }
+    if !found {
+        return Err(IncidentPackError::ImportEmpty);
+    }
+
+    let metadata = reader.get_metadata().await.unwrap_or_default();
+    let (name, attribution) = archive_metadata(&metadata);
+    Ok(ImportedArchive {
+        bounds,
+        min_zoom: header.min_zoom,
+        max_zoom: header.max_zoom,
+        name: name.unwrap_or_default(),
+        attribution: attribution.unwrap_or_default(),
+    })
+}
+
+/// Takes a PMTiles basemap the reader already has and puts it in the store.
+///
+/// Every pack the store holds today is one this app downloaded itself, tile
+/// by tile, hashed and renamed into place. This one arrives whole from
+/// somewhere else, so it is read before it is kept: the header, the tile type,
+/// the coverage, and one tile actually pulled out of it. Then it is copied
+/// under the store's own hashing, and from that point it is the same thing as
+/// a downloaded pack to everything that reads one.
+///
+/// The credit is not optional. A basemap draws with an attribution line and
+/// the archive's own metadata usually carries it; where it does not, the
+/// reader is asked, and an empty answer is refused.
+#[tauri::command]
+pub async fn incident_pack_import(
+    path: String,
+    // What to call it, when the reader would rather not use the archive's
+    // own name. Empty means the archive's name, then the file's.
+    name: Option<String>,
+    // Who to credit, where the archive does not say. Refused if neither has
+    // one: a basemap with no credit is not one this app will draw.
+    attribution: Option<String>,
+) -> Result<PackSummary, IncidentPackError> {
+    import_archive(root()?, &PathBuf::from(&path), name, attribution).await
+}
+
+/// The import itself, with the store's root passed in.
+///
+/// Separated the way `run_download` is, and for the same reason: the root is a
+/// process-wide `OnceLock` set at startup, so nothing that reads it through
+/// `root()` can be tested twice in one process with two different stores.
+async fn import_archive(
+    root: &Path,
+    source: &Path,
+    name: Option<String>,
+    attribution: Option<String>,
+) -> Result<PackSummary, IncidentPackError> {
+    let metadata = fs::metadata(source).map_err(|_| IncidentPackError::ImportUnreadable)?;
+    if !metadata.is_file() {
+        return Err(IncidentPackError::ImportUnreadable);
+    }
+    let archive_bytes = metadata.len();
+    let read = inspect_archive(source).await?;
+
+    let credit = attribution
+        .map(|said| said.trim().to_string())
+        .filter(|said| !said.is_empty())
+        .or_else(|| Some(read.attribution.clone()).filter(|said| !said.is_empty()))
+        .ok_or(IncidentPackError::InvalidName)?;
+    let called = name
+        .map(|said| said.trim().to_string())
+        .filter(|said| !said.is_empty())
+        .or_else(|| Some(read.name.clone()).filter(|said| !said.is_empty()))
+        .or_else(|| {
+            source
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().to_string())
+        })
+        .unwrap_or_default();
+    let called = clean_name(&called)?;
+
+    let _write = store_write().lock().await;
+    // The same rule a download follows: a new pack takes the undo away from a
+    // deleted one, because these bytes are the reader's answer to what they
+    // want the disk for.
+    let _ = reap_held(root)?;
+    if !quota_allows(root, 0, archive_bytes)? {
+        return Err(IncidentPackError::DiskCeiling);
+    }
+
+    let id = new_id(&called);
+    let pack_dir = pack_dir(root, &id)?;
+    fs::create_dir_all(&pack_dir)?;
+    let destination = pack_dir.join(ARCHIVE_FILE);
+    let part = pack_dir.join(ARCHIVE_PART);
+    let copied = (|| -> Result<(u64, String), IncidentPackError> {
+        // Copied rather than moved: the file is the reader's and stays
+        // theirs. Through the part name and renamed, so a copy interrupted
+        // half way is debris `recover_store` clears rather than an archive
+        // the store believes in.
+        let written = fs::copy(source, &part)?;
+        if written != archive_bytes {
+            return Err(IncidentPackError::ByteMismatch {
+                expected: archive_bytes,
+                actual: written,
+            });
+        }
+        let hash = sha256_file(&part)?;
+        fs::rename(&part, &destination)?;
+        Ok((written, hash))
+    })();
+    let (written, sha256) = match copied {
+        Ok(pair) => pair,
+        Err(error) => {
+            let _ = fs::remove_dir_all(&pack_dir);
+            return Err(error);
+        }
+    };
+    remember_verified_archive(&destination, written, &sha256)?;
+
+    let timestamp = now();
+    let manifest = PackManifest {
+        schema_version: STORE_SCHEMA,
+        id,
+        name: called,
+        bounds: read.bounds,
+        min_zoom: read.min_zoom,
+        max_zoom: read.max_zoom,
+        status: PackStatus::Ready,
+        // An imported archive was never downloaded a tile at a time, so there
+        // is no count of tiles to show progress against. The panel shows the
+        // archive's size instead, which is what it shows for a finished pack.
+        tile_count: 0,
+        downloaded_tiles: 0,
+        downloaded_bytes: 0,
+        estimated_bytes: written,
+        archive_bytes: written,
+        sha256: Some(sha256),
+        source: IMPORT_SOURCE.into(),
+        attribution: credit,
+        error: None,
+        error_args: Vec::new(),
+        created_at: timestamp.clone(),
+        updated_at: timestamp,
+    };
+    write_manifest(&pack_dir, &manifest)?;
+    Ok(PackSummary::from(&manifest))
+}
+
 #[tauri::command]
 pub fn incident_pack_pause(id: String) -> Result<(), IncidentPackError> {
     validate_id(&id)?;
@@ -1834,6 +2087,250 @@ pub async fn serve_tile(uri: &str) -> ServedTile {
 mod tests {
     use super::*;
 
+    /// A PMTiles archive somebody else made, written to a temporary file.
+    ///
+    /// Built with the same writer this app builds its own packs with, which
+    /// is what makes it a real archive rather than a fixture shaped like one.
+    fn foreign_archive(
+        into: &Path,
+        kind: TileType,
+        bounds: PackBounds,
+        zoom: u8,
+        tiles: bool,
+        metadata: &str,
+    ) -> PathBuf {
+        let path = into.join("somebody-elses.pmtiles");
+        let file = File::create(&path).unwrap();
+        let mut writer = PmTilesWriter::new(kind)
+            .min_zoom(zoom)
+            .max_zoom(zoom)
+            .bounds(bounds.west, bounds.south, bounds.east, bounds.north)
+            .center(
+                (bounds.west + bounds.east) / 2.0,
+                (bounds.south + bounds.north) / 2.0,
+            )
+            .center_zoom(zoom)
+            .metadata(metadata)
+            .create(file)
+            .unwrap();
+        if tiles {
+            let x = tile_x((bounds.west + bounds.east) / 2.0, zoom);
+            let y = tile_y((bounds.south + bounds.north) / 2.0, zoom);
+            writer
+                .add_tile(TileCoord::new(zoom, x, y).unwrap(), &png())
+                .unwrap();
+        }
+        writer.finalize().unwrap();
+        path
+    }
+
+    const AMES: PackBounds = PackBounds {
+        west: -94.0,
+        south: 41.0,
+        east: -93.0,
+        north: 42.0,
+    };
+
+    #[tokio::test]
+    async fn an_archive_somebody_else_made_imports_and_serves_a_tile() {
+        let root = temporary("import-ok");
+        let path = foreign_archive(
+            &root,
+            TileType::Png,
+            AMES,
+            6,
+            true,
+            r#"{"name":"Story County","attribution":"Somebody Else 2026"}"#,
+        );
+        let summary = import_archive(&root, &path, None, None).await.unwrap();
+
+        assert_eq!(summary.status, PackStatus::Ready);
+        // The archive's own metadata rather than anything this app made up.
+        assert_eq!(summary.name, "Story County");
+        assert_eq!(summary.attribution, "Somebody Else 2026");
+        assert_eq!(summary.source, IMPORT_SOURCE);
+        assert_eq!(summary.min_zoom, 6);
+        assert_eq!(summary.max_zoom, 6);
+        assert!((summary.bounds.west - AMES.west).abs() < 1e-6);
+        assert!((summary.bounds.north - AMES.north).abs() < 1e-6);
+        // A hash beside it, the same way a downloaded pack carries one, so
+        // the served tile path can tell the file has not changed underneath.
+        let hash = summary.sha256.clone().expect("a hash");
+        assert_eq!(hash.len(), 64);
+        assert_eq!(hash, sha256_file(&path).unwrap());
+        assert_eq!(summary.archive_bytes, fs::metadata(&path).unwrap().len());
+
+        // The reader's own file is still theirs.
+        assert!(path.is_file());
+
+        // And it draws: the store's copy answers for the tile it holds.
+        let pack = root.join(&summary.id);
+        let archive = pack.join(ARCHIVE_FILE);
+        assert!(archive.is_file());
+        let reader = AsyncPmTilesReader::try_from_source(PackFileBackend {
+            path: archive.clone(),
+        })
+        .await
+        .unwrap();
+        let x = tile_x((AMES.west + AMES.east) / 2.0, 6);
+        let y = tile_y((AMES.south + AMES.north) / 2.0, 6);
+        assert!(reader
+            .get_tile(TileCoord::new(6, x, y).unwrap())
+            .await
+            .unwrap()
+            .is_some());
+        drop(reader);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn the_reader_can_name_it_and_credit_it_themselves() {
+        let root = temporary("import-named");
+        // An archive that says nothing about itself, which is what a file
+        // written by a tool that skips the metadata block looks like.
+        let path = foreign_archive(&root, TileType::Png, AMES, 6, true, "{}");
+        // With no credit anywhere it is refused: a basemap draws with an
+        // attribution line and there would be nothing to put in it.
+        let refused = import_archive(&root, &path, None, None).await.unwrap_err();
+        assert!(matches!(refused, IncidentPackError::InvalidName));
+
+        let summary = import_archive(
+            &root,
+            &path,
+            Some("  My own basemap  ".into()),
+            Some("  A regional archive, licensed  ".into()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(summary.name, "My own basemap");
+        assert_eq!(summary.attribution, "A regional archive, licensed");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_file_this_app_cannot_draw_is_refused_with_the_reason() {
+        let root = temporary("import-refused");
+
+        // Not an archive at all.
+        let rubbish = root.join("holiday.jpg");
+        fs::write(&rubbish, vec![0xffu8; 4096]).unwrap();
+        assert!(matches!(
+            import_archive(&root, &rubbish, None, Some("x".into()))
+                .await
+                .unwrap_err(),
+            IncidentPackError::ImportUnreadable
+        ));
+
+        // A file that is not there.
+        assert!(matches!(
+            import_archive(&root, &root.join("nothing.pmtiles"), None, Some("x".into()))
+                .await
+                .unwrap_err(),
+            IncidentPackError::ImportUnreadable
+        ));
+
+        // A valid archive of vector tiles. This app draws an imported basemap
+        // as a raster source and has no style for a vector one, so what it
+        // would draw is a blank map with no reason on screen.
+        let vector = foreign_archive(&root, TileType::Mvt, AMES, 6, true, "{}");
+        assert!(matches!(
+            import_archive(&root, &vector, None, Some("x".into()))
+                .await
+                .unwrap_err(),
+            IncidentPackError::ImportNotRaster
+        ));
+
+        // A header that leaves the corners at nought, which says the archive
+        // covers a point off the coast of Africa.
+        let nowhere = foreign_archive(
+            &root,
+            TileType::Png,
+            PackBounds {
+                west: 0.0,
+                south: 0.0,
+                east: 0.0,
+                north: 0.0,
+            },
+            6,
+            false,
+            "{}",
+        );
+        assert!(matches!(
+            import_archive(&root, &nowhere, None, Some("x".into()))
+                .await
+                .unwrap_err(),
+            IncidentPackError::ImportNoCoverage
+        ));
+
+        // A well-formed archive with nothing in it. The header promises a
+        // basemap and there is no tile behind it, so it would import and then
+        // draw nothing.
+        let empty = foreign_archive(&root, TileType::Png, AMES, 6, false, "{}");
+        assert!(matches!(
+            import_archive(&root, &empty, None, Some("x".into()))
+                .await
+                .unwrap_err(),
+            IncidentPackError::ImportEmpty
+        ));
+
+        // Nothing was left behind by any of them.
+        let kept: Vec<_> = fs::read_dir(&root)
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.path().is_dir())
+            .collect();
+        assert!(kept.is_empty(), "{} directories were left", kept.len());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn an_archive_that_would_not_fit_is_refused_before_it_is_copied() {
+        let root = temporary("import-quota");
+        let path = foreign_archive(&root, TileType::Png, AMES, 6, true, "{}");
+        // A ceiling of the smallest the store offers, and an archive the
+        // quota's own doubling puts over it.
+        let config = StoreConfig {
+            schema_version: STORE_SCHEMA,
+            disk_limit_mb: MIN_LIMIT_MB,
+        };
+        atomic_json(&root.join(CONFIG_FILE), &config).unwrap();
+        // Something already using nearly all of it.
+        let hog = root.join("aaaaaaaaaaaaaaaaaaaaaaaa");
+        fs::create_dir_all(&hog).unwrap();
+        fs::write(
+            hog.join(ARCHIVE_FILE),
+            vec![0u8; (MIN_LIMIT_MB * 1024 * 1024) as usize],
+        )
+        .unwrap();
+
+        let error = import_archive(&root, &path, None, Some("x".into()))
+            .await
+            .unwrap_err();
+        assert!(matches!(error, IncidentPackError::DiskCeiling));
+        // And the reader's file is untouched, with nothing copied in.
+        assert!(path.is_file());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn an_archive_metadata_block_is_read_for_what_it_actually_has() {
+        assert_eq!(
+            archive_metadata(r#"{"name":"A","attribution":"B"}"#),
+            (Some("A".into()), Some("B".into()))
+        );
+        // Blank is the same as absent: an empty credit would draw an empty
+        // attribution line rather than being asked for.
+        assert_eq!(
+            archive_metadata(r#"{"name":"  ","attribution":""}"#),
+            (None, None)
+        );
+        // A metadata block that is not an object, which the specification
+        // allows a writer to get wrong.
+        assert_eq!(archive_metadata("[]"), (None, None));
+        assert_eq!(archive_metadata(""), (None, None));
+        assert_eq!(archive_metadata(r#"{"attribution":42}"#), (None, None));
+    }
+
     #[test]
     fn a_pack_written_by_an_older_build_still_reads() {
         // What this costs if it is wrong: `recover_store` treats a manifest
@@ -1956,6 +2453,10 @@ mod tests {
             IncidentPackError::ArchiveVerification,
             IncidentPackError::ArchiveHashMismatch,
             IncidentPackError::Worker("a thread went away".to_string()),
+            IncidentPackError::ImportUnreadable,
+            IncidentPackError::ImportNotRaster,
+            IncidentPackError::ImportNoCoverage,
+            IncidentPackError::ImportEmpty,
         ];
         for error in cases {
             let (code, args) = error.parts();

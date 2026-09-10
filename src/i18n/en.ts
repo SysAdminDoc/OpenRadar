@@ -293,6 +293,22 @@ export const en = {
   "packs.error.cancelled": "The download stopped.",
   "packs.error.corrupt":
     "The download did not arrive intact, so it was thrown away. Try it again.",
+  "packs.import": "Import a basemap",
+  "packs.importAgain": "Import with this credit",
+  "packs.importTitle": "Choose a PMTiles basemap",
+  "packs.importNote":
+    "You can bring in a PMTiles basemap you already have. OpenRadar reads it before it keeps it and shows the credit it carries.",
+  "packs.importCredit": "Who to credit",
+  "packs.importNeedsCredit":
+    "That archive does not say who made it. Type the credit it should be shown under.",
+  "packs.imported": "That basemap is in the store.",
+  "packs.error.importUnreadable":
+    "That file is not a PMTiles archive OpenRadar can read.",
+  "packs.error.importNotRaster":
+    "That archive holds vector tiles. OpenRadar draws an imported basemap as picture tiles and has no style for a vector one.",
+  "packs.error.importNoCoverage":
+    "That archive does not say which part of the world it covers.",
+  "packs.error.importEmpty": "That archive has no map tiles in it.",
   "packs.error.refused": "OpenRadar could not take that request.",
   "packs.error.failed":
     "Something went wrong on this machine and the download stopped. The Diagnostics panel has the details.",

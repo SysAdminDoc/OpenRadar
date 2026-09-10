@@ -11,6 +11,13 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
+- [ ] AUD-493 (P3): Fuzz the PMTiles reader, now that a stranger's archive can reach it
+  Why: Until `AUD-228` shipped, every pack the reader opened was one this app had downloaded, hashed tile by tile and renamed into place under its own app-data folder. A reader can now hand it an archive from anywhere, and `AsyncPmTilesReader` begins by parsing a header and a directory tree somebody else wrote. `inspect_archive` refuses what it can see is wrong; it cannot refuse what the parser does before it returns.
+  Evidence: `src-tauri/src/incident_packs.rs` `inspect_archive` and `import_archive`; the 2026-09-07 note on `AUD-228` that put this here rather than with `AUD-338`, which shipped the `.orb` half; `cargo-fuzz` is already known to work on this machine.
+  Touches: `src-tauri/fuzz/`, a target over `AsyncPmTilesReader` with an in-memory `AsyncBackend` over a slice and a current-thread runtime per case, because the shipped backend reads a file.
+  Acceptance: A fuzz target that opens an arbitrary byte slice as a PMTiles archive and asks it for a tile, run long enough to be worth the line in the changelog, with any panic it finds either fixed or refused before the parser sees it.
+  Complexity: M
+
 - [ ] AUD-486 (P2): The ambient readout's type scale is bounded by a character count, so a long name runs off the screen
   Why: `ambientTypeScale` in `src/lib/ambientScreen.ts` estimates the widest line as `length * 0.5em`, and 0.55 for the clock. The real advance of `M`, `W`, capitals and CJK is 0.9 to 1.0em, so the bound is up to twice as generous as it should be and the readout overruns the window it was supposed to fit.
   Evidence: measured in headless chromium against the real `index.css`, the real markup and the transpiled `ambientTypeScale` at 1024 by 680. A watch named `Mammoth Mountain, Mammoth` wraps the place line onto two lines at 2.5 m; `KMHX MOREHEAD CITY, NC` wraps at 4 m; a 45-character single word (Chargoggagoggmanchauggagoggchaubunagungamaugg, a real place in Massachusetts) runs 100 px off the right edge at both distances because one unbreakable word cannot wrap; a 16-character Japanese name puts the readout 141 px above the top of the window. `Atlanta, GA` is clean at every distance. `settings.watch.name` is free text capped at 60 characters in `src/panels/WatchSection.tsx`.
@@ -202,14 +209,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
 ### P2
 
 ### P3
-
-- [ ] AUD-228 (P3): Import a PMTiles basemap of your own
-  Note 2026-09-07: the fuzz target for the PMTiles reader belongs with this item rather than with `AUD-338`, which shipped the `.orb` half. Today every pack the reader opens is one this app downloaded, hashed tile by tile and renamed into place under its own app-data folder, and no command opens a pack from anywhere else, so those bytes are not a stranger's. The moment a reader can hand the app an archive they are, and `AsyncPmTilesReader` begins by parsing a header and a directory tree somebody else wrote. Fuzzing it wants an in-memory `AsyncBackend` over a slice and a current-thread runtime per case, because the shipped backend reads a file.
-  Why: Basemap dependence broke two open-source radar tools this fortnight when Carto began requiring a key; the app's incident packs already store verified PMTiles, but only USGS sets the app fetches itself, so a reader with a licensed regional archive cannot use it.
-  Evidence: `src-tauri/src/incident_packs.rs` (fetch-only USGS sets); https://github.com/jpettitt/weather-radar-card/issues/253 and https://github.com/JoshuaKimsey/LibreWXR/issues (Carto breakage, 2026-08-26 to 08-29); https://github.com/jhammon88219/Anvil (offline PMTiles with editable style); `C:\repos\StormDeck` importer with validation and licence text.
-  Touches: `src-tauri/src/incident_packs.rs` (accept a user file: header, tile type, bounds and size checks; copy into the store under the same hashing; an attribution string stored beside), `src/panels/IncidentPackManager.tsx`, `src/panels/UtilityPanels.tsx` accept list, `docs/asset-ledger.md`, `src/i18n/*`, tests with a small fixture archive.
-  Acceptance: A valid PMTiles v3 raster or vector archive imports and is selectable as the offline basemap with its own attribution shown; a malformed or oversize file is refused with the reason; the quota and journaling tests cover an imported pack.
-  Complexity: M
 
 - [ ] AUD-229 (P3): A keyboard cursor that reads the sweep aloud
       Note 2026-09-07: wxaccess (w9fyi, macOS, pushed 2026-08-06) reads the probed gate aloud, hides the canvas from the screen reader, and sonifies radar values along a bearing as a tone; the UXPA sonified-map prototypes were evaluated with blind users. A tone along the cursor's bearing is a natural second step for this item.

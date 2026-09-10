@@ -110,8 +110,13 @@ const BUDGETS = [
     // panel's worth of module, because opening Layers fetched Settings too.
     // A module each is the split, and each one is now budgeted on its own
     // measurement.
-    raw: 56,
-    gzip: 14,
+    //
+    // 2026-09-10: importing a PMTiles basemap took the incident pack manager
+    // over 56 by a kilobyte. Raised to 58 rather than trimmed, and raised by
+    // the size of the feature rather than to whatever the build happened to
+    // measure, so the room left over is still about a tenth.
+    raw: 58,
+    gzip: 15,
     firstLoad: false,
   },
   {
