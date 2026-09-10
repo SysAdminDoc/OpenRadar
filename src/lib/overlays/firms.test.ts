@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import {
+  FIRMS_AREAS,
   FIRMS_MIN_ZOOM,
   FIRMS_REFRESH_MS,
   FIRMS_SATELLITES,
   acquiredAt,
   firmsOverlay,
   parseFirms,
+  readable,
 } from "./firms";
 
 const LIVE = process.env.OPENRADAR_LIVE === "1";
@@ -36,6 +38,20 @@ describe("what a satellite saw burning", () => {
     );
     expect(drawn[2].properties.day).toBe(true);
     expect(drawn[2].properties.confidence).toBe("high");
+  });
+
+  it("tells an empty file apart from one it cannot read", () => {
+    // Both parse to nothing, and they mean opposite things: an empty file is
+    // a quiet day, and a moved header is a layer that cannot see.
+    const header = CSV.split("\n")[0];
+    expect(readable(`${header}\n`)).toBe(true);
+    expect(parseFirms(`${header}\n`, "NOAA-20")).toEqual([]);
+    expect(
+      readable(CSV.replace("latitude,longitude", "longitude,latitude")),
+    ).toBe(false);
+    // Windows line endings on the header do not make it unreadable.
+    expect(readable(`${header}\r\n`)).toBe(true);
+    expect(readable("")).toBe(false);
   });
 
   it("refuses a file whose columns have moved", () => {
@@ -83,10 +99,9 @@ describe("what a satellite saw burning", () => {
 
   it("says which spacecraft went missing rather than drawing half as all", async () => {
     const held = globalThis.fetch;
-    let at = 0;
-    globalThis.fetch = (async () => {
-      const failing = at === 1;
-      at += 1;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      // Both of NOAA-20's areas refuse, which is one spacecraft down.
+      const failing = String(input).includes("J1_VIIRS");
       return {
         ok: !failing,
         status: failing ? 503 : 200,
@@ -99,24 +114,87 @@ describe("what a satellite saw burning", () => {
         undefined,
         DEFAULT_OVERLAY_CHOICES,
       );
-      // Losing one spacecraft halves the looks. Drawn without a word it reads
-      // as half the fires having gone out.
-      expect(data.partial).toContain(FIRMS_SATELLITES[1].id);
-      expect(data.features).toHaveLength(3);
+      // Losing one spacecraft takes a third of the looks. Drawn without a
+      // word it reads as a third of the fires having gone out.
+      expect(data.partial).toContain("NOAA-20");
+      // Named once, not once per area of that spacecraft.
+      expect(data.partial?.match(/NOAA-20/g)).toHaveLength(1);
+      // The two that answered, over two areas each.
+      expect(data.features).toHaveLength(12);
     } finally {
       globalThis.fetch = held;
+    }
+  });
+
+  it("does not read a file it cannot parse as a day with no fires", async () => {
+    // A 200 with a moved header parses to nothing, and drawn as an empty
+    // answer it says there are no fires in the country. That is a different
+    // claim from Alaska being quiet in September, which is the ordinary
+    // empty file this layer sees every day.
+    const held = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const moved = String(input).includes("J2_VIIRS");
+      return {
+        ok: true,
+        status: 200,
+        text: async () =>
+          moved ? CSV.replace("latitude,longitude", "longitude,latitude") : CSV,
+      } as unknown as Response;
+    }) as typeof fetch;
+    try {
+      const data = await firmsOverlay.fetchData(
+        { west: -180, south: -90, east: 180, north: 90 },
+        undefined,
+        DEFAULT_OVERLAY_CHOICES,
+      );
+      expect(data.partial).toContain("NOAA-21");
+      expect(data.features).toHaveLength(12);
+    } finally {
+      globalThis.fetch = held;
+    }
+  });
+
+  it("asks every spacecraft, for every area the office cuts", async () => {
+    // Two things the first version of this layer got wrong, and neither
+    // could be seen on the map. NOAA-21 was left out while it was
+    // publishing more detections than either of the two that were in it;
+    // and Alaska is its own file, so the state with the largest burned
+    // acreage in the country could never draw a detection at all.
+    const asked: string[] = [];
+    const held = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      asked.push(String(input));
+      return { ok: true, status: 200, text: async () => CSV } as Response;
+    }) as unknown as typeof fetch;
+    try {
+      await firmsOverlay.fetchData(
+        { west: -180, south: -90, east: 180, north: 90 },
+        undefined,
+        DEFAULT_OVERLAY_CHOICES,
+      );
+    } finally {
+      globalThis.fetch = held;
+    }
+    expect(FIRMS_SATELLITES).toHaveLength(3);
+    expect(FIRMS_AREAS).toEqual(["USA_contiguous_and_Hawaii", "Alaska"]);
+    expect(asked).toHaveLength(6);
+    for (const prefix of ["SUOMI_VIIRS_C2", "J1_VIIRS_C2", "J2_VIIRS_C2"]) {
+      for (const area of FIRMS_AREAS) {
+        expect(
+          asked.some((url) => url.includes(`${prefix}_${area}_24h.csv`)),
+          `${prefix} over ${area}`,
+        ).toBe(true);
+      }
     }
   });
 
   it("asks once an hour for the whole country, per spacecraft", () => {
     expect(firmsOverlay.global).toBe(true);
     expect(firmsOverlay.refreshMs).toBe(FIRMS_REFRESH_MS);
-    // The item's own ceiling is at most hourly.
+    // The item's own ceiling is at most hourly, and six files once an hour
+    // is well inside it.
     expect(FIRMS_REFRESH_MS).toBe(60 * 60_000);
     expect(firmsOverlay.minZoom).toBe(FIRMS_MIN_ZOOM);
-    // Both platforms, because they are the same instrument crossing at
-    // different times of day and one of them alone halves the looks.
-    expect(FIRMS_SATELLITES).toHaveLength(2);
   });
 });
 
@@ -158,11 +236,13 @@ describe.runIf(LIVE)("against the live service", () => {
         `${confidence} is not a confidence`,
       ).toBe(true);
     }
-    // Both spacecraft answered, which is what `partial` being absent means
-    // and what says neither file has been renamed.
+    // Every spacecraft answered, which is what `partial` being absent means
+    // and what says none of the six files has been renamed. Alaska is
+    // usually empty, so this counts platforms rather than files: a platform
+    // reaching the map at all means its contiguous file parsed.
     const platforms = new Set(
       data.features.map((one) => String(one.properties.satellite)),
     );
-    expect(platforms.size).toBe(2);
+    expect(platforms.size).toBe(FIRMS_SATELLITES.length);
   }, 120_000);
 });

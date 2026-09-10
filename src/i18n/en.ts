@@ -1328,7 +1328,7 @@ export const en = {
   "airnow.indexAlone": "AQI {aqi}",
   "airnow.parameter": "Worst pollutant: {parameter}",
   "airnow.actionDay": "Air quality action day",
-  "airnow.measured": "Measured at {hour} {zone}",
+  "airnow.measuredOn": "Measured {day} at {clock}",
   "airnow.measuredAlone": "Measured at {hour}",
   "layer.firms": "Fire Detections",
   "layers.firmsDetail":

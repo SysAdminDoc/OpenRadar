@@ -159,10 +159,32 @@ describe("finding a command without holding a dead key", () => {
           // useful, since a two-word query needs both halves to land. What
           // has no reason to exist any more is one that differs from a label
           // word only by its accents.
+          //
+          // Or only by its accents and a plural ending, which is the hole two
+          // real keyword lines were sitting in: the French label is
+          // "Pluviomètres bénévoles" and the keyword was "pluviometre", so
+          // the exact comparison could never fire. The matcher folds accents
+          // and matches a prefix, so the singular of an accented plural is
+          // the same shadow copy by another spelling.
+          const shadow = (word: string) => {
+            const bare = strip(word);
+            return bare.endsWith("es")
+              ? [bare, bare.slice(0, -2), bare.slice(0, -1)]
+              : bare.endsWith("s")
+                ? [bare, bare.slice(0, -1)]
+                : [bare];
+          };
           const faking =
             !english.get(command.id)?.includes(keyword) &&
+            // The keyword itself carries no accent, which is what makes it a
+            // stripped copy rather than an ordinary singular somebody added.
+            plain === strip(plain) &&
             words.some(
-              (word) => word !== plain && strip(word) === strip(plain),
+              (word) =>
+                word !== plain &&
+                // And the label word does, or there was no folding to fake.
+                word !== strip(word) &&
+                shadow(word).includes(strip(plain)),
             );
           if (faking) offenders.push(`${which} ${command.id}: ${keyword}`);
         }

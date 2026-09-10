@@ -129,7 +129,7 @@ fn the_analyses_tried_are_the_two_a_day_walking_back() {
 #[test]
 fn nothing_is_drawn_where_nothing_fell() {
     let read = read(ANALYSIS).expect("a published analysis");
-    let picture = paint(&read, false);
+    let picture = paint(&read, false).expect("a picture");
     assert_eq!(picture.pixels.len(), picture.width * picture.height * 4);
     assert_eq!(picture.width, read.width);
     // Row by row of the picture, against the row of the grid that row was
@@ -195,16 +195,35 @@ fn a_row_is_drawn_at_the_latitude_it_was_measured_at() {
     // The grid row holding 40 degrees north, which is (55 - 40) / 0.04.
     let planted = 375;
     let analysis = one_row(planted);
-    let picture = paint(&analysis, false);
+    let picture = paint(&analysis, false).expect("a picture");
 
-    // Taller than the grid, because Mercator stretches towards the pole and
-    // the picture keeps a row per row of grid at its tallest.
-    assert!(
-        picture.height > analysis.height,
-        "{} rows for {}",
-        picture.height,
-        analysis.height
-    );
+    // The number of rows, written down rather than read off the picture.
+    //
+    // Between 21 and 55 north the Mercator span is ln(tan(72.5 deg)) minus
+    // ln(tan(55.5 deg)), which is 0.779236, and 34 degrees is 0.593412
+    // radians. 0.779236 / 0.593412 * 850 rows is 1116. Without this the
+    // height formula is held by nothing: the helpers below read `height` off
+    // the answer, so any monotone pair of functions would move both sides
+    // together and stay green.
+    assert_eq!(picture.height, 1116);
+    assert!(picture.height > analysis.height);
+
+    // And a handful of latitudes worked out by hand, against the row each
+    // one lands in. Latitude 45 has a Mercator y of 0.881374, so it sits
+    // (1.154332 - 0.881374) / 0.779236 = 0.350171 of the way down, which is
+    // row 390 of 1116. Spaced in degrees it would be row 328. The three
+    // together are spread over the picture, because the error a wrong
+    // projection makes is smallest in the middle and largest at the edges.
+    for (lat, row, flat) in [(45.0, 390usize, 328), (30.0, 866, 820), (52.0, 126, 98)] {
+        let found = (0..picture.height)
+            .find(|row| source_latitude(&analysis, &picture, *row) <= lat)
+            .expect("a row at that latitude");
+        assert!(
+            found.abs_diff(row) <= 1,
+            "{lat} north is row {found}, not {row}"
+        );
+        assert_ne!(found, flat, "{lat} north landed where degrees would put it");
+    }
 
     let mut drawn: Vec<usize> = Vec::new();
     for row in 0..picture.height {

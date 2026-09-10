@@ -308,10 +308,21 @@ export function parseHail(body: string): OverlayFeature[] {
   return features;
 }
 
-/** One state's answer, and when it was asked for. */
+/**
+ * How long a state that would not answer is left alone.
+ *
+ * Shorter than the hour a good answer is kept for, because a service that is
+ * down for a minute should come back quickly. Longer than nothing, which is
+ * what this was: a failure left the state unheld, so every pan past the box
+ * the last answer was asked for issued the pair of requests again, with no
+ * ceiling, for as long as the service stayed down.
+ */
+export const COCORAHS_RETRY_MS = 5 * 60_000;
+
+/** One state's answer, and when it was asked for, or the failure instead. */
 interface Held {
   at: number;
-  features: OverlayFeature[];
+  features: OverlayFeature[] | null;
 }
 
 /**
@@ -429,7 +440,10 @@ export const cocorahsOverlay: OverlayAdapter = {
     const window = reportWindow(now);
     const missing = wanted.filter((state) => {
       const standing = held.get(state);
-      return !standing || now - standing.at >= COCORAHS_REFRESH_MS;
+      if (!standing) return true;
+      const keep =
+        standing.features === null ? COCORAHS_RETRY_MS : COCORAHS_REFRESH_MS;
+      return now - standing.at >= keep;
     });
     const failed: string[] = [];
     await Promise.all(
@@ -441,13 +455,20 @@ export const cocorahsOverlay: OverlayAdapter = {
           });
         } catch (failure) {
           if (signal?.aborted) throw failure;
-          // The state is left unheld, so the next pass asks again rather
-          // than waiting an hour on an answer nobody got.
+          // Held as a failure rather than left unheld. The framework re-runs
+          // this whenever the reader pans past the last box, so an unheld
+          // state was asked for again every few seconds for as long as the
+          // service was down.
+          held.set(state, { at: Date.now(), features: null });
           failed.push(state);
         }
       }),
     );
-    if (failed.length === wanted.length) {
+    // Whether anything on screen has an answer, rather than whether this
+    // pass failed. Held failures make the two different: a second pass over
+    // the same dead state issues no request and would otherwise read as a
+    // success with nothing in it.
+    if (!wanted.some((state) => held.get(state)?.features)) {
       throw new Error(
         translate("cocorahs.failed", { answer: serviceAnswer(0) }),
       );
@@ -455,14 +476,17 @@ export const cocorahsOverlay: OverlayAdapter = {
     const features = newestPerStation(
       wanted.flatMap((state) => held.get(state)?.features ?? []),
     ).filter((feature) => within(feature, bounds));
+    // Every state on screen that has no answer, whether it failed on this
+    // pass or on an earlier one within the retry window.
+    const silent = wanted.filter((state) => held.get(state)?.features === null);
     return {
       type: "FeatureCollection",
       features,
       // Which states went missing, so a screen showing Kansas and not
       // Nebraska is not read as a dry night in Nebraska.
       partial:
-        failed.length > 0
-          ? translate("cocorahs.partial", { states: failed.join(", ") })
+        silent.length > 0
+          ? translate("cocorahs.partial", { states: silent.join(", ") })
           : undefined,
     };
   },

@@ -29,23 +29,44 @@ import { formatClock } from "../units";
  */
 
 const HOST = "firms.modaps.eosdis.nasa.gov";
-const AREA = "USA_contiguous_and_Hawaii";
 
 /**
- * The two spacecraft carrying the instrument, and the file each one's
- * detections land in.
+ * The three spacecraft carrying the instrument, and how each one's files are
+ * named.
  *
- * Both, because they are the same instrument on two platforms crossing at
- * different times of day: taking one halves the number of looks and can miss
- * a fire that started between them. Each detection carries the satellite that
- * saw it.
+ * All three, because they are the same instrument on three platforms crossing
+ * at different times of day: each one left out is a third of the looks gone
+ * and a fire that started between the others missed. NOAA-21 was left out of
+ * the first version of this and was publishing more detections than either of
+ * the two that were in it. Each detection carries the satellite that saw it.
  */
-export const FIRMS_SATELLITES: ReadonlyArray<{ id: string; file: string }> = [
+export const FIRMS_SATELLITES: ReadonlyArray<{
+  id: string;
+  folder: string;
+  prefix: string;
+}> = [
   {
     id: "Suomi NPP",
-    file: `suomi-npp-viirs-c2/csv/SUOMI_VIIRS_C2_${AREA}_24h`,
+    folder: "suomi-npp-viirs-c2",
+    prefix: "SUOMI_VIIRS_C2",
   },
-  { id: "NOAA-20", file: `noaa-20-viirs-c2/csv/J1_VIIRS_C2_${AREA}_24h` },
+  { id: "NOAA-20", folder: "noaa-20-viirs-c2", prefix: "J1_VIIRS_C2" },
+  { id: "NOAA-21", folder: "noaa-21-viirs-c2", prefix: "J2_VIIRS_C2" },
+];
+
+/**
+ * The areas the office publishes the country in.
+ *
+ * Two files rather than one, because that is how NASA cuts it: the lower
+ * forty-eight and Hawaii in one, Alaska in another. Asking only for the first
+ * meant no fire in Alaska could ever be drawn, in the state with the largest
+ * burned acreage in the country, with nothing on the map saying why. In
+ * September the Alaska file is usually empty, which is exactly why nothing
+ * noticed.
+ */
+export const FIRMS_AREAS: ReadonlyArray<string> = [
+  "USA_contiguous_and_Hawaii",
+  "Alaska",
 ];
 
 export const FIRMS_ATTRIBUTION =
@@ -105,6 +126,18 @@ export function acquiredAt(date: string, time: string): number | null {
 }
 
 /**
+ * Whether a file is one this can read at all.
+ *
+ * The header is what says the positions still mean what they meant, and it
+ * is separate from whether there were any detections: an empty file with the
+ * right header is an ordinary quiet day, and a full file with a moved header
+ * parses to nothing at all.
+ */
+export function readable(text: string): boolean {
+  return text.split(/\r?\n/)[0]?.trim() === HEADER;
+}
+
+/**
  * One file's detections.
  *
  * The header is read rather than assumed, because the columns are what this
@@ -145,8 +178,9 @@ export function parseFirms(text: string, satellite: string): OverlayFeature[] {
   return features;
 }
 
-function url(file: string): string {
-  return `https://${HOST}/data/active_fire/${file}.csv`;
+function url(satellite: { folder: string; prefix: string }, area: string) {
+  const file = `${satellite.prefix}_${area}_24h`;
+  return `https://${HOST}/data/active_fire/${satellite.folder}/csv/${file}.csv`;
 }
 
 export const firmsOverlay: OverlayAdapter = {
@@ -162,18 +196,30 @@ export const firmsOverlay: OverlayAdapter = {
   global: true,
   minZoom: FIRMS_MIN_ZOOM,
   fetchData: async (_bounds, signal) => {
+    const wanted = FIRMS_SATELLITES.flatMap((satellite) =>
+      FIRMS_AREAS.map((area) => ({ satellite, area })),
+    );
     const answers = await Promise.all(
-      FIRMS_SATELLITES.map(async (satellite) => {
-        const response = await fetch(cachedUrl(url(satellite.file)), {
+      wanted.map(async ({ satellite, area }) => {
+        const response = await fetch(cachedUrl(url(satellite, area)), {
           signal,
           headers: { Accept: "text/csv" },
         });
         if (!response.ok) {
-          return { satellite, features: null, status: response.status };
+          return { satellite, area, features: null, status: response.status };
         }
+        const body = await response.text();
+        const features = parseFirms(body, satellite.id);
+        // A file that answered and parsed to nothing is two different
+        // things, and they are worth telling apart. An empty file is an
+        // ordinary day in Alaska. A file whose header has moved parses to
+        // nothing too, and read as an empty day it would say there are no
+        // fires in the country rather than that this cannot be read.
+        const understood = readable(body);
         return {
           satellite,
-          features: parseFirms(await response.text(), satellite.id),
+          area,
+          features: understood ? features : null,
           status: response.status,
         };
       }),
@@ -186,16 +232,17 @@ export const firmsOverlay: OverlayAdapter = {
         }),
       );
     }
+    // Named once each, however many of a spacecraft's areas went missing:
+    // "NOAA-21" rather than "NOAA-21, NOAA-21".
+    const quiet = [...new Set(missing.map((one) => one.satellite.id))];
     return {
       type: "FeatureCollection",
       features: answers.flatMap((one) => one.features ?? []),
-      // One spacecraft going quiet halves the looks and must not read as half
-      // the fires having gone out.
+      // One spacecraft going quiet takes a third of the looks and must not
+      // read as a third of the fires having gone out.
       partial:
-        missing.length > 0
-          ? translate("firms.partial", {
-              satellites: missing.map((one) => one.satellite.id).join(", "),
-            })
+        quiet.length > 0
+          ? translate("firms.partial", { satellites: quiet.join(", ") })
           : undefined,
     } satisfies OverlayData;
   },

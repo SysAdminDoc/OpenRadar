@@ -35,12 +35,15 @@ export const OVERLAY_DEPTH: Record<OverlayId, number> = {
   // garden is the densest thing on this map and the only figure on it that is
   // neither an instrument's estimate nor a model's, so nothing else measured
   // should be able to hide one.
-  cocorahs: 12,
-  // Beside the other measurements. A monitor reading and a hot pixel are
-  // both instruments saying what is there, and both are the thing a reader
-  // turned the layer on to find.
-  airnow: 13,
-  firms: 14,
+  // A monitor reading and a hot pixel are instruments saying what is there,
+  // so they sit with the other measurements.
+  airnow: 12,
+  firms: 13,
+  // And over them, because the line above about nothing measured hiding a
+  // gauge has to be true of the layers added after it as well as the ones
+  // before. A rain total somebody read in their own garden is the finest
+  // thing on this map.
+  cocorahs: 14,
   // Above the point layers and under the warnings, because a hazard area
   // is an area and the warnings are the thing anybody looks at first.
   aviation: 15,

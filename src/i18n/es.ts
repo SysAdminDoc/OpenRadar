@@ -1210,7 +1210,7 @@ export const es: Catalogue = {
   "keywords.wpcWinterSeverity": "severidad invernal wssi nieve impacto",
   "keywords.spcDiscussions": "discusion mesoescala aviso corto",
   "keywords.weatherAlerts": "aviso vigilancia tornado severo poligono",
-  "keywords.stormCells": "celula tormenta trayectoria movimiento llegada",
+  "keywords.stormCells": "tormenta trayectoria movimiento llegada radar",
   "keywords.classification": "hidrometeoro granizo nieve lluvia",
   "keywords.probSevere": "probabilidad severo granizo viento tornado",
   "keywords.earthquakes": "sismo temblor terremoto magnitud",
@@ -1222,8 +1222,7 @@ export const es: Catalogue = {
   "keywords.riverGauges":
     "rio inundacion aforo nivel creciente agua hidrologia",
   "keywords.buoys": "boya ola oleaje marino mar costa afuera ndbc fondeo",
-  "keywords.cocorahs":
-    "lluvia pluviometro granizo voluntario cocorahs observador",
+  "keywords.cocorahs": "lluvia granizo jardin cocorahs observador registro",
   "keywords.tropical": "huracan ciclon cono tormenta tifon",
   "keywords.satellite": "nubes imagen visible infrarrojo",
   "keywords.rotationTracks": "mesociclon cizalladura tornado giro",
@@ -1353,7 +1352,7 @@ export const es: Catalogue = {
   "airnow.indexAlone": "ICA {aqi}",
   "airnow.parameter": "Contaminante peor: {parameter}",
   "airnow.actionDay": "Día de acción por la calidad del aire",
-  "airnow.measured": "Medido a las {hour} {zone}",
+  "airnow.measuredOn": "Medido el {day} a las {clock}",
   "airnow.measuredAlone": "Medido a las {hour}",
   "layer.firms": "Focos de calor",
   "layers.firmsDetail":
