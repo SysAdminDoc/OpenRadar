@@ -21,6 +21,7 @@ use pmtiles::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
+use std::borrow::Cow;
 use tokio::sync::Mutex as AsyncMutex;
 
 use crate::http;
@@ -413,6 +414,268 @@ impl AsyncBackend for PackFileBackend {
         // checked against the recorded size and hash before it is opened.
         Ok(BackendResponse::new(Bytes::from(body)))
     }
+}
+
+/// The same archive, held in memory, for a fuzz target.
+///
+/// Behind the same feature the `fuzzing` facade is, so the shipped library
+/// carries neither this nor the reader below it.
+///
+/// The shipped backend reads a file, and writing every case to disk would make
+/// the fuzzer a disk benchmark. Nothing in the app uses this: it exists so the
+/// header parse and the directory walk can be driven from a byte slice.
+#[cfg(feature = "fuzzing")]
+#[derive(Clone)]
+pub struct SliceBackend {
+    bytes: std::sync::Arc<Vec<u8>>,
+}
+
+#[cfg(feature = "fuzzing")]
+impl AsyncBackend for SliceBackend {
+    async fn read(&self, offset: usize, length: usize) -> pmtiles::PmtResult<BackendResponse> {
+        // Short reads answer short rather than panicking on a slice out of
+        // range, which is what a file backend does at the end of a file.
+        let from = offset.min(self.bytes.len());
+        let to = from.saturating_add(length).min(self.bytes.len());
+        Ok(BackendResponse::new(Bytes::copy_from_slice(
+            &self.bytes[from..to],
+        )))
+    }
+}
+
+/// Opens an archive out of a byte slice and asks it for a tile.
+///
+/// What a reader importing a basemap actually puts the parser through: a
+/// header, a root directory, possibly a leaf directory, and one tile lookup.
+/// `inspect_archive` refuses what it can see is wrong, and it cannot refuse
+/// what the parser does before it returns.
+/// The runtime the target blocks on, built once for the whole run.
+///
+/// Here rather than in the fuzz crate so that crate needs no dependency of
+/// its own for it: the app already has tokio, and a target that had to add it
+/// would have to reach the registry to build.
+#[cfg(feature = "fuzzing")]
+static FUZZ_RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
+
+/// Opens an archive out of a byte slice and asks it for a tile, blocking.
+///
+/// A fuzz case is one parse. A runtime per case would make the target a
+/// runtime benchmark, so one current-thread runtime serves the whole run.
+#[cfg(feature = "fuzzing")]
+pub fn read_pmtiles(bytes: Vec<u8>) {
+    let runtime = FUZZ_RUNTIME.get_or_init(|| {
+        tokio::runtime::Builder::new_current_thread()
+            .build()
+            .expect("a current-thread runtime")
+    });
+    runtime.block_on(read_archive(bytes));
+}
+
+#[cfg(feature = "fuzzing")]
+async fn read_archive(bytes: Vec<u8>) {
+    // The same door the app's own readers go through, so the target is
+    // fuzzing what a reader importing a basemap actually reaches.
+    if !pmtiles_header_is_sane(&bytes, bytes.len() as u64) {
+        return;
+    }
+    let root_offset = u64::from_le_bytes(bytes[8..16].try_into().unwrap_or_default()) as usize;
+    let root_length = u64::from_le_bytes(bytes[16..24].try_into().unwrap_or_default()) as usize;
+    let Some(root) = bytes.get(root_offset..root_offset.saturating_add(root_length)) else {
+        return;
+    };
+    if !pmtiles_root_is_sane(bytes[PMTILES_COMPRESSION_AT], root) {
+        return;
+    }
+    let backend = SliceBackend {
+        bytes: std::sync::Arc::new(bytes),
+    };
+    let Ok(reader) = AsyncPmTilesReader::try_from_source(backend).await else {
+        return;
+    };
+    let header = reader.get_header();
+    let zoom = header.min_zoom;
+    // The tile the header itself points at, so the directory walk is driven
+    // by the file's own numbers rather than by a constant.
+    if let Ok(coord) = TileCoord::new(zoom, 0, 0) {
+        let _ = reader.get_tile(coord).await;
+    }
+    let centre = tile_x(header.center_longitude, zoom);
+    let down = tile_y(header.center_latitude, zoom);
+    if let Ok(coord) = TileCoord::new(zoom, centre, down) {
+        let _ = reader.get_tile(coord).await;
+    }
+    // And the metadata block, which is an offset and a length the file wrote.
+    let _ = reader.get_metadata().await;
+}
+
+/// How much of an archive the PMTiles reader takes in its first read.
+///
+/// `MAX_INITIAL_BYTES` in the crate, which is not public. The root directory
+/// has to live inside this much of the file or the reader cannot reach it.
+const PMTILES_INITIAL_BYTES: u64 = 16_384;
+
+/// The fixed size of a PMTiles v3 header.
+const PMTILES_HEADER_BYTES: u64 = 127;
+
+/// Where the header says how the directories are compressed.
+///
+/// Seven bytes of magic, one of version, eight `u64` offsets and lengths,
+/// three `u64` counts and the clustered flag: 8 + 64 + 24 + 1. Counted wrong
+/// the first time and caught by the test below, which reads the byte out of
+/// an archive this app wrote rather than out of an argument like this one.
+const PMTILES_COMPRESSION_AT: usize = 97;
+
+/// Whether an archive's header points its root directory somewhere real.
+///
+/// The reader takes the first sixteen kilobytes, splits the header off the
+/// front, and then cuts the root directory out of what is left using two
+/// numbers the file itself supplies. Neither is checked: a root offset under
+/// a hundred and twenty-seven underflows the subtraction, and a root length
+/// past the end of what was read panics the split. A fuzz run over the import
+/// found it in a hundred and one executions, and every reader in this module
+/// goes through the same door, so an archive with a lying header could take
+/// the process down from the tile server as well as from the import.
+///
+/// Checked here rather than reported upstream and waited on, because the file
+/// is the reader's and the crash is ours.
+fn pmtiles_header_is_sane(head: &[u8], file_bytes: u64) -> bool {
+    if head.len() < PMTILES_HEADER_BYTES as usize {
+        return false;
+    }
+    // The magic and the version, then the root directory's offset and length,
+    // little endian, at bytes 8 and 16. The reader checks the magic itself
+    // and this does too, so a file that is not one at all stops here.
+    if &head[..7] != b"PMTiles" {
+        return false;
+    }
+    let read = |at: usize| -> u64 {
+        let mut eight = [0u8; 8];
+        eight.copy_from_slice(&head[at..at + 8]);
+        u64::from_le_bytes(eight)
+    };
+    let root_offset = read(8);
+    let root_length = read(16);
+    if root_offset < PMTILES_HEADER_BYTES {
+        return false;
+    }
+    let Some(root_end) = root_offset.checked_add(root_length) else {
+        return false;
+    };
+    root_end <= PMTILES_INITIAL_BYTES.min(file_bytes)
+}
+
+/// The most entries a root directory may say it holds.
+///
+/// The root has to fit in the sixteen kilobytes the reader takes, and the
+/// entry count is the first varint in it. The parser allocates a vector of
+/// that many entries before it reads one, so a file that claims four thousand
+/// million of them asks for a hundred gigabytes and the allocation failure
+/// takes the process with it. A hundred thousand is far more than a real root
+/// directory of that size can honestly describe.
+const PMTILES_MAX_ROOT_ENTRIES: u64 = 100_000;
+
+/// How far a decompressed root directory may run.
+const PMTILES_MAX_ROOT_BYTES: usize = 4 * 1024 * 1024;
+
+/// One varint out of a stream, the way the directory parser reads them.
+///
+/// `None` for a malformed one or for the end of the buffer. Ten bytes is as
+/// long as a `u64` varint can be, and the parser this stands in front of
+/// shifts without checking: an eleventh continuation byte overflows it.
+fn read_varint(bytes: &[u8], from: &mut usize) -> Option<u64> {
+    let mut value: u64 = 0;
+    for at in 0..10 {
+        let byte = *bytes.get(*from)?;
+        *from += 1;
+        value |= u64::from(byte & 0x7f).checked_shl(at * 7)?;
+        if byte & 0x80 == 0 {
+            return Some(value);
+        }
+    }
+    // An eleventh continuation byte, which is what overflows the shift in the
+    // parser this stands in front of.
+    None
+}
+
+/// Whether an archive's root directory says something a parser can survive.
+///
+/// The count comes off the front of the directory, and the directory is
+/// compressed with whatever the header says. Only gzip and no compression are
+/// read here; anything else is left to the reader, which refuses a
+/// compression it was not built with rather than parsing it.
+fn pmtiles_root_is_sane(internal_compression: u8, directory: &[u8]) -> bool {
+    // 1 is no compression and 2 is gzip, which are the two the reader is
+    // built for. The rest it refuses on its own.
+    let plain = match internal_compression {
+        1 => Cow::Borrowed(directory),
+        2 => {
+            let mut out = Vec::new();
+            let mut decoder =
+                flate2::read::GzDecoder::new(directory).take(PMTILES_MAX_ROOT_BYTES as u64);
+            if decoder.read_to_end(&mut out).is_err() {
+                // A root directory that will not decompress is one the reader
+                // will refuse too, so this says nothing about it.
+                return true;
+            }
+            Cow::Owned(out)
+        }
+        _ => return true,
+    };
+    // Every varint in the directory, not only the count at the front.
+    //
+    // The stream is the count, then that many tile-id deltas, then that many
+    // run lengths, lengths and offsets. The parser reads all of them and
+    // shifts without checking on any: a malformed one anywhere in the stream
+    // is a panic, and the count alone being sane does not make the rest so.
+    // Bounded by the count, which is bounded above, and by the buffer, which
+    // is at most the sixteen kilobytes the reader took.
+    let mut at = 0usize;
+    let Some(entries) = read_varint(&plain, &mut at) else {
+        return false;
+    };
+    if entries > PMTILES_MAX_ROOT_ENTRIES {
+        return false;
+    }
+    let Ok(entries) = usize::try_from(entries) else {
+        return false;
+    };
+    for _ in 0..entries * 4 {
+        if read_varint(&plain, &mut at).is_none() {
+            return false;
+        }
+    }
+    true
+}
+
+/// Opens an archive after checking the one thing the reader does not.
+async fn open_archive(
+    path: &Path,
+) -> Result<AsyncPmTilesReader<PackFileBackend>, IncidentPackError> {
+    let file_bytes = fs::metadata(path)?.len();
+    let mut head = vec![0u8; PMTILES_HEADER_BYTES as usize];
+    let mut file = File::open(path)?;
+    file.read_exact(&mut head)
+        .map_err(|_| IncidentPackError::ImportUnreadable)?;
+    if !pmtiles_header_is_sane(&head, file_bytes) {
+        return Err(IncidentPackError::ImportUnreadable);
+    }
+    // And the root directory's own first number, which decides an allocation
+    // before a single entry is read.
+    let root_offset = u64::from_le_bytes(head[8..16].try_into().unwrap_or_default());
+    let root_length = u64::from_le_bytes(head[16..24].try_into().unwrap_or_default());
+    let mut root = vec![0u8; root_length as usize];
+    file.seek(SeekFrom::Start(root_offset))?;
+    file.read_exact(&mut root)
+        .map_err(|_| IncidentPackError::ImportUnreadable)?;
+    // Byte 122 of the header, after the eight offsets and lengths, the three
+    // counts, and the clustered flag.
+    if !pmtiles_root_is_sane(head[PMTILES_COMPRESSION_AT], &root) {
+        return Err(IncidentPackError::ImportUnreadable);
+    }
+    Ok(AsyncPmTilesReader::try_from_source(PackFileBackend {
+        path: path.to_path_buf(),
+    })
+    .await?)
 }
 
 impl TaskControl {
@@ -1102,10 +1365,7 @@ async fn verify_archive(
     if let Some(control) = control {
         control_mode(control)?;
     }
-    let backend = PackFileBackend {
-        path: path.to_path_buf(),
-    };
-    let reader = AsyncPmTilesReader::try_from_source(backend).await?;
+    let reader = open_archive(path).await?;
     if reader.get_header().tile_type != TileType::Png {
         return Err(IncidentPackError::ArchiveVerification);
     }
@@ -1604,11 +1864,9 @@ fn archive_metadata(said: &str) -> (Option<String>, Option<String>) {
 /// vector archive is perfectly valid and this app has no style for one, so
 /// what it would draw is nothing at all.
 async fn inspect_archive(path: &Path) -> Result<ImportedArchive, IncidentPackError> {
-    let reader = AsyncPmTilesReader::try_from_source(PackFileBackend {
-        path: path.to_path_buf(),
-    })
-    .await
-    .map_err(|_| IncidentPackError::ImportUnreadable)?;
+    let reader = open_archive(path)
+        .await
+        .map_err(|_| IncidentPackError::ImportUnreadable)?;
     let header = reader.get_header();
 
     match header.tile_type {
@@ -2057,8 +2315,7 @@ pub async fn serve_tile(uri: &str) -> ServedTile {
             mark_archive_failed(&pack_dir, &mut manifest, &error);
             return Err(error);
         }
-        let backend = PackFileBackend { path: archive };
-        let reader = AsyncPmTilesReader::try_from_source(backend).await?;
+        let reader = open_archive(&archive).await?;
         reader
             .get_tile(tile.coord()?)
             .await?
@@ -2130,6 +2387,35 @@ mod tests {
         east: -93.0,
         north: 42.0,
     };
+
+    /// Writes a real archive into the fuzz corpus, on request.
+    ///
+    /// A PMTiles header is a hundred and twenty-seven bytes beginning with a
+    /// magic string, so a fuzzer starting from nothing spends its budget
+    /// guessing that rather than walking a directory tree. Ignored, because a
+    /// test that writes into the repository on every run is not a test.
+    ///
+    /// `cargo test --lib -- --ignored writes_a_pmtiles_seed`
+    #[test]
+    #[ignore = "writes a seed into the fuzz corpus"]
+    fn writes_a_pmtiles_seed() {
+        let root = temporary("fuzz-seed");
+        let path = foreign_archive(
+            &root,
+            TileType::Png,
+            AMES,
+            6,
+            true,
+            r#"{"name":"Seed","attribution":"OpenRadar"}"#,
+        );
+        let seeds = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("fuzz")
+            .join("seeds")
+            .join("pmtiles_archive");
+        fs::create_dir_all(&seeds).unwrap();
+        fs::copy(&path, seeds.join("one-png-tile.pmtiles")).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[tokio::test]
     async fn an_archive_somebody_else_made_imports_and_serves_a_tile() {
@@ -2205,6 +2491,108 @@ mod tests {
         assert_eq!(summary.name, "My own basemap");
         assert_eq!(summary.attribution, "A regional archive, licensed");
         fs::remove_dir_all(root).unwrap();
+    }
+
+    /// The second thing a fuzz run found: a count that decides an allocation.
+    #[test]
+    fn a_root_directory_that_claims_the_world_is_refused() {
+        // Uncompressed, so the first byte is the entry count's varint and
+        // the rest are its four fields per entry.
+        let one_entry = [1u8, 0, 1, 9, 0];
+        assert!(pmtiles_root_is_sane(1, &one_entry));
+        // A stream that stops half way through its own entries is one the
+        // parser would read off the end of.
+        assert!(!pmtiles_root_is_sane(1, &[2u8, 0, 1]));
+        // Four thousand million entries, which is the parser asking for a
+        // hundred gigabytes before it reads one of them.
+        let huge = {
+            let mut said = Vec::new();
+            let mut value: u64 = 4_000_000_000;
+            while value >= 0x80 {
+                said.push((value as u8) | 0x80);
+                value >>= 7;
+            }
+            said.push(value as u8);
+            said
+        };
+        assert!(!pmtiles_root_is_sane(1, &huge));
+        // A varint that never ends, which overflows the shift the parser does
+        // without checking. At the front, and further in among the entries,
+        // because the parser shifts on every one of them and checking only
+        // the count left the rest of the stream to it.
+        assert!(!pmtiles_root_is_sane(1, &[0xff; 16]));
+        assert!(!pmtiles_root_is_sane(
+            1,
+            &[1u8, 0, 1, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        ));
+        // An empty directory says nothing and is refused rather than read.
+        assert!(!pmtiles_root_is_sane(1, &[]));
+        // A compression this does not read is left to the reader, which
+        // refuses what it was not built for.
+        assert!(pmtiles_root_is_sane(3, &huge));
+        // And gzip, which is what an archive actually uses.
+        let zipped = {
+            let mut encoder =
+                flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+            std::io::Write::write_all(&mut encoder, &one_entry).unwrap();
+            encoder.finish().unwrap()
+        };
+        assert!(pmtiles_root_is_sane(2, &zipped));
+        let zipped_huge = {
+            let mut encoder =
+                flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+            std::io::Write::write_all(&mut encoder, &huge).unwrap();
+            encoder.finish().unwrap()
+        };
+        assert!(!pmtiles_root_is_sane(2, &zipped_huge));
+    }
+
+    #[test]
+    fn the_compression_byte_is_where_the_header_says_it_is() {
+        // Read out of a real archive rather than counted on fingers: the
+        // writer puts gzip there, and a byte out either way reads a count or
+        // a flag as a compression.
+        let root = temporary("compression-at");
+        let path = foreign_archive(&root, TileType::Png, AMES, 6, true, "{}");
+        let bytes = fs::read(&path).unwrap();
+        assert!(matches!(bytes[PMTILES_COMPRESSION_AT], 1 | 2));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// The crash a fuzz run found in a hundred and one executions.
+    #[test]
+    fn a_header_that_points_nowhere_is_refused_before_the_reader_sees_it() {
+        // A real header, then the two numbers that decide where the root
+        // directory is, moved to where the reader would panic on them.
+        let sane = {
+            let mut head = vec![0u8; 127];
+            head[..7].copy_from_slice(b"PMTiles");
+            head[7] = 3;
+            head[8..16].copy_from_slice(&127u64.to_le_bytes());
+            head[16..24].copy_from_slice(&64u64.to_le_bytes());
+            head
+        };
+        assert!(pmtiles_header_is_sane(&sane, 4096));
+
+        let moved = |offset: u64, length: u64| {
+            let mut head = sane.clone();
+            head[8..16].copy_from_slice(&offset.to_le_bytes());
+            head[16..24].copy_from_slice(&length.to_le_bytes());
+            head
+        };
+        // A root offset inside the header underflows the reader's own
+        // subtraction, which is the crash the fuzzer landed on.
+        assert!(!pmtiles_header_is_sane(&moved(13, 64), 4096));
+        assert!(!pmtiles_header_is_sane(&moved(0, 64), 4096));
+        // A root directory that runs past the sixteen kilobytes the reader
+        // takes, or past the end of the file, panics the split.
+        assert!(!pmtiles_header_is_sane(&moved(127, 20_000), 1_000_000));
+        assert!(!pmtiles_header_is_sane(&moved(127, 4_000), 1_000));
+        // And numbers that overflow when added together.
+        assert!(!pmtiles_header_is_sane(&moved(u64::MAX, 8), 4096));
+        // Not a PMTiles file at all, and a file too short to hold a header.
+        assert!(!pmtiles_header_is_sane(b"not a pmtiles archive", 4096));
+        assert!(!pmtiles_header_is_sane(&sane[..64], 4096));
     }
 
     #[tokio::test]

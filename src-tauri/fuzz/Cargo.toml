@@ -22,6 +22,13 @@ features = ["fuzzing"]
 # The targets are what they are worth being: they parse bytes from a public
 # service and they must not panic or allocate without bound on any of them.
 [[bin]]
+name = "pmtiles_archive"
+path = "fuzz_targets/pmtiles_archive.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "level2_volume"
 path = "fuzz_targets/level2_volume.rs"
 test = false
