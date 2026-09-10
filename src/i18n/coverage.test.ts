@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { en } from "./en";
 import { es } from "./es";
 import { fr } from "./fr";
+import { de } from "./de";
 import { pseudoize } from "./pseudo";
 
 /**
@@ -16,6 +17,7 @@ import { pseudoize } from "./pseudo";
 const TRANSLATIONS: Array<[string, Record<string, string>]> = [
   ["Spanish", es],
   ["French", fr],
+  ["German", de],
 ];
 
 const ROOT = join(import.meta.dirname, "..");

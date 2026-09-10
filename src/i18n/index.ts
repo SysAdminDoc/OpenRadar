@@ -22,10 +22,10 @@ import { en, type Catalogue, type StringKey } from "./en";
 import { pseudo } from "./pseudo";
 import { log } from "../lib/log";
 
-export type LanguageId = "en" | "es" | "fr" | "pseudo";
+export type LanguageId = "en" | "es" | "fr" | "de" | "pseudo";
 
 /** The languages that are fetched rather than shipped in the first load. */
-type FetchedId = "es" | "fr";
+type FetchedId = "es" | "fr" | "de";
 
 export const LANGUAGES: Array<{ id: LanguageId; label: string }> = [
   // Each language is named in itself, which is how someone who cannot read the
@@ -33,6 +33,7 @@ export const LANGUAGES: Array<{ id: LanguageId; label: string }> = [
   { id: "en", label: "English" },
   { id: "es", label: "Español" },
   { id: "fr", label: "Français" },
+  { id: "de", label: "Deutsch" },
   // A generated language that is longer and more accented than any of them,
   // for finding labels that only fit in English.
   { id: "pseudo", label: "Pseudolocale" },
@@ -41,13 +42,14 @@ export const LANGUAGES: Array<{ id: LanguageId; label: string }> = [
 const FETCHERS: Record<FetchedId, () => Promise<Catalogue>> = {
   es: () => import("./es").then((module) => module.es),
   fr: () => import("./fr").then((module) => module.fr),
+  de: () => import("./de").then((module) => module.de),
 };
 
 const fetched: Partial<Record<FetchedId, Catalogue>> = {};
 const arriving: Partial<Record<FetchedId, Promise<void>>> = {};
 
 function isFetched(which: LanguageId): which is FetchedId {
-  return which === "es" || which === "fr";
+  return which === "es" || which === "fr" || which === "de";
 }
 
 function catalogue(which: LanguageId): Catalogue {
@@ -81,7 +83,11 @@ export function ensureLanguage(which: LanguageId): Promise<void> {
 
 export function isLanguage(value: unknown): value is LanguageId {
   return (
-    value === "en" || value === "es" || value === "fr" || value === "pseudo"
+    value === "en" ||
+    value === "es" ||
+    value === "fr" ||
+    value === "de" ||
+    value === "pseudo"
   );
 }
 
@@ -119,6 +125,7 @@ function subscribe(listener: () => void): () => void {
  */
 export function locale(which: LanguageId = current): string {
   if (which === "es") return "es";
+  if (which === "de") return "de";
   return which === "fr" ? "fr-CA" : "en";
 }
 

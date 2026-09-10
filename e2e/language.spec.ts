@@ -11,6 +11,7 @@ import { pseudoize } from "../src/i18n/pseudo";
 import { en, type StringKey } from "../src/i18n/en";
 import { fr } from "../src/i18n/fr";
 import { es } from "../src/i18n/es";
+import { de } from "../src/i18n/de";
 
 /**
  * The panels that hold copy, named by the catalogue key that labels each
@@ -199,6 +200,39 @@ test.describe("a workspace in another language @ownViewport", () => {
     const offenders = await clippedAcrossPanels(page, (key) => es[key]);
     expect(offenders).toEqual([]);
     expect(await sidewaysOverflow(page)).toBeLessThanOrEqual(0);
+  });
+
+  test("fits its labels in German at 1024 by 720", async ({ page }) => {
+    // German is the longest of the three written translations by a wide
+    // margin: it compounds where English uses two words, so a control that
+    // fits "Rain Rate" and "Taux de pluie" can still be too small for
+    // "Niederschlagsart". This is the gate that says so.
+    await startIn(page, "de");
+    await expect(page.locator(".command-bar")).toContainText("Ebenen");
+
+    const offenders = await clippedAcrossPanels(page, (key) => de[key]);
+    expect(offenders).toEqual([]);
+    expect(await sidewaysOverflow(page)).toBeLessThanOrEqual(0);
+  });
+
+  test("shows German copy the moment the language is switched", async ({
+    page,
+  }) => {
+    await startIn(page, "en");
+
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Deutsch", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Einstellungen" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Ebenen", exact: true }),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "English", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
   });
 
   test("shows French copy the moment the language is switched", async ({
@@ -640,7 +674,7 @@ test.describe("the rail's own words, in every language it ships @ownViewport", (
   // The generated language is deliberately left out: its words are padded
   // beyond anything a translator would write, and the rail is allowed to
   // shorten a caption there.
-  for (const language of ["en", "es", "fr"]) {
+  for (const language of ["en", "es", "fr", "de"]) {
     for (const width of [1920, 1440, 1024]) {
       test(`fits in ${language} at ${width}`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { en } from "./en";
 import { es } from "./es";
 import { fr } from "./fr";
+import { de } from "./de";
 
 /**
  * The parts of a translation the type gate cannot see.
@@ -211,6 +212,7 @@ describe("where a description ends", () => {
     [en, "en"],
     [es, "es"],
     [fr, "fr"],
+    [de, "de"],
   ] as const) {
     it(`stops a ${name} description only when it is more than one sentence`, () => {
       for (const [key, value] of entries(copy)) {
@@ -236,6 +238,7 @@ describe("what a sentence calls the thing it is given", () => {
     [en, "en"],
     [es, "es"],
     [fr, "fr"],
+    [de, "de"],
   ] as const) {
     it(`names every argument a ${name} string takes`, () => {
       for (const [key, value] of entries(copy)) {
