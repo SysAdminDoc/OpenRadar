@@ -193,6 +193,32 @@ export function provenanceValid(record: Provenance): boolean {
 }
 
 /**
+ * The moment a record's freshness is counted from.
+ *
+ * Not the fetch. Downloading a three-day-old snowfall analysis this second
+ * does not make the snow fall this second, and measuring from the fetch made
+ * this whole check inert: every caller in the app builds its records with
+ * fetchedAt set to the same now it later judges them against, so the age was
+ * zero by construction and nothing was ever stale.
+ *
+ * So the clock starts at whatever the layer is about. An observation is about
+ * the moment an instrument measured it. A forecast is about its run, which is
+ * the thing that goes out of date while the hour it describes does not. A
+ * forecast whose source will not say which run it came from is left with the
+ * hour it is for. The fetch is the last resort, for a record that carries no
+ * time of its own at all.
+ */
+function freshnessRunsFrom(record: Provenance): number {
+  if (record.observedAt !== null) return record.observedAt;
+  if (record.modelRun) {
+    const init = Date.parse(record.modelRun.initUtc);
+    if (Number.isFinite(init)) return init;
+  }
+  if (record.validAt !== null) return record.validAt;
+  return record.fetchedAt;
+}
+
+/**
  * Whether the bytes have outlived the freshness their source promised.
  *
  * A source that does not publish a cadence cannot be stale by this measure,
@@ -200,7 +226,7 @@ export function provenanceValid(record: Provenance): boolean {
  */
 export function provenanceStale(record: Provenance, now: number): boolean {
   if (record.freshForMs === null) return false;
-  return now - record.fetchedAt > record.freshForMs;
+  return now - freshnessRunsFrom(record) > record.freshForMs;
 }
 
 /**

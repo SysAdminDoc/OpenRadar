@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { LAYER_SOURCES, layerProvenance } from "./layerProvenance";
-import { overlayProvenance, provenanceProblems } from "./provenance";
+import {
+  overlayProvenance,
+  provenanceProblems,
+  provenanceStale,
+} from "./provenance";
 import { DEFAULT_SETTINGS } from "./settings";
 import { OVERLAY_ADAPTERS } from "./overlays";
 import { MRMS_PRODUCT_IDS } from "./providers/mrms";
@@ -302,5 +306,32 @@ describe("how long a snowfall analysis is worth having", () => {
     expect(LAYER_SOURCES.snowfall.freshForMs!).toBeGreaterThan(worstCase);
     // And it is not so wide that a day-old analysis passes for a fresh one.
     expect(LAYER_SOURCES.snowfall.freshForMs!).toBeLessThan(36 * 3_600_000);
+  });
+
+  // The constant above is only worth pinning if something reads it. This
+  // enters through the builder the app itself calls, with the fetch set to
+  // the moment of the reading, because that is the shape every caller
+  // produces and a check that counts the age from the fetch answers false
+  // for all of them.
+  it("calls a three-day-old analysis stale even when the bytes just landed", () => {
+    const now = Date.parse("2026-09-10T18:00:00Z");
+    const record = layerProvenance({
+      layer: "snowfall",
+      fetchedAt: now,
+      observedAt: Date.parse("2026-09-07T12:00:00Z"),
+      validAt: Date.parse("2026-09-07T12:00:00Z"),
+    });
+    expect(provenanceStale(record, now)).toBe(true);
+  });
+
+  it("leaves an analysis read within the window alone", () => {
+    const now = Date.parse("2026-09-10T18:00:00Z");
+    const record = layerProvenance({
+      layer: "snowfall",
+      fetchedAt: now,
+      observedAt: now - 20 * 3_600_000,
+      validAt: now - 20 * 3_600_000,
+    });
+    expect(provenanceStale(record, now)).toBe(false);
   });
 });
