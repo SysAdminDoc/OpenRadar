@@ -402,6 +402,19 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
       "radar and model temperature, classified by the MRMS PrecipFlag algorithm",
     freshForMs: MRMS_REFRESH,
   },
+  snowfall: {
+    sourceId: "snowfall",
+    label: "National snowfall analysis",
+    attribution: "NOAA National Operational Hydrologic Remote Sensing Center",
+    attributionUrl: "https://www.nohrsc.noaa.gov/snowfall/",
+    // Observed snow, gathered rather than modelled: the office builds the
+    // grid from what observers and gauges reported and what fell where
+    // nobody was standing is interpolated between them.
+    kind: "observation",
+    // Published at 00Z and 12Z, so a total is worth having for twelve hours
+    // and nothing about it changes in between.
+    freshForMs: 12 * 3_600_000,
+  },
   lightningDensity: {
     sourceId: "lightning",
     label: "Cloud-to-ground flash density",

@@ -69,6 +69,7 @@ function mount(
       cells={null}
       classification={null}
       forecastSmoke={null}
+      snowfall={null}
       probSevere={null}
       overlayOpacity={{}}
       overlayOrder={[]}

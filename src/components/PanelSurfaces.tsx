@@ -132,6 +132,7 @@ import { SearchPanel } from "../panels/SearchPanel";
 import { NearbyPanel, type NearbyPlaceOption } from "../panels/NearbyPanel";
 import { MorePanel, UploadPanel } from "../panels/UtilityPanels";
 import type { SurgeCategory } from "../lib/surge";
+import type { SnowfallWindow } from "../lib/snowfall";
 import {
   spacecraftFor,
   type SatelliteBandId,
@@ -241,6 +242,7 @@ interface PanelSurfacesProps {
   /** What the lightning watch counted for each watched place. */
   placeLightning: PlaceLightning[];
   onSurgeCategory: (category: SurgeCategory) => void;
+  onSnowfallWindow: (window: SnowfallWindow) => void;
   /** The moment a sounding is asked for, which is the timeline's own. */
   soundingAt: number;
   onSatelliteBand: (band: SatelliteBandId) => void;
@@ -358,9 +360,11 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onRemoved={props.onRemoved}
             alertTypes={settings.alertTypes}
             surgeCategory={settings.surgeCategory}
+            snowfallWindow={settings.snowfallWindow}
             onLayers={props.onLayers}
             onAlertTypes={props.onAlertTypes}
             onSurgeCategory={props.onSurgeCategory}
+            onSnowfallWindow={props.onSnowfallWindow}
             satelliteBand={settings.satelliteBand}
             spacecraft={spacecraftFor(settings.camera.center[0])}
             gaugeQpePeriod={settings.gaugeQpePeriod}

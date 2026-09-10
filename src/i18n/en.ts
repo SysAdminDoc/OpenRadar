@@ -970,6 +970,15 @@ export const en = {
   "layers.precipTypeDetail":
     "What the network says is actually falling, rather than how hard",
   "keywords.precipType": "snow sleet freezing winter type",
+  "layer.snowfall": "Snowfall",
+  "layers.snowfallDetail":
+    "How much snow the national analysis says has landed, over the last day, two days or three",
+  "keywords.snowfall": "accumulation total depth inches winter nohrsc",
+  "snowfall.24h": "24 hours",
+  "snowfall.48h": "48 hours",
+  "snowfall.72h": "72 hours",
+  "snowfall.band": "{low} to {high}",
+  "snowfall.bandTop": "{low} and more",
   "precipType.warmStratiform": "Rain",
   "precipType.coolStratiform": "Rain, cool",
   "precipType.snow": "Snow",
@@ -1511,6 +1520,7 @@ export const en = {
   "mrms.unanswered": "The MRMS grids did not answer.",
   "wind.unread": "The wind field could not be read.",
   "smoke.unanswered": "The forecast smoke did not arrive.",
+  "snowfall.unanswered": "The snowfall analysis did not arrive.",
   "cells.unread": "The storm cells could not be read.",
   "cells.arriving": "{id} reaches the place you watch in {count} min",
   "approach.title": "Storm heading for {place}",
@@ -1717,6 +1727,10 @@ export const en = {
   "chrome.smokeAnalysed": "analysed {when}",
   "chrome.forecastSmoke": "Forecast smoke",
   "chrome.forecastSmokeValid": "Valid {time}.",
+  "chrome.snowfall": "Snowfall",
+  "chrome.snowfallValid": "Valid {time}.",
+  "chrome.snowfallNote":
+    "An analysis of snow already on the ground, not a forecast of what is still to come.",
   "chrome.forecastSmokeNote":
     "A model's expectation of smoke near the ground, never drawn over the analysis or over anything observed.",
   "forecastSmoke.label": "HRRR {hour} +{lead} h · cycle {age} h old",
@@ -2218,6 +2232,9 @@ export const en = {
   "layers.surgeDetail":
     "How far water could reach from a hurricane of this strength",
   "layers.surgeCategory": "Hurricane strength",
+  "layers.snowfallWindow": "Window covered",
+  "layers.snowfallNote":
+    "Built from what observers and gauges reported, filled in between them, and published twice a day. It is what fell, not what is forecast.",
   "layers.surgeNote":
     "Not a forecast. NOAA ran thousands of simulated hurricanes at every stretch of coast and kept the worst water each one made, at high tide. For a storm that is actually coming, read the National Hurricane Center.",
   "keywords.surge": "",

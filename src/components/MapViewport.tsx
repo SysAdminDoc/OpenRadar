@@ -107,6 +107,8 @@ import {
   CLASSIFICATION_SOURCE_ID,
   FORECAST_SMOKE_LAYER_ID,
   FORECAST_SMOKE_SOURCE_ID,
+  SNOWFALL_LAYER_ID,
+  SNOWFALL_SOURCE_ID,
   CUSTOM_FILL_LAYER_ID,
   CUSTOM_ICON_LAYER_ID,
   CUSTOM_LAYER_IDS,
@@ -229,6 +231,11 @@ interface MapViewportProps {
    * own frame and is handed nothing.
    */
   forecastSmoke?: PinnedImage | null;
+  /**
+   * How much snow the national analysis says has landed, pinned to the
+   * grid's own corners, or null when the layer is off.
+   */
+  snowfall?: PinnedImage | null;
   /** How solid each overlay is drawn, as a fraction of its own design. */
   overlayOpacity?: Record<string, number>;
   /** The order the overlays are drawn in, bottom first. */
@@ -409,6 +416,7 @@ function MapViewportInner(
     cells = null,
     classification = null,
     forecastSmoke = null,
+    snowfall = null,
     probSevere = null,
     overlayOpacity = {},
     overlayOrder = [],
@@ -490,6 +498,7 @@ function MapViewportInner(
   const cellsRef = useRef<Record<string, unknown> | null>(cells);
   const classificationRef = useRef(classification);
   const forecastSmokeRef = useRef(forecastSmoke);
+  const snowfallRef = useRef(snowfall);
   const probSevereRef = useRef<Record<string, unknown> | null>(probSevere);
   // The layer specs are read once, when a source is first added, so the
   // preference has to be readable from inside the sync functions rather than
@@ -1629,6 +1638,26 @@ function MapViewportInner(
     }
   };
 
+  const SNOWFALL_LANE: ImageLane = {
+    sourceId: SNOWFALL_SOURCE_ID,
+    layerId: SNOWFALL_LAYER_ID,
+    paint: {
+      // Four hundredths of a degree is about three kilometres, and a snow
+      // total is a smooth field: nothing in it is a cell a reader would
+      // count, so it is interpolated rather than left as blocks.
+      "raster-resampling": "linear",
+      "raster-fade-duration": 0,
+    },
+  };
+
+  const syncSnowfall = () => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    if (syncImageLane(map, SNOWFALL_LANE, snowfallRef.current, under)) {
+      publishLayers();
+    }
+  };
+
   const TRACK_LANE: VectorLane = {
     sourceId: TRACK_SOURCE_ID,
     layers: () => [
@@ -1987,6 +2016,10 @@ function MapViewportInner(
     forecastSmokeRef.current = next;
     syncForecastSmoke();
   });
+  useMapSync(snowfall, (next) => {
+    snowfallRef.current = next;
+    syncSnowfall();
+  });
   useMapSync(flashes, (next) => {
     flashesRef.current = next;
     syncFlashes();
@@ -2195,6 +2228,7 @@ function MapViewportInner(
       syncCells();
       syncClassification();
       syncForecastSmoke();
+      syncSnowfall();
       renderTools();
       syncOverlays();
       syncRoute();

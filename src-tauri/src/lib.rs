@@ -45,6 +45,7 @@ mod radar_status;
 mod safe_start;
 mod settings_backup;
 mod shear;
+mod snowfall;
 mod sound;
 mod tdwr;
 mod tiles;
@@ -321,6 +322,7 @@ pub fn run() {
             level2::level2_nearest_site,
             level2::level2_sites_in_reach,
             level2::level2_cross_section,
+            snowfall::snowfall_analysis,
             level2::level2_vwp,
             level3::level3_cells,
             level3::level3_classification,

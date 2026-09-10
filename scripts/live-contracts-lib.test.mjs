@@ -229,8 +229,12 @@ describe("the live contract list", () => {
 
       // And the path has to reach an ignored test, or the contract asks the
       // network for nothing however well it resolves.
+      // A module is either a directory of files or a file with its tests in
+      // the sibling this repository puts them in. Reading only `<module>.rs`
+      // made every module that follows that convention look as though it had
+      // no ignored test in it, which is most of the native ones.
       const under = fs.existsSync(`${at}.rs`)
-        ? [`${at}.rs`]
+        ? [`${at}.rs`, `${at}_tests.rs`].filter((each) => fs.existsSync(each))
         : fs
             .readdirSync(at)
             .filter((name) => name.endsWith(".rs"))
@@ -256,8 +260,12 @@ describe("the live contract list", () => {
 
       const module = contract.filter.split("::").filter(Boolean)[0];
       const at = path.join(root, "src-tauri", "src", module);
+      // A module is either a directory of files or a file with its tests in
+      // the sibling this repository puts them in. Reading only `<module>.rs`
+      // made every module that follows that convention look as though it had
+      // no ignored test in it, which is most of the native ones.
       const under = fs.existsSync(`${at}.rs`)
-        ? [`${at}.rs`]
+        ? [`${at}.rs`, `${at}_tests.rs`].filter((each) => fs.existsSync(each))
         : fs
             .readdirSync(at)
             .filter((name) => name.endsWith(".rs"))

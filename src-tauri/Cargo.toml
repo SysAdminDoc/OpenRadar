@@ -84,6 +84,11 @@ futures-util = "0.3.31"
 # Pinned exactly because it decodes bytes this app did not write, so which
 # version was read is part of what was audited. 0.25.10 on 2026-09-09.
 image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png"] }
+# The snowfall analysis is a single band of f32 in an LZW GeoTIFF, which is
+# the one format in this app nothing else here reads. From the same project as
+# `image`, MIT, and it hands back the samples as `f32` rather than making a
+# scientific grid pretend to be a picture.
+tiff = "=0.11.3"
 pmtiles = { version = "=0.24.0", default-features = false, features = ["mmap-async-tokio", "write"] }
 sha2 = "0.11.0"
 # The digital Level III products (the hydrometeor classification and its

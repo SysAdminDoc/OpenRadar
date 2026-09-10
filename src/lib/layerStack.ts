@@ -100,6 +100,10 @@ export const CLASSIFICATION_LAYER_IDS = [
 export const FORECAST_SMOKE_SOURCE_ID = "openradar-forecast-smoke-source";
 export const FORECAST_SMOKE_LAYER_ID = "openradar-forecast-smoke";
 
+/** How much snow has landed, one pinned picture of the whole country. */
+export const SNOWFALL_SOURCE_ID = "openradar-snowfall-source";
+export const SNOWFALL_LAYER_ID = "openradar-snowfall";
+
 export const CELL_TRACK_LAYER_ID = "openradar-cell-tracks";
 export const CELL_FORECAST_LAYER_ID = "openradar-cell-forecast";
 export const CELL_POINT_LAYER_ID = "openradar-cell-points";
@@ -207,6 +211,10 @@ export function layerStackOrder(overlays: readonly string[]): string[] {
     // Surge sits above the satellite and under the radar: it is the ground
     // the weather is happening over, not weather itself.
     SURGE_LAYER_ID,
+    // Snow that has already landed is the ground too, for the same reason:
+    // it is a total of the days behind, and the radar showing what is falling
+    // now has to be readable over it rather than under it.
+    SNOWFALL_LAYER_ID,
     ...RADAR_LANE_LAYER_IDS,
     SWEEP_LAYER_ID,
     // The classification is the same volume read a second way, so it sits

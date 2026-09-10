@@ -17,6 +17,7 @@ import { normalizePalettes } from "../palette";
 import { normalizePaletteAssignments } from "../palette";
 import { isLanguage } from "../../i18n";
 import { isSurgeCategory } from "../surge";
+import { isSnowfallWindow } from "../snowfall";
 import { MAX_LOOP_VOLUMES, MIN_LOOP_VOLUMES } from "../siteLoop";
 import { isSatelliteBand, type SatelliteBandId } from "../satelliteBands";
 import { isGaugeQpePeriod } from "../gaugeQpe";
@@ -232,6 +233,7 @@ export function normalizeSettings(value: unknown): AppSettings {
         DEFAULT_SETTINGS.layers.unitStreamflow,
       ),
       precipType: bool(layers.precipType, DEFAULT_SETTINGS.layers.precipType),
+      snowfall: bool(layers.snowfall, DEFAULT_SETTINGS.layers.snowfall),
       lightningDensity: bool(
         layers.lightningDensity,
         DEFAULT_SETTINGS.layers.lightningDensity,
@@ -264,6 +266,9 @@ export function normalizeSettings(value: unknown): AppSettings {
     surgeCategory: isSurgeCategory(raw.surgeCategory)
       ? raw.surgeCategory
       : DEFAULT_SETTINGS.surgeCategory,
+    snowfallWindow: isSnowfallWindow(raw.snowfallWindow)
+      ? raw.snowfallWindow
+      : DEFAULT_SETTINGS.snowfallWindow,
     watch: normalizeWatch(raw.watch, DEFAULT_SETTINGS.watch),
     followNewWarnings: bool(
       raw.followNewWarnings,

@@ -35,6 +35,12 @@ import {
   swatchOpacity,
   type SmokeField,
 } from "../lib/forecastSmoke";
+import {
+  snowfallBandLabel,
+  snowfallValidLabel,
+  snowfallWindowName,
+  type SnowfallAnalysis,
+} from "../lib/snowfall";
 import { formatRadarTime } from "../lib/radar";
 import type { RadarFrame } from "../lib/radar";
 import type { AppSettings } from "../lib/settings";
@@ -133,6 +139,8 @@ interface WorkspaceChromeProps {
   classification: Classification | null;
   /** The model's smoke for the hour on screen, when the playhead is on the tail. */
   forecastSmoke: SmokeField | null;
+  /** The national snowfall total on the map, or null when it is off. */
+  snowfall: SnowfallAnalysis | null;
   /** The wind field the particles follow, when that layer is on. */
   wind: WindField | null;
   /** True when the wind layer is switched on but held back for reduced motion. */
@@ -195,6 +203,7 @@ export function WorkspaceChrome({
   smoke,
   classification,
   forecastSmoke,
+  snowfall,
   wind,
   windReduced,
   clock,
@@ -481,7 +490,8 @@ export function WorkspaceChrome({
       windReduced ||
       smokeScale ||
       classification ||
-      forecastSmoke ? (
+      forecastSmoke ||
+      snowfall ? (
         <div
           className="product-legends"
           role="group"
@@ -597,6 +607,42 @@ export function WorkspaceChrome({
                   time: formatRadarTime(Date.parse(forecastSmoke.valid) / 1000),
                 })}{" "}
                 {t("chrome.forecastSmokeNote")}
+              </small>
+            </div>
+          ) : null}
+          {snowfall ? (
+            <div className="product-legend" data-snowfall-legend="1">
+              <strong>
+                {t("chrome.snowfall")}
+                <em>{snowfallWindowName(snowfall.hours)}</em>
+              </strong>
+              {/* The scale the picture was painted with, sent with it, so a
+                  colour a reader matches against the key is the colour that
+                  is on the map. */}
+              <ol role="list">
+                {snowfall.bands.map((band, at) => (
+                  <li key={band.inches}>
+                    <i style={{ background: band.color }} aria-hidden="true" />
+                    {snowfallBandLabel(snowfall.bands, at)}
+                  </li>
+                ))}
+              </ol>
+              <small>
+                {t("chrome.snowfallValid", {
+                  time: snowfallValidLabel(snowfall),
+                })}{" "}
+                {t("chrome.snowfallNote")}{" "}
+                {/* The office that made it, beside the picture rather than
+                    only in the panel a reader has to go and open. The address
+                    comes with the analysis, so the credit cannot drift from
+                    the thing it is crediting. */}
+                <a
+                  href={snowfall.attributionUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {snowfall.attribution}
+                </a>
               </small>
             </div>
           ) : null}
