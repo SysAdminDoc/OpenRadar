@@ -243,13 +243,8 @@ export function RadarProductPanel({
     );
     if (loaded) showHistorical();
   };
-  return (
-    <PanelShell
-      eyebrow={sweep ? sweep.station : t("radar.eyebrow")}
-      title={t("radar.title")}
-      onClose={onClose}
-      className="surface-panel--product"
-    >
+  const mosaicSection = (
+    <>
       <button
         type="button"
         className={`product-option${!radar.singleSite ? " is-active" : ""}`}
@@ -341,7 +336,17 @@ export function RadarProductPanel({
         />
       </label>
       <p className="source-note">{t("radar.thresholdMosaicDetail")}</p>
+    </>
+  );
 
+  return (
+    <PanelShell
+      eyebrow={sweep ? sweep.station : t("radar.eyebrow")}
+      title={t("radar.title")}
+      onClose={onClose}
+      className="surface-panel--product"
+    >
+      {!radar.singleSite && mosaicSection}
       {singleSite ? (
         <>
           <label className="toggle-row toggle-row--plain">
@@ -980,6 +985,7 @@ export function RadarProductPanel({
           ) : null}
         </>
       ) : null}
+      {radar.singleSite && mosaicSection}
 
       {stormCells.report || stormCells.loading ? (
         <div className="settings-section" data-storm-cells>
