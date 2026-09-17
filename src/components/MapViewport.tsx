@@ -56,6 +56,7 @@ import {
   formatClock,
   formatHeight,
   MILES_TO_KM,
+  speedUnit,
   useMeasurements,
 } from "../lib/units";
 import {
@@ -2457,10 +2458,16 @@ function MapViewportInner(
         }),
       ];
       if (gate) {
-        const unit = gate.unit || translate("cursor.unitless");
+        let value = gate.value;
+        let unit = gate.unit || translate("cursor.unitless");
+        if (gate.unit === "m/s") {
+          const su = speedUnit();
+          value = su.includes("km") ? value * 3.6 : value * 2.23694;
+          unit = su;
+        }
         said.push(
           translate("cursor.reading", {
-            value: formatMeasure(Math.round(gate.value * 10) / 10),
+            value: formatMeasure(Math.round(value * 10) / 10),
             unit,
           }),
         );
@@ -2528,6 +2535,7 @@ function MapViewportInner(
             ? [drawn.stormMotion.speedMs, drawn.stormMotion.fromDegrees]
             : null,
           drawn.live,
+          drawn.volume,
         )
           .then((gate) => {
             // A later press owns the announcement now.
@@ -2698,14 +2706,19 @@ function MapViewportInner(
             }),
           ];
           if (gate) {
-            // The reading, and which sweep read it. A live picture is two
-            // sweeps composited and with persistence on the older half is
-            // faded rather than absent, so a number off it with no time on
-            // it is a number nobody can check.
+            let gateValue = gate.value;
+            let gateUnit = gate.unit;
+            if (gate.unit === "m/s") {
+              const su = speedUnit();
+              gateValue = su.includes("km")
+                ? gateValue * 3.6
+                : gateValue * 2.23694;
+              gateUnit = su;
+            }
             lines.push(
               translate("tool.gateValue", {
-                value: formatMeasure(Math.round(gate.value * 10) / 10),
-                unit: gate.unit,
+                value: formatMeasure(Math.round(gateValue * 10) / 10),
+                unit: gateUnit,
               }),
               translate(gate.live ? "tool.gateLive" : "tool.gateFrom", {
                 when: formatClock(Date.parse(gate.collected)),
@@ -2747,6 +2760,7 @@ function MapViewportInner(
               ? [drawn.stormMotion.speedMs, drawn.stormMotion.fromDegrees]
               : null,
             drawn.live,
+            drawn.volume,
           )
             .then((gate) => {
               // A second click while this was in flight owns the readout now.

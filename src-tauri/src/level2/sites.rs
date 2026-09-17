@@ -266,6 +266,10 @@ pub async fn level2_gate(
     // the number the cursor gives is the one they will write down.
     air: Option<HailAir>,
     live: bool,
+    // The S3 key of the volume the picture was drawn from. When provided,
+    // this volume is read instead of the latest, so a scrubbed or archive
+    // frame's readout matches its own picture.
+    volume: Option<String>,
 ) -> Result<Option<GateReading>, Level2Error> {
     let station = station.to_uppercase();
     // A terminal radar is drawn from its own Level III products, which this
@@ -274,7 +278,11 @@ pub async fn level2_gate(
         return Ok(None);
     }
     wsr88d_only(&station)?;
-    let (key, data) = latest_volume(&station).await?;
+    let (key, data) = if let Some(ref key) = volume {
+        listing::volume_by_key(key).await?
+    } else {
+        latest_volume(&station).await?
+    };
     let live = if live {
         chunks::live_scan(&station).await.ok()
     } else {

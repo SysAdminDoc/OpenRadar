@@ -184,6 +184,15 @@ pub(crate) async fn latest_volume(station: &str) -> Result<(String, Vec<u8>), Le
     Ok((key, data))
 }
 
+pub(crate) async fn volume_by_key(key: &str) -> Result<(String, Vec<u8>), Level2Error> {
+    if let Some(hit) = cached(key) {
+        return Ok((key.to_string(), hit));
+    }
+    let data = http::get_bytes(&format!("{ARCHIVE_HOST}/{key}")).await?;
+    remember(key, &data);
+    Ok((key.to_string(), data))
+}
+
 pub(crate) async fn archive_volume_at(
     station: &str,
     wanted: DateTime<Utc>,

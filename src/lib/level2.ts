@@ -394,6 +394,7 @@ export async function fetchGate(
   dealias: boolean,
   motion: [number, number] | null,
   live: boolean,
+  volume: string | null = null,
 ): Promise<GateReading | null> {
   if (!isDesktopRuntime()) return null;
   const { invoke } = await import("@tauri-apps/api/core");
@@ -411,6 +412,7 @@ export async function fetchGate(
     // gives is the one somebody writes down.
     air: heldHailAir(),
     live,
+    volume,
   });
 }
 
