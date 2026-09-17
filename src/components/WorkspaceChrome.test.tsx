@@ -53,6 +53,7 @@ function sweepOf(live: boolean): SweepImage {
     smoothed: false,
     dealiased: false,
     hasDebris: false,
+    echoTopped: false,
     unplacedShare: 0,
     live,
     liveTilts: live ? 3 : 0,

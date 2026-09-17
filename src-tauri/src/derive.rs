@@ -137,6 +137,9 @@ pub fn derivation(kind: Kind, isotherms: &Isotherms<'_>) -> String {
 /// A derived grid.
 pub struct Derived {
     pub field: SweepField,
+    /// True when any echo top reading sits at the highest scanned cut with no
+    /// sample above it. The true top may be higher than what the volume saw.
+    pub topped: bool,
 }
 
 /// One reading of the column, at the height the beam that made it passed.
@@ -185,6 +188,7 @@ pub fn derive(
         bins,
     );
 
+    let mut any_topped = false;
     let mut column: Vec<Sample> = Vec::with_capacity(cuts.len());
     for (at, angle) in azimuths.iter().enumerate() {
         for bin in 0..bins {
@@ -193,14 +197,26 @@ pub fn derive(
             if column.is_empty() {
                 continue;
             }
-            let Some(value) = answer(kind, &column, isotherms) else {
-                continue;
-            };
-            field.set(at, bin, value, GateStatus::Valid);
+            if kind == Kind::EchoTop {
+                if let Some(top) = echo_top_km(&column) {
+                    if top.topped {
+                        any_topped = true;
+                    }
+                    field.set(at, bin, top.km as f32, GateStatus::Valid);
+                }
+            } else {
+                let Some(value) = answer(kind, &column, isotherms) else {
+                    continue;
+                };
+                field.set(at, bin, value, GateStatus::Valid);
+            }
         }
     }
 
-    Some(Derived { field })
+    Some(Derived {
+        field,
+        topped: any_topped,
+    })
 }
 
 /// Every cut's reading over one point of ground, lowest beam first.
@@ -270,16 +286,16 @@ fn answer(kind: Kind, column: &[Sample], isotherms: &Isotherms<'_>) -> Option<f3
             .map(|one| one.dbz)
             .max_by(f32::total_cmp)
             .filter(|dbz| *dbz > f32::NEG_INFINITY),
-        Kind::EchoTop => echo_top_km(column).map(|km| km as f32),
+        Kind::EchoTop => unreachable!("echo top is handled in the derive loop"),
         Kind::Vil => Some(vil(column) as f32).filter(|value| *value > 0.0),
         Kind::VilDensity => {
-            let top_km = echo_top_km(column)?;
-            if top_km <= 0.0 {
+            let top = echo_top_km(column)?;
+            if top.km <= 0.0 {
                 return None;
             }
             // Kilograms a square metre over metres of depth is grams a cubic
             // metre, which is the unit the number is read in.
-            Some((vil(column) / (top_km * 1000.0) * 1000.0) as f32).filter(|value| *value > 0.0)
+            Some((vil(column) / (top.km * 1000.0) * 1000.0) as f32).filter(|value| *value > 0.0)
         }
         Kind::HailSize => {
             let index = severe_hail_index(column, isotherms);
@@ -294,18 +310,36 @@ fn answer(kind: Kind, column: &[Sample], isotherms: &Isotherms<'_>) -> Option<f3
 /// one above it that is not. Without the interpolation an echo top is one of a
 /// dozen cut heights and nothing between, which draws a storm as a staircase
 /// and puts its top wherever the pattern happened to put a beam.
-fn echo_top_km(column: &[Sample]) -> Option<f64> {
+/// An echo top reading: the height and whether the storm reached the highest
+/// scanned cut, meaning the true top may be above what the volume can see.
+#[derive(Debug, PartialEq)]
+struct EchoTop {
+    km: f64,
+    topped: bool,
+}
+
+fn echo_top_km(column: &[Sample]) -> Option<EchoTop> {
     let highest = column.iter().rposition(|one| one.dbz >= ECHO_TOP_DBZ)?;
     let holding = &column[highest];
     let Some(above) = column.get(highest + 1) else {
-        return Some(holding.height_km);
+        return Some(EchoTop {
+            km: holding.height_km,
+            topped: true,
+        });
     };
     let span = holding.dbz - above.dbz;
     if span <= 0.0 {
-        return Some(holding.height_km);
+        return Some(EchoTop {
+            km: holding.height_km,
+            topped: false,
+        });
     }
     let share = ((holding.dbz - ECHO_TOP_DBZ) / span) as f64;
-    Some(holding.height_km + (above.height_km - holding.height_km) * share.clamp(0.0, 1.0))
+    Some(EchoTop {
+        km: holding.height_km
+            + (above.height_km - holding.height_km) * share.clamp(0.0, 1.0),
+        topped: false,
+    })
 }
 
 /// Reflectivity in the unit the physics is written in.

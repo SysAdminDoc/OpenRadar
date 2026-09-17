@@ -72,12 +72,15 @@ fn the_echo_top_is_interpolated_rather_than_a_cut_height() {
     // (30 - 18.5) / (30 - 10) of the way up, which is 5 + 2 * 0.575.
     let column = [sample(2.0, 45.0), sample(5.0, 30.0), sample(7.0, 10.0)];
     let found = echo_top_km(&column).expect("an echo top");
-    assert!((found - 6.15).abs() < 1e-6, "{found}");
+    assert!((found.km - 6.15).abs() < 1e-6, "{}", found.km);
+    assert!(!found.topped, "interpolated top should not be topped");
 
     // With nothing above it, the top is the highest beam that saw it: the
-    // volume cannot say how much further it goes.
+    // volume cannot say how much further it goes. This IS topped.
     let capped = [sample(2.0, 45.0), sample(5.0, 30.0)];
-    assert_eq!(echo_top_km(&capped), Some(5.0));
+    let topped = echo_top_km(&capped).expect("a topped echo top");
+    assert!((topped.km - 5.0).abs() < 1e-6);
+    assert!(topped.topped, "a top at the highest cut should be topped");
 
     // And a column that never reaches the threshold has no top.
     assert_eq!(echo_top_km(&[sample(2.0, 10.0)]), None);

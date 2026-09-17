@@ -490,6 +490,7 @@ export function WorkspaceChrome({
         unplacedShare={sweep?.unplacedShare ?? 0}
         melting={melting}
         hasDebris={Boolean(sweep?.hasDebris)}
+        echoTopped={Boolean(sweep?.echoTopped)}
         onToggle={onToggleProduct}
       />
       {mrmsLayers.length ||

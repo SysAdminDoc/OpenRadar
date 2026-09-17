@@ -161,6 +161,8 @@ export interface SweepImage {
   dealiased: boolean;
   /** True when a tornado debris signature was found in this sweep. */
   hasDebris: boolean;
+  /** True when the echo top reaches the highest scanned cut. */
+  echoTopped: boolean;
   /**
    * The share of this cut's readings unfolding could not place, from zero to
    * one.

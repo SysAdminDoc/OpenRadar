@@ -252,6 +252,9 @@ pub struct SweepImage {
     pub unplaced_share: f32,
     /// True when a tornado debris signature was found in this sweep.
     pub has_debris: bool,
+    /// True when the echo top on screen reaches the highest scanned cut with
+    /// no sample above it. The true height may be above what the volume saw.
+    pub echo_topped: bool,
     /// The air a hail size was worked out against. Absent on every other
     /// product.
     pub hail_heights: Option<HailHeights>,
