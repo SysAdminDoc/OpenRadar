@@ -68,7 +68,7 @@ fn constant_shear(rate: f32) -> SweepField {
 /// The shear at a gate, back in reciprocal seconds, which is what every
 /// planted number in this file is in.
 fn shear_at(field: &SweepField, beside: Beside<'_>, azimuth: usize, gate: usize) -> f32 {
-    let derived = derive(field, beside, Kind::AzimuthalShear).expect("a derived cut");
+    let derived = derive(field, beside, Kind::AzimuthalShear, &[]).expect("a derived cut");
     let (value, status) = derived.field.get(azimuth, gate);
     assert_eq!(status, GateStatus::Valid, "no reading at {azimuth}/{gate}");
     value / 1000.0
@@ -97,7 +97,7 @@ fn a_constant_shear_comes_back_as_itself() {
 #[test]
 fn the_same_rotation_reads_the_same_at_every_range() {
     let field = constant_shear(0.008);
-    let derived = derive(&field, Beside::default(), Kind::AzimuthalShear).expect("a derived cut");
+    let derived = derive(&field, Beside::default(), Kind::AzimuthalShear, &[]).expect("a derived cut");
     for range in [20.0, 50.0, 90.0, 95.0] {
         let (found, status) = derived.field.get(360, gate_at(range));
         assert_eq!(status, GateStatus::Valid, "nothing at {range} km");
@@ -159,7 +159,7 @@ fn a_planted_couplet_reads_its_own_difference_over_its_width() {
 fn rotation_climbs_with_range_the_way_the_beam_widens() {
     let rate = 0.008f64;
     let field = constant_shear(rate as f32);
-    let derived = derive(&field, Beside::default(), Kind::Rotation).expect("a derived cut");
+    let derived = derive(&field, Beside::default(), Kind::Rotation, &[]).expect("a derived cut");
     for range_km in [20.0f64, 50.0, 90.0] {
         let gate = gate_at(range_km);
         let across = 2.0 * range_km_of(gate) * 1000.0 * 1.0f64.to_radians();
@@ -187,7 +187,7 @@ fn a_reference_circulation_reads_one() {
     let gate = gate_at(range_km);
     let across = 2.0 * range_km_of(gate) * 1000.0 * 1.0f64.to_radians();
     let field = constant_shear((20.0 / across) as f32);
-    let derived = derive(&field, Beside::default(), Kind::Rotation).expect("a derived cut");
+    let derived = derive(&field, Beside::default(), Kind::Rotation, &[]).expect("a derived cut");
     let (found, status) = derived.field.get(360, gate);
     assert_eq!(status, GateStatus::Valid);
     assert!(
@@ -235,7 +235,7 @@ fn gates_without_enough_echo_are_not_fitted() {
         reflectivity: Some(&quiet),
         ..Beside::default()
     };
-    let derived = derive(&field, beside, Kind::AzimuthalShear).expect("a derived cut");
+    let derived = derive(&field, beside, Kind::AzimuthalShear, &[]).expect("a derived cut");
     assert!(
         derived
             .field
@@ -288,7 +288,7 @@ fn the_mask_reads_the_gate_the_range_is_in() {
         reflectivity: Some(&reflectivity),
         ..Beside::default()
     };
-    let derived = derive(&field, beside, Kind::AzimuthalShear).expect("a derived cut");
+    let derived = derive(&field, beside, Kind::AzimuthalShear, &[]).expect("a derived cut");
 
     // 51.125 km is a quarter of a kilometre inside the storm's last gate, and
     // both readings of the range agree it is gate 49.
@@ -355,6 +355,7 @@ fn the_debris_criteria_read_the_gates_the_ranges_are_in() {
                 differential: Some(&differential),
             },
             Kind::AzimuthalShear,
+            &[],
         )
         .expect("a derived cut")
         .debris
@@ -391,7 +392,7 @@ fn a_gate_with_too_few_neighbours_is_dropped() {
     field.set(centre - 1, gate, 11.0, GateStatus::Valid);
     field.set(centre + 1, gate, 13.0, GateStatus::Valid);
     field.set(centre, gate + 1, 12.0, GateStatus::Valid);
-    let derived = derive(&field, Beside::default(), Kind::AzimuthalShear).expect("a derived cut");
+    let derived = derive(&field, Beside::default(), Kind::AzimuthalShear, &[]).expect("a derived cut");
     let (_, status) = derived.field.get(centre, gate);
     assert!(
         !matches!(status, GateStatus::Valid),
@@ -413,6 +414,7 @@ fn debris_over(rho: f32, zdr: f32, dbz: f32) -> Option<SweepField> {
             differential: Some(&differential),
         },
         Kind::AzimuthalShear,
+        &[],
     )
     .expect("a derived cut")
     .debris
@@ -456,6 +458,7 @@ fn depolarised_echo_with_nothing_turning_is_not_flagged() {
             differential: Some(&differential),
         },
         Kind::AzimuthalShear,
+        &[],
     )
     .expect("a derived cut");
     assert!(
@@ -477,6 +480,7 @@ fn a_volume_without_dual_pol_draws_shear_and_no_signature() {
             ..Beside::default()
         },
         Kind::AzimuthalShear,
+        &[],
     )
     .expect("a derived cut");
     assert!(derived.debris.is_none());
