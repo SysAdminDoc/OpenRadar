@@ -1740,7 +1740,8 @@ input[type="range"]:disabled {
  * paragraph: it read as a caption on the button rather than as the heading of
  * what follows.
  */
-.secondary-button + .settings-section {
+.secondary-button + .settings-section,
+.source-note + .settings-section {
   margin-top: 24px;
 }
 
@@ -5273,7 +5274,7 @@ input[type="range"]:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
+  margin: 6px 0 12px;
   font-size: 12px;
   color: var(--muted);
   cursor: pointer;
