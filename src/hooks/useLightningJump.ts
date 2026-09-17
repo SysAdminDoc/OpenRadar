@@ -25,13 +25,23 @@ export function useLightningJump(options: {
   // same window land in the same bin. `observed` is in seconds, like every
   // time the native side hands over.
   const observed = flashes?.observed ?? null;
+  const trimmed = flashes
+    ? flashes.trimmed || flashes.filesRead < flashes.filesExpected
+    : false;
   const cells = report?.cells;
+  const reportedAtMs = report?.observed ? Date.parse(report.observed) || 0 : 0;
   return useMemo(() => {
     if (!cells || !flashes || observed === null)
       return new Map<string, CellJump>();
-    return rememberJumps(cells, flashes.flashes, observed * 1000);
+    return rememberJumps(
+      cells,
+      flashes.flashes,
+      observed * 1000,
+      trimmed,
+      reportedAtMs,
+    );
     // Folding the same window twice is idempotent, which is what makes it
     // safe to do here rather than in an effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cells, observed]);
+  }, [cells, observed, trimmed, reportedAtMs]);
 }
