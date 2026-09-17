@@ -132,7 +132,7 @@ export const SATELLITE_NAMES: Record<Spacecraft, StringKey> = {
 /**
  * The seven headings the switches are read under.
  *
- * Forty-six of them ran together in the order they were added, so finding
+ * Fifty-three of them ran together in the order they were added, so finding
  * "Rain or Snow" meant reading past thirty rows and the command list was the
  * only grouped view of the same switches. Grouped by where the thing on the
  * map comes from rather than by what it is about: that is the question a
