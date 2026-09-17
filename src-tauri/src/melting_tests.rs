@@ -123,8 +123,29 @@ fn one_signature_on_its_own_is_not_melting_snow() {
     assert!(membership(10.0, 2.2, 0.85) < MEMBERSHIP_THRESHOLD);
     // Bright with a low correlation but round: large hail.
     assert!(membership(58.0, 0.2, 0.85) < MEMBERSHIP_THRESHOLD);
+    // Convective rain that used to score above the threshold with the
+    // old one-sided clamps: 55 dBZ, ZDR 3, rho 0.96 is not melting snow.
+    assert!(
+        membership(55.0, 3.0, 0.96) < MEMBERSHIP_THRESHOLD,
+        "convective rain at 55/3/0.96 scored {} against threshold {}",
+        membership(55.0, 3.0, 0.96),
+        MEMBERSHIP_THRESHOLD
+    );
     // All three at once is the band.
     assert!(membership(48.0, 2.2, 0.91) >= MEMBERSHIP_THRESHOLD);
+}
+
+/// A winter VCP's highest tilt (4.5° on VCP 32) with a band at 2.4 km reads
+/// within the acceptance's 200 m tolerance.
+#[test]
+fn a_vcp_32_tilt_with_a_band_at_two_point_four_km() {
+    let (z, zdr, rho) = planted(2.4, 3, 4.5);
+    let found = from_cut(&z, &zdr, &rho, 0.0).expect("a melting layer at 4.5°");
+    assert!(
+        (found.peak_km - 2.4).abs() <= 0.2,
+        "peak at {} km, wanted within 200 m of 2.4 km",
+        found.peak_km
+    );
 }
 
 /// A low cut is refused rather than answered badly.
