@@ -95,10 +95,7 @@ const CARGO_FLOORS: Array<{ name: string; least: string; why: string }> = [
 
 describe("what the native side needs a dependency to be at least", () => {
   const root = join(import.meta.dirname, "..", "..");
-  const cargoLock = readFileSync(
-    join(root, "src-tauri", "Cargo.lock"),
-    "utf8",
-  );
+  const cargoLock = readFileSync(join(root, "src-tauri", "Cargo.lock"), "utf8");
 
   for (const { name, least, why } of CARGO_FLOORS) {
     it(`will not go below ${name} ${least}`, () => {
