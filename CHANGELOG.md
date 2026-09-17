@@ -40,6 +40,20 @@
 
 - MapLibre GL 6.10.0 fixes raster tiles held at the start of their fade until the map moves and frees pooled terrain drape textures at rest. Vite 8.3.0, Vitest 5.0.1, lucide-react 1.46.0 and eslint-plugin-react-refresh 0.5.7 alongside.
 
+- A grid older than fifteen minutes no longer starts or ends a hail or rotation notice. The same network outage that took the grid away would have told a reader the hail had stopped, which is the same thing the null-value guard already prevents. Every notice now carries the grid's own observed time, and toggling a rule off and back on forgets what the last storm looked like.
+
+- All forty-six German palette keywords are filled, so typing Hurrikan or Ebenen into the command palette finds the layer it names. The twelve curiosity cards are translated too, and a fifth language added to the type without providing its stories would not compile.
+
+- A missing FIRMS satellite, a failed CoCoRaHS state and a refused AirNow or buoy service now say what went wrong on their row in the Layers panel, rather than drawing nothing and reading fresh. An empty 200 body from a buoy or air-quality feed no longer reads as a quiet network.
+
+- Aviation popup titles show the product type (SIGMET, G-AIRMET, CWA, PIREP) rather than the service's own identifiers. Every popup ends with a source line naming the NOAA Aviation Weather Center.
+
+- With rotation held, the legend names the white debris mark and says it is a signature rather than a confirmation.
+
+- Scrubbing the timeline and pressing play now loops from that frame to live rather than starting over from the beginning of the window. Returning to live clears the pinned start.
+
+- Freshness budgets for every MRMS product, the FLASH grids, the hourly accumulations and the site products are widened to cover what the sources actually publish. The two-minute cadence the budgets used to carry is how often the network publishes, not how old the newest reading is.
+
 - The map, the build and the language the app is written in all move up a step. MapLibre 6.9 is the visible one: an empty tile answer now loads as ground with no elevation rather than as a broken fetch, a render that throws no longer freezes the map, complex scripts like Devanagari and Khmer draw without a plugin, and the sprite sheet is read off the main thread. Beside it, Rust's floor moves to 1.90 and TypeScript to 5.9, both a version ahead of anything forcing them. Nothing on screen changes.
 
 - Zooming into a terminal radar stops asking for pictures it has no data for. The view draws the same 1,024 pixels over less ground the further you zoom, and how far it would go was a fixed share of the radar's reach: a sixteenth, chosen against a WSR-88D, where a sixteenth really is finer than anything in a quarter kilometre gate. An airport's terminal radar covers a fifth of that ground in the same pixels, so the last steps were fetching, decoding and drawing a whole product to interpolate between bins already on screen. The sweep now says how long its gates are and the limit follows that, so the terminal radar stops a step earlier and its long range product, which reaches 417 kilometres in 300 metre bins, goes a step deeper than it could before. A WSR-88D on the quarter kilometre gates it has published since 2008 is unchanged. An archive volume old enough to carry kilometre gates now stops where those bins run out, which is four times less far in, because that is what is in it.
