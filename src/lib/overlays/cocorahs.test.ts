@@ -198,6 +198,48 @@ describe("what people measured in their own gardens", () => {
     );
   });
 
+  it("reads a negative total as not-available, not as inches", () => {
+    const withSentinel = {
+      status: "sucess",
+      data: {
+        reports: [
+          {
+            id: "aaa",
+            st_num: "CO-LR-99",
+            st_name: "Boulder 1.0 NW",
+            obs_date: "2026-09-15",
+            obs_time: "07:00 AM",
+            lat: 40.0,
+            lng: -105.0,
+            totalpcpn: -1,
+          },
+          {
+            id: "bbb",
+            st_num: "CO-LR-99",
+            st_name: "Boulder 1.0 NW",
+            obs_date: "2026-09-14",
+            obs_time: "07:00 AM",
+            lat: 40.0,
+            lng: -105.0,
+            totalpcpn: 0.42,
+          },
+        ],
+      },
+    };
+    const features = parseDaily(withSentinel);
+    // The -1 is the service's NA marker, not a measurement.
+    const today = features.find(
+      (one) => one.properties.observedDate === "2026-09-15",
+    );
+    expect(today?.properties.inches).toBeNull();
+
+    // newestPerStation prefers yesterday's real total over today's null.
+    const kept = newestPerStation(features);
+    expect(kept).toHaveLength(1);
+    expect(kept[0].properties.inches).toBe(0.42);
+    expect(kept[0].properties.observedDate).toBe("2026-09-14");
+  });
+
   it("asks each state once an hour however far the reader pans", () => {
     // The acceptance the layer was written to. The framework re-runs the
     // fetch whenever the view leaves the box the last answer was asked for,
