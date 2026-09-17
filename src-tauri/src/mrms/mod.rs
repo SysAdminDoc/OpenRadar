@@ -209,31 +209,39 @@ impl Grid {
         self.samples.len() * std::mem::size_of::<u16>()
     }
 
-    /// What this grid packs "nothing was measured here" as, if it packs one.
+    /// Whether this grid has sentinel values for missing or no-coverage cells.
     ///
-    /// MRMS writes no coverage as the smallest sample the packing can hold,
-    /// which decodes to the reference value itself. On a reflectivity grid
-    /// that is -999, which nobody could mistake for weather. On an
-    /// accumulation grid the reference is zero and the smallest sample is a
-    /// genuine zero millimetres, so there is no sentinel at all and reading
-    /// towards it is right: it says the estimate there was nothing, which is
-    /// a measurement.
-    fn absent(&self) -> Option<f32> {
+    /// MRMS writes the missing sentinel as the smallest sample the packing can
+    /// hold, which decodes to the reference value itself. On a reflectivity
+    /// grid that is -999. On an accumulation grid the reference is zero and
+    /// the smallest sample is a genuine zero millimetres, so there is no
+    /// sentinel at all and reading towards it is right: it says the estimate
+    /// there was nothing, which is a measurement.
+    fn has_sentinel(&self) -> bool {
         let lowest = self.reference / 10f32.powi(self.decimal as i32);
-        (lowest < -100.0).then_some(lowest)
+        lowest < -90.0
     }
 
     /// The reading in a cell, or None where the grid says it had no coverage.
+    ///
+    /// MRMS radar-derived grids publish two sentinels: -999 for "missing" and
+    /// -99 for "no radar coverage". Both decode as finite negative numbers at
+    /// non-zero packed samples. A cell at either sentinel is not a reading of
+    /// nothing, so it is skipped rather than counted as zero.
     ///
     /// Drawing does not need the difference, because neither gets painted.
     /// Reading between cells does: smoothing towards a low reading is an
     /// estimate of the air between two measurements, and smoothing towards an
     /// absence is an invention at the edge of what the network can see.
     pub fn reading(&self, row: usize, column: usize) -> Option<f32> {
-        if self.absent().is_some() && self.samples[row * self.columns + column] == 0 {
+        if !self.has_sentinel() {
+            return Some(self.value(row, column));
+        }
+        let value = self.value(row, column);
+        if value <= -99.0 {
             return None;
         }
-        Some(self.value(row, column))
+        Some(value)
     }
 
     /// The reading at a point, read between the four cells around it.

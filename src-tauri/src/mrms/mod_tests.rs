@@ -56,8 +56,10 @@ fn nothing_is_read_across_a_cell_the_network_could_not_see() {
     grid.reference = -9990.0;
     grid.decimal = 1;
     // The ramp counts from zero, and a packed zero IS the sentinel, so the
-    // cell that is meant to hold a reading is given one.
-    grid.samples[0] = 500;
+    // cell that is meant to hold a reading is given one. Sample 9990
+    // decodes to zero; anything below sample 9000 decodes to -99 or worse,
+    // which is the no-coverage sentinel.
+    grid.samples[0] = 9990;
     grid.samples[1] = 0;
 
     assert_eq!(grid.reading(0, 1), None, "no coverage read as a reading");
