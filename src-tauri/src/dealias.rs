@@ -103,6 +103,13 @@ const REFERENCE_MARGIN_MS: f32 = 5.0;
 pub struct Dealiased {
     /// Gates whose reading was shifted onto another branch.
     pub moved: usize,
+    /// How many of those the fitted wind moved rather than a boundary vote.
+    ///
+    /// The two passes fail differently: a boundary vote gets a whole patch
+    /// wrong where the patches touch, and the wind places a patch nothing
+    /// touches on a fit to the rest of the sweep. Counted apart because a
+    /// bound drawn on the sum answers for neither.
+    pub moved_by_wind: usize,
     /// Gates in a group nothing could place. Their neighbours agree with each
     /// other and which interval the group belongs in is unknown, so they are
     /// left exactly as the radar reported them, folds and all.
@@ -111,6 +118,28 @@ pub struct Dealiased {
     /// are shares of. Carried here so a caller does not have to walk the
     /// statuses a second time to say "a tenth of this cut".
     pub valid: usize,
+}
+
+/// Which pass put a gate where it ended up.
+///
+/// A gate that comes back on the wrong branch was moved by something, and
+/// until this existed there was no way to say what. Two passes can do it: a
+/// boundary vote that gets a whole patch wrong, and the fitted wind placing a
+/// patch the boundaries never reached. They fail in different ways and want
+/// different bounds, and one number over both of them cannot carry either.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum PlacedBy {
+    /// No reading here, or a gate in no patch at all.
+    #[default]
+    Nothing,
+    /// The patch the whole sweep is measured from, which kept its own reading.
+    Root,
+    /// A chain of boundary votes back to that patch.
+    Boundary,
+    /// The fitted ambient wind, for a patch no boundary reached.
+    Wind,
+    /// Nothing could place it, so it is exactly as the radar reported it.
+    Unplaced,
 }
 
 /// One gate's place in the sweep: which radial, and how far along it.
@@ -342,6 +371,53 @@ pub fn dealias(
     nyquist: f32,
     elevation_degrees: f32,
 ) -> Dealiased {
+    dealias_here(
+        values,
+        valid,
+        azimuth_degrees,
+        gates,
+        nyquist,
+        elevation_degrees,
+        None,
+    )
+}
+
+/// The same, saying which pass placed each gate.
+///
+/// A vector the length of the sweep, which is why it is a second entrance
+/// rather than something every caller pays for: the app draws sweeps and does
+/// not care, and the recorder that holds the dealiaser against the archive is
+/// the one thing that has to tell a boundary's mistakes from the wind's.
+pub fn dealias_recording(
+    values: &mut [f32],
+    valid: &[bool],
+    azimuth_degrees: &[f32],
+    gates: usize,
+    nyquist: f32,
+    elevation_degrees: f32,
+) -> (Dealiased, Vec<PlacedBy>) {
+    let mut placed = vec![PlacedBy::Nothing; values.len()];
+    let found = dealias_here(
+        values,
+        valid,
+        azimuth_degrees,
+        gates,
+        nyquist,
+        elevation_degrees,
+        Some(&mut placed),
+    );
+    (found, placed)
+}
+
+fn dealias_here(
+    values: &mut [f32],
+    valid: &[bool],
+    azimuth_degrees: &[f32],
+    gates: usize,
+    nyquist: f32,
+    elevation_degrees: f32,
+    mut record: Option<&mut Vec<PlacedBy>>,
+) -> Dealiased {
     let azimuths = azimuth_degrees.len();
     if azimuths == 0 || gates == 0 || values.len() != azimuths * gates || !nyquist.is_finite() {
         return Dealiased::default();
@@ -425,6 +501,9 @@ pub fn dealias(
     let mut shift = vec![Option::<i32>::None; region_count];
     shift[root] = Some(0);
     settle_from(root, &adjacency, &sizes, &mut shift);
+    // Which patches the boundaries reached, taken before the wind runs. After
+    // it, `shift` says nothing about which of the two put a patch where it is.
+    let by_boundary: Vec<bool> = shift.iter().map(Option::is_some).collect();
     // Anything still unplaced sits in a group the root never reached. A patch
     // left unplaced cannot touch a placed one, because the traversal offers
     // every neighbour of everything it settles, so what is left is groups
@@ -540,10 +619,24 @@ pub fn dealias(
         if !placed[label] {
             found.unplaced += 1;
         }
+        if let Some(record) = record.as_deref_mut() {
+            record[at] = if !placed[label] {
+                PlacedBy::Unplaced
+            } else if label == root {
+                PlacedBy::Root
+            } else if by_boundary[label] {
+                PlacedBy::Boundary
+            } else {
+                PlacedBy::Wind
+            };
+        }
         let Some(offset) = shift[label] else { continue };
         if offset != 0 {
             values[at] += interval * offset as f32;
             found.moved += 1;
+            if !by_boundary[label] {
+                found.moved_by_wind += 1;
+            }
         }
     }
     found

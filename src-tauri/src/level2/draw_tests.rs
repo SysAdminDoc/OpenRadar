@@ -1106,6 +1106,7 @@ fn a_composite_reports_the_worse_of_its_two_halves() {
     // two halves the number comes from and not how either was worked out.
     under.unfolding = crate::dealias::Dealiased {
         moved: 10,
+        moved_by_wind: 0,
         unplaced: 400,
         valid: 1000,
     };
@@ -1134,12 +1135,14 @@ fn a_composite_reports_the_worse_of_its_two_halves() {
     let mut under = prepare_sweep("KTLX", &older, &none, asked, None).expect("the older half");
     under.unfolding = crate::dealias::Dealiased {
         moved: 0,
+        moved_by_wind: 0,
         unplaced: 1,
         valid: 1000,
     };
     let mut over = over;
     over.unfolding = crate::dealias::Dealiased {
         moved: 0,
+        moved_by_wind: 0,
         unplaced: 700,
         valid: 1000,
     };
