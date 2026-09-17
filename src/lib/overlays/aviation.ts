@@ -3,7 +3,7 @@ import { type OverlayAdapter, type OverlayFeature } from "./registry";
 import { cachedUrl } from "../tileCache";
 import { formatNumber, translate } from "../../i18n";
 import type { StringKey } from "../../i18n/en";
-import { formatClock } from "../units";
+import { formatInstant } from "../units";
 
 /**
  * What the air is doing to aircraft, from the offices that say so.
@@ -447,11 +447,16 @@ export const aviationOverlay: OverlayAdapter = {
       "aviation.pireps",
     ] as const;
 
+    const now = Date.now();
     const features: OverlayFeature[] = [];
     const missing: string[] = [];
     answers.forEach((answer, at) => {
       if (answer.status === "fulfilled") {
-        features.push(...readers[at](answer.value));
+        for (const feature of readers[at](answer.value)) {
+          const to = feature.properties.validTo;
+          if (typeof to === "number" && to < now) continue;
+          features.push(feature);
+        }
         return;
       }
       missing.push(translate(names[at]));
@@ -530,12 +535,12 @@ export const aviationOverlay: OverlayAdapter = {
     if (typeof from === "number" && typeof to === "number") {
       lines.push(
         translate("aviation.validBetween", {
-          from: formatClock(from),
-          to: formatClock(to),
+          from: formatInstant(from),
+          to: formatInstant(to),
         }),
       );
     } else if (typeof from === "number") {
-      lines.push(translate("aviation.validAt", { time: formatClock(from) }));
+      lines.push(translate("aviation.validAt", { time: formatInstant(from) }));
     }
 
     const severity = severityWords(properties.severity);

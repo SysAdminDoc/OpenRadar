@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import {
   AVIATION_REFRESH_MS,
@@ -200,6 +200,14 @@ function serve(answers: unknown[]) {
 }
 
 describe("what the air is doing to aircraft", () => {
+  beforeAll(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+  });
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   it("draws each of the four with its own valid times", async () => {
     const held = globalThis.fetch;
     globalThis.fetch = serve([SIGMET, GAIRMET, CWA, PIREP]) as typeof fetch;

@@ -326,6 +326,33 @@ export function formatClock(
 }
 
 /**
+ * A time that adds the day when the instant is not today.
+ *
+ * A bare clock is right for something that happened an hour ago; a SIGMET
+ * from another day needs to say which day, or the reader sees "Valid
+ * 2:55 AM to 4:55 AM" with nothing to say which night.
+ */
+export function formatInstant(at: number | Date): string {
+  const date = typeof at === "number" ? new Date(at) : at;
+  const now = new Date();
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  if (sameDay) {
+    return formatClock(date);
+  }
+  const sameYear = date.getFullYear() === now.getFullYear();
+  return formatClock(date, {
+    ...(sameYear ? {} : { year: "numeric" }),
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/**
  * How old something is, in a unit somebody reads at a glance.
  *
  * Every age in the app was a minute count that never changed unit, so a view
