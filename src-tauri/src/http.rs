@@ -498,4 +498,64 @@ mod tests {
         assert!(agent.starts_with("OpenRadar/"));
         assert!(agent.contains("github.com/SysAdminDoc/OpenRadar"));
     }
+
+    /// TLS handshake against the NWS cipher-suite preview hosts.
+    ///
+    /// SCN26-80 enforces a new Akamai TLS 1.2 cipher list on the NWS
+    /// services from 2027-03-02 14Z. These preview hosts let us verify
+    /// that our rustls client can negotiate before the switch. Remove
+    /// these tests after 2027-03-02.
+    #[tokio::test]
+    #[ignore = "asks NWS preview hosts"]
+    async fn tls_handshake_with_nws_preview_api() {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .expect("client");
+        let response = client
+            .head("https://preview-api.weather.gov/")
+            .send()
+            .await;
+        assert!(
+            response.is_ok(),
+            "TLS handshake with preview-api.weather.gov failed: {:?}",
+            response.err()
+        );
+    }
+
+    #[tokio::test]
+    #[ignore = "asks NWS preview hosts"]
+    async fn tls_handshake_with_nws_preview_radar() {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .expect("client");
+        let response = client
+            .head("https://preview-radar.weather.gov/")
+            .send()
+            .await;
+        assert!(
+            response.is_ok(),
+            "TLS handshake with preview-radar.weather.gov failed: {:?}",
+            response.err()
+        );
+    }
+
+    #[tokio::test]
+    #[ignore = "asks NWS preview hosts"]
+    async fn tls_handshake_with_nws_preview_opengeo() {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .expect("client");
+        let response = client
+            .head("https://preview-opengeo.ncep.noaa.gov/")
+            .send()
+            .await;
+        assert!(
+            response.is_ok(),
+            "TLS handshake with preview-opengeo.ncep.noaa.gov failed: {:?}",
+            response.err()
+        );
+    }
 }
