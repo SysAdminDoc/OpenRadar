@@ -1862,6 +1862,8 @@ export const de: Catalogue = {
   "legend.hidden": "RADAR AUSGEBLENDET",
   "legend.smoothed": "Zwischen den Gates geglättet",
   "legend.melting": "Schmelzschicht bei {height}, aus der {tilt}°-Elevation",
+  "legend.debrisMark":
+    "Weiße Markierung: mögliche Tornado-Trümmersignatur, keine Bestätigung",
   "legend.partlyUnfolded": "{share}% noch gefaltet",
   "legend.scale": "{product} von {min} bis {max} {unit}",
   "timeline.label": "Radaranimation",

@@ -1795,6 +1795,8 @@ export const en = {
   "legend.hidden": "RADAR HIDDEN",
   "legend.smoothed": "Smoothed between gates",
   "legend.melting": "Melting layer at {height}, from the {tilt}° cut",
+  "legend.debrisMark":
+    "White mark: possible tornado debris signature, not a confirmation",
   "legend.partlyUnfolded": "{share}% still folded",
   "legend.scale": "{product} from {min} to {max} {unit}",
   "timeline.label": "Radar animation",
