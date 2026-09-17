@@ -127,7 +127,8 @@ pub fn derivation(kind: Kind, isotherms: &Isotherms<'_>) -> String {
              weighted from {HAIL_WEIGHT_FLOOR_DBZ:.0} to {HAIL_WEIGHT_CEILING_DBZ:.0} dBZ and \
              between the 0 and -20 degree heights), turned into a size by the Murillo and \
              Homeyer 75th percentile refit; heights from {}, freezing at {:.2} km and minus \
-             twenty at {:.2} km above sea level",
+             twenty at {:.2} km above sea level; the standard atmosphere runs the size \
+             high on a warm day because ISA isotherms are lower than a real hail day's",
             isotherms.source, isotherms.freezing_km, isotherms.minus_twenty_km
         ),
     }

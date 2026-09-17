@@ -765,7 +765,7 @@ export const es: Catalogue = {
   "radar.stormMotionClear": "Leerlo del barrido",
   "radar.hailAir": "Aire con el que se calculó el tamaño",
   "radar.hailAirStandard":
-    "La atmósfera estándar, porque no hay sondeo cargado",
+    "La atmósfera estándar, porque no hay sondeo cargado. El tamaño sale alto en un día cálido.",
   "radar.hailAirSounding": "De {source}",
   "radar.hailAirHeights":
     "Congelación a {freezing}, menos veinte a {cold}, sobre el nivel del mar",

@@ -750,7 +750,7 @@ export const en = {
   "radar.stormMotionClear": "Read it from the sweep instead",
   "radar.hailAir": "Air the size was read against",
   "radar.hailAirStandard":
-    "The standard atmosphere, because no sounding is loaded",
+    "The standard atmosphere, because no sounding is loaded. The size runs high on a warm day.",
   "radar.hailAirSounding": "From {source}",
   "radar.hailAirHeights":
     "Freezing at {freezing}, minus twenty at {cold}, above sea level",

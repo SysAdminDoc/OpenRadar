@@ -772,7 +772,8 @@ export const fr: Catalogue = {
   "radar.stormMotionFrom": "Provenance",
   "radar.stormMotionClear": "Le lire plutôt dans le balayage",
   "radar.hailAir": "Air ayant servi au calcul de la taille",
-  "radar.hailAirStandard": "L’atmosphère standard, faute de sondage chargé",
+  "radar.hailAirStandard":
+    "L’atmosphère standard, faute de sondage chargé. La taille sort haute par jour chaud.",
   "radar.hailAirSounding": "D’après {source}",
   "radar.hailAirHeights":
     "Isotherme 0 à {freezing}, moins vingt à {cold}, au-dessus du niveau de la mer",
