@@ -1713,20 +1713,20 @@ export const fr: Catalogue = {
   "gridWatch.hailTitle": "Grêle estimée près de {place}",
   "gridWatch.hailTitleHome": "Grêle estimée près de vous",
   "gridWatch.hailBody":
-    "Le réseau estime {reading} à moins de {miles} {unit}. Une estimation à partir de l'énergie de l'orage, pas un signalement de grêle au sol.",
+    "Le réseau a estimé {reading} à moins de {miles} {unit} à {observed}. Une estimation à partir de l'énergie de l'orage, pas un signalement de grêle au sol.",
   "gridWatch.hailQuietTitle":
     "{place} est sous la taille depuis une demi-heure",
   "gridWatch.hailQuietTitleHome": "Sous la taille depuis une demi-heure",
   "gridWatch.hailQuietBody":
-    "Rien de cette taille estimé dans le rayon depuis trente minutes.",
+    "Rien de cette taille estimé dans le rayon depuis trente minutes, à {observed}.",
   "gridWatch.rotationTitle": "Rotation près de {place}",
   "gridWatch.rotationTitleHome": "Rotation près de vous",
   "gridWatch.rotationBody":
-    "Le réseau combine un cisaillement de {reading} à moins de {miles} {unit}. Du cisaillement mesuré par les radars, pas une tornade ni un signalement.",
+    "Le réseau a combiné un cisaillement de {reading} à moins de {miles} {unit} à {observed}. Du cisaillement mesuré par les radars, pas une tornade ni un signalement.",
   "gridWatch.rotationQuietTitle": "{place} est calme depuis une demi-heure",
   "gridWatch.rotationQuietTitleHome": "Calme depuis une demi-heure",
   "gridWatch.rotationQuietBody":
-    "Aucun cisaillement aussi fort dans le rayon depuis trente minutes.",
+    "Aucun cisaillement aussi fort dans le rayon depuis trente minutes, à {observed}.",
   "gridWatch.shear":
     "{shear, plural, one {# millième par seconde} other {# millièmes par seconde}}",
   "gridWatch.hailSetting": "Préviens-moi de la grêle près d'un lieu surveillé",

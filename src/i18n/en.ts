@@ -1667,20 +1667,20 @@ export const en = {
   "gridWatch.hailTitle": "Hail estimated near {place}",
   "gridWatch.hailTitleHome": "Hail estimated near you",
   "gridWatch.hailBody":
-    "The network is estimating {reading} within {miles} {unit}. An estimate from the energy in the storm, not a report of hail on the ground.",
+    "The network estimated {reading} within {miles} {unit} as of {observed}. An estimate from the energy in the storm, not a report of hail on the ground.",
   "gridWatch.hailQuietTitle":
     "{place} has been under the size for half an hour",
   "gridWatch.hailQuietTitleHome": "Under the size for half an hour",
   "gridWatch.hailQuietBody":
-    "Nothing that size estimated within the radius for thirty minutes.",
+    "Nothing that size estimated within the radius for thirty minutes, as of {observed}.",
   "gridWatch.rotationTitle": "Rotation near {place}",
   "gridWatch.rotationTitleHome": "Rotation near you",
   "gridWatch.rotationBody":
-    "The network is merging shear of {reading} within {miles} {unit}. Shear the radars measured, not a tornado and not a report of one.",
+    "The network merged shear of {reading} within {miles} {unit} as of {observed}. Shear the radars measured, not a tornado and not a report of one.",
   "gridWatch.rotationQuietTitle": "{place} has been quiet for half an hour",
   "gridWatch.rotationQuietTitleHome": "Quiet for half an hour",
   "gridWatch.rotationQuietBody":
-    "No shear that strong within the radius for thirty minutes.",
+    "No shear that strong within the radius for thirty minutes, as of {observed}.",
   "gridWatch.shear":
     "{shear, plural, one {# thousandth a second} other {# thousandths a second}}",
   "gridWatch.hailSetting": "Tell me about hail near a watched place",

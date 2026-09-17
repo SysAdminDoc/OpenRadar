@@ -183,13 +183,14 @@ describe("a grid rule watching a place", () => {
     expect(said[0]?.kind).toBe("over");
 
     // Storm ends while the rule is still on: a reading under the threshold.
-    grid.peak.mockResolvedValue(peakOf(0));
+    // Each poll gets the current fake time so the grid is never stale.
+    grid.peak.mockImplementation(() => Promise.resolve(peakOf(0)));
     await vi.advanceTimersByTimeAsync(31 * 60_000);
     const quietCount = said.filter((n) => n.kind === "quiet").length;
     expect(quietCount).toBe(1);
 
     // Rule off, storm comes back.
-    grid.peak.mockResolvedValue(peakOf(50.8));
+    grid.peak.mockImplementation(() => Promise.resolve(peakOf(50.8)));
     rerender({ settings: { ...RULE, enabled: false } });
     await vi.advanceTimersByTimeAsync(GRID_WATCH_REFRESH_MS + 1);
 

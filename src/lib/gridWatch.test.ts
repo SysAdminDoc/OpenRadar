@@ -3,6 +3,7 @@ import { mrmsSource } from "../test/rustSource";
 import {
   DEFAULT_HAIL_RULE,
   DEFAULT_ROTATION_RULE,
+  GRID_MAX_AGE_MS,
   GRID_RULE_SOURCES,
   gridAfter,
   gridToAnnounce,
@@ -230,6 +231,37 @@ describe("a rule set on a grid near a place", () => {
       ROTATION_LEVELS[1],
       6,
     );
+  });
+
+  it("does not start or end a notice on a stale grid", () => {
+    const staleReading = reading(2, {
+      observed: AT - GRID_MAX_AGE_MS - 60_000,
+    });
+    const said = new Map<string, GridSaid>();
+    // A reading over the threshold but too old does not start a notice.
+    expect(
+      gridToAnnounce("hail", RULE, [staleReading], [place()], said, AT),
+    ).toEqual([]);
+
+    // With an active notice, a stale reading does not end it either.
+    const active = new Map<string, GridSaid>([
+      ["home", { active: true, over: AT - QUIET_AFTER_MS - 1 }],
+    ]);
+    expect(
+      gridToAnnounce("hail", RULE, [staleReading], [place()], active, AT),
+    ).toEqual([]);
+
+    // And a fresh reading at the same value does trigger.
+    expect(
+      gridToAnnounce(
+        "hail",
+        RULE,
+        [reading(2, { observed: AT - 60_000 })],
+        [place()],
+        said,
+        AT,
+      ),
+    ).toHaveLength(1);
   });
 
   it("is off by default, both of them", () => {

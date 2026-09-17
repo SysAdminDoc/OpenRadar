@@ -4,7 +4,12 @@ import { log } from "../lib/log";
 import { isDesktopRuntime } from "../lib/runtime";
 import { playAlertTone } from "../lib/sound";
 import { pollWhileOnline } from "../lib/poll";
-import { distanceUnit, distanceValue, isMetric } from "../lib/units";
+import {
+  distanceUnit,
+  distanceValue,
+  formatInstant,
+  isMetric,
+} from "../lib/units";
 import { formatNumber, translate } from "../i18n";
 import {
   GRID_RULE_SOURCES,
@@ -78,11 +83,16 @@ export function gridTitle(notice: GridNotice): string {
 }
 
 export function gridBody(notice: GridNotice): string {
+  const observed =
+    notice.reading.observed !== null
+      ? formatInstant(notice.reading.observed)
+      : "";
   if (notice.kind === "quiet") {
     return translate(
       notice.rule === "hail"
         ? "gridWatch.hailQuietBody"
         : "gridWatch.rotationQuietBody",
+      { observed },
     );
   }
   const reading = notice.reading;
@@ -94,6 +104,7 @@ export function gridBody(notice: GridNotice): string {
       reading: size,
       miles: distanceValue(reading.miles ?? 0),
       unit: distanceUnit(),
+      observed,
     },
   );
 }
