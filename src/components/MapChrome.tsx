@@ -61,6 +61,7 @@ interface RadarLegendProps {
    * which includes every product that is not the hail size.
    */
   melting?: MeltingLayer | null;
+  hasDebris?: boolean;
   onToggle: () => void;
 }
 
@@ -75,6 +76,7 @@ export function RadarLegend({
   smoothed = false,
   unplacedShare = 0,
   melting = null,
+  hasDebris = false,
   onToggle,
 }: RadarLegendProps) {
   const t = useT();
@@ -110,6 +112,9 @@ export function RadarLegend({
               tilt: formatNumber(melting.elevationDegrees, 1),
             })}
           </small>
+        ) : null}
+        {radarEnabled && hasDebris ? (
+          <small className="legend-smoothed">{t("legend.debrisMark")}</small>
         ) : null}
       </span>
       <ChevronDown size={16} />

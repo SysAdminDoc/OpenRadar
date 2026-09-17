@@ -546,6 +546,7 @@ pub(crate) fn draw_sweep(
             .unwrap_or_else(|| station.to_string()),
         product: label.to_string(),
         unit: unit.to_string(),
+        has_debris: debris.is_some(),
         hail_heights,
         dealiased,
         // The larger of the two halves of a composite, not the newer one.

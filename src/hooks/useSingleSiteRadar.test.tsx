@@ -201,6 +201,7 @@ function sweepFor(
     highContrast: false,
     smoothed: false,
     dealiased: false,
+    hasDebris: false,
     unplacedShare: 0,
     liveFailed: null,
     nextChunkAt: null,

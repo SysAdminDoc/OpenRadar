@@ -159,6 +159,8 @@ export interface SweepImage {
   smoothed: boolean;
   /** True when the velocity drawn here has been unfolded. */
   dealiased: boolean;
+  /** True when a tornado debris signature was found in this sweep. */
+  hasDebris: boolean;
   /**
    * The share of this cut's readings unfolding could not place, from zero to
    * one.

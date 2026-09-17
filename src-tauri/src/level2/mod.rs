@@ -250,6 +250,8 @@ pub struct SweepImage {
     /// folds and all, and a reader looking at a couplet in one of them is
     /// owed the fact that it might be a fold rather than rotation.
     pub unplaced_share: f32,
+    /// True when a tornado debris signature was found in this sweep.
+    pub has_debris: bool,
     /// The air a hail size was worked out against. Absent on every other
     /// product.
     pub hail_heights: Option<HailHeights>,

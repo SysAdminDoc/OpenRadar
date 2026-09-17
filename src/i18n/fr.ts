@@ -1846,6 +1846,8 @@ export const fr: Catalogue = {
   "legend.hidden": "RADAR MASQUÉ",
   "legend.smoothed": "Lissé entre les portes",
   "legend.melting": "Couche de fusion à {height}, de la coupe à {tilt}°",
+  "legend.debrisMark":
+    "Marque blanche : signature possible de débris de tornade, pas une confirmation",
   "legend.partlyUnfolded": "{share} % encore replié",
   "legend.scale": "{product} de {min} à {max} {unit}",
   "timeline.label": "Animation du radar",
