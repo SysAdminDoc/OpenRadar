@@ -253,7 +253,7 @@ function parseGairmets(payload: unknown): OverlayFeature[] {
       geometry: feature.geometry,
       properties: {
         kind: "gairmet" satisfies AviationKind,
-        title: text(from.product) ?? "G-AIRMET",
+        title: "G-AIRMET",
         hazard: text(from.hazard),
         // What the forecaster actually said about it. A turbulence area with
         // no severity is the word "turbulence" and nothing else, and an IFR
@@ -290,7 +290,7 @@ function parseCwas(payload: unknown): OverlayFeature[] {
       geometry: feature.geometry,
       properties: {
         kind: "cwa" satisfies AviationKind,
-        title: text(from.cwsu) ?? "CWA",
+        title: "CWA",
         hazard: text(from.hazard),
         validFrom: instant(from.validtimef),
         validTo: instant(from.validtimet),
@@ -359,7 +359,7 @@ function parsePireps(payload: unknown): OverlayFeature[] {
       geometry: feature.geometry,
       properties: {
         kind: "pirep" satisfies AviationKind,
-        title: text(from.aircraft_ref) ?? "PIREP",
+        title: "PIREP",
         hazard: drawn === null ? null : drawn === icing ? "ICE" : "TURB",
         validFrom: instant(from.observation_time),
         validTo: null,
@@ -614,6 +614,7 @@ export const aviationOverlay: OverlayAdapter = {
 
     const raw = properties.raw;
     if (typeof raw === "string") lines.push(raw);
+    lines.push(translate("aviation.source"));
     // On every popup rather than in a note somebody has to go and find. This
     // is public weather data drawn on a weather map, and a pilot planning a
     // flight is owed the official briefing rather than this.

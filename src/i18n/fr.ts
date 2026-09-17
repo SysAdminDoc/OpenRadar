@@ -1374,6 +1374,7 @@ export const fr: Catalogue = {
   "aviation.upTo": "Jusqu’à {high}",
   "aviation.atLevel": "Signalé à {high}",
   "aviation.from": "À partir de {low} vers le haut",
+  "aviation.source": "Source : NOAA Aviation Weather Center",
   "aviation.notForFlight":
     "Ne sert pas à préparer un vol. Utilisez un dossier officiel.",
   "aviation.sigmets": "les SIGMET",

@@ -1392,6 +1392,7 @@ export const de: Catalogue = {
   "aviation.upTo": "Bis {high}",
   "aviation.atLevel": "Gemeldet bei {high}",
   "aviation.from": "Ab {low} aufwärts",
+  "aviation.source": "Quelle: NOAA Aviation Weather Center",
   "aviation.notForFlight":
     "Nicht für die Flugplanung. Nutzen Sie ein amtliches Briefing.",
   "aviation.sigmets": "SIGMETs",
