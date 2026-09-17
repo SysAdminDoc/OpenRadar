@@ -2,6 +2,10 @@
 
 ## OpenRadar v0.13.0
 
+- The arrow cursor and the inspect readout now read from the volume the picture was drawn from, not the latest. A scrubbed or archive frame's gate value matches what is on screen. Velocity is converted through the units setting: mph under imperial, km/h under metric.
+
+- The pack panel strips HTML tags from the attribution string so angle brackets from the archive's metadata show as text rather than raw markup.
+
 - Five fixes for the PMTiles import. A tile-read failure now marks the archive as failed on its manifest so the panel shows the error instead of Ready over a blank map. The zoom clamp that capped stored references at 2-15 is widened to 0-22 so a full-range archive works after a restart. Removing or deselecting a pack restores the projection and camera the reader had before selecting it. The import quota no longer double-charges the archive size. The copy and hash run on a blocking thread outside the store lock, and planet extracts with bounds at the Mercator limit are accepted.
 
 - Five fixes for the lightning jump statistic. The coverage floor for rating a bin goes from 25% to 75%, so a steady 30-a-minute storm no longer triggers on Poisson noise alone. The sigma threshold accounts for the sample-size effect on the variance estimate (2.8 instead of 2.0, which is the t-distribution correction the published method's assumption of known variance skips). A trimmed or incomplete window is not folded into the series. The reported time is the start of the bin, not the end (which could be two minutes in the future). A fired jump stays on the card for one full bin instead of vanishing on the next poll.
