@@ -52,6 +52,10 @@
 
 - Scrubbing the timeline and pressing play now loops from that frame to live rather than starting over from the beginning of the window. Returning to live clears the pinned start.
 
+- The debris mark no longer fires on ice and graupel at 12 km on the 19.5 degree cut. A height ceiling at 3 km above the radar rejects any gate whose beam is above the lowest three operational cuts.
+
+- An echo top that reaches the highest scanned cut now says so in the legend: the storm may go higher than the volume can see, and the number is "at least" rather than a measurement. The hail size panel and the export header now state that the standard atmosphere makes the size come out high on a warm day rather than low.
+
 - Freshness budgets for every MRMS product, the FLASH grids, the hourly accumulations and the site products are widened to cover what the sources actually publish. The two-minute cadence the budgets used to carry is how often the network publishes, not how old the newest reading is.
 
 - An export with buoys, aviation, CoCoRaHS, AirNow or FIRMS on now dates its provenance to the newest reading the features carry rather than to the minute they were downloaded. A buoy observation from 07:00 is dated to 07:00, not to noon when the app last asked. The freshness budget comes from the argued table in layerProvenance.ts rather than the adapter's polling interval.
