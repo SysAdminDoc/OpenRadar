@@ -204,7 +204,10 @@ export function gridAfter(
   for (const reading of readings) {
     const held = said.get(reading.placeId);
     const notice = told.get(reading.placeId);
-    const over = reading.value !== null && reading.value >= settings.threshold;
+    const stale =
+      reading.observed !== null && at - reading.observed > GRID_MAX_AGE_MS;
+    const over =
+      reading.value !== null && !stale && reading.value >= settings.threshold;
     const active =
       notice?.kind === "over"
         ? true

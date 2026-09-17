@@ -131,9 +131,22 @@ describe("a rule set on a grid near a place", () => {
     // so nobody is told it is safe while hail is still falling on and off.
     let said = new Map<string, GridSaid>();
     said = gridAfter(RULE, [reading(1.5)], said, [], AT);
-    // Twenty minutes later it is under, then over again.
-    said = gridAfter(RULE, [reading(0.1)], said, [], AT + 20 * 60_000);
-    said = gridAfter(RULE, [reading(1.2)], said, [], AT + 25 * 60_000);
+    // Twenty minutes later it is under, then over again. Each reading
+    // is fresh at the moment it is evaluated, not frozen at AT.
+    said = gridAfter(
+      RULE,
+      [reading(0.1, { observed: AT + 20 * 60_000 })],
+      said,
+      [],
+      AT + 20 * 60_000,
+    );
+    said = gridAfter(
+      RULE,
+      [reading(1.2, { observed: AT + 25 * 60_000 })],
+      said,
+      [],
+      AT + 25 * 60_000,
+    );
     expect(said.get("home")?.over).toBe(AT + 25 * 60_000);
 
     const active = new Map<string, GridSaid>([
@@ -145,7 +158,7 @@ describe("a rule set on a grid near a place", () => {
       gridToAnnounce(
         "hail",
         RULE,
-        [reading(0.1)],
+        [reading(0.1, { observed: AT + QUIET_AFTER_MS + 60_000 })],
         [place()],
         active,
         AT + QUIET_AFTER_MS + 60_000,
