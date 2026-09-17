@@ -9,7 +9,7 @@ OpenRadar reads public weather data and draws it. It has no account, no server o
 | 0.13.x  | Yes   |
 | Anything older | No |
 
-This is a small project with one maintainer. Only the newest release gets fixes, and the honest reason is capacity rather than policy. If you are running something older, updating is the fix. The newest build you can download is on the [releases page](https://github.com/SysAdminDoc/OpenRadar/releases).
+Only the newest release gets fixes. The [releases page](https://github.com/SysAdminDoc/OpenRadar/releases) has the download.
 
 The same goes for platforms. Windows x64 is what is built, tested and released, so it is what gets fixes. Nothing here is deliberately Windows-only and Tauri 2 runs elsewhere, but a build on macOS or Linux has never been launched by anyone here and is not covered. There is more on that in the README.
 
