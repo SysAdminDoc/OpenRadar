@@ -1172,6 +1172,12 @@ export default function App() {
               aviation:
                 overlays.states.aviation.error ??
                 overlays.states.aviation.partial,
+              cocorahs:
+                overlays.states.cocorahs.error ??
+                overlays.states.cocorahs.partial,
+              airnow: overlays.states.airnow.error,
+              firms:
+                overlays.states.firms.error ?? overlays.states.firms.partial,
               rotationTracks: mrms.error,
               hail: mrms.error,
               hailSwath: mrms.error,
