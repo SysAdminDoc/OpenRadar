@@ -245,7 +245,7 @@ export function RadarProductPanel({
   };
   return (
     <PanelShell
-      eyebrow={t("radar.eyebrow")}
+      eyebrow={sweep ? sweep.station : t("radar.eyebrow")}
       title={t("radar.title")}
       onClose={onClose}
       className="surface-panel--product"
