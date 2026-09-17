@@ -166,7 +166,10 @@ export function useGridWatch(options: {
   const wanted = ready && settings.enabled && mrmsAvailable();
 
   useEffect(() => {
-    if (!wanted) return;
+    if (!wanted) {
+      saidRef.current = new Map();
+      return;
+    }
     const watching = places.filter((place) => place.enabled);
     if (watching.length === 0) return;
 
