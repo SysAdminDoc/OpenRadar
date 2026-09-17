@@ -289,6 +289,87 @@ describe("the MRMS layers and the grids that feed them", () => {
   });
 });
 
+/**
+ * How long each layer's newest possible reading is, in milliseconds.
+ *
+ * Measured against the sources on 2026-09-10, as the age of the newest file
+ * or record that existed at that moment. This is the thing a budget has to
+ * cover: a layer drawing the freshest reading its source publishes must not
+ * report itself stale, or the word means nothing on any of them.
+ */
+const NEWEST_THERE_IS: Partial<Record<keyof typeof LAYER_SOURCES, number>> = {
+  // Thirteen MRMS products in the public bucket, worst 394 seconds past the
+  // stamp on the file, on 118 to 120 second spacing.
+  precipRate: 394_000,
+  hail: 394_000,
+  echoTops: 394_000,
+  rotationTracks: 394_000,
+  vil: 394_000,
+  precipType: 394_000,
+  ffgHour: 394_000,
+  qpeHour: 394_000,
+  lightningDensity: 394_000,
+  // FLASH_HP_MAXUNITSTREAMFLOW, on ten-minute spacing.
+  unitStreamflow: 537_000,
+  // MultiSensor_QPE Pass 2, which waits for the gauges.
+  gaugeQpe: 5_937_000,
+  qpeDay: 2_314_000,
+  // A clear-air volume is about ten minutes, and the site takes a little
+  // longer to publish the products built off it.
+  classification: 11 * 60_000,
+  stormCells: 11 * 60_000,
+  // A GOES cycle plus the time it takes to reach the reader.
+  probSevere: 5 * 60_000,
+  // An HRRR cycle is on the wire an hour or so after the hour it names.
+  forecastSmoke: 2 * 3_600_000,
+  // And a GFS cycle several hours after its own initialisation.
+  wind: 8 * 3_600_000,
+};
+
+describe("a layer drawing the newest reading there is", () => {
+  // The gate that was missing when the freshness clock moved from the
+  // download to the reading. Every budget in this table had been written as
+  // the source's own cadence, which is right for "how often to ask" and much
+  // too short for "how old the newest answer is": counted from the reading,
+  // two dozen MRMS layers reported themselves stale for most of every cycle
+  // while showing the only grid that existed.
+  for (const [layer, age] of Object.entries(NEWEST_THERE_IS)) {
+    it(`does not call ${layer} stale`, () => {
+      const now = Date.parse("2026-09-10T18:00:00Z");
+      const record = layerProvenance({
+        layer: layer as keyof typeof LAYER_SOURCES,
+        fetchedAt: now,
+        observedAt: now - age,
+        validAt: now - age,
+      });
+      expect(
+        provenanceStale(record, now),
+        `${layer} is stale at ${Math.round(age / 1000)} s old, which is the ` +
+          "newest reading its source publishes",
+      ).toBe(false);
+    });
+  }
+
+  it("still calls a reading older than its source's own cycle stale", () => {
+    // The positive control. Budgets wide enough to stop the false alarms
+    // above would be worth nothing if they were wide enough to stop every
+    // alarm, so each one is held against a reading a whole cycle past it.
+    const now = Date.parse("2026-09-10T18:00:00Z");
+    for (const layer of Object.keys(NEWEST_THERE_IS)) {
+      const source = LAYER_SOURCES[layer as keyof typeof LAYER_SOURCES];
+      const budget = source.freshForMs;
+      expect(budget, layer).not.toBeNull();
+      const record = layerProvenance({
+        layer: layer as keyof typeof LAYER_SOURCES,
+        fetchedAt: now,
+        observedAt: now - budget! - 1,
+        validAt: now - budget! - 1,
+      });
+      expect(provenanceStale(record, now), layer).toBe(true);
+    }
+  });
+});
+
 describe("how long a snowfall analysis is worth having", () => {
   it("holds the window against the measurement it came from", () => {
     // Not the nominal cadence. The office publishes at 00Z and 12Z and takes
