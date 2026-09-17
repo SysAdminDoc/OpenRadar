@@ -198,6 +198,47 @@ pub struct ChunkKey {
     pub uploaded: DateTime<Utc>,
 }
 
+/// The `YYYYMMDD-HHMMSS` volume-start stamp from a chunk key.
+///
+/// Two generations of chunks can sit in the same folder when the ring wraps.
+/// The stamp is what tells them apart: every piece of one volume shares it,
+/// and the pieces of the folder's previous occupant carry an older one.
+fn generation_stamp(key: &str) -> Option<&str> {
+    let name = key.rsplit('/').next()?;
+    let dash = name.find('-')?;
+    let second = name[dash + 1..].find('-')? + dash + 1;
+    Some(&name[..second])
+}
+
+/// Keeps only the pieces that belong to the newest volume in the listing.
+///
+/// When a folder comes round again, the old generation's pieces are not
+/// always gone. Assembling both produces a corrupt volume, and sampling by
+/// the oldest key (which sorts first by name) picks the stale generation.
+fn newest_generation(keys: Vec<ChunkKey>) -> Vec<ChunkKey> {
+    if keys.is_empty() {
+        return keys;
+    }
+    let mut best_stamp: Option<&str> = None;
+    let mut best_uploaded: Option<DateTime<Utc>> = None;
+    for chunk in &keys {
+        if let Some(stamp) = generation_stamp(&chunk.key) {
+            let newer = best_uploaded.is_none_or(|held| chunk.uploaded > held);
+            if newer {
+                best_stamp = Some(stamp);
+                best_uploaded = Some(chunk.uploaded);
+            }
+        }
+    }
+    let Some(keep) = best_stamp else {
+        return keys;
+    };
+    let keep = keep.to_string();
+    keys.into_iter()
+        .filter(|chunk| generation_stamp(&chunk.key).is_some_and(|stamp| stamp == keep))
+        .collect()
+}
+
 /// The keys and upload times in one listing, newest last.
 ///
 /// The listing carries both, which is the whole reason this reads the XML
@@ -269,7 +310,7 @@ pub async fn newest_volume(
         let mut best: Option<(u32, Vec<ChunkKey>, DateTime<Utc>)> = None;
         for step in 0..6u32 {
             let volume = wrap(known + step);
-            let found = listing(station, volume, 200).await?;
+            let found = newest_generation(listing(station, volume, 200).await?);
             let Some(newest) = found.iter().map(|chunk| chunk.uploaded).max() else {
                 continue;
             };
@@ -285,11 +326,14 @@ pub async fn newest_volume(
     }
 
     // Nothing to go on. Sample the ring coarsely for the folder with the
-    // newest upload, then look either side of it.
+    // newest upload, then look either side of it. A folder can hold two
+    // generations, so the upload time is from the newest key (which is the
+    // current generation's), not the first key by name (which may be the
+    // older generation's).
     let mut best: Option<(u32, DateTime<Utc>)> = None;
     for volume in (1..=VOLUMES).step_by(50) {
         let found = listing(station, volume, 1).await?;
-        let Some(newest) = found.first().map(|chunk| chunk.uploaded) else {
+        let Some(newest) = found.iter().map(|chunk| chunk.uploaded).max() else {
             continue;
         };
         if best.as_ref().is_none_or(|(_, held)| newest > *held) {
@@ -308,7 +352,7 @@ pub async fn newest_volume(
     let mut misses = 0;
     for step in 0..60u32 {
         let volume = wrap(around + step);
-        let found = listing(station, volume, 200).await?;
+        let found = newest_generation(listing(station, volume, 200).await?);
         let newest = found.iter().map(|chunk| chunk.uploaded).max();
         match newest {
             Some(newest)
@@ -364,6 +408,8 @@ fn wrap(volume: u32) -> u32 {
 struct Remembered {
     station: String,
     volume: u32,
+    /// The `YYYYMMDD-HHMMSS` stamp shared by every piece in this generation.
+    generation: String,
     pieces: BTreeMap<String, Vec<u8>>,
     /// What the last read projected, so the next one can decide whether the
     /// radar has stopped without fetching the volume again to find out.
@@ -391,9 +437,16 @@ fn carried_over(
     before: Option<Remembered>,
     station: &str,
     volume: u32,
+    generation: &str,
 ) -> BTreeMap<String, Vec<u8>> {
     match before {
-        Some(before) if before.station == station && before.volume == volume => before.pieces,
+        Some(before)
+            if before.station == station
+                && before.volume == volume
+                && before.generation == generation =>
+        {
+            before.pieces
+        }
         _ => BTreeMap::new(),
     }
 }
@@ -488,7 +541,7 @@ pub async fn live_scan(station: &str) -> Result<LiveScan, ChunkError> {
 /// the chunks here, and downloaded whole from the archive once it lands there.
 #[cfg(test)]
 pub async fn scan_in_folder(station: &str, volume: u32) -> Result<LiveScan, ChunkError> {
-    let keys = listing(station, volume, 400).await?;
+    let keys = newest_generation(listing(station, volume, 400).await?);
     let Some(newest) = keys.iter().map(|chunk| chunk.uploaded).max() else {
         return Err(ChunkError::NotLive(station.to_string()));
     };
@@ -501,9 +554,15 @@ async fn assemble(
     keys: Vec<ChunkKey>,
     newest: DateTime<Utc>,
 ) -> Result<LiveScan, ChunkError> {
+    let generation = keys
+        .first()
+        .and_then(|chunk| generation_stamp(&chunk.key))
+        .unwrap_or("")
+        .to_string();
+
     // Whatever is already in hand and still belongs to this read.
     let before = HELD.lock().ok().and_then(|mut held| held.take());
-    let mut pieces = carried_over(before, station, volume);
+    let mut pieces = carried_over(before, station, volume, &generation);
 
     // Only the pieces that are new. Fetched in the order they were published,
     // because the start chunk carries the volume header and the coverage
@@ -560,6 +619,7 @@ async fn assemble(
         *held = Some(Remembered {
             station: station.to_string(),
             volume,
+            generation,
             pieces,
             timing,
         });
@@ -810,6 +870,62 @@ mod tests {
         assert!(found[0].key.ends_with("-001-S"), "{}", found[0].key);
         assert!(found[1].key.ends_with("-002-I"), "{}", found[1].key);
         assert_eq!(found[1].uploaded.to_rfc3339(), "2026-08-30T16:16:20+00:00");
+    }
+
+    #[test]
+    fn two_generations_in_one_folder_keep_only_the_newest() {
+        let listed = |key: &str, second: u32| ChunkKey {
+            key: key.to_string(),
+            uploaded: at(16, 16, second),
+        };
+        // A folder holding pieces from 2026-09-09 and 2026-09-12, the way the
+        // upstream reproduced: the ring wraps and the old generation is still
+        // there.
+        let mixed = vec![
+            listed("KBYX/589/20260909-120000-001-S", 0),
+            listed("KBYX/589/20260909-120000-002-I", 5),
+            listed("KBYX/589/20260912-140000-001-S", 30),
+            listed("KBYX/589/20260912-140000-002-I", 35),
+            listed("KBYX/589/20260912-140000-003-I", 40),
+        ];
+        let kept = newest_generation(mixed);
+        assert_eq!(kept.len(), 3);
+        for chunk in &kept {
+            assert!(
+                chunk.key.contains("20260912"),
+                "old generation piece kept: {}",
+                chunk.key
+            );
+        }
+
+        // The generation stamp is the one whose pieces have the newest upload
+        // time, not the one with the lexically newest name. This is how it
+        // has to work: the old generation's name sorts later sometimes
+        // (depends on the hour), but its upload time is always older.
+        let backwards = vec![
+            listed("KBYX/589/20260930-230000-001-S", 5),
+            listed("KBYX/589/20260901-010000-001-S", 30),
+        ];
+        let kept = newest_generation(backwards);
+        assert_eq!(kept.len(), 1);
+        assert!(kept[0].key.contains("20260901"));
+
+        // An empty listing stays empty.
+        assert!(newest_generation(vec![]).is_empty());
+    }
+
+    #[test]
+    fn the_generation_stamp_is_the_volume_start() {
+        assert_eq!(
+            generation_stamp("KTLX/114/20260830-161604-017-I"),
+            Some("20260830-161604")
+        );
+        assert_eq!(
+            generation_stamp("KBYX/589/20260912-140000-001-S"),
+            Some("20260912-140000")
+        );
+        assert_eq!(generation_stamp("KTLX/114/"), None);
+        assert_eq!(generation_stamp("bare"), None);
     }
 
     #[test]
@@ -1103,6 +1219,7 @@ mod tests {
             *held = Some(Remembered {
                 station: "KTLX".to_string(),
                 volume: 210,
+                generation: String::new(),
                 pieces: pieces
                     .iter()
                     .enumerate()
@@ -1123,9 +1240,15 @@ mod tests {
 
     /// What a read of one folder would find already in hand.
     fn remembered(station: &str, volume: u32, keys: &[&str]) -> Remembered {
+        let generation = keys
+            .first()
+            .and_then(|key| generation_stamp(key))
+            .unwrap_or("")
+            .to_string();
         Remembered {
             station: station.to_string(),
             volume,
+            generation,
             pieces: keys
                 .iter()
                 .map(|key| ((*key).to_string(), vec![0u8; 4]))
@@ -1151,6 +1274,7 @@ mod tests {
             Some(remembered("KTLX", 210, &["KTLX/210/a", "KTLX/210/b"])),
             "KTLX",
             210,
+            "",
         );
         assert_eq!(held.len(), 2);
         assert_eq!(still_wanted(&held, &keys), vec!["KTLX/210/c".to_string()]);
@@ -1165,6 +1289,7 @@ mod tests {
             )),
             "KTLX",
             210,
+            "",
         );
         assert!(still_wanted(&all, &keys).is_empty());
     }
@@ -1178,17 +1303,19 @@ mod tests {
         let before = remembered("KTLX", 210, &["KTLX/210/a"]);
 
         // The radar has moved on to the next folder.
-        let moved_on = carried_over(Some(remembered("KTLX", 209, &["KTLX/209/a"])), "KTLX", 210);
+        let moved_on =
+            carried_over(Some(remembered("KTLX", 209, &["KTLX/209/a"])), "KTLX", 210, "");
         assert!(moved_on.is_empty());
         assert_eq!(still_wanted(&moved_on, &keys).len(), 2);
 
         // And another site's pieces are never this site's.
-        let elsewhere = carried_over(Some(remembered("KDMX", 210, &["KDMX/210/a"])), "KTLX", 210);
+        let elsewhere =
+            carried_over(Some(remembered("KDMX", 210, &["KDMX/210/a"])), "KTLX", 210, "");
         assert!(elsewhere.is_empty());
 
         // The one case that does carry over.
-        assert_eq!(carried_over(Some(before), "KTLX", 210).len(), 1);
-        assert!(carried_over(None, "KTLX", 210).is_empty());
+        assert_eq!(carried_over(Some(before), "KTLX", 210, "").len(), 1);
+        assert!(carried_over(None, "KTLX", 210, "").is_empty());
     }
 
     #[test]
