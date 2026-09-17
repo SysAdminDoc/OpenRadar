@@ -1864,6 +1864,8 @@ export const de: Catalogue = {
   "legend.melting": "Schmelzschicht bei {height}, aus der {tilt}°-Elevation",
   "legend.debrisMark":
     "Weiße Markierung: mögliche Tornado-Trümmersignatur, keine Bestätigung",
+  "legend.echoTopped":
+    "Das Echotop erreicht die höchste gescannte Elevation. Die tatsächliche Höhe kann darüber liegen.",
   "legend.partlyUnfolded": "{share} % noch gefaltet",
   "legend.scale": "{product} von {min} bis {max} {unit}",
   "timeline.label": "Radaranimation",

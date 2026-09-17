@@ -1797,6 +1797,8 @@ export const en = {
   "legend.melting": "Melting layer at {height}, from the {tilt}° cut",
   "legend.debrisMark":
     "White mark: possible tornado debris signature, not a confirmation",
+  "legend.echoTopped":
+    "The echo top reaches the highest scanned cut. The true height may be above what the volume can see.",
   "legend.partlyUnfolded": "{share}% still folded",
   "legend.scale": "{product} from {min} to {max} {unit}",
   "timeline.label": "Radar animation",

@@ -62,6 +62,7 @@ interface RadarLegendProps {
    */
   melting?: MeltingLayer | null;
   hasDebris?: boolean;
+  echoTopped?: boolean;
   onToggle: () => void;
 }
 
@@ -77,6 +78,7 @@ export function RadarLegend({
   unplacedShare = 0,
   melting = null,
   hasDebris = false,
+  echoTopped = false,
   onToggle,
 }: RadarLegendProps) {
   const t = useT();
@@ -115,6 +117,9 @@ export function RadarLegend({
         ) : null}
         {radarEnabled && hasDebris ? (
           <small className="legend-smoothed">{t("legend.debrisMark")}</small>
+        ) : null}
+        {radarEnabled && echoTopped ? (
+          <small className="legend-smoothed">{t("legend.echoTopped")}</small>
         ) : null}
       </span>
       <ChevronDown size={16} />

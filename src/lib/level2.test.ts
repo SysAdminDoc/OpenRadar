@@ -33,6 +33,7 @@ const sweep: SweepImage = {
   smoothed: false,
   dealiased: false,
   hasDebris: false,
+  echoTopped: false,
   unplacedShare: 0,
   live: false,
   liveTilts: 0,

@@ -1849,6 +1849,8 @@ export const fr: Catalogue = {
   "legend.melting": "Couche de fusion à {height}, de la coupe à {tilt}°",
   "legend.debrisMark":
     "Marque blanche : signature possible de débris de tornade, pas une confirmation",
+  "legend.echoTopped":
+    "Le sommet de l'écho atteint la coupe la plus haute. La hauteur réelle peut dépasser ce que le volume peut voir.",
   "legend.partlyUnfolded": "{share} % encore replié",
   "legend.scale": "{product} de {min} à {max} {unit}",
   "timeline.label": "Animation du radar",

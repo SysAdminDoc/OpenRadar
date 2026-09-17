@@ -223,6 +223,8 @@ pub(crate) struct Prepared {
     derivation: Option<String>,
     /// The gates a debris signature was found at, on the same geometry.
     debris: Option<SweepField>,
+    /// True when an echo top reading sits at the highest scanned cut.
+    echo_topped: bool,
 }
 
 pub(crate) fn prepare_sweep(
@@ -322,6 +324,7 @@ pub(crate) fn prepare_sweep(
     }
 
     let mut debris = None;
+    let mut echo_topped = false;
     let mut hail_heights = None;
     let derivation = match derived {
         Some(Worked::Turning(kind)) => Some(shear::derivation(kind)),
@@ -370,6 +373,7 @@ pub(crate) fn prepare_sweep(
             let found = derive::derive(scan, kind, &isotherms, antenna_km)
                 .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
             chosen.field = found.field;
+            echo_topped = found.topped;
             // A column has no elevation. Reporting the cut this happened to be
             // chosen from would put a tilt beside a picture that is every tilt
             // at once, and the page reads this number to say what it is
@@ -394,6 +398,7 @@ pub(crate) fn prepare_sweep(
         hail_heights,
         derivation,
         debris,
+        echo_topped,
     })
 }
 
@@ -440,6 +445,7 @@ pub(crate) fn draw_sweep(
         hail_heights,
         derivation: _,
         debris,
+        echo_topped,
     } = prepared;
     let threshold = asked.threshold;
 
@@ -552,6 +558,7 @@ pub(crate) fn draw_sweep(
         product: label.to_string(),
         unit: unit.to_string(),
         has_debris: debris.is_some(),
+        echo_topped,
         hail_heights,
         dealiased,
         // The larger of the two halves of a composite, not the newer one.

@@ -202,6 +202,7 @@ function sweepFor(
     smoothed: false,
     dealiased: false,
     hasDebris: false,
+    echoTopped: false,
     unplacedShare: 0,
     liveFailed: null,
     nextChunkAt: null,
