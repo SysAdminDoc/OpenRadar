@@ -207,6 +207,8 @@ function firstParameter(parameters: unknown, name: string): unknown {
 
 export interface AlertTags {
   impact: ImpactTag | null;
+  /** The VTEC event key, when the NWS feed carries one. */
+  eventKey: string | null;
   /** The larger of the two threats, since a warning can carry both. */
   hailSize: string;
   motion: string;
@@ -253,8 +255,19 @@ export function parseAlertTags(payload: unknown): Map<string, AlertTags> {
           ? tornado
           : thunderstorm
         : (tornado ?? thunderstorm);
+    // The VTEC event key, which survives a continuation, reissue or polygon
+    // trim. Without it, each arrives as a new capId and the watch re-announces
+    // a warning the reader has already heard.
+    const vtecRaw = text(firstParameter(parameters, "VTEC"));
+    const vtecMatch = vtecRaw?.match(
+      /\/\w\.(?:NEW|CON|EXA|EXB|EXT|UPG|CAN|EXP|COR|ROU)\.\w{4}\.\w{2}\.\w\.(\d{4})\./,
+    );
+    const eventKey = vtecMatch
+      ? vtecRaw!.replace(/^\/\w\./, "/").replace(/\.\d{6}T\d{4}Z.*/, "")
+      : null;
     out.set(id, {
       impact,
+      eventKey,
       hailSize: text(firstParameter(parameters, "maxHailSize")),
       motion: text(firstParameter(parameters, "eventMotionDescription")),
       // The office's own words, exactly as issued.
@@ -344,6 +357,7 @@ export function parseAlerts(
         description: tagged?.description ?? "",
         instruction: tagged?.instruction ?? "",
         area: tagged?.area ?? "",
+        eventKey: tagged?.eventKey ?? null,
         agency: "nws",
         office: text(properties.wfo),
         url: text(properties.url),

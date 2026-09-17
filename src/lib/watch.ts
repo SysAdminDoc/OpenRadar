@@ -335,6 +335,12 @@ export function alertId(
   properties: Record<string, unknown>,
   bounds: OverlayBounds,
 ): string {
+  // The VTEC event key, when the NWS feed carries one. A continuation,
+  // polygon trim or reissue of the same event arrives with a new capId but
+  // the same VTEC event number, so keying on the capId re-announces what
+  // the reader has already heard. The event key survives all three.
+  const eventKey = properties.eventKey;
+  if (typeof eventKey === "string" && eventKey) return eventKey;
   // The alert's own identifier first. The American feed puts a per-alert
   // address in `url` and that served as the identity for a long time, but an
   // office that publishes one warnings page for the whole country puts the
