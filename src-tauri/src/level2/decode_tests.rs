@@ -153,13 +153,15 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
         };
         println!(
             "{station}: broken pairs {} -> {}, {} of {} folded gates back on \
-                 their own branch, {} invented, {} misplaced",
+                 their own branch, {} invented, {} misplaced ({} boundary, {} wind)",
             found.broken_before,
             found.broken_after,
             found.rejoined,
             found.wrapped,
             found.invented,
-            found.misplaced
+            found.misplaced,
+            found.misplaced_by_boundary,
+            found.misplaced_by_wind
         );
         match &found.rpg {
             Some(held) => println!(
@@ -234,18 +236,12 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
         // rejoined share across the stations instead.
         //
         // AUD-388 also asked that it fail when the wind's plausibility bar is
-        // removed, and the measurement says no line does both. The same week
-        // recorded with the bar taken out reads 1.329 at worst, so the window
-        // where a line clears the week and fails without the bar is 1.285 to
-        // 1.329: three and a half per cent wide, against single station-days
-        // that move by as much as 0.122 when the bar comes out and a spread
-        // between stations of 0.002 to 1.285. A line drawn in that window
-        // fails on the weather rather than on the code. The bar is worth
-        // keeping on its own evidence: over the 38 station-days both runs
-        // measured it is better on 33 and worse on none, 152,398 misplaced
-        // gates against 160,430. Bounding what the wind alone contributes
-        // needs `misplaced` split into gates a boundary placed and gates the
-        // wind placed, which is AUD-445.
+        // removed, and the measurement says no line does both on the total.
+        // Split into boundary-placed and wind-placed (AUD-445), the wind's
+        // own contribution can carry a line where the combined figure could
+        // not: the wind's share is small enough that removing the bar moves
+        // it measurably, while the boundary's share dominates the total and
+        // swamps the movement.
         assert!(
             found.misplaced < found.wrapped * 2,
             "{} gates that never folded came back on a foreign branch, against {} that folded",
@@ -748,7 +744,7 @@ fn recording_the_days_unfolding_is_held_against() {
         .build()
         .expect("a runtime");
     println!(
-        "station,day,broken_before,broken_after,rejoined,wrapped,invented,misplaced,misplaced_share,rejoined_share,rpg_comparable,rpg_before,rpg_after,rpg_share"
+        "station,day,broken_before,broken_after,rejoined,wrapped,invented,misplaced,misplaced_boundary,misplaced_wind,misplaced_share,rejoined_share,rpg_comparable,rpg_before,rpg_after,rpg_share"
     );
     // The seven days ending yesterday, rather than a week written into the
     // file. A recorder pinned to fixed dates records the same week however
@@ -768,13 +764,15 @@ fn recording_the_days_unfolding_is_held_against() {
             let at = day.and_hms_opt(21, 0, 0).expect("a UTC time").and_utc();
             match measure_unfolding_at(&runtime, station, at) {
                 Some(found) => println!(
-                    "{station},{day},{},{},{},{},{},{},{:.4},{:.4},{}",
+                    "{station},{day},{},{},{},{},{},{},{},{},{:.4},{:.4},{}",
                     found.broken_before,
                     found.broken_after,
                     found.rejoined,
                     found.wrapped,
                     found.invented,
                     found.misplaced,
+                    found.misplaced_by_boundary,
+                    found.misplaced_by_wind,
                     found.misplaced as f64 / found.wrapped.max(1) as f64,
                     found.rejoined as f64 / found.wrapped.max(1) as f64,
                     match &found.rpg {
@@ -790,7 +788,7 @@ fn recording_the_days_unfolding_is_held_against() {
                 ),
                 // A station with no Doppler cut worth measuring that day,
                 // which the contract also passes over.
-                None => println!("{station},{day},none,,,,,,,,,,,"),
+                None => println!("{station},{day},none,,,,,,,,,,,,,"),
             }
         }
     }

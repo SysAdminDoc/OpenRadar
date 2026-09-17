@@ -97,7 +97,8 @@ fn a_constant_shear_comes_back_as_itself() {
 #[test]
 fn the_same_rotation_reads_the_same_at_every_range() {
     let field = constant_shear(0.008);
-    let derived = derive(&field, Beside::default(), Kind::AzimuthalShear, &[]).expect("a derived cut");
+    let derived =
+        derive(&field, Beside::default(), Kind::AzimuthalShear, &[]).expect("a derived cut");
     for range in [20.0, 50.0, 90.0, 95.0] {
         let (found, status) = derived.field.get(360, gate_at(range));
         assert_eq!(status, GateStatus::Valid, "nothing at {range} km");
@@ -392,7 +393,8 @@ fn a_gate_with_too_few_neighbours_is_dropped() {
     field.set(centre - 1, gate, 11.0, GateStatus::Valid);
     field.set(centre + 1, gate, 13.0, GateStatus::Valid);
     field.set(centre, gate + 1, 12.0, GateStatus::Valid);
-    let derived = derive(&field, Beside::default(), Kind::AzimuthalShear, &[]).expect("a derived cut");
+    let derived =
+        derive(&field, Beside::default(), Kind::AzimuthalShear, &[]).expect("a derived cut");
     let (_, status) = derived.field.get(centre, gate);
     assert!(
         !matches!(status, GateStatus::Valid),
@@ -506,8 +508,7 @@ fn debris_above_the_height_ceiling_is_not_flagged() {
     let centre = 360usize;
     for azimuth in 0..AZIMUTHS {
         let from_centre = azimuth as i64 - centre as i64;
-        let across =
-            (from_centre.clamp(-(half as i64), half as i64)) as f32 / half as f32;
+        let across = (from_centre.clamp(-(half as i64), half as i64)) as f32 / half as f32;
         for g in 0..GATES {
             high_field.set(azimuth, g, across * 30.0, GateStatus::Valid);
         }

@@ -1561,10 +1561,7 @@ fn quota_peak_fits(
     Ok(peak <= disk_limit_bytes(root)?)
 }
 
-fn quota_import_fits(
-    root: &Path,
-    archive_bytes: u64,
-) -> Result<bool, IncidentPackError> {
+fn quota_import_fits(root: &Path, archive_bytes: u64) -> Result<bool, IncidentPackError> {
     let used = used_bytes(root)?;
     let peak = used
         .saturating_add(archive_bytes)
@@ -2681,7 +2678,9 @@ pub async fn serve_tile(uri: &str) -> ServedTile {
         let coord = tile.coord()?;
         match on_a_blocking_thread(move || drive(read_one_tile(&archive, coord))?).await {
             Ok(body) => Ok(body),
-            Err(ref error) if matches!(error, IncidentPackError::NotFound) => Err(IncidentPackError::NotFound),
+            Err(ref error) if matches!(error, IncidentPackError::NotFound) => {
+                Err(IncidentPackError::NotFound)
+            }
             Err(error) => {
                 mark_archive_failed(&pack_dir, &mut manifest, &error);
                 Err(error)
