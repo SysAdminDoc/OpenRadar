@@ -232,6 +232,7 @@ export function useRadarTimeline(options: {
   // took the whole timeline down over a question about animation, and three
   // test files had to stub it at module level to load this hook at all.
   const [playing, setPlaying] = useState(() => !reducedMotionRequested());
+  const loopStartRef = useRef(0);
 
   // Panning inside one provider's footprint must not refetch, so the effect
   // keys on the covering chain rather than the raw center.
@@ -260,6 +261,9 @@ export function useRadarTimeline(options: {
     selection.replay === replayId
       ? selection.time
       : (archive?.focusTime ?? null);
+  useEffect(() => {
+    if (selected === null) loopStartRef.current = 0;
+  }, [selected]);
 
   // What a refresh needs to know without re-subscribing on every change.
   const liveRef = useRef({
@@ -476,8 +480,10 @@ export function useRadarTimeline(options: {
             ? current.time
             : (archive?.focusTime ?? null);
         const index = nearestFrameIndex(frames, at);
+        const next =
+          index + 1 < frames.length ? index + 1 : loopStartRef.current;
         return {
-          time: frames[(index + 1) % frames.length].time,
+          time: frames[next].time,
           replay: replayId,
         };
       });
@@ -524,6 +530,7 @@ export function useRadarTimeline(options: {
         const frame = frames[index];
         if (!frame) return;
         setPlaying(false);
+        loopStartRef.current = index;
         setSelection({ time: frame.time, replay: replayId });
       },
     }),
