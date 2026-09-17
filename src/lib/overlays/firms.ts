@@ -6,7 +6,7 @@ import {
 } from "./registry";
 import { cachedUrl } from "../tileCache";
 import { formatNumber, translate } from "../../i18n";
-import { formatClock } from "../units";
+import { formatInstant } from "../units";
 
 /**
  * Where a satellite saw something burning in the last day.
@@ -316,7 +316,7 @@ export const firmsOverlay: OverlayAdapter = {
     }
     const at = properties.acquiredAt;
     if (typeof at === "number") {
-      lines.push(translate("firms.seen", { time: formatClock(at) }));
+      lines.push(translate("firms.seen", { time: formatInstant(at) }));
     }
     // What a detection is and is not, on every popup rather than in a note
     // somebody has to go and find. A hot pixel is not a wildfire, and this

@@ -7,7 +7,7 @@ import {
 import { cachedUrl } from "../tileCache";
 import { formatNumber, translate } from "../../i18n";
 import {
-  formatClock,
+  formatInstant,
   isMetric,
   speedFromMetres,
   speedUnit,
@@ -307,7 +307,9 @@ export const buoysOverlay: OverlayAdapter = {
     }
     const observed = properties.observedAt;
     if (typeof observed === "number") {
-      lines.push(translate("buoys.observed", { time: formatClock(observed) }));
+      lines.push(
+        translate("buoys.observed", { time: formatInstant(observed) }),
+      );
     }
     const station = String(properties.station ?? "");
     return {
