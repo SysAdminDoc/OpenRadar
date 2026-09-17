@@ -34,8 +34,42 @@ const NWS = "NOAA National Weather Service";
 const ECCC = "Environment and Climate Change Canada";
 const DWD = "Deutscher Wetterdienst";
 const MRMS = "NOAA MRMS";
-/** MRMS grids are published every two minutes. */
-const MRMS_REFRESH = 120_000;
+/**
+ * How long an MRMS grid is worth having, measured from its own valid hour.
+ *
+ * Not the two minutes the grids are published at, which is what this said
+ * while the freshness clock ran from the download and could therefore never
+ * fire. Counted from the reading, a budget has to cover three things: the
+ * cadence, the time the office takes to publish a grid after the minute it is
+ * for, and the app's own poll. Measured on 2026-09-10 across thirteen
+ * products in the public bucket, the newest file that existed was between 79
+ * and 394 seconds past its own stamp, spacing 118 to 120. Four hundred of lag
+ * plus two minutes of cadence plus two of polling is eight and a half, and
+ * ten leaves room for a cycle that slips.
+ *
+ * Anything under this is the newest grid there is. Saying that one is stale
+ * says nothing except that the reader is looking at current weather.
+ */
+const MRMS_FRESH_FOR = 10 * 60_000;
+
+/**
+ * The same, for the FLASH products that run on a ten-minute cycle.
+ *
+ * `FLASH_HP_MAXUNITSTREAMFLOW` was 537 seconds past its stamp in the same
+ * sweep, on 600-second spacing. Twenty minutes covers a cycle that is missed
+ * rather than merely late.
+ */
+const MRMS_TEN_MINUTE_FRESH_FOR = 20 * 60_000;
+
+/**
+ * And for the accumulations rebuilt on the hour rather than every two minutes.
+ *
+ * `MultiSensor_QPE_*_Pass2` and `RadarOnly_QPE_24H` are hourly, and Pass 2
+ * waits for the gauges: in the same sweep the newest Pass 2 file was 5,937
+ * seconds past its stamp, which is an hour of cadence and thirty-nine minutes
+ * of gauge collection. Two hours covers that with a cycle to spare.
+ */
+const MRMS_HOURLY_FRESH_FOR = 2 * 3_600_000;
 
 export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
   weatherAlerts: {
@@ -95,7 +129,8 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "derived",
     derivedFrom:
       "the site's own dual-polarisation classification, from Level III",
-    freshForMs: 300_000,
+    // The same volume, and the same clear-air ten minutes.
+    freshForMs: 15 * 60_000,
   },
   stormCells: {
     sourceId: "stormCells",
@@ -105,14 +140,20 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     // volume and is not a forecast either.
     kind: "derived",
     derivedFrom: "the site's own storm tracking algorithm, from Level III",
-    freshForMs: 300_000,
+    // A volume, so the cadence is the scan's: about four and a half minutes
+    // in precipitation and ten in the clear-air patterns, plus the site's
+    // own delivery. Five minutes was the fast pattern alone, so a quiet
+    // afternoon reported every site as stale.
+    freshForMs: 15 * 60_000,
   },
   probSevere: {
     sourceId: "probSevere",
     label: "NSSL ProbSevere",
     attribution: "NOAA National Severe Storms Laboratory",
     kind: "forecast",
-    freshForMs: 120_000,
+    // Two minutes of cadence off the satellite, and the same allowance for
+    // publication and polling the MRMS grids need.
+    freshForMs: 10 * 60_000,
   },
   earthquakes: {
     sourceId: "earthquakes",
@@ -215,7 +256,10 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     // A model's expectation of the hours ahead. A cycle every hour, and the
     // field for an hour is only worth having until the next cycle has it.
     kind: "forecast",
-    freshForMs: 3_600_000,
+    // An hour of cadence, and the run is not on the wire for an hour or so
+    // after the hour it is named for. One hour flat meant the layer was
+    // stale from the moment it could first be drawn.
+    freshForMs: 3 * 3_600_000,
   },
   tropical: {
     sourceId: "tropical",
@@ -253,7 +297,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     attribution: MRMS,
     kind: "derived",
     derivedFrom: "azimuthal shear accumulated over the window chosen",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   azShear: {
     // The family, not the low slab. Same reason.
@@ -262,7 +306,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     attribution: MRMS,
     kind: "derived",
     derivedFrom: "velocity differences across the slab of the storm chosen",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   hail: {
     sourceId: "mesh",
@@ -270,7 +314,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     attribution: MRMS,
     kind: "derived",
     derivedFrom: "hail size estimated from the reflectivity column",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   vilDensity: {
     sourceId: "vil-density",
@@ -278,7 +322,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     attribution: MRMS,
     kind: "derived",
     derivedFrom: "integrated liquid divided by the depth of the echo",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   shi: {
     sourceId: "shi",
@@ -286,7 +330,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     attribution: MRMS,
     kind: "derived",
     derivedFrom: "hail kinetic energy flux weighted by the sounding heights",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   posh: {
     sourceId: "posh",
@@ -294,7 +338,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     attribution: MRMS,
     kind: "derived",
     derivedFrom: "the severe hail index against its warning threshold",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   vii: {
     sourceId: "vii",
@@ -303,7 +347,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "derived",
     derivedFrom:
       "reflectivity integrated between the freezing level and minus forty",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   hailSwath: {
     sourceId: "hail-swath",
@@ -311,14 +355,14 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     attribution: MRMS,
     kind: "derived",
     derivedFrom: "estimated hail size accumulated along the storm's path",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   echoTops: {
     sourceId: "echo-tops",
     label: "Echo tops",
     attribution: MRMS,
     kind: "observation",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   vil: {
     sourceId: "vil",
@@ -326,7 +370,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     attribution: MRMS,
     kind: "derived",
     derivedFrom: "liquid water integrated through the column",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   precipRate: {
     sourceId: "precip-rate",
@@ -334,7 +378,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     attribution: MRMS,
     kind: "derived",
     derivedFrom: "rain rate estimated from reflectivity",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   qpeHour: {
     sourceId: "qpe-hour",
@@ -342,7 +386,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     attribution: MRMS,
     kind: "derived",
     derivedFrom: "estimated rain accumulated over one hour",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   qpeDay: {
     sourceId: "qpe-day",
@@ -350,7 +394,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     attribution: MRMS,
     kind: "derived",
     derivedFrom: "estimated rain accumulated over twenty-four hours",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_HOURLY_FRESH_FOR,
   },
   night: {
     sourceId: "solar-terminator",
@@ -391,7 +435,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "derived",
     derivedFrom:
       "estimated rain corrected against reporting gauges, accumulated over the chosen window",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_HOURLY_FRESH_FOR,
   },
   ffgHour: {
     sourceId: "ffg-hour",
@@ -404,7 +448,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "derived",
     derivedFrom:
       "estimated hourly rain against the office's flash flood guidance",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   ffgThreeHour: {
     sourceId: "ffg-three-hour",
@@ -413,7 +457,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "derived",
     derivedFrom:
       "estimated three-hour rain against the office's flash flood guidance",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   unitStreamflow: {
     sourceId: "unit-streamflow",
@@ -423,7 +467,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "derived",
     derivedFrom:
       "estimated rain run through the FLASH hydrological model as runoff per square kilometre",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_TEN_MINUTE_FRESH_FOR,
   },
   precipType: {
     sourceId: "precip-type",
@@ -435,7 +479,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "derived",
     derivedFrom:
       "radar and model temperature, classified by the MRMS PrecipFlag algorithm",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   snowfall: {
     sourceId: "snowfall",
@@ -478,7 +522,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     label: "Cloud-to-ground flash density",
     attribution: MRMS,
     kind: "observation",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   lightningForecast: {
     sourceId: "lightning-probability",
@@ -488,7 +532,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     // flash has struck. Read as an observation it says lightning is falling
     // where none is.
     kind: "forecast",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   lightningJump: {
     sourceId: "lightning-jump",
@@ -496,7 +540,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     attribution: MRMS,
     kind: "derived",
     derivedFrom: "flash rate against each cell's own recent history",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   isothermReflectivity: {
     sourceId: "isotherm-reflectivity",
@@ -506,7 +550,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     // the plain observation the composite is.
     kind: "derived",
     derivedFrom: "radar reflectivity sampled at a model temperature level",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   cappi: {
     sourceId: "cappi",
@@ -516,7 +560,7 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     // rather than modelled: the network built the cube out of the radars, and
     // this is a slice of it rather than a column reduced to one number.
     kind: "observation",
-    freshForMs: MRMS_REFRESH,
+    freshForMs: MRMS_FRESH_FOR,
   },
   lightningFlashes: {
     sourceId: "lightningFlashes",
@@ -531,7 +575,10 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     attribution: "NOAA Global Forecast System",
     kind: "forecast",
     // A run every six hours, and the layer is left alone until the next one.
-    freshForMs: 6 * 3_600_000,
+    // Six hours of cadence, and a GFS cycle is several hours behind its own
+    // initialisation by the time it can be read. Six flat reported the
+    // newest run that exists as stale for most of every cycle.
+    freshForMs: 10 * 3_600_000,
   },
   surge: {
     sourceId: "surge",
