@@ -2,6 +2,10 @@
 
 ## OpenRadar v0.13.0
 
+- With a site held, the product panel puts the site controls (product picker, tilt, threshold) first and the national mosaic after them, so the picker is visible without scrolling.
+
+- The dealiaser's misplaced-gate counter now prints boundary-placed and wind-placed separately, so the wind's contribution can carry its own bound. The recorder and the CSV both carry the split.
+
 - The arrow cursor and the inspect readout now read from the volume the picture was drawn from, not the latest. A scrubbed or archive frame's gate value matches what is on screen. Velocity is converted through the units setting: mph under imperial, km/h under metric.
 
 - The pack panel strips HTML tags from the attribution string so angle brackets from the archive's metadata show as text rather than raw markup.
