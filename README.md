@@ -292,7 +292,7 @@ Every binary format this app reads arrives from a public server, and none of it 
 rustup toolchain install nightly
 cargo install cargo-fuzz
 cd src-tauri
-cargo +nightly fuzz build                             # all seven
+cargo +nightly fuzz build                             # all eight
 cargo +nightly fuzz run mrms_grib -- -max_total_time=3600 -rss_limit_mb=4096
 ```
 
