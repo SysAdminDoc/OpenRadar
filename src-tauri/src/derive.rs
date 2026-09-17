@@ -59,7 +59,8 @@ pub struct Isotherms<'a> {
 /// Fifteen degrees at sea level falling at six and a half a kilometre, which
 /// puts freezing at 2.31 km and minus twenty at 5.38. It is a stated default
 /// rather than a good one: a real column in a hail storm is warmer and deeper
-/// than this, so the size comes out low, and the answer says so.
+/// than this, so the temperature weight runs over more of the column and the
+/// size comes out high, and the answer says so.
 const STANDARD_SEA_LEVEL_C: f64 = 15.0;
 const STANDARD_LAPSE_C_PER_KM: f64 = 6.5;
 
