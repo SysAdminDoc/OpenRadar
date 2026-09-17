@@ -46,7 +46,7 @@ describe("the set that ships with the app", () => {
       // telling, so an uncited entry never reaches the screen.
       expect(found.source.length, found.id).toBeGreaterThan(0);
       expect(found.url, found.id).toMatch(/^https:\/\//);
-      for (const which of ["en", "es", "fr"] as const) {
+      for (const which of ["en", "es", "fr", "de"] as const) {
         // In every language the workspace is written in. A card that falls
         // back to English for a French reader is an untranslated surface,
         // and the stories are the whole of what these cards say.
