@@ -703,7 +703,9 @@ export function IncidentPackManager({
                       {packErrorText(pack.error, pack.errorArgs ?? [])}
                     </p>
                   ) : null}
-                  <p className="source-note">{pack.attribution}</p>
+                  <p className="source-note">
+                    {pack.attribution.replace(/<[^>]*>/g, "")}
+                  </p>
                   <div className="incident-pack-actions">
                     {pack.status === "ready" ? (
                       <button
