@@ -788,7 +788,7 @@ export const de: Catalogue = {
   "radar.stormMotionClear": "Stattdessen aus dem Sweep lesen",
   "radar.hailAir": "Luft, gegen die die Größe gelesen wurde",
   "radar.hailAirStandard":
-    "Die Standardatmosphäre, weil keine Radiosondierung geladen ist",
+    "Die Standardatmosphäre, weil keine Radiosondierung geladen ist. Die Größe fällt an warmen Tagen zu hoch aus.",
   "radar.hailAirSounding": "Aus {source}",
   "radar.hailAirHeights":
     "Gefrierpunkt bei {freezing}, minus zwanzig bei {cold}, über dem Meeresspiegel",
