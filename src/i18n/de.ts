@@ -1191,7 +1191,7 @@ export const de: Catalogue = {
   "nearby.nothing": "Gerade nichts in der Nähe von {place}.",
   "nearby.keysHeading": "Die Karte ohne Maus bewegen",
   "nearby.keysBody":
-    "Mit Tab auf die Karte, dann bewegen die Pfeiltasten sie und Plus und Minus zoomen. Mit Umschalt und einer Pfeiltaste drehen oder neigen Sie sie. Nichts auf der Karte braucht Ziehen.",
+    "Mit Tab auf die Karte, dann bewegen die Pfeiltasten einen Cursor und lesen, was das Radar dort zeigt. Plus und Minus zoomen. Mit Umschalt und einer Pfeiltaste drehen oder neigen Sie die Karte. Nichts auf der Karte braucht Ziehen.",
   "nearby.announcement": "{headline}. {body}",
   "follow.went": "Zur {headline} gesprungen",
   "follow.wentBody":
@@ -2592,6 +2592,9 @@ export const de: Catalogue = {
   "tool.endHint": "Wählen Sie den Endpunkt",
   "cursor.at": "{lat}, {lon}.",
   "cursor.reading": "{value} {unit}.",
+  "cursor.live": "Aus dem laufenden Sweep, {when}.",
+  "cursor.from_time": "Aus dem Sweep von {when}.",
+  "cursor.unitless": "(keine Einheit)",
   "cursor.from": "{distance} {bearing} von {place}.",
   "tool.inspectAt": "{lat}°, {lon}° · Zoom {zoom}",
   "tool.gateValue": "{value} {unit}",

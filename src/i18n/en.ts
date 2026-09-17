@@ -1145,7 +1145,7 @@ export const en = {
   "nearby.nothing": "Nothing near {place} right now.",
   "nearby.keysHeading": "Moving the map without a mouse",
   "nearby.keysBody":
-    "Tab to the map, then the arrow keys move it and the plus and minus keys zoom. Hold Shift with an arrow key to turn or tilt it. Nothing on the map needs a drag.",
+    "Tab to the map, then the arrow keys move a cursor and read what the radar shows there. The plus and minus keys zoom. Hold Shift with an arrow key to turn or tilt the map. Nothing on the map needs a drag.",
   "nearby.announcement": "{headline}. {body}",
   "follow.went": "Went to the {headline}",
   "follow.wentBody":
@@ -2501,6 +2501,9 @@ export const en = {
   "tool.endHint": "Select the end point",
   "cursor.at": "{lat}, {lon}.",
   "cursor.reading": "{value} {unit}.",
+  "cursor.live": "From the sweep being made, {when}.",
+  "cursor.from_time": "From the sweep of {when}.",
+  "cursor.unitless": "(no unit)",
   "cursor.from": "{distance} {bearing} of {place}.",
   "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
   "tool.gateValue": "{value} {unit}",

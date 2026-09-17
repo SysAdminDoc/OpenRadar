@@ -1177,7 +1177,7 @@ export const fr: Catalogue = {
   "nearby.nothing": "Rien près de {place} en ce moment.",
   "nearby.keysHeading": "Déplacer la carte sans souris",
   "nearby.keysBody":
-    "Tabulez jusqu'à la carte, puis les flèches la déplacent et les touches plus et moins font le zoom. Maintenez Maj avec une flèche pour la faire pivoter ou l'incliner. Rien sur la carte n'exige un glissement.",
+    "Tabulez jusqu'à la carte, puis les flèches déplacent un curseur et lisent ce que le radar montre là. Les touches plus et moins font le zoom. Maintenez Maj avec une flèche pour faire pivoter ou incliner la carte. Rien sur la carte n'exige un glissement.",
   "nearby.announcement": "{headline}. {body}",
   "follow.went": "Amené à {headline}",
   "follow.wentBody":
@@ -2578,6 +2578,9 @@ export const fr: Catalogue = {
   "tool.endHint": "Choisissez le point d'arrivée",
   "cursor.at": "{lat}, {lon}.",
   "cursor.reading": "{value} {unit}.",
+  "cursor.live": "Du balayage en cours, {when}.",
+  "cursor.from_time": "Du balayage de {when}.",
+  "cursor.unitless": "(sans unité)",
   "cursor.from": "{distance} au {bearing} de {place}.",
   "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
   "tool.gateValue": "{value} {unit}",
