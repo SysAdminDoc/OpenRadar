@@ -346,6 +346,15 @@ export function overlayProvenance(options: {
    */
   kind?: ProvenanceKind;
   /**
+   * How long the newest reading is worth having, from `LAYER_SOURCES`.
+   *
+   * When absent the adapter's own `refreshMs` is used, which is how often
+   * to ask rather than how old the answer may be. The two used to be the
+   * same value, and the freshness budgets in `layerProvenance.ts` existed
+   * as dead code until the caller started passing them.
+   */
+  freshForMs?: number | null;
+  /**
    * What was done to the source values, for an adapter whose layer is derived
    * rather than measured. The contract refuses a derived record without one,
    * and the smoke analysis was producing exactly that: a layer whose whole
@@ -369,7 +378,7 @@ export function overlayProvenance(options: {
     observedAt: forecast ? null : observedAt,
     validAt: observedAt,
     fetchedAt,
-    freshForMs: adapter.refreshMs,
+    freshForMs: options.freshForMs ?? adapter.refreshMs,
     cachedAgeSeconds: options.cachedAgeSeconds ?? null,
     // These services publish when they publish and do not date the run behind
     // what they say, so the record says the run is unknown rather than none.
