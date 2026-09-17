@@ -14,7 +14,7 @@
 
 use nexrad_model::data::{GateStatus, Product, Scan, SweepField};
 
-use crate::cross_section::{beam_height_km, EFFECTIVE_EARTH_RADIUS_KM as EARTH_KM};
+use crate::cross_section::{beam_half_thickness_km, beam_height_km, EFFECTIVE_EARTH_RADIUS_KM as EARTH_KM};
 use crate::gates::reading_at;
 use crate::level2::{sweep_field_at, tilts, MAX_RANGE_KM};
 
@@ -145,6 +145,7 @@ pub struct Derived {
 /// One reading of the column, at the height the beam that made it passed.
 struct Sample {
     height_km: f64,
+    slant_km: f64,
     dbz: f32,
 }
 
@@ -242,6 +243,7 @@ fn read_column(
         };
         into.push(Sample {
             height_km: beam_height_km(slant_km, *elevation) + antenna_km,
+            slant_km,
             dbz,
         });
     }
@@ -350,11 +352,29 @@ fn linear(dbz: f32) -> f64 {
 /// The depth of water a column holds, in kilograms a square metre.
 ///
 /// Greene and Clark's relation, integrated over the layers between one sample
-/// and the next. Every reading is capped before it is linearised: the relation
-/// is between reflectivity and rain, and a sixty decibel return is hail, which
-/// it would read as several times more rain than any column can hold.
+/// and the next. The ROC algorithm extends the end layers by half a beamwidth
+/// so the integration covers the full depth the radar actually saw rather
+/// than stopping at the beam centres, which makes VIL grow with range as the
+/// beams spread. Every reading is capped before it is linearised: the
+/// relation is between reflectivity and rain, and a sixty decibel return is
+/// hail, which it would read as several times more rain than any column can
+/// hold.
 fn vil(column: &[Sample]) -> f64 {
+    if column.is_empty() {
+        return 0.0;
+    }
+
     let mut total = 0.0;
+
+    // Extend below the lowest sample by half a beamwidth.
+    let first = &column[0];
+    let half_below = beam_half_thickness_km(first.slant_km);
+    if half_below > 0.0 {
+        let z = linear(first.dbz.min(VIL_CAP_DBZ));
+        total += 3.44e-6 * z.powf(4.0 / 7.0) * half_below * 1000.0;
+    }
+
+    // The layers between beam centres.
     for pair in column.windows(2) {
         let depth_m = (pair[1].height_km - pair[0].height_km) * 1000.0;
         if depth_m <= 0.0 {
@@ -364,6 +384,15 @@ fn vil(column: &[Sample]) -> f64 {
         let above = linear(pair[1].dbz.min(VIL_CAP_DBZ));
         total += 3.44e-6 * ((below + above) / 2.0).powf(4.0 / 7.0) * depth_m;
     }
+
+    // Extend above the highest sample by half a beamwidth.
+    let last = &column[column.len() - 1];
+    let half_above = beam_half_thickness_km(last.slant_km);
+    if half_above > 0.0 {
+        let z = linear(last.dbz.min(VIL_CAP_DBZ));
+        total += 3.44e-6 * z.powf(4.0 / 7.0) * half_above * 1000.0;
+    }
+
     total
 }
 

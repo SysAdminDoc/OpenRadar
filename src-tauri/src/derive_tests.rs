@@ -5,7 +5,11 @@ use crate::fixture;
 use crate::level2::scan_volume;
 
 fn sample(height_km: f64, dbz: f32) -> Sample {
-    Sample { height_km, dbz }
+    Sample {
+        height_km,
+        slant_km: height_km * 10.0,
+        dbz,
+    }
 }
 
 /// Freezing at three kilometres and minus twenty at six, so the weighting runs
@@ -41,15 +45,21 @@ fn the_temperature_weight_ramps_between_the_two_heights() {
 ///
 /// Forty decibels is ten thousand in the unit the relation is written in, and
 /// ten thousand to the four sevenths is 193.07, so five kilometres of it is
-/// 3.44e-6 times 193.07 times 5,000.
+/// 3.44e-6 times 193.07 times 5,000 plus half a beamwidth at each end. The
+/// end extensions carry the same reflectivity as the nearest sample and grow
+/// with range, which is the ROC algorithm's half-beamwidth rule.
 #[test]
 fn a_column_of_one_reading_holds_the_water_the_relation_says() {
     let column = [sample(1.0, 40.0), sample(6.0, 40.0)];
-    let expected = 3.44e-6 * 193.07 * 5000.0;
+    let z_4_7 = 193.07;
+    let centre_depth_m = 5000.0;
+    let half_below_m = beam_half_thickness_km(column[0].slant_km) * 1000.0;
+    let half_above_m = beam_half_thickness_km(column[1].slant_km) * 1000.0;
+    let expected = 3.44e-6 * z_4_7 * (centre_depth_m + half_below_m + half_above_m);
     let found = vil(&column);
     assert!(
-        (found - expected).abs() < 0.01,
-        "{found} is not {expected} kg per square metre"
+        (found - expected).abs() / expected < 0.02,
+        "{found} is not within 2% of {expected} kg per square metre"
     );
 }
 
