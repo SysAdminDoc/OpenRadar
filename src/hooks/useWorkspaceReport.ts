@@ -46,6 +46,29 @@ const COVERED_BY_ADAPTERS = new Set(
 );
 
 /**
+ * The newest observation instant among the features an adapter drew.
+ *
+ * The features carry `observedAt`, `acquiredAt` or `validFrom` in their
+ * properties, depending on the adapter. Without this the provenance record
+ * would date every adapter layer to its download, which tells a reader that
+ * a 07:00 gauge reading was observed at whatever minute the app polled.
+ */
+function newestObserved(
+  features: Array<{ properties: Record<string, unknown> }>,
+): number | null {
+  let newest: number | null = null;
+  for (const feature of features) {
+    for (const key of ["observedAt", "acquiredAt", "validFrom"] as const) {
+      const value = feature.properties[key];
+      if (typeof value === "number" && Number.isFinite(value)) {
+        if (newest === null || value > newest) newest = value;
+      }
+    }
+  }
+  return newest;
+}
+
+/**
  * What the workspace can say about itself.
  *
  * Three questions with one subject: which of the things on screen have
@@ -257,15 +280,15 @@ export function useWorkspaceReport({
         const described = Object.values(LAYER_SOURCES).find(
           (source) => source.sourceId === adapter.id,
         );
+        const data = overlays.data[adapter.id];
+        const observed = data ? newestObserved(data.features) : null;
         layers.push(
           overlayProvenance({
             adapter,
             fetchedAt: state.fetchedAt,
+            observedAt: observed,
             kind: described?.kind,
-            // A derived layer has to say what was done to it, and the ledger
-            // beside the switch is where that sentence is written. Leaving it
-            // behind made the record malformed rather than incomplete, which
-            // suppressed the source, the credit and the times as well.
+            freshForMs: described?.freshForMs,
             derivedFrom: described?.derivedFrom,
           }),
         );
