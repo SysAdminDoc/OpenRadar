@@ -56,6 +56,10 @@
 
 - An echo top that reaches the highest scanned cut now says so in the legend: the storm may go higher than the volume can see, and the number is "at least" rather than a measurement. The hail size panel and the export header now state that the standard atmosphere makes the size come out high on a warm day rather than low.
 
+- VIL now integrates over half a beamwidth past the first and last beam centres, matching the ROC algorithm and removing the bias that made VIL read low with range.
+
+- Winter VCPs (31, 32, 35) can now produce a melting layer estimate. The previous 9 degree floor was from the QVP method, which needs azimuthal averaging; the 4 degree floor follows Giangrande 2008. The Z and ZDR membership functions are now two-sided bands, so convective rain and hail fall back to zero instead of clamping to the top.
+
 - Freshness budgets for every MRMS product, the FLASH grids, the hourly accumulations and the site products are widened to cover what the sources actually publish. The two-minute cadence the budgets used to carry is how often the network publishes, not how old the newest reading is.
 
 - An export with buoys, aviation, CoCoRaHS, AirNow or FIRMS on now dates its provenance to the newest reading the features carry rather than to the minute they were downloaded. A buoy observation from 07:00 is dated to 07:00, not to noon when the app last asked. The freshness budget comes from the argued table in layerProvenance.ts rather than the adapter's polling interval.
