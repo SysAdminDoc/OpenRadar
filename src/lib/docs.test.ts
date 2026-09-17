@@ -156,4 +156,24 @@ describe("what the repository root holds", () => {
     ).not.toThrow();
     expect(() => readFileSync(join(ROOT, "icon.png"))).toThrow();
   });
+
+  it("counts the fuzz targets from the manifest rather than by hand", () => {
+    const manifest = read("src-tauri", "fuzz", "Cargo.toml");
+    const binCount = (manifest.match(/\[\[bin]]/g) ?? []).length;
+    expect(binCount).toBeGreaterThan(5);
+    const readme = read("README.md");
+    const numberWords: Record<number, string> = {
+      6: "six",
+      7: "seven",
+      8: "eight",
+      9: "nine",
+      10: "ten",
+    };
+    const word = numberWords[binCount];
+    expect(word, `no word for ${binCount} fuzz targets`).toBeTruthy();
+    expect(
+      readme.toLowerCase(),
+      `README says a different count than the ${binCount} targets in the manifest`,
+    ).toContain(`all ${word}`);
+  });
 });
