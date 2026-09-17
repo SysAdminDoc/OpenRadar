@@ -104,6 +104,16 @@ export interface PlaceReading {
   observed: number | null;
 }
 
+/**
+ * How old a grid may be before the rule stops trusting it, in milliseconds.
+ *
+ * MRMS grids update every two minutes. A reading fifteen minutes old came from
+ * a network that has stopped answering, and using it would tell somebody the
+ * hail has stopped because the service went down, which is the same failure
+ * mode the null-reading guard exists to prevent.
+ */
+export const GRID_MAX_AGE_MS = 15 * 60_000;
+
 /** What a place has already been told, so it is not told twice. */
 export interface GridSaid {
   /** True while the place has been told the reading is over its threshold. */
@@ -142,10 +152,16 @@ export function gridToAnnounce(
     // A place's own quiet hours, with no severity to override: this is the
     // network's own arithmetic on a grid, not a forecaster judging a hazard.
     const silenced = quiet ? inQuietHours(quiet, at) : false;
+    // A grid older than the age cap is not a measurement of right now.
+    // Treating it as null keeps it from starting or ending a notice,
+    // the same way a null value does.
+    const stale =
+      reading.observed !== null && at - reading.observed > GRID_MAX_AGE_MS;
     // No coverage is not a reading under the threshold. A circle the network
     // could not see into says nothing either way, and neither starting nor
     // ending on it would be honest.
-    const over = reading.value !== null && reading.value >= settings.threshold;
+    const over =
+      reading.value !== null && !stale && reading.value >= settings.threshold;
     if (!held?.active) {
       if (!over || silenced) continue;
       notices.push({ kind: "over", rule, reading });
@@ -155,7 +171,9 @@ export function gridToAnnounce(
     // Nothing measured is not a reading under the threshold. Ending on it
     // would tell somebody at a ballfield the hail had stopped because the
     // radar went down, which is the one thing this rule must never say.
-    if (reading.value === null) continue;
+    // A stale grid gets the same treatment: it is a network that stopped
+    // answering, not a storm that stopped.
+    if (reading.value === null || stale) continue;
     const last = held.over;
     if (last === null) continue;
     if (at - last < QUIET_AFTER_MS) continue;

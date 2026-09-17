@@ -1727,20 +1727,20 @@ export const de: Catalogue = {
   "gridWatch.hailTitle": "Hagel geschätzt nahe {place}",
   "gridWatch.hailTitleHome": "Hagel geschätzt in Ihrer Nähe",
   "gridWatch.hailBody":
-    "Das Netz schätzt {reading} innerhalb von {miles} {unit}. Eine Schätzung aus der Energie des Sturms, keine Meldung von Hagel am Boden.",
+    "Das Netz hat {reading} innerhalb von {miles} {unit} um {observed} geschätzt. Eine Schätzung aus der Energie des Sturms, keine Meldung von Hagel am Boden.",
   "gridWatch.hailQuietTitle":
     "{place} liegt seit einer halben Stunde unter der Größe",
   "gridWatch.hailQuietTitleHome": "Seit einer halben Stunde unter der Größe",
   "gridWatch.hailQuietBody":
-    "Seit dreißig Minuten nichts dieser Größe im Radius geschätzt.",
+    "Seit dreißig Minuten nichts dieser Größe im Radius geschätzt, um {observed}.",
   "gridWatch.rotationTitle": "Rotation nahe {place}",
   "gridWatch.rotationTitleHome": "Rotation in Ihrer Nähe",
   "gridWatch.rotationBody":
-    "Das Netz führt eine Scherung von {reading} innerhalb von {miles} {unit} zusammen. Von den Radaren gemessene Scherung, kein Tornado und keine Meldung von einem.",
+    "Das Netz hat eine Scherung von {reading} innerhalb von {miles} {unit} um {observed} zusammengeführt. Von den Radaren gemessene Scherung, kein Tornado und keine Meldung von einem.",
   "gridWatch.rotationQuietTitle": "{place} ist seit einer halben Stunde ruhig",
   "gridWatch.rotationQuietTitleHome": "Seit einer halben Stunde ruhig",
   "gridWatch.rotationQuietBody":
-    "Seit dreißig Minuten keine so starke Scherung im Radius.",
+    "Seit dreißig Minuten keine so starke Scherung im Radius, um {observed}.",
   "gridWatch.shear":
     "{shear, plural, one {# Tausendstel je Sekunde} other {# Tausendstel je Sekunde}}",
   "gridWatch.hailSetting":

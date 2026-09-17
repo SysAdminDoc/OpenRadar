@@ -1699,19 +1699,19 @@ export const es: Catalogue = {
   "gridWatch.hailTitle": "Granizo estimado cerca de {place}",
   "gridWatch.hailTitleHome": "Granizo estimado cerca de usted",
   "gridWatch.hailBody":
-    "La red estima {reading} dentro de {miles} {unit}. Una estimación a partir de la energía de la tormenta, no un informe de granizo en el suelo.",
+    "La red estimó {reading} dentro de {miles} {unit} a las {observed}. Una estimación a partir de la energía de la tormenta, no un informe de granizo en el suelo.",
   "gridWatch.hailQuietTitle": "{place} lleva media hora por debajo del tamaño",
   "gridWatch.hailQuietTitleHome": "Media hora por debajo del tamaño",
   "gridWatch.hailQuietBody":
-    "Nada de ese tamaño estimado dentro del radio durante treinta minutos.",
+    "Nada de ese tamaño estimado dentro del radio durante treinta minutos, a las {observed}.",
   "gridWatch.rotationTitle": "Rotación cerca de {place}",
   "gridWatch.rotationTitleHome": "Rotación cerca de usted",
   "gridWatch.rotationBody":
-    "La red combina una cizalladura de {reading} dentro de {miles} {unit}. Cizalladura medida por los radares, no un tornado ni un informe de uno.",
+    "La red combinó una cizalladura de {reading} dentro de {miles} {unit} a las {observed}. Cizalladura medida por los radares, no un tornado ni un informe de uno.",
   "gridWatch.rotationQuietTitle": "{place} lleva media hora en calma",
   "gridWatch.rotationQuietTitleHome": "Media hora en calma",
   "gridWatch.rotationQuietBody":
-    "Ninguna cizalladura tan fuerte dentro del radio durante treinta minutos.",
+    "Ninguna cizalladura tan fuerte dentro del radio durante treinta minutos, a las {observed}.",
   "gridWatch.shear":
     "{shear, plural, one {# milésima por segundo} other {# milésimas por segundo}}",
   "gridWatch.hailSetting": "Avísame del granizo cerca de un lugar vigilado",
