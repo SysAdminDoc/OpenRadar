@@ -150,7 +150,7 @@ describe("finding a command without holding a dead key", () => {
     const english = new Map(
       allCommands("en").map((command) => [command.id, command.keywords]),
     );
-    for (const which of ["en", "es", "fr"] as const) {
+    for (const which of ["en", "es", "fr", "de"] as const) {
       for (const command of allCommands(which)) {
         const words = command.label.toLowerCase().split(/\s+/);
         for (const keyword of command.keywords) {

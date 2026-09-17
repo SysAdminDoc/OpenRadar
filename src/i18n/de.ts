@@ -185,7 +185,7 @@ export const de: Catalogue = {
   "alerts.kindsDetail":
     "Wer eine abwählt, nimmt sie von der Karte und aus dieser Liste",
   "alerts.volume": "Wie laut",
-  "alerts.volumeValue": "{percent}%",
+  "alerts.volumeValue": "{percent} %",
   "alerts.previewNote":
     "Hören Sie, was eine Warnung tatsächlich tun wird, bevor sie es tut. Mit einem unten gewählten eigenen Ton spielen alle vier diesen ab.",
   "alerts.soundFile": "Einen eigenen Ton verwenden",
@@ -389,7 +389,7 @@ export const de: Catalogue = {
   "packs.status.failed": "Braucht Aufmerksamkeit",
   "packs.packMeta": "Zoom {min} bis {max} · {size}",
   "packs.progress":
-    "{done} von {total, plural, one {# Kachel} other {# Kacheln}}, {percent}%",
+    "{done} von {total, plural, one {# Kachel} other {# Kacheln}}, {percent} %",
   "packs.usePack": "Offline nutzen",
   "packs.pause": "Anhalten",
   "packs.resume": "Fortsetzen",
@@ -758,7 +758,7 @@ export const de: Catalogue = {
   "diagnostics.nothingWrong": "Bisher ist nichts schiefgegangen.",
   "diagnostics.updateAvailable": "OpenRadar {version} ist da",
   "diagnostics.updateReady": "Startet in die neue Version neu",
-  "diagnostics.updateDownloading": "Wird geladen, {percent}%",
+  "diagnostics.updateDownloading": "Wird geladen, {percent} %",
   "diagnostics.updateChecking": "Sucht nach einer neueren Version",
   "diagnostics.updateFailed":
     "Die Suche nach Aktualisierungen ist fehlgeschlagen",
@@ -961,8 +961,8 @@ export const de: Catalogue = {
   "probSevere.stale":
     "Der letzte Messwert ist über fünfzehn Minuten alt, er handelt also von Stürmen, die weitergezogen sind. Es wird nichts gezeichnet, bis ein frischer veröffentlicht ist.",
   "probSevere.headline":
-    "{percent}% Wahrscheinlichkeit für Unwetter in der nächsten Stunde",
-  "probSevere.kinds": "Hagel {hail}% · Wind {wind}% · Tornado {tornado}%",
+    "{percent} % Wahrscheinlichkeit für Unwetter in der nächsten Stunde",
+  "probSevere.kinds": "Hagel {hail} % · Wind {wind} % · Tornado {tornado} %",
   "probSevere.note":
     "Ein Modell, das Radar, Satellit und die Luft um den Sturm liest. Es ist keine Warnung, und eine kleine Zahl ist kein Versprechen.",
   "layer.stormCells": "Sturmzellen",
@@ -1030,7 +1030,7 @@ export const de: Catalogue = {
   "layers.ffgThreeHourDetail":
     "Dasselbe über drei Stunden, das Fenster, in dem sich eine langsamere Flut aufbaut",
   "layers.ffgHourDetail":
-    "Wie sich die letzte Regenstunde zu dem verhält, was der Boden dort nach Angabe des Amtes aufnehmen kann. 100% heißt, der Regen hat es erreicht.",
+    "Wie sich die letzte Regenstunde zu dem verhält, was der Boden dort nach Angabe des Amtes aufnehmen kann. 100 % heißt, der Regen hat es erreicht.",
   "layer.precipType": "Regen oder Schnee",
   "layers.precipTypeDetail":
     "Was nach Angabe des Netzes tatsächlich fällt, und nicht wie stark",
@@ -1233,7 +1233,7 @@ export const de: Catalogue = {
     "Leere Bänder sind Höhen, durch die kein Strahl ging, kein Wetter, das nicht da ist.",
   "section.unfolded": "Die Geschwindigkeit wurde vor dem Schnitt entfaltet.",
   "section.partlyUnfolded":
-    "{share}% des Volumens, aus dem dieser Schnitt stammt, sind weiterhin gefaltet.",
+    "{share} % des Volumens, aus dem dieser Schnitt stammt, sind weiterhin gefaltet.",
   "section.palette": "Mit der geladenen Farbtabelle gezeichnet.",
   "keywords.hailSwath": "hagelzug spur letzter tag",
   "keywords.azShear": "azimutale scherung mesozyklone couplet rotation",
@@ -1864,7 +1864,7 @@ export const de: Catalogue = {
   "legend.melting": "Schmelzschicht bei {height}, aus der {tilt}°-Elevation",
   "legend.debrisMark":
     "Weiße Markierung: mögliche Tornado-Trümmersignatur, keine Bestätigung",
-  "legend.partlyUnfolded": "{share}% noch gefaltet",
+  "legend.partlyUnfolded": "{share} % noch gefaltet",
   "legend.scale": "{product} von {min} bis {max} {unit}",
   "timeline.label": "Radaranimation",
   "timeline.play": "Radaranimation abspielen",
@@ -2098,7 +2098,7 @@ export const de: Catalogue = {
   "popup.usgs": "Quelle: USGS",
   "popup.wildfire": "Waldbrand",
   "popup.acres":
-    "{acres, plural, one {# Acre} other {# Acres}}, {contained}% eingedämmt",
+    "{acres, plural, one {# Acre} other {# Acres}}, {contained} % eingedämmt",
   "popup.sizeUnknown": "Größe unbekannt",
   "popup.perimeterUpdated": "Umriss aktualisiert {when}",
   "popup.perimeterUnknown": "Datum des Umrisses unbekannt",
