@@ -242,7 +242,7 @@ Prepared incident packs stay in the app's data folder until you delete them. Wor
 
 Replay bundles carry the storm's frames, the warnings that were in force, and the view you were looking at when you saved one. The view is in there because the tiles it holds are the tiles that view covers, so a bundle cannot reproduce offline without it. Your workspace, which knows where home is and which places you watch, goes in only when you tick the box, and a bundle's workspace is applied only when you choose to. They are written to your downloads folder and read through the system's file picker, so a bundle never crosses into the page as bytes.
 
-The app sends the information needed to answer a request to fixed public providers. Typed place names and forecast coordinates go to Open-Meteo. Route start and end points go to the FOSSGIS routing service, which is told the app is OpenRadar, and points along that route go to Open-Meteo for the weather check. Map and radar requests go to the sources listed in Diagnostics. Those services receive the request and your IP address. Rust limits the desktop app to its configured hosts.
+The app sends the information needed to answer a request to fixed public providers. Typed place names and forecast coordinates go to Open-Meteo. Route start and end points go to the FOSSGIS routing service, which is told the app is OpenRadar, and points along that route go to Open-Meteo for the weather check. Map and radar requests go to the sources listed in Diagnostics. The updater checks github.com for a newer version an hour after launch and once a day after that; nothing is downloaded until you press the button. Those services receive the request and your IP address. Rust limits the desktop app to its configured hosts.
 
 ## Build from source
 
@@ -346,14 +346,26 @@ Everything OpenRadar draws is public data, and every source below is credited in
 | Satellite          | GOES-East GeoColor through NASA GIBS                                                  |
 | Lightning          | GOES-19 Geostationary Lightning Mapper on AWS                                         |
 | Wind               | NOAA GFS open data on AWS                                                             |
-| Warnings           | NWS event-driven map service                                                          |
+| Warnings           | NWS, ECCC, DWD and MeteoAlarm                                                        |
 | Severe probability | NSSL ProbSevere                                                                       |
+| Aviation hazards   | NOAA Aviation Weather Center                                                          |
 | Tropical           | National Hurricane Center map service, HURDAT2 best track                             |
 | Tides              | NOAA CO-OPS                                                                           |
+| River gauges       | NOAA National Water Prediction Service                                                |
 | Earthquakes        | USGS                                                                                  |
 | Wildfires          | NIFC                                                                                  |
+| Smoke              | NOAA Hazard Mapping System and HRRR smoke forecast                                    |
+| Snowfall           | NOAA National Operational Hydrologic Remote Sensing Center                             |
+| Buoys              | NOAA National Data Buoy Center                                                        |
+| Air quality        | AirNow (US EPA and partners)                                                          |
+| Fire detections    | NASA FIRMS                                                                            |
+| Rain gauges        | CoCoRaHS volunteer network                                                            |
+| Storm reports      | NWS Storm Prediction Center                                                           |
+| Forecast guidance  | Open-Meteo (GFS, ECMWF, ICON, GEM)                                                   |
 | Basemap            | OpenStreetMap via OpenFreeMap; USGS imagery and The National Map Topo; OpenTopoMap    |
 | Road routing       | FOSSGIS public Valhalla, on OpenStreetMap data                                        |
+| Place search       | Open-Meteo geocoding                                                                  |
+| Updates            | GitHub (github.com, for the update manifest only)                                     |
 | Fallback radar     | RainViewer, only where the NOAA mosaics do not reach                                  |
 
 We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS).
