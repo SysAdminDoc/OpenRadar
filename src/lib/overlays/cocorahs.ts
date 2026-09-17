@@ -255,7 +255,10 @@ export function parseDaily(body: unknown): OverlayFeature[] {
         place: typeof row.st_name === "string" ? row.st_name : null,
         observedDate: typeof row.obs_date === "string" ? row.obs_date : null,
         observedTime: typeof row.obs_time === "string" ? row.obs_time : null,
-        inches: typeof row.totalpcpn === "number" ? row.totalpcpn : null,
+        inches:
+          typeof row.totalpcpn === "number" && row.totalpcpn >= 0
+            ? row.totalpcpn
+            : null,
       },
     });
   }
@@ -380,10 +383,19 @@ export function newestPerStation(features: OverlayFeature[]): OverlayFeature[] {
     }
     const station = String(feature.properties.station);
     const standing = daily.get(station);
-    if (
-      !standing ||
-      ordering(feature.properties) > ordering(standing.properties)
-    ) {
+    if (!standing) {
+      daily.set(station, feature);
+      continue;
+    }
+    const newer = ordering(feature.properties) > ordering(standing.properties);
+    // A report with no total (the service's -1 sentinel) should not shadow
+    // a report that has one. Prefer the one with a real measurement unless
+    // the newer report also has one.
+    const hasTotal = typeof feature.properties.inches === "number";
+    const standingHasTotal = typeof standing.properties.inches === "number";
+    if (newer && (hasTotal || !standingHasTotal)) {
+      daily.set(station, feature);
+    } else if (!standingHasTotal && hasTotal) {
       daily.set(station, feature);
     }
   }
