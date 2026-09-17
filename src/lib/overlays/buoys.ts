@@ -160,6 +160,13 @@ function parseRow(line: string): OverlayFeature | null {
  * one malformed station is not a reason to draw none of them.
  */
 export function parseBuoys(text: string): OverlayData {
+  if (!text.includes("#STN")) {
+    return {
+      type: "FeatureCollection",
+      features: [],
+      partial: "did not answer",
+    };
+  }
   const features: OverlayFeature[] = [];
   for (const line of text.split("\n")) {
     if (!line.trim() || line.startsWith("#")) continue;

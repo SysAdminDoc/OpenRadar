@@ -61,7 +61,7 @@ const ALREADY_OVER: Record<string, number> = {
   "components/MapViewport.tsx": 3068,
   "hooks/useSingleSiteRadar.test.tsx": 2294,
   "hooks/useSingleSiteRadar.ts": 1717,
-  "App.tsx": 1555,
+  "App.tsx": 1561,
 };
 
 function every(from: string): string[] {

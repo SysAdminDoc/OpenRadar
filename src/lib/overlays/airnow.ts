@@ -118,6 +118,13 @@ export function aqiColor(aqi: number): string {
  * a reason to draw none of them.
  */
 export function parseAirNow(text: string): OverlayData {
+  if (!text.includes("|")) {
+    return {
+      type: "FeatureCollection",
+      features: [],
+      partial: "did not answer",
+    };
+  }
   const features: OverlayFeature[] = [];
   for (const line of text.split(/\r?\n/)) {
     if (!line.trim()) continue;
