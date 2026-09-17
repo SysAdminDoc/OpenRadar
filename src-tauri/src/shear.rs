@@ -19,6 +19,7 @@
 
 use nexrad_model::data::{GateStatus, SweepField};
 
+use crate::cross_section::beam_height_km;
 use crate::gates::reading_at;
 
 /// The kernel the published method fits over, in metres.
@@ -61,6 +62,13 @@ pub const DEBRIS_CORRELATION: f32 = 0.85;
 pub const DEBRIS_DIFFERENTIAL_DB: f32 = 0.5;
 pub const DEBRIS_SHEAR: f32 = 0.006;
 pub const DEBRIS_REACH_KM: f64 = 2.0;
+
+/// The highest beam centre, in kilometres above the radar, at which debris can
+/// be flagged. Debris is lofted from the ground and scanned within the lowest
+/// few kilometres; ice and graupel at 12 km on the 19.5° cut depolarise the
+/// same way but are not debris. Three kilometres clears the lowest three cuts
+/// on every operational pattern while rejecting the steep scans.
+const DEBRIS_HEIGHT_CEILING_KM: f64 = 3.0;
 
 /// The window the couplet is looked for over, radials by gates, and the
 /// percentile taken across it.
@@ -197,7 +205,8 @@ pub fn derive(
         }
     }
 
-    let debris = debris_flag(velocity, &shear, beside);
+    let elevation = velocity.elevation_degrees();
+    let debris = debris_flag(velocity, &shear, beside, elevation);
     Some(Derived { field, debris })
 }
 
@@ -464,6 +473,7 @@ fn debris_flag(
     velocity: &SweepField,
     shear: &[Option<f32>],
     beside: Beside<'_>,
+    elevation_degrees: f32,
 ) -> Option<SweepField> {
     let reflectivity = beside.reflectivity?;
     let correlation = beside.correlation?;
@@ -489,6 +499,9 @@ fn debris_flag(
                 continue;
             }
             let range_km = range_m(velocity, gate) / 1000.0;
+            if beam_height_km(range_km, elevation_degrees) > DEBRIS_HEIGHT_CEILING_KM {
+                continue;
+            }
             let Some((dbz, GateStatus::Valid)) = reading_at(reflectivity, angle, range_km) else {
                 continue;
             };

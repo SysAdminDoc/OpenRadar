@@ -467,6 +467,77 @@ fn depolarised_echo_with_nothing_turning_is_not_flagged() {
     );
 }
 
+/// A debris signature at a gate whose beam is above the height ceiling is not
+/// flagged, even when every other criterion is met. The same signature on a
+/// low cut IS flagged.
+#[test]
+fn debris_above_the_height_ceiling_is_not_flagged() {
+    use crate::cross_section::beam_height_km;
+
+    let range_km = 50.0;
+    let gate = gate_at(range_km);
+
+    // On the 0.5° cut the beam is well below the ceiling, so debris fires.
+    let low_debris = debris_over(0.7, 0.1, 45.0).expect("debris on the 0.5° cut");
+    let (value, status) = low_debris.get(360, gate);
+    assert_eq!(status, GateStatus::Valid, "should flag at 50 km on 0.5°");
+    assert_eq!(value, 1.0);
+
+    // Confirm that beam height at 50 km on a high cut exceeds the ceiling.
+    let high_elev = 19.5f32;
+    assert!(
+        beam_height_km(range_km, high_elev) > DEBRIS_HEIGHT_CEILING_KM,
+        "beam at 50 km on {high_elev}° should be above {DEBRIS_HEIGHT_CEILING_KM} km"
+    );
+
+    // Build the same couplet on a 19.5° field.
+    let angles: Vec<f32> = (0..AZIMUTHS).map(|at| at as f32 * SPACING).collect();
+    let mut high_field = SweepField::new_empty(
+        "Velocity",
+        "m/s",
+        high_elev,
+        angles,
+        SPACING,
+        FIRST_KM,
+        INTERVAL_KM,
+        GATES,
+    );
+    let half = 3usize;
+    let centre = 360usize;
+    for azimuth in 0..AZIMUTHS {
+        let from_centre = azimuth as i64 - centre as i64;
+        let across =
+            (from_centre.clamp(-(half as i64), half as i64)) as f32 / half as f32;
+        for g in 0..GATES {
+            high_field.set(azimuth, g, across * 30.0, GateStatus::Valid);
+        }
+    }
+    let reflectivity = flat("Reflectivity", "dBZ", 45.0);
+    let correlation = flat("Correlation coefficient", "", 0.7);
+    let differential = flat("Differential reflectivity", "dB", 0.1);
+    let derived = derive(
+        &high_field,
+        Beside {
+            reflectivity: Some(&reflectivity),
+            correlation: Some(&correlation),
+            differential: Some(&differential),
+        },
+        Kind::AzimuthalShear,
+        &[],
+    )
+    .expect("a derived cut");
+
+    // The gate at 50 km must NOT be flagged on the high cut.
+    if let Some(ref debris) = derived.debris {
+        let (_, status) = debris.get(360, gate);
+        assert_ne!(
+            status,
+            GateStatus::Valid,
+            "debris at 50 km on 19.5° should be above the height ceiling"
+        );
+    }
+}
+
 /// Without the dual-pol moments there is no signature to draw, and the shear
 /// is still drawn.
 #[test]
