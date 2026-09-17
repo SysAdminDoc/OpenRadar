@@ -85,6 +85,20 @@ fn a_cell_with_no_coverage_is_not_a_reading_of_nothing() {
     // of the reference value.
     let empty = planted(&[], 11, 11);
     assert!(peak_within(&empty, LAT, LON, 20.0).is_none());
+
+    // The -99 no-coverage sentinel, which packs as a non-zero sample and
+    // decodes to a finite -99. A circle of -99 around a real reading
+    // returns the reading, not -99.
+    let with_no_coverage = planted(&[(5, 5, 10.0), (5, 6, -99.0), (4, 5, -99.0)], 11, 11);
+    let (value, _) = peak_within(&with_no_coverage, LAT, LON, 20.0).expect("a reading");
+    assert!((value - 10.0).abs() < 0.01, "got {value}, expected 10.0");
+
+    // A grid of nothing but -99 cells yields no reading at all.
+    let all_no_cov = planted(&[(5, 5, -99.0), (5, 6, -99.0)], 11, 11);
+    assert!(
+        peak_within(&all_no_cov, LAT, LON, 20.0).is_none(),
+        "a -99 cell was read as a measurement"
+    );
 }
 
 /// A place the grid does not reach has no answer at all.
