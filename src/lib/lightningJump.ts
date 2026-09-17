@@ -57,19 +57,30 @@ export const JUMP_HISTORY_BINS = 7;
  */
 export const JUMP_MIN_RATE = 10;
 
-/** How many standard deviations of the recent change count as a jump. */
-export const JUMP_SIGMA = 2;
+/**
+ * How many standard deviations of the recent change count as a jump.
+ *
+ * The published method uses 2.0 with an assumed population standard
+ * deviation. This implementation estimates the deviation from five prior
+ * changes, so the ratio follows a t-distribution with four degrees of
+ * freedom rather than a normal. At t(4), the one-tailed p=0.025 critical
+ * value is 2.776; rounding to 2.8 gives a false positive rate of about
+ * 2.4%, which meets the 2.5% acceptance criterion the published method
+ * targets.
+ */
+export const JUMP_SIGMA = 2.8;
 
 /**
  * The least of a bin that has to have happened before it is worth a rate.
  *
- * A quarter of it. A count over the first few seconds of a bin is a rate with
- * an enormous error bar, and the series is what the deviation is measured
- * against: one noisy bin moves the sigma more than the storm does. The bin is
- * folded in as soon as this much of it has passed and replaced by every later
- * arrival, so it settles on the fullest count anybody saw.
+ * Three quarters of it. A count over one minute of a two-minute bin carries
+ * twice the Poisson variance of a full bin, and the sigma it is judged against
+ * comes from full bins: a steady 30-a-minute storm reads 30 ± 7.7 in a
+ * half-covered bin against 30 ± 3.9 in a settled one, which clears 2σ on
+ * noise alone. Three quarters keeps the rate within 15% of the settled
+ * variance and still folds the bin before the next one opens.
  */
-export const JUMP_MIN_COVERED_MS = JUMP_BIN_MS / 4;
+export const JUMP_MIN_COVERED_MS = (JUMP_BIN_MS * 3) / 4;
 
 /**
  * How much time one satellite file covers, in milliseconds.
@@ -125,9 +136,21 @@ export interface CellJump {
   rate: number;
   /** How many standard deviations the newest change is, or null with too little history. */
   sigma: number | null;
-  /** When the jump was found, in milliseconds, or null where there is none. */
+  /**
+   * When the jump was found, in milliseconds, or null where there is none.
+   *
+   * This is the start of the bin the jump was found in, not the end: the end
+   * can be up to two minutes in the future, which is not a time a reader can
+   * have seen anything at.
+   */
   at: number | null;
 }
+
+/** The fields a cell needs for flash counting: position and optional motion. */
+type CellForFlash = Pick<
+  StormCell,
+  "id" | "latitude" | "longitude" | "speedMs" | "directionDegrees"
+>;
 
 /**
  * Each cell's share of a window's flashes, with every flash counted once.
@@ -141,28 +164,70 @@ export interface CellJump {
  *
  * Ties go to the cell the tracker listed first, which is its own order and
  * not this module's.
+ *
+ * When a cell has motion fields, its centroid is advected forward to the
+ * window's observation time so a cell moving at 30 knots does not count
+ * flashes round where it was twenty minutes ago.
  */
 export function flashesByCell(
-  cells: readonly Pick<StormCell, "id" | "latitude" | "longitude">[],
+  cells: readonly CellForFlash[],
   flashes: readonly Flash[],
   radiusMiles: number = JUMP_RADIUS_MILES,
+  atMs: number = 0,
+  reportedAtMs: number = 0,
 ): Map<string, number> {
   const counts = new Map<string, number>();
+  const positions = cells.map((cell) =>
+    advectedPosition(cell, atMs, reportedAtMs),
+  );
   for (const cell of cells) counts.set(cell.id, 0);
   for (const flash of flashes) {
     let nearest: { id: string; miles: number } | null = null;
-    for (const cell of cells) {
-      const miles = haversineMiles(
-        { lat: cell.latitude, lon: cell.longitude },
-        { lat: flash.latitude, lon: flash.longitude },
-      );
+    for (let at = 0; at < cells.length; at += 1) {
+      const pos = positions[at];
+      const miles = haversineMiles(pos, {
+        lat: flash.latitude,
+        lon: flash.longitude,
+      });
       if (miles > radiusMiles) continue;
       if (nearest && miles >= nearest.miles) continue;
-      nearest = { id: cell.id, miles };
+      nearest = { id: cells[at].id, miles };
     }
     if (nearest) counts.set(nearest.id, (counts.get(nearest.id) ?? 0) + 1);
   }
   return counts;
+}
+
+/**
+ * A cell's centroid moved forward from `reportedAtMs` to `atMs` by its own
+ * reported motion.
+ *
+ * The tracker's position can be twenty minutes old by the time a window
+ * arrives; a cell at 30 knots has moved ten miles in that time, which is the
+ * radius itself.
+ */
+function advectedPosition(
+  cell: CellForFlash,
+  atMs: number,
+  reportedAtMs: number,
+): { lat: number; lon: number } {
+  const base = { lat: cell.latitude, lon: cell.longitude };
+  if (
+    cell.speedMs === null ||
+    cell.directionDegrees === null ||
+    !(cell.speedMs > 0) ||
+    !(reportedAtMs > 0)
+  )
+    return base;
+  const elapsedS = (atMs - reportedAtMs) / 1000;
+  if (elapsedS <= 0 || elapsedS > 3600) return base;
+  const distanceKm = (cell.speedMs * elapsedS) / 1000;
+  const rad = (cell.directionDegrees * Math.PI) / 180;
+  const dLat = (distanceKm * Math.cos(rad)) / 111.32;
+  const dLon =
+    (distanceKm * Math.sin(rad)) /
+    (111.32 * Math.cos((base.lat * Math.PI) / 180));
+  return { lat: base.lat + dLat, lon: base.lon + dLon };
 }
 
 /**
@@ -173,8 +238,8 @@ export function flashesByCell(
  * order the tracker happened to list them in.
  */
 function rivalsOf(
-  cell: Pick<StormCell, "id" | "latitude" | "longitude">,
-  cells: readonly Pick<StormCell, "id" | "latitude" | "longitude">[],
+  cell: CellForFlash,
+  cells: readonly CellForFlash[],
   radiusMiles: number = JUMP_RADIUS_MILES,
 ): string {
   const facing: string[] = [];
@@ -241,37 +306,30 @@ export function changes(series: readonly JumpSample[]): number[] {
  * Null for `sigma` where the history is too short to say: a cell the tracker
  * has only just found has no variance to judge a rise against, and calling
  * its first two bins a jump would flag every new storm.
+ *
+ * `priorAt` is a jump already on the card from the bin before, which is held
+ * for one full bin so the badge does not vanish the instant the next change
+ * is evaluated. Without the hold a jump fires on one poll and is gone on the
+ * next, which is too fast to read.
  */
 export function jumpIn(series: readonly JumpSample[]): CellJump {
   const perMinute = rates(series);
   const rate = perMinute.length > 0 ? perMinute[perMinute.length - 1] : 0;
   const bare: CellJump = { rate, sigma: null, at: null };
   const all = changes(series);
-  // The newest change, judged against the ones before it. Two of those is not
-  // a standard deviation worth the name, so the method's own five is the bar.
   if (all.length < JUMP_HISTORY_BINS - 1) return bare;
   const newest = all[all.length - 1];
   const before = all.slice(0, -1);
   const mean = before.reduce((sum, one) => sum + one, 0) / before.length;
-  // Over one fewer than the count, which is the standard deviation of a
-  // sample rather than of a population. These five changes are a sample of a
-  // storm's behaviour, not the whole of it, and dividing by five instead made
-  // the deviation too small and every sigma reported here too large.
   const variance =
     before.reduce((sum, one) => sum + (one - mean) * (one - mean), 0) /
     Math.max(1, before.length - 1);
   const deviation = Math.sqrt(variance);
-  // A storm whose rate has not varied at all has no scale to measure a rise
-  // against. Dividing by it would make any rise infinite, so a flat history
-  // says nothing rather than saying everything.
   if (!(deviation > 0)) return bare;
   const sigma = newest / deviation;
   const jumped = sigma >= JUMP_SIGMA && rate >= JUMP_MIN_RATE && newest > 0;
-  return {
-    rate,
-    sigma,
-    at: jumped ? series[series.length - 1].at : null,
-  };
+  const binStart = series[series.length - 1].at - JUMP_BIN_MS;
+  return { rate, sigma, at: jumped ? binStart : null };
 }
 
 /**
@@ -312,6 +370,12 @@ export function withSample(
 const held = new Map<string, JumpSample[]>();
 
 /**
+ * The `at` of each cell's last reported jump, so the hold can keep it on
+ * the card for one full bin after it fires.
+ */
+const priorJumps = new Map<string, number>();
+
+/**
  * Which cells were competing for each cell's flashes when its series was
  * built.
  *
@@ -337,11 +401,18 @@ const rivals = new Map<string, string>();
  * A cell the tracker has dropped takes its series with it: identifiers get
  * reused, so keeping one would judge a new storm's first bins against a
  * different storm's history.
+ *
+ * `trimmed` means the window was capped or incomplete: some flashes were
+ * dropped, so the count in this bin is a lower bound and rating it against a
+ * series of full bins reads any steady storm as a drop. The bin is not folded
+ * at all; the series keeps what it had.
  */
 export function rememberJumps(
-  cells: readonly Pick<StormCell, "id" | "latitude" | "longitude">[],
+  cells: readonly CellForFlash[],
   flashes: readonly Flash[],
   at: number,
+  trimmed: boolean = false,
+  reportedAtMs: number = 0,
 ): Map<string, CellJump> {
   const bin = binOf(at);
   const live = new Set(cells.map((cell) => cell.id));
@@ -349,7 +420,33 @@ export function rememberJumps(
     if (!live.has(id)) {
       held.delete(id);
       rivals.delete(id);
+      priorJumps.delete(id);
     }
+  }
+  // A trimmed or incomplete window dropped flashes, so the count in this bin
+  // is a lower bound. Rating it against full bins reads any steady storm as a
+  // drop. Keep the series as it was and re-evaluate what is already there.
+  if (trimmed) {
+    const found = new Map<string, CellJump>();
+    for (const cell of cells) {
+      const series = held.get(cell.id) ?? [];
+      const jump = jumpIn(series);
+      const prior = priorJumps.get(cell.id) ?? null;
+      if (jump.at !== null) {
+        priorJumps.set(cell.id, jump.at);
+        found.set(cell.id, jump);
+      } else if (
+        prior !== null &&
+        series.length > 0 &&
+        series[series.length - 1].at - prior <= 2 * JUMP_BIN_MS
+      ) {
+        found.set(cell.id, { ...jump, at: prior });
+      } else {
+        priorJumps.delete(cell.id);
+        found.set(cell.id, jump);
+      }
+    }
+    return found;
   }
   // Only the flashes that fell inside this bin. The window handed over is a
   // rolling five minutes, and counting all of it into a two-minute bin read
@@ -371,7 +468,7 @@ export function rememberJumps(
     Math.max(at + FLASH_GRANULE_MS - opened, 0),
     JUMP_BIN_MS,
   );
-  const mine = flashesByCell(cells, inBin);
+  const mine = flashesByCell(cells, inBin, JUMP_RADIUS_MILES, at, reportedAtMs);
   const found = new Map<string, CellJump>();
   for (const cell of cells) {
     const facing = rivalsOf(cell, cells);
@@ -389,7 +486,23 @@ export function rememberJumps(
             covered,
           });
     held.set(cell.id, series);
-    found.set(cell.id, jumpIn(series));
+    const jump = jumpIn(series);
+    const prior = priorJumps.get(cell.id) ?? null;
+    // Hold: a jump that fired on the previous bin stays on the card for one
+    // full bin, so the badge does not vanish on the next poll.
+    if (jump.at !== null) {
+      priorJumps.set(cell.id, jump.at);
+      found.set(cell.id, jump);
+    } else if (
+      prior !== null &&
+      series.length > 0 &&
+      series[series.length - 1].at - prior <= 2 * JUMP_BIN_MS
+    ) {
+      found.set(cell.id, { ...jump, at: prior });
+    } else {
+      priorJumps.delete(cell.id);
+      found.set(cell.id, jump);
+    }
   }
   return found;
 }
@@ -398,4 +511,5 @@ export function rememberJumps(
 export function forgetJumps(): void {
   held.clear();
   rivals.clear();
+  priorJumps.clear();
 }

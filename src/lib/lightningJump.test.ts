@@ -40,7 +40,17 @@ function flash(latitude: number, longitude: number, at: number = AT): Flash {
   };
 }
 
-const CELL = { id: "A1", latitude: 41.6, longitude: -93.6 };
+function cell(
+  id: string,
+  latitude: number,
+  longitude: number,
+  speedMs: number | null = null,
+  directionDegrees: number | null = null,
+) {
+  return { id, latitude, longitude, speedMs, directionDegrees };
+}
+
+const CELL = cell("A1", 41.6, -93.6);
 
 /**
  * A moment near the end of the nth bin after `AT`.
@@ -89,7 +99,8 @@ describe("a storm's flash rate rising faster than it has been", () => {
     const doubled = jumpIn(series([...steady, 52]));
     expect(doubled.sigma).not.toBeNull();
     expect(doubled.sigma as number).toBeGreaterThan(2);
-    expect(doubled.at).toBe(AT);
+    // The start of the bin that jumped, not the end.
+    expect(doubled.at).toBe(AT - JUMP_BIN_MS);
     expect(doubled.rate).toBe(26);
 
     // The number itself, worked out by hand. The rates are 12, 13, 12, 13,
@@ -223,8 +234,8 @@ describe("a storm's flash rate rising faster than it has been", () => {
 });
 
 describe("the series each tracked cell carries between windows", () => {
-  const near = { id: "A1", latitude: 41.6, longitude: -93.6 };
-  const other = { id: "B2", latitude: 43.0, longitude: -93.6 };
+  const near = cell("A1", 41.6, -93.6);
+  const other = cell("B2", 43.0, -93.6);
 
   it("builds a cell's history one window at a time", () => {
     // Seven windows two minutes apart, the last one twice as busy. No single
@@ -294,8 +305,8 @@ describe("the series each tracked cell carries between windows", () => {
     // the other and that cell's count doubles with nothing about the weather
     // having changed. Counted against the series it built while it had a
     // neighbour, the doubling is a jump at many times the bar.
-    const west = { id: "A1", latitude: 41.6, longitude: -93.6 };
-    const east = { id: "A2", latitude: 41.774, longitude: -93.6 };
+    const west = cell("A1", 41.6, -93.6);
+    const east = cell("A2", 41.774, -93.6);
     // About twenty a bin either side of the midpoint, which is ten a minute
     // each. The counts wobble rather than being flat, because a storm whose
     // rate has never moved has no spread to judge a rise against and would
@@ -326,8 +337,8 @@ describe("the series each tracked cell carries between windows", () => {
     // The other half of it: a cell whose competitors have not changed keeps
     // the series it built, or the check above would be a way of saying
     // nothing ever.
-    const west = { id: "A1", latitude: 41.6, longitude: -93.6 };
-    const east = { id: "A2", latitude: 41.774, longitude: -93.6 };
+    const west = cell("A1", 41.6, -93.6);
+    const east = cell("A2", 41.774, -93.6);
     const counts = [20, 22, 20, 22, 20, 22, 20, 44];
     for (let at = 0; at < counts.length; at += 1) {
       const flashes = new Array(counts[at])
@@ -405,8 +416,8 @@ describe("the series each tracked cell carries between windows", () => {
     //
     // Twelve miles apart: a tenth of a degree of latitude is about seven, so
     // 0.174 degrees is about twelve.
-    const west = { id: "A1", latitude: 41.6, longitude: -93.6 };
-    const east = { id: "A2", latitude: 41.774, longitude: -93.6 };
+    const west = cell("A1", 41.6, -93.6);
+    const east = cell("A2", 41.774, -93.6);
     const between = { latitude: 41.68, longitude: -93.6 };
     // Either circle alone holds it, which is the case at all.
     const alone = flash(between.latitude, between.longitude);
@@ -436,7 +447,7 @@ describe("the series each tracked cell carries between windows", () => {
     // The fold path, not the helper: two cells twelve miles apart, and a
     // storm flashing between them. Every flash used to enter both series, so
     // along a squall line each cell carried the line's rate near it.
-    const east = { id: "A2", latitude: 41.774, longitude: -93.6 };
+    const east = cell("A2", 41.774, -93.6);
     const when = closing(0);
     const flashes = new Array(24)
       .fill(null)
@@ -463,20 +474,19 @@ describe("the series each tracked cell carries between windows", () => {
 
   it("rates a bin by the part of it that has actually happened", () => {
     // The window arrives every minute and a bin is two, so the newest bin is
-    // usually part way through. Dividing a minute of flashes by two minutes
-    // halves the rate; with the window landing near a bin's first instant it
-    // reads as almost nothing and the next arrival as almost double, so a
-    // storm flashing steadily at thirty a minute came out as 0.5, 15.5, 0.5,
-    // 15.5 and never once as thirty.
-    // A window whose newest file starts forty seconds before the bin's
-    // midpoint, so the observation covers exactly one minute of it.
-    const half = AT + JUMP_BIN_MS + JUMP_BIN_MS / 2 - FLASH_GRANULE_MS;
-    const flashes = new Array(30)
+    // usually part way through. A bin must be at least three quarters covered
+    // before it is rated. This observation is 100 seconds into the bin, which
+    // is past the 90-second floor.
+    const mostlyDone =
+      AT + JUMP_BIN_MS + JUMP_BIN_MS - JUMP_BIN_MS / 4 - FLASH_GRANULE_MS;
+    const flashes = new Array(50)
       .fill(null)
-      .map(() => flash(41.6, -93.6, half));
-    const found = rememberJumps([near], flashes, half);
-    // Thirty flashes over the minute of the bin that has been watched.
-    expect(found.get("A1")?.rate).toBe(30);
+      .map(() => flash(41.6, -93.6, mostlyDone));
+    const found = rememberJumps([near], flashes, mostlyDone);
+    // Fifty flashes over roughly 100 seconds of the bin.
+    const rate = found.get("A1")?.rate ?? 0;
+    expect(rate).toBeGreaterThan(25);
+    expect(rate).toBeLessThan(35);
   });
 
   it("does not rate a bin that has barely opened", () => {
@@ -497,5 +507,159 @@ describe("the series each tracked cell carries between windows", () => {
     const more = new Array(40).fill(null).map(() => flash(41.6, -93.6, later));
     const settled = rememberJumps([near], more, later);
     expect(settled.get("A1")?.rate).toBeCloseTo(20, 6);
+  });
+
+  it("does not fold a trimmed window into the series", () => {
+    // A trimmed window dropped flashes, so the count is a lower bound. Rating
+    // it against full bins reads any steady storm as a drop. The series keeps
+    // what it had.
+    const counts = [24, 26, 24, 26, 24, 26, 24];
+    counts.forEach((count, at) => {
+      const when = closing(at);
+      const flashes = new Array(count)
+        .fill(null)
+        .map(() => flash(41.6, -93.6, when));
+      rememberJumps([near], flashes, when);
+    });
+    // Trimmed window with a jump-sized count: should not fold and should not
+    // report a jump in the bin after it.
+    const trimmedWhen = closing(7);
+    const trimmedFlashes = new Array(52)
+      .fill(null)
+      .map(() => flash(41.6, -93.6, trimmedWhen));
+    const found = rememberJumps([near], trimmedFlashes, trimmedWhen, true);
+    expect(found.get("A1")?.at).toBeNull();
+  });
+
+  it("holds a jump for at least one bin after it fires", () => {
+    // A jump that fires on one poll and vanishes on the next is too fast to
+    // read. The badge stays for one full bin.
+    const counts = [24, 26, 24, 26, 24, 26, 52];
+    counts.forEach((count, at) => {
+      const when = closing(at);
+      const flashes = new Array(count)
+        .fill(null)
+        .map(() => flash(41.6, -93.6, when));
+      rememberJumps([near], flashes, when);
+    });
+    // The jump fired on bin 6. The next bin goes back to normal.
+    const nextWhen = closing(7);
+    const nextFlashes = new Array(24)
+      .fill(null)
+      .map(() => flash(41.6, -93.6, nextWhen));
+    const held = rememberJumps([near], nextFlashes, nextWhen);
+    // The jump is held: at is not null.
+    expect(held.get("A1")?.at).not.toBeNull();
+    // But one more bin later it is gone.
+    const laterWhen = closing(8);
+    const laterFlashes = new Array(24)
+      .fill(null)
+      .map(() => flash(41.6, -93.6, laterWhen));
+    const gone = rememberJumps([near], laterFlashes, laterWhen);
+    expect(gone.get("A1")?.at).toBeNull();
+  });
+
+  it("never reports a time in the future", () => {
+    // The bin's end can be up to two minutes ahead of now. The reported time
+    // must be the bin's start.
+    const counts = [24, 26, 24, 26, 24, 26, 52];
+    let found = new Map<string, ReturnType<typeof jumpIn>>();
+    counts.forEach((count, at) => {
+      const when = closing(at);
+      const flashes = new Array(count)
+        .fill(null)
+        .map(() => flash(41.6, -93.6, when));
+      found = rememberJumps([near], flashes, when);
+    });
+    const jumpAt = found.get("A1")?.at;
+    expect(jumpAt).not.toBeNull();
+    // The observation time of the last window.
+    const observed = closing(6);
+    expect(jumpAt!).toBeLessThanOrEqual(observed);
+  });
+
+  it("keeps a flat count through a cell report refresh with motion", () => {
+    // A cell at 30 knots (~15.4 m/s) moving northeast. Its position was
+    // reported 2 minutes before the first window. Without advection the
+    // centroid is about half a mile behind, which on its own does not lose
+    // flashes but does shift the circle enough to matter at the edge.
+    const movingCell = cell("A1", 41.6, -93.6, 15.4, 45);
+    const reportedAt = AT - 2 * 60_000;
+    const counts = [24, 26, 24, 26, 24, 26, 24, 26, 24, 26];
+    const collectedRates: number[] = [];
+    counts.forEach((count, at) => {
+      const when = closing(at);
+      const flashes = new Array(count)
+        .fill(null)
+        .map(() => flash(41.6, -93.6, when));
+      const found = rememberJumps(
+        [movingCell],
+        flashes,
+        when,
+        false,
+        reportedAt,
+      );
+      const rate = found.get("A1")?.rate;
+      if (typeof rate === "number" && rate > 0) collectedRates.push(rate);
+    });
+    expect(collectedRates.length).toBeGreaterThan(4);
+    const mean =
+      collectedRates.reduce((s, r) => s + r, 0) / collectedRates.length;
+    for (const rate of collectedRates) {
+      expect(Math.abs(rate - mean)).toBeLessThan(2);
+    }
+  });
+});
+
+describe("Poisson false positive rate", () => {
+  it("fires on under 2.5% of bins for a steady 30-a-minute storm", () => {
+    // The acceptance criterion: a thousand steady storms must not trigger
+    // more than 2.5% of the time from Poisson noise alone. A trigger is a
+    // NEW jump detection, not a held display from the previous bin.
+    let totalBins = 0;
+    let triggers = 0;
+    // A simple seeded PRNG (xorshift32) for reproducibility.
+    let seed = 12345;
+    function nextRandom(): number {
+      seed ^= seed << 13;
+      seed ^= seed >> 17;
+      seed ^= seed << 5;
+      return (seed >>> 0) / 4294967296;
+    }
+    function poisson(lambda: number): number {
+      const limit = Math.exp(-lambda);
+      let count = 0;
+      let product = 1;
+      do {
+        count += 1;
+        product *= nextRandom();
+      } while (product > limit);
+      return count - 1;
+    }
+
+    for (let trial = 0; trial < 1000; trial += 1) {
+      forgetJumps();
+      const trialCell = cell("T1", 41.6, -93.6);
+      let prevAt: number | null = null;
+      for (let bin = 0; bin < 20; bin += 1) {
+        const when = closing(bin);
+        const count = poisson(60);
+        const flashes = new Array(count)
+          .fill(null)
+          .map(() => flash(41.6, -93.6, when));
+        const found = rememberJumps([trialCell], flashes, when);
+        if (bin >= JUMP_HISTORY_BINS - 1) {
+          totalBins += 1;
+          const jumpAt = found.get("T1")?.at ?? null;
+          if (jumpAt !== null && jumpAt !== prevAt) triggers += 1;
+          prevAt = jumpAt;
+        }
+      }
+    }
+    const falsePositiveRate = triggers / totalBins;
+    expect(
+      falsePositiveRate,
+      `${triggers} triggers in ${totalBins} bins (${(falsePositiveRate * 100).toFixed(1)}%)`,
+    ).toBeLessThan(0.025);
   });
 });
