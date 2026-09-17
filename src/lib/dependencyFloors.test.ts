@@ -15,6 +15,11 @@ import { describe, expect, it } from "vitest";
 const FLOORS: Array<{ name: string; least: string; why: string }> = [
   {
     name: "maplibre-gl",
+    least: "6.9.1",
+    why: "raster tiles held at the start of their fade until the map moves, and missing layers after a custom layer renders",
+  },
+  {
+    name: "maplibre-gl",
     least: "6.8.0",
     why: "an empty tile answer, HTTP 204, loads as no data rather than failing: below this a terrain tile a service has nothing for reads as a broken fetch",
   },
