@@ -51,7 +51,12 @@ function bundledSection(): string {
 }
 
 function runtimeSection(): string {
-  return ledger.slice(ledger.indexOf("## Fetched at runtime"));
+  const start = ledger.indexOf("## Fetched at runtime");
+  const rest = ledger.slice(start);
+  // Stop at the next heading that is not a table, so "### Contacted by the
+  // test suite only" is not scanned for six-column rows.
+  const nextHeading = rest.indexOf("\n### ");
+  return nextHeading === -1 ? rest : rest.slice(0, nextHeading);
 }
 
 /**

@@ -386,9 +386,9 @@ export const LIVE_CONTRACTS = [
   {
     id: "nws-tls-preview",
     label: "NWS cipher-suite preview (SCN26-80, remove after 2027-03-02)",
-    host: "preview-api.weather.gov",
+    host: "api.weather.gov",
     kind: "native",
-    filter: "http::tests::tls_handshake_with_nws_preview",
+    filter: "http::tests::tls_handshake_with_nws_preview_api",
     required: false,
   },
 ];

@@ -63,13 +63,7 @@ Every one of these is reached over HTTPS with no account, no API key and no cred
 | `valhalla1.openstreetmap.de` | Road shape for route weather | FOSSGIS public Valhalla on OpenStreetMap data, ODbL, fair use, one request a second, apps handed to others identify themselves | OpenStreetMap and FOSSGIS, named in the Route panel itself | No, a route is asked fresh | Where you are driving from and to, and that the app is OpenRadar |
 | `api.rainviewer.com`, `tilecache.rainviewer.com` | Radar outside the NOAA, ECCC and DWD mosaics only | Personal and educational use since 2026-01-01 | RainViewer, in the timeline credit | Yes, through the native cache | The area and times you asked for radar over, outside the mosaics |
 
-### Contacted by the test suite only (not in ALLOWED_HOSTS)
-
-| Host | Why | Remove after |
-| --- | --- | --- |
-| `preview-api.weather.gov` | TLS cipher-suite preview for SCN26-80 | 2027-03-02 |
-| `preview-radar.weather.gov` | TLS cipher-suite preview for SCN26-80 | 2027-03-02 |
-| `preview-opengeo.ncep.noaa.gov` | TLS cipher-suite preview for SCN26-80 | 2027-03-02 |
+**Contacted by the test suite only (not in ALLOWED_HOSTS, remove after 2027-03-02):** preview-api.weather.gov, preview-radar.weather.gov, preview-opengeo.ncep.noaa.gov — TLS cipher-suite preview hosts for SCN26-80.
 
 Nothing here needs an account or an API key. RainViewer's terms are the tightest of the set, which is why it is the last source in the chain rather than the first. The two entries with the most to learn about you are Open-Meteo, which is handed coordinates rather than tiles, and the router, which is handed both ends of a drive. Neither is reached until you ask for a forecast or a route.
 
