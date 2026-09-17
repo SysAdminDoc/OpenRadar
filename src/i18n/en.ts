@@ -1339,6 +1339,7 @@ export const en = {
   "aviation.upTo": "Up to {high}",
   "aviation.atLevel": "Reported at {high}",
   "aviation.from": "From {low} up",
+  "aviation.source": "Source: NOAA Aviation Weather Center",
   "aviation.notForFlight": "Not for flight planning. Use an official briefing.",
   "aviation.pirepNothing": "The pilot reported no turbulence or icing.",
   "aviation.sigmets": "SIGMETs",
