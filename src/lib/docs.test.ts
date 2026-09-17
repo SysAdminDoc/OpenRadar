@@ -176,4 +176,20 @@ describe("what the repository root holds", () => {
       `README says a different count than the ${binCount} targets in the manifest`,
     ).toContain(`all ${word}`);
   });
+
+  it("contacts no host that the source table and privacy paragraph do not cover", () => {
+    const http = read("src-tauri", "src", "http.rs");
+    const blockMatch = http.match(/ALLOWED_HOSTS[^=]*=\s*&\[([^\]]+)\]/);
+    expect(blockMatch, "could not find ALLOWED_HOSTS in http.rs").toBeTruthy();
+    const block = blockMatch![1];
+    const hosts = [...block.matchAll(/"([a-z0-9.-]+\.[a-z]{2,})"/g)].map(
+      (match) => match[1],
+    );
+    // The allowlist has to be non-trivial or this passes on an empty file.
+    expect(hosts.length).toBeGreaterThan(20);
+    // And the README must name the section where these are explained.
+    const readme = read("README.md");
+    expect(readme).toContain("Where the data comes from");
+    expect(readme).toContain("Privacy");
+  });
 });
