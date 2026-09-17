@@ -831,6 +831,10 @@ pub(crate) struct Measured {
     /// a whole interval, so `invented` does not fire either. This is the
     /// measure that sees it.
     pub(crate) misplaced: usize,
+    /// How many of those were placed by boundary votes.
+    pub(crate) misplaced_by_boundary: usize,
+    /// How many were placed by the fitted wind.
+    pub(crate) misplaced_by_wind: usize,
     /// The sweep held against the office's own dealiased velocity for
     /// it, when the office published one for this cut of this volume.
     /// `None` is a missing reference and not an agreement.
@@ -1001,7 +1005,8 @@ fn measure_unfolding_bytes(
     if comparable < 10_000 || broken_before < 500 {
         return None;
     }
-    if unfold_velocity(&mut folded, tight).moved == 0 {
+    let (dealiased, placement) = unfold_velocity_recording(&mut folded, tight);
+    if dealiased.moved == 0 {
         return None;
     }
     let (broken_after, _) = broken_pairs(&folded, &truth, interval);
@@ -1041,8 +1046,11 @@ fn measure_unfolding_bytes(
     let mut rejoined = 0usize;
     let mut invented = 0usize;
     let mut misplaced = 0usize;
+    let mut misplaced_by_boundary = 0usize;
+    let mut misplaced_by_wind = 0usize;
+    let gates = truth.gate_count();
     for azimuth in 0..truth.azimuth_count() {
-        for gate in 0..truth.gate_count() {
+        for gate in 0..gates {
             let (now, now_status) = folded.get(azimuth, gate);
             let (was, was_status) = truth.get(azimuth, gate);
             if !matches!(now_status, GateStatus::Valid) || !matches!(was_status, GateStatus::Valid)
@@ -1054,15 +1062,15 @@ fn measure_unfolding_bytes(
                 invented += 1;
                 continue;
             }
-            // Whether this gate wrapped when the limit was brought in.
             let refolded = was - interval * ((was + tight) / interval).floor();
             if (refolded - was).abs() <= 0.001 {
-                // It did not, so unfolding had nothing to put back here, and
-                // a gate that came back on a different branch from the rest
-                // of the picture was moved by something other than its own
-                // reading.
                 if apart.round() as i64 != common {
                     misplaced += 1;
+                    let at = azimuth * gates + gate;
+                    match placement.get(at).copied().unwrap_or_default() {
+                        crate::dealias::PlacedBy::Wind => misplaced_by_wind += 1,
+                        _ => misplaced_by_boundary += 1,
+                    }
                 }
                 continue;
             }
@@ -1143,6 +1151,8 @@ fn measure_unfolding_bytes(
         rejoined,
         invented,
         misplaced,
+        misplaced_by_boundary,
+        misplaced_by_wind,
         rpg,
     })
 }

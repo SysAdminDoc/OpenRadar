@@ -512,10 +512,7 @@ mod tests {
             .timeout(std::time::Duration::from_secs(10))
             .build()
             .expect("client");
-        let response = client
-            .head("https://preview-api.weather.gov/")
-            .send()
-            .await;
+        let response = client.head("https://preview-api.weather.gov/").send().await;
         assert!(
             response.is_ok(),
             "TLS handshake with preview-api.weather.gov failed: {:?}",

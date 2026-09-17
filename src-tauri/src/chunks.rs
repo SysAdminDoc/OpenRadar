@@ -1303,14 +1303,22 @@ mod tests {
         let before = remembered("KTLX", 210, &["KTLX/210/a"]);
 
         // The radar has moved on to the next folder.
-        let moved_on =
-            carried_over(Some(remembered("KTLX", 209, &["KTLX/209/a"])), "KTLX", 210, "");
+        let moved_on = carried_over(
+            Some(remembered("KTLX", 209, &["KTLX/209/a"])),
+            "KTLX",
+            210,
+            "",
+        );
         assert!(moved_on.is_empty());
         assert_eq!(still_wanted(&moved_on, &keys).len(), 2);
 
         // And another site's pieces are never this site's.
-        let elsewhere =
-            carried_over(Some(remembered("KDMX", 210, &["KDMX/210/a"])), "KTLX", 210, "");
+        let elsewhere = carried_over(
+            Some(remembered("KDMX", 210, &["KDMX/210/a"])),
+            "KTLX",
+            210,
+            "",
+        );
         assert!(elsewhere.is_empty());
 
         // The one case that does carry over.

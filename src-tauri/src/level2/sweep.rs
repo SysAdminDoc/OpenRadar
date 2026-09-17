@@ -274,6 +274,35 @@ pub(crate) fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> dealias::
     found
 }
 
+pub(crate) fn unfold_velocity_recording(
+    field: &mut SweepField,
+    nyquist: f32,
+) -> (dealias::Dealiased, Vec<dealias::PlacedBy>) {
+    let azimuths = field.azimuth_count();
+    let gates = field.gate_count();
+    let mut values = field.values().to_vec();
+    let valid: Vec<bool> = field
+        .statuses()
+        .iter()
+        .map(|status| matches!(status, GateStatus::Valid))
+        .collect();
+    let pointing = field.azimuths().to_vec();
+    let elevation = field.elevation_degrees();
+    let (found, record) =
+        dealias::dealias_recording(&mut values, &valid, &pointing, gates, nyquist, elevation);
+    if found.moved > 0 {
+        for azimuth in 0..azimuths {
+            for gate in 0..gates {
+                let at = azimuth * gates + gate;
+                if valid[at] {
+                    field.set(azimuth, gate, values[at], GateStatus::Valid);
+                }
+            }
+        }
+    }
+    (found, record)
+}
+
 /// The sweep for a tilt, as a field of one product. A tilt past the end of the
 /// list falls back to the lowest, which is the one a viewer wants by default.
 ///

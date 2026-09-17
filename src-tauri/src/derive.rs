@@ -14,7 +14,9 @@
 
 use nexrad_model::data::{GateStatus, Product, Scan, SweepField};
 
-use crate::cross_section::{beam_half_thickness_km, beam_height_km, EFFECTIVE_EARTH_RADIUS_KM as EARTH_KM};
+use crate::cross_section::{
+    beam_half_thickness_km, beam_height_km, EFFECTIVE_EARTH_RADIUS_KM as EARTH_KM,
+};
 use crate::gates::reading_at;
 use crate::level2::{sweep_field_at, tilts, MAX_RANGE_KM};
 
@@ -338,8 +340,7 @@ fn echo_top_km(column: &[Sample]) -> Option<EchoTop> {
     }
     let share = ((holding.dbz - ECHO_TOP_DBZ) / span) as f64;
     Some(EchoTop {
-        km: holding.height_km
-            + (above.height_km - holding.height_km) * share.clamp(0.0, 1.0),
+        km: holding.height_km + (above.height_km - holding.height_km) * share.clamp(0.0, 1.0),
         topped: false,
     })
 }
