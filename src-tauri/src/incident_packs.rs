@@ -542,6 +542,13 @@ const PMTILES_INITIAL_BYTES: u64 = 16_384;
 /// The fixed size of a PMTiles v3 header.
 const PMTILES_HEADER_BYTES: u64 = 127;
 
+/// The most metadata bytes an archive may declare.
+///
+/// `get_metadata` gunzips with `read_to_end` and no cap, so a gzip bomb in
+/// the metadata block allocates until the process aborts. Four megabytes is
+/// the same ceiling the root directory uses and more than any basemap carries.
+const PMTILES_MAX_METADATA_BYTES: u64 = 4 * 1024 * 1024;
+
 /// Where the header says how the directories are compressed.
 ///
 /// Seven bytes of magic, one of version, eight `u64` offsets and lengths,
@@ -586,7 +593,14 @@ fn pmtiles_header_is_sane(head: &[u8], file_bytes: u64) -> bool {
     let Some(root_end) = root_offset.checked_add(root_length) else {
         return false;
     };
-    root_end <= PMTILES_INITIAL_BYTES.min(file_bytes)
+    if root_end > PMTILES_INITIAL_BYTES.min(file_bytes) {
+        return false;
+    }
+    // The metadata block sits at bytes 24-39. Its length is what
+    // `get_metadata` hands straight to a decompressor with `read_to_end`,
+    // so a lying length is an unbounded allocation.
+    let metadata_length = read(32);
+    metadata_length <= PMTILES_MAX_METADATA_BYTES
 }
 
 /// The deepest zoom a web map has, which is what `1 << zoom` can take.
@@ -836,7 +850,7 @@ fn pmtiles_leaves_are_sane(
         }
         read = read.saturating_add(leaf.length);
         if read > PMTILES_MAX_LEAF_BYTES {
-            return true;
+            return false;
         }
         let Some(at) = leaf_offset.checked_add(leaf.offset) else {
             return false;
@@ -3008,6 +3022,21 @@ mod tests {
             Some(forever.clone())
         }));
         assert_eq!(reads, PMTILES_MAX_LEAF_DEPTH as usize);
+
+        // The leaf budget fails closed: more than PMTILES_MAX_LEAF_BYTES of
+        // compressed leaf directories is refused rather than accepted, because
+        // each one reaches the same unbounded decompressor.
+        let big: Vec<LeafPointer> = (0..2048)
+            .map(|i| LeafPointer {
+                offset: i * 16384,
+                length: 16384,
+            })
+            .collect();
+        let total: u64 = big.iter().map(|p| p.length).sum();
+        assert!(total > PMTILES_MAX_LEAF_BYTES);
+        assert!(!pmtiles_leaves_are_sane(1, 0, big, |_, _| Some(
+            one.clone()
+        )));
     }
 
     #[test]
@@ -3067,6 +3096,28 @@ mod tests {
         // Not a PMTiles file at all, and a file too short to hold a header.
         assert!(!pmtiles_header_is_sane(b"not a pmtiles archive", 4096));
         assert!(!pmtiles_header_is_sane(&sane[..64], 4096));
+
+        // A metadata length past the ceiling is refused before the crate's
+        // decompressor can reach it.
+        let with_metadata = |length: u64| {
+            let mut head = sane.clone();
+            head[32..40].copy_from_slice(&length.to_le_bytes());
+            head
+        };
+        assert!(pmtiles_header_is_sane(&with_metadata(0), 4096));
+        assert!(pmtiles_header_is_sane(&with_metadata(1024), 4096));
+        assert!(pmtiles_header_is_sane(
+            &with_metadata(PMTILES_MAX_METADATA_BYTES),
+            PMTILES_MAX_METADATA_BYTES + 4096,
+        ));
+        assert!(!pmtiles_header_is_sane(
+            &with_metadata(PMTILES_MAX_METADATA_BYTES + 1),
+            PMTILES_MAX_METADATA_BYTES + 4096,
+        ));
+        assert!(!pmtiles_header_is_sane(
+            &with_metadata(1_000_000_000),
+            2_000_000_000,
+        ));
     }
 
     #[tokio::test]
@@ -3134,6 +3185,25 @@ mod tests {
                 .unwrap_err(),
             IncidentPackError::ImportEmpty
         ));
+
+        // An archive declaring a 1 GB metadata block: the header check
+        // refuses it before the crate's decompressor can allocate.
+        let bomb = {
+            let good = fs::read(&vector).unwrap();
+            let mut lying = good.clone();
+            lying[32..40].copy_from_slice(&1_000_000_000u64.to_le_bytes());
+            let bomb_path = root.join("bomb.pmtiles");
+            fs::write(&bomb_path, &lying).unwrap();
+            bomb_path
+        };
+        let start = std::time::Instant::now();
+        assert!(matches!(
+            import_archive(&root, &bomb, None, Some("x".into()))
+                .await
+                .unwrap_err(),
+            IncidentPackError::ImportUnreadable
+        ));
+        assert!(start.elapsed().as_millis() < 100);
 
         // Nothing was left behind by any of them.
         let kept: Vec<_> = fs::read_dir(&root)
