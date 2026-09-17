@@ -29,13 +29,19 @@ use crate::gates;
 ///
 /// Below this the beam climbs so slowly that the band spreads over tens of
 /// kilometres of range and the layer cannot be told from the rain under it.
-/// The published method uses nine degrees and so does this.
-pub const LOWEST_TILT_DEGREES: f32 = 9.0;
+/// Giangrande et al. 2008 (JAMC 47:1354) runs the method on 4 to 10 degrees;
+/// the QVP method's 9 degrees requires azimuthal averaging this code does not
+/// do.
+pub const LOWEST_TILT_DEGREES: f32 = 4.0;
 
 /// The reflectivity a melting particle is expected to sit between, in dBZ.
+/// The band peaks at the midpoint and falls to zero at both ends, so heavy
+/// convective rain (55+ dBZ) scores zero rather than being clamped to one.
 const Z_RANGE: (f32, f32) = (20.0, 55.0);
+const Z_RANGE_MID: f32 = 37.5;
 /// The same for differential reflectivity, in dB.
 const ZDR_RANGE: (f32, f32) = (0.8, 2.5);
+const ZDR_RANGE_MID: f32 = 1.5;
 /// And for the correlation, which falls rather than rises through the band.
 const RHO_RANGE: (f32, f32) = (0.90, 0.97);
 
@@ -109,15 +115,30 @@ fn between(value: f32, low: f32, high: f32) -> f32 {
     ((value - low) / (high - low)).clamp(0.0, 1.0)
 }
 
+/// A two-sided band: rises from nought to one between low and mid, then falls
+/// back to nought between mid and high. Values outside the range score zero,
+/// so heavy rain (55+ dBZ) and hail are rejected rather than clamped to 1.0.
+fn band(value: f32, low: f32, mid: f32, high: f32) -> f32 {
+    if value <= low || value >= high {
+        return 0.0;
+    }
+    if value <= mid {
+        (value - low) / (mid - low)
+    } else {
+        (high - value) / (high - mid)
+    }
+}
+
 /// How much a gate looks like melting snow, from nought to one.
 ///
 /// The product rather than the average, because all three have to hold: heavy
 /// rain is bright and has a high correlation, and a biological target has a
 /// low correlation and almost no reflectivity. Only the band has all three at
-/// once.
+/// once. Z and ZDR use two-sided bands so that convective rain (55+ dBZ,
+/// ZDR 3+) and wet hail fall back to zero instead of clamping to one.
 pub fn membership(reflectivity: f32, differential: f32, correlation: f32) -> f32 {
-    let z = between(reflectivity, Z_RANGE.0, Z_RANGE.1);
-    let zdr = between(differential, ZDR_RANGE.0, ZDR_RANGE.1);
+    let z = band(reflectivity, Z_RANGE.0, Z_RANGE_MID, Z_RANGE.1);
+    let zdr = band(differential, ZDR_RANGE.0, ZDR_RANGE_MID, ZDR_RANGE.1);
     // Inverted: the correlation falls through the band, so the further below
     // the top of the range it sits the more it looks like melting snow.
     let rho = between(-correlation, -RHO_RANGE.1, -RHO_RANGE.0);
