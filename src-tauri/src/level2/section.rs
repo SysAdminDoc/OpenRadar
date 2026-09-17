@@ -168,7 +168,7 @@ pub fn cross_section_from_scan(
         match derived {
             Some(Worked::Turning(kind)) => {
                 let beside = Alongside::at(scan, cut.elevation_degrees);
-                let Some(found) = shear::derive(&cut.field, beside.beside(), kind) else {
+                let Some(found) = shear::derive(&cut.field, beside.beside(), kind, &[]) else {
                     continue;
                 };
                 cut.field = found.field;

@@ -1109,6 +1109,7 @@ fn a_composite_reports_the_worse_of_its_two_halves() {
         moved_by_wind: 0,
         unplaced: 400,
         valid: 1000,
+        unplaced_mask: vec![],
     };
 
     let drawn = draw_sweep(
@@ -1138,6 +1139,7 @@ fn a_composite_reports_the_worse_of_its_two_halves() {
         moved_by_wind: 0,
         unplaced: 1,
         valid: 1000,
+        unplaced_mask: vec![],
     };
     let mut over = over;
     over.unfolding = crate::dealias::Dealiased {
@@ -1145,6 +1147,7 @@ fn a_composite_reports_the_worse_of_its_two_halves() {
         moved_by_wind: 0,
         unplaced: 700,
         valid: 1000,
+        unplaced_mask: vec![],
     };
     let drawn = draw_sweep(
         "KTLX",

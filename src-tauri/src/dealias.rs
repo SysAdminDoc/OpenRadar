@@ -99,7 +99,7 @@ const REFERENCE_MARGIN_MS: f32 = 5.0;
 /// The counts are gates rather than patches, because a patch is an artefact of
 /// how the sweep happened to break up and a gate is a reading somebody is
 /// looking at.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Dealiased {
     /// Gates whose reading was shifted onto another branch.
     pub moved: usize,
@@ -118,6 +118,10 @@ pub struct Dealiased {
     /// are shares of. Carried here so a caller does not have to walk the
     /// statuses a second time to say "a tenth of this cut".
     pub valid: usize,
+    /// Which gates were unplaced. `true` for a gate the dealiaser could not
+    /// resolve. Same length as the sweep (azimuths * gates). Used to mask
+    /// them out of the rotation fit, where a fold edge reads as strong shear.
+    pub unplaced_mask: Vec<bool>,
 }
 
 /// Which pass put a gate where it ended up.
@@ -606,7 +610,10 @@ fn dealias_here(
         }
     }
 
-    let mut found = Dealiased::default();
+    let mut found = Dealiased {
+        unplaced_mask: vec![false; values.len()],
+        ..Dealiased::default()
+    };
     for at in 0..values.len() {
         if !valid[at] {
             continue;
@@ -618,6 +625,7 @@ fn dealias_here(
         found.valid += 1;
         if !placed[label] {
             found.unplaced += 1;
+            found.unplaced_mask[at] = true;
         }
         if let Some(record) = record.as_deref_mut() {
             record[at] = if !placed[label] {

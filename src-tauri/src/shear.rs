@@ -155,7 +155,17 @@ pub fn derivation(kind: Kind) -> String {
 /// Derives one cut. The velocity must already be unfolded: a fold is a jump of
 /// twice the Nyquist velocity between neighbouring gates, which is the largest
 /// shear anywhere in the sweep and is not rotation.
-pub fn derive(velocity: &SweepField, beside: Beside<'_>, kind: Kind) -> Option<Derived> {
+///
+/// `unplaced` marks the gates the dealiaser could not resolve. Those gates
+/// keep their original folded readings, so a fold edge through them is a step
+/// of two Nyquist velocities that reads as the strongest shear in the sweep.
+/// Masking them out of the fit removes the false rotation.
+pub fn derive(
+    velocity: &SweepField,
+    beside: Beside<'_>,
+    kind: Kind,
+    unplaced: &[bool],
+) -> Option<Derived> {
     let azimuths = velocity.azimuth_count();
     let gates = velocity.gate_count();
     if azimuths < 3 || gates < 3 {
@@ -163,7 +173,13 @@ pub fn derive(velocity: &SweepField, beside: Beside<'_>, kind: Kind) -> Option<D
     }
 
     let smoothed = median_prefilter(velocity, beside.reflectivity);
-    let shear = least_squares_shear(velocity, &smoothed);
+    let mut shear = least_squares_shear(velocity, &smoothed);
+
+    for at in 0..shear.len() {
+        if at < unplaced.len() && unplaced[at] {
+            shear[at] = None;
+        }
+    }
 
     let (label, unit) = named(kind);
     let mut field = velocity.new_like(label, unit);
@@ -488,7 +504,7 @@ fn debris_flag(
             let Some((zdr, GateStatus::Valid)) = reading_at(differential, angle, range_km) else {
                 continue;
             };
-            if zdr.abs() > DEBRIS_DIFFERENTIAL_DB {
+            if zdr > DEBRIS_DIFFERENTIAL_DB {
                 continue;
             }
             flagged.set(azimuth, gate, 1.0, GateStatus::Valid);

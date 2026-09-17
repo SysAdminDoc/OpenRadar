@@ -332,8 +332,13 @@ pub(crate) fn prepare_sweep(
     match derived {
         Some(Worked::Turning(kind)) => {
             let beside = Alongside::at(scan, chosen.elevation_degrees);
-            let found = shear::derive(&chosen.field, beside.beside(), kind)
-                .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
+            let found = shear::derive(
+                &chosen.field,
+                beside.beside(),
+                kind,
+                &unfolding.unplaced_mask,
+            )
+            .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
             chosen.field = found.field;
             debris = found.debris;
         }
