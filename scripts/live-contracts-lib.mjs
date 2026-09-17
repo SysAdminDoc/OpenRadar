@@ -383,6 +383,14 @@ export const LIVE_CONTRACTS = [
     liveBlock: "against the National Hurricane Center itself",
     required: false,
   },
+  {
+    id: "nws-tls-preview",
+    label: "NWS cipher-suite preview (SCN26-80, remove after 2027-03-02)",
+    host: "preview-api.weather.gov",
+    kind: "native",
+    filter: "http::tests::tls_handshake_with_nws_preview",
+    required: false,
+  },
 ];
 
 /**
