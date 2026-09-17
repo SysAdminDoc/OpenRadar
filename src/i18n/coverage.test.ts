@@ -242,7 +242,6 @@ describe("the workspace is translated", () => {
     // where a sentence should be.
     for (const [key, value] of Object.entries(copy)) {
       expect(typeof value, key).toBe("string");
-      if (key.startsWith("keywords.")) continue;
       expect(value.length, key).toBeGreaterThan(0);
     }
   });

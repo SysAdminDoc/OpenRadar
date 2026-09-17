@@ -32,7 +32,7 @@ import { haversineMiles } from "./geo";
  * other sentence in the app rather than left in English in a data file. The
  * source's name is not: an office is called what it is called.
  */
-export type Told = Record<"en" | "es" | "fr", string>;
+export type Told = Record<"en" | "es" | "fr" | "de", string>;
 
 export interface Curiosity {
   id: string;
@@ -78,7 +78,7 @@ function told(value: unknown): value is Told {
   const one = value as Partial<Told>;
   // Every language, or none: a card that falls back to English for one reader
   // and not another is worse than one that is not there.
-  return (["en", "es", "fr"] as const).every(
+  return (["en", "es", "fr", "de"] as const).every(
     (which) => typeof one[which] === "string" && one[which].length > 0,
   );
 }
@@ -123,6 +123,7 @@ export function inWords(told: Told): string {
   const which = locale();
   if (which.startsWith("es")) return told.es;
   if (which.startsWith("fr")) return told.fr;
+  if (which.startsWith("de")) return told.de;
   return told.en;
 }
 

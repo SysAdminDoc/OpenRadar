@@ -17,7 +17,7 @@ const SHIPPED = JSON.parse(
   ),
 ) as unknown;
 
-const SAID = (text: string) => ({ en: text, es: text, fr: text });
+const SAID = (text: string) => ({ en: text, es: text, fr: text, de: text });
 
 function one(over: Partial<Curiosity> = {}): Curiosity {
   return {

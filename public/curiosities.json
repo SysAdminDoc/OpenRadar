@@ -10,12 +10,14 @@
     "title": {
       "en": "Mount Washington",
       "es": "Monte Washington",
-      "fr": "Mont Washington"
+      "fr": "Mont Washington",
+      "de": "Mount Washington"
     },
     "story": {
       "en": "The Mount Washington Observatory, on this summit, measured a gust of 231 miles an hour on 12 April 1934. It stood as the fastest surface wind recorded anywhere for sixty-two years, and the observatory still holds it as the fastest measured outside a tropical cyclone.",
       "es": "El Mount Washington Observatory, en esta cumbre, midió una ráfaga de 231 millas por hora el 12 de abril de 1934. Durante sesenta y dos años fue el viento en superficie más rápido registrado en cualquier lugar, y el observatorio lo sigue considerando el más rápido medido fuera de un ciclón tropical.",
-      "fr": "Le Mount Washington Observatory, sur ce sommet, a mesuré une rafale de 231 milles à l'heure le 12 avril 1934. Pendant soixante-deux ans, ce fut le vent de surface le plus rapide relevé où que ce soit, et l'observatoire le tient toujours pour le plus rapide mesuré hors d'un cyclone tropical."
+      "fr": "Le Mount Washington Observatory, sur ce sommet, a mesuré une rafale de 231 milles à l'heure le 12 avril 1934. Pendant soixante-deux ans, ce fut le vent de surface le plus rapide relevé où que ce soit, et l'observatoire le tient toujours pour le plus rapide mesuré hors d'un cyclone tropical.",
+      "de": "Das Mount Washington Observatory auf diesem Gipfel maß am 12. April 1934 eine Böe von 231 Meilen pro Stunde. Zweiundsechzig Jahre lang war es der schnellste an der Oberfläche gemessene Wind weltweit, und das Observatorium hält den Rekord weiterhin als den schnellsten außerhalb eines tropischen Wirbelsturms."
     }
   },
   {
@@ -29,12 +31,14 @@
     "title": {
       "en": "Furnace Creek",
       "es": "Furnace Creek",
-      "fr": "Furnace Creek"
+      "fr": "Furnace Creek",
+      "de": "Furnace Creek"
     },
     "story": {
       "en": "The weather station here reported 134 degrees Fahrenheit on 10 July 1913. It is the highest air temperature the World Meteorological Organization recognises anywhere on Earth, and meteorologists have argued about the reading ever since.",
       "es": "La estación meteorológica de aquí registró 134 grados Fahrenheit el 10 de julio de 1913. Es la temperatura del aire más alta que la Organización Meteorológica Mundial reconoce en todo el planeta, y los meteorólogos discuten sobre esa lectura desde entonces.",
-      "fr": "La station météo d'ici a relevé 134 degrés Fahrenheit le 10 juillet 1913. C'est la température de l'air la plus élevée que l'Organisation météorologique mondiale reconnaisse sur Terre, et les météorologues discutent ce relevé depuis."
+      "fr": "La station météo d'ici a relevé 134 degrés Fahrenheit le 10 juillet 1913. C'est la température de l'air la plus élevée que l'Organisation météorologique mondiale reconnaisse sur Terre, et les météorologues discutent ce relevé depuis.",
+      "de": "Die Wetterstation hier meldete am 10. Juli 1913 eine Temperatur von 134 Grad Fahrenheit. Die Weltorganisation für Meteorologie erkennt sie als die höchste jemals an der Erdoberfläche gemessene Lufttemperatur an, und Meteorologen streiten sich seitdem über die Messung."
     }
   },
   {
@@ -48,12 +52,14 @@
     "title": {
       "en": "Vostok Station",
       "es": "Base Vostok",
-      "fr": "Station Vostok"
+      "fr": "Station Vostok",
+      "de": "Station Wostok"
     },
     "story": {
       "en": "Minus 89.2 degrees Celsius was measured here on 21 July 1983. The World Meteorological Organization holds it as the lowest air temperature ever recorded at the surface of the Earth. The station sits on more than three kilometres of ice.",
       "es": "Aquí se midieron 89,2 grados Celsius bajo cero el 21 de julio de 1983. La Organización Meteorológica Mundial la tiene como la temperatura del aire más baja jamás registrada en la superficie de la Tierra. La base se asienta sobre más de tres kilómetros de hielo.",
-      "fr": "Moins 89,2 degrés Celsius ont été mesurés ici le 21 juillet 1983. L'Organisation météorologique mondiale la tient pour la température de l'air la plus basse jamais relevée à la surface de la Terre. La station repose sur plus de trois kilomètres de glace."
+      "fr": "Moins 89,2 degrés Celsius ont été mesurés ici le 21 juillet 1983. L'Organisation météorologique mondiale la tient pour la température de l'air la plus basse jamais relevée à la surface de la Terre. La station repose sur plus de trois kilomètres de glace.",
+      "de": "Minus 89,2 Grad Celsius wurden hier am 21. Juli 1983 gemessen. Die Weltorganisation für Meteorologie hält es für die niedrigste jemals an der Erdoberfläche gemessene Lufttemperatur. Die Station steht auf mehr als drei Kilometern Eis."
     }
   },
   {
@@ -67,12 +73,14 @@
     "title": {
       "en": "Murphysboro",
       "es": "Murphysboro",
-      "fr": "Murphysboro"
+      "fr": "Murphysboro",
+      "de": "Murphysboro"
     },
     "story": {
       "en": "The Tri-State Tornado passed through this town on 18 March 1925, part way along a track the Paducah office puts at some 219 miles across Missouri, Illinois and Indiana.",
       "es": "El tornado de los Tres Estados atravesó este pueblo el 18 de marzo de 1925, a mitad de un recorrido que la oficina de Paducah cifra en unas 219 millas por Misuri, Illinois e Indiana.",
-      "fr": "La tornade des Trois États a traversé cette ville le 18 mars 1925, à mi-parcours d'un trajet que le bureau de Paducah évalue à quelque 219 milles à travers le Missouri, l'Illinois et l'Indiana."
+      "fr": "La tornade des Trois États a traversé cette ville le 18 mars 1925, à mi-parcours d'un trajet que le bureau de Paducah évalue à quelque 219 milles à travers le Missouri, l'Illinois et l'Indiana.",
+      "de": "Der Tri-State-Tornado zog am 18. März 1925 durch diese Stadt, auf einer Zugbahn, die das Büro in Paducah auf etwa 219 Meilen durch Missouri, Illinois und Indiana beziffert."
     }
   },
   {
@@ -86,12 +94,14 @@
     "title": {
       "en": "Westhampton",
       "es": "Westhampton",
-      "fr": "Westhampton"
+      "fr": "Westhampton",
+      "de": "Westhampton"
     },
     "story": {
       "en": "The hurricane of 21 September 1938 came ashore along this stretch of Long Island and carried on into New England, moving so fast that it reached Vermont the same evening.",
       "es": "El huracán del 21 de septiembre de 1938 tocó tierra en este tramo de Long Island y siguió hacia Nueva Inglaterra, tan rápido que llegó a Vermont esa misma tarde.",
-      "fr": "L'ouragan du 21 septembre 1938 a touché terre sur cette portion de Long Island et a poursuivi vers la Nouvelle-Angleterre, si vite qu'il atteignit le Vermont le soir même."
+      "fr": "L'ouragan du 21 septembre 1938 a touché terre sur cette portion de Long Island et a poursuivi vers la Nouvelle-Angleterre, si vite qu'il atteignit le Vermont le soir même.",
+      "de": "Der Hurrikan vom 21. September 1938 ging an diesem Abschnitt von Long Island an Land und zog weiter nach Neuengland, so schnell, dass er Vermont noch am selben Abend erreichte."
     }
   },
   {
@@ -105,12 +115,14 @@
     "title": {
       "en": "Xenia",
       "es": "Xenia",
-      "fr": "Xenia"
+      "fr": "Xenia",
+      "de": "Xenia"
     },
     "story": {
       "en": "The Super Outbreak of 3 and 4 April 1974 produced 148 tornadoes across thirteen states in about eighteen hours. One of them crossed this town in the middle of the afternoon.",
       "es": "El Superbrote del 3 y 4 de abril de 1974 produjo 148 tornados en trece estados en unas dieciocho horas. Uno de ellos cruzó este pueblo a media tarde.",
-      "fr": "L'éruption tornadique des 3 et 4 avril 1974 a produit 148 tornades dans treize États en dix-huit heures environ. L'une d'elles a traversé cette ville en milieu d'après-midi."
+      "fr": "L'éruption tornadique des 3 et 4 avril 1974 a produit 148 tornades dans treize États en dix-huit heures environ. L'une d'elles a traversé cette ville en milieu d'après-midi.",
+      "de": "Der Super Outbreak vom 3. und 4. April 1974 erzeugte 148 Tornados in dreizehn Bundesstaaten in rund achtzehn Stunden. Einer davon zog am Nachmittag durch diese Stadt."
     }
   },
   {
@@ -124,12 +136,14 @@
     "title": {
       "en": "Bridge Creek",
       "es": "Bridge Creek",
-      "fr": "Bridge Creek"
+      "fr": "Bridge Creek",
+      "de": "Bridge Creek"
     },
     "story": {
       "en": "A mobile radar pointed at the tornado here on 3 May 1999 measured winds of about 301 miles an hour a few tens of metres above the ground. It is among the fastest winds ever measured anywhere.",
       "es": "Un radar móvil apuntado al tornado de aquí el 3 de mayo de 1999 midió vientos de unas 301 millas por hora a unas decenas de metros del suelo. Está entre los vientos más rápidos jamás medidos en ningún sitio.",
-      "fr": "Un radar mobile braqué sur la tornade d'ici le 3 mai 1999 a mesuré des vents d'environ 301 milles à l'heure à quelques dizaines de mètres du sol. Cela figure parmi les vents les plus rapides jamais mesurés."
+      "fr": "Un radar mobile braqué sur la tornade d'ici le 3 mai 1999 a mesuré des vents d'environ 301 milles à l'heure à quelques dizaines de mètres du sol. Cela figure parmi les vents les plus rapides jamais mesurés.",
+      "de": "Ein mobiles Radar, das am 3. Mai 1999 auf den Tornado hier gerichtet war, maß Winde von etwa 301 Meilen pro Stunde wenige Dutzend Meter über dem Boden. Es gehört zu den schnellsten jemals gemessenen Winden."
     }
   },
   {
@@ -143,12 +157,14 @@
     "title": {
       "en": "Tuscaloosa",
       "es": "Tuscaloosa",
-      "fr": "Tuscaloosa"
+      "fr": "Tuscaloosa",
+      "de": "Tuscaloosa"
     },
     "story": {
       "en": "The tornado of 27 April 2011 was on the ground for eighty miles, through this city and on towards Birmingham, on the worst single day for tornadoes since records began.",
       "es": "El tornado del 27 de abril de 2011 estuvo ochenta millas en el suelo, por esta ciudad y hacia Birmingham, en el peor día de tornados desde que hay registros.",
-      "fr": "La tornade du 27 avril 2011 est restée au sol sur quatre-vingts milles, à travers cette ville puis vers Birmingham, lors de la pire journée de tornades depuis le début des relevés."
+      "fr": "La tornade du 27 avril 2011 est restée au sol sur quatre-vingts milles, à travers cette ville puis vers Birmingham, lors de la pire journée de tornades depuis le début des relevés.",
+      "de": "Der Tornado vom 27. April 2011 blieb achtzig Meilen lang am Boden, durch diese Stadt und weiter Richtung Birmingham, am schlimmsten einzelnen Tornado-Tag seit Beginn der Aufzeichnungen."
     }
   },
   {
@@ -162,12 +178,14 @@
     "title": {
       "en": "Galveston",
       "es": "Galveston",
-      "fr": "Galveston"
+      "fr": "Galveston",
+      "de": "Galveston"
     },
     "story": {
       "en": "The hurricane of 8 September 1900 came ashore over this island. The Houston and Galveston forecast office keeps its record: afterwards the city raised its whole grade by several feet and built the seawall that still stands along the beach.",
       "es": "El huracán del 8 de septiembre de 1900 tocó tierra sobre esta isla. La oficina de pronósticos de Houston y Galveston guarda su registro: después la ciudad elevó todo su nivel varios pies y construyó el malecón que aún sigue junto a la playa.",
-      "fr": "L'ouragan du 8 septembre 1900 a touché terre sur cette île. Le bureau de prévision de Houston et Galveston en garde le relevé : la ville a ensuite rehaussé tout son niveau de plusieurs pieds et bâti la digue qui longe encore la plage."
+      "fr": "L'ouragan du 8 septembre 1900 a touché terre sur cette île. Le bureau de prévision de Houston et Galveston en garde le relevé : la ville a ensuite rehaussé tout son niveau de plusieurs pieds et bâti la digue qui longe encore la plage.",
+      "de": "Der Hurrikan vom 8. September 1900 ging über dieser Insel an Land. Das Vorhersagebüro von Houston und Galveston bewahrt die Aufzeichnungen: Danach hob die Stadt ihr gesamtes Niveau um mehrere Fuß an und errichtete die Ufermauer, die noch heute am Strand steht."
     }
   },
   {
@@ -181,12 +199,14 @@
     "title": {
       "en": "Joplin",
       "es": "Joplin",
-      "fr": "Joplin"
+      "fr": "Joplin",
+      "de": "Joplin"
     },
     "story": {
       "en": "A tornado crossed this city on the evening of 22 May 2011, wrapped in rain and hard to see coming. The Springfield forecast office covers it, and it changed how warnings themselves are written: the stronger wording used today for the worst of them came out of what happened here.",
       "es": "Un tornado cruzó esta ciudad la tarde del 22 de mayo de 2011, envuelto en lluvia y difícil de ver venir. La oficina de pronósticos de Springfield lo cubre, y cambió la manera de redactar los avisos: el lenguaje más contundente que hoy se usa para los peores salió de lo que pasó aquí.",
-      "fr": "Une tornade a traversé cette ville le soir du 22 mai 2011, noyée dans la pluie et difficile à voir venir. Le bureau de prévision de Springfield en a la charge, et elle a changé la façon d'écrire les alertes : la formulation plus forte employée aujourd'hui pour les pires d'entre elles vient de ce qui s'est passé ici."
+      "fr": "Une tornade a traversé cette ville le soir du 22 mai 2011, noyée dans la pluie et difficile à voir venir. Le bureau de prévision de Springfield en a la charge, et elle a changé la façon d'écrire les alertes : la formulation plus forte employée aujourd'hui pour les pires d'entre elles vient de ce qui s'est passé ici.",
+      "de": "Ein Tornado zog am Abend des 22. Mai 2011 durch diese Stadt, in Regen gehüllt und schwer zu erkennen. Das Vorhersagebüro in Springfield ist zuständig, und das Ereignis veränderte die Art, wie Warnungen formuliert werden: Die schärfere Sprache, die heute für die schlimmsten verwendet wird, ging aus dem hervor, was hier geschah."
     }
   },
   {
@@ -200,12 +220,14 @@
     "title": {
       "en": "Cape Disappointment",
       "es": "Cabo Disappointment",
-      "fr": "Cap Disappointment"
+      "fr": "Cap Disappointment",
+      "de": "Cape Disappointment"
     },
     "story": {
       "en": "The lighthouse station here is one of the foggiest places in the United States. The Portland forecast office puts it at something like a hundred days of fog in an average year, and more than two thousand hours of it.",
       "es": "La estación del faro de aquí es uno de los lugares con más niebla de Estados Unidos. La oficina de pronósticos de Portland la sitúa en torno a cien días de niebla en un año normal, y más de dos mil horas de ella.",
-      "fr": "La station du phare d'ici est l'un des endroits les plus brumeux des États-Unis. Le bureau de prévision de Portland l'estime à une centaine de jours de brouillard par an, et plus de deux mille heures de brume."
+      "fr": "La station du phare d'ici est l'un des endroits les plus brumeux des États-Unis. Le bureau de prévision de Portland l'estime à une centaine de jours de brouillard par an, et plus de deux mille heures de brume.",
+      "de": "Die Leuchtturmstation hier ist einer der nebeligsten Orte der Vereinigten Staaten. Das Vorhersagebüro Portland beziffert es auf etwa hundert Nebeltage in einem durchschnittlichen Jahr und mehr als zweitausend Stunden davon."
     }
   },
   {
@@ -219,12 +241,14 @@
     "title": {
       "en": "Cherrapunji",
       "es": "Cherrapunji",
-      "fr": "Cherrapunji"
+      "fr": "Cherrapunji",
+      "de": "Cherrapunji"
     },
     "story": {
       "en": "The hills here take the full force of the monsoon coming up off the Bay of Bengal. The India Meteorological Department records something like eleven metres of rain in an average year, nearly all of it between June and September.",
       "es": "Estas colinas reciben de lleno el monzón que sube desde el golfo de Bengala. El Departamento Meteorológico de India registra unos once metros de lluvia en un año normal, casi todos entre junio y septiembre.",
-      "fr": "Ces collines reçoivent de plein fouet la mousson qui remonte du golfe du Bengale. Le Département météorologique indien y relève quelque onze mètres de pluie une année normale, presque toute entre juin et septembre."
+      "fr": "Ces collines reçoivent de plein fouet la mousson qui remonte du golfe du Bengale. Le Département météorologique indien y relève quelque onze mètres de pluie une année normale, presque toute entre juin et septembre.",
+      "de": "Die Hügel hier bekommen die volle Wucht des Monsuns ab, der vom Golf von Bengalen aufsteigt. Das indische Meteorologische Amt verzeichnet rund elf Meter Regen in einem normalen Jahr, fast alles davon zwischen Juni und September."
     }
   }
 ]
