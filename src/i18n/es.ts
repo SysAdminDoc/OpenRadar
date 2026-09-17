@@ -1167,7 +1167,7 @@ export const es: Catalogue = {
   "nearby.nothing": "Nada cerca de {place} en este momento.",
   "nearby.keysHeading": "Mover el mapa sin ratón",
   "nearby.keysBody":
-    "Tabula hasta el mapa; las flechas lo desplazan y las teclas más y menos hacen zoom. Mantén Mayús con una flecha para girarlo o inclinarlo. Nada en el mapa necesita arrastrar.",
+    "Tabula hasta el mapa; las flechas mueven un cursor y leen lo que el radar muestra ahí. Las teclas más y menos hacen zoom. Mantén Mayús con una flecha para girar o inclinar el mapa. Nada en el mapa necesita arrastrar.",
   "nearby.announcement": "{headline}. {body}",
   "follow.went": "El mapa fue al {headline}",
   "follow.wentBody":
@@ -2553,6 +2553,9 @@ export const es: Catalogue = {
   "tool.endHint": "Elige el punto final",
   "cursor.at": "{lat}, {lon}.",
   "cursor.reading": "{value} {unit}.",
+  "cursor.live": "Del barrido en curso, {when}.",
+  "cursor.from_time": "Del barrido de {when}.",
+  "cursor.unitless": "(sin unidad)",
   "cursor.from": "{distance} al {bearing} de {place}.",
   "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
   "tool.gateValue": "{value} {unit}",

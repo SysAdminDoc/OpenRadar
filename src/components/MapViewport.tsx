@@ -2457,10 +2457,16 @@ function MapViewportInner(
         }),
       ];
       if (gate) {
+        const unit = gate.unit || translate("cursor.unitless");
         said.push(
           translate("cursor.reading", {
             value: formatMeasure(Math.round(gate.value * 10) / 10),
-            unit: gate.unit,
+            unit,
+          }),
+        );
+        said.push(
+          translate(gate.live ? "cursor.live" : "cursor.from_time", {
+            when: formatClock(Date.parse(gate.collected)),
           }),
         );
       }
@@ -2554,6 +2560,7 @@ function MapViewportInner(
       ArrowDown: [0, 1],
     };
 
+    let cursorThrottled = false;
     const onCanvasKeyDown = (event: KeyboardEvent) => {
       // The arrows move a cursor rather than the camera. A keyboard reader
       // had no way to ask what the radar shows ten miles north of them: the
@@ -2568,6 +2575,11 @@ function MapViewportInner(
         // Stopped here, or MapLibre's own keyboard handler pans as well and
         // the cursor and the camera both move by different amounts.
         event.stopPropagation();
+        if (cursorThrottled) return;
+        cursorThrottled = true;
+        requestAnimationFrame(() => {
+          cursorThrottled = false;
+        });
         const by = cursorStep(event.shiftKey);
         moveCursor(step[0] * by, step[1] * by);
         return;
