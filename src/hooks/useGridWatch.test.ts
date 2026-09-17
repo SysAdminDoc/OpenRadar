@@ -163,4 +163,42 @@ describe("a grid rule watching a place", () => {
     expect(said).toHaveLength(1);
     expect(said[0]?.kind).toBe("over");
   });
+
+  it("forgets what it told after the rule is switched off and back on", async () => {
+    grid.peak.mockResolvedValue(peakOf(50.8));
+    const said: GridNotice[] = [];
+    const { rerender } = renderHook(
+      (props: { settings: GridRule }) =>
+        useGridWatch({
+          rule: "hail",
+          settings: props.settings,
+          places: [place()],
+          ready: true,
+          onFallback: (notice) => said.push(notice),
+        }),
+      { initialProps: { settings: RULE } },
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(said).toHaveLength(1);
+    expect(said[0]?.kind).toBe("over");
+
+    // Storm ends while the rule is still on: a reading under the threshold.
+    grid.peak.mockResolvedValue(peakOf(0));
+    await vi.advanceTimersByTimeAsync(31 * 60_000);
+    const quietCount = said.filter((n) => n.kind === "quiet").length;
+    expect(quietCount).toBe(1);
+
+    // Rule off, storm comes back.
+    grid.peak.mockResolvedValue(peakOf(50.8));
+    rerender({ settings: { ...RULE, enabled: false } });
+    await vi.advanceTimersByTimeAsync(GRID_WATCH_REFRESH_MS + 1);
+
+    // Rule on again: the storm is announced fresh, not suppressed by the
+    // old saidRef entry from before the rule was switched off.
+    const before = said.length;
+    rerender({ settings: RULE });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(said.length).toBeGreaterThan(before);
+    expect(said[said.length - 1]?.kind).toBe("over");
+  });
 });
