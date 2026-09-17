@@ -99,6 +99,10 @@ export function IncidentPackManager({
   const t = useT();
   const available = incidentPacksAvailable();
   const settingsRef = useRef(settings);
+  const prePackRef = useRef<{
+    projection: typeof settings.projection;
+    camera: typeof settings.camera;
+  } | null>(null);
   const [library, setLibrary] = useState(EMPTY_LIBRARY);
   const [estimate, setEstimate] = useState<IncidentPackEstimate | null>(null);
   const [name, setName] = useState(t("packs.defaultName"));
@@ -311,14 +315,17 @@ export function IncidentPackManager({
 
   const removeReference = (id: string) => {
     const current = settingsRef.current;
+    const wasSelected = current.incidentPacks.selectedId === id;
+    const restored = wasSelected ? prePackRef.current : null;
+    if (wasSelected) prePackRef.current = null;
     onSettings({
       ...current,
+      ...(restored
+        ? { projection: restored.projection, camera: restored.camera }
+        : {}),
       incidentPacks: {
         ...current.incidentPacks,
-        selectedId:
-          current.incidentPacks.selectedId === id
-            ? null
-            : current.incidentPacks.selectedId,
+        selectedId: wasSelected ? null : current.incidentPacks.selectedId,
         references: current.incidentPacks.references.filter(
           (reference) => reference.id !== id,
         ),
@@ -400,6 +407,12 @@ export function IncidentPackManager({
     const reference = asIncidentPackReference(pack);
     if (!reference) return;
     const current = settingsRef.current;
+    if (!current.incidentPacks.selectedId) {
+      prePackRef.current = {
+        projection: current.projection,
+        camera: { ...current.camera },
+      };
+    }
     const references = current.incidentPacks.references.filter(
       (entry) => entry.id !== reference.id,
     );
@@ -607,15 +620,23 @@ export function IncidentPackManager({
               <span>{t("packs.offlineActive")}</span>
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  const restored = prePackRef.current;
+                  prePackRef.current = null;
                   onSettings({
                     ...settingsRef.current,
+                    ...(restored
+                      ? {
+                          projection: restored.projection,
+                          camera: restored.camera,
+                        }
+                      : {}),
                     incidentPacks: {
                       ...settingsRef.current.incidentPacks,
                       selectedId: null,
                     },
-                  })
-                }
+                  });
+                }}
               >
                 <Wifi size={14} /> {t("packs.useOnline")}
               </button>

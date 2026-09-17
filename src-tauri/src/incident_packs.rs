@@ -201,8 +201,8 @@ impl PackBounds {
             .all(f64::is_finite)
             && (-180.0..180.0).contains(&self.west)
             && (-180.0..=180.0).contains(&self.east)
-            && (-85.0..85.0).contains(&self.south)
-            && (-85.0..85.0).contains(&self.north)
+            && (-85.06..85.06).contains(&self.south)
+            && (-85.06..85.06).contains(&self.north)
             && self.west < self.east
             && self.south < self.north
     }
@@ -1561,6 +1561,17 @@ fn quota_peak_fits(
     Ok(peak <= disk_limit_bytes(root)?)
 }
 
+fn quota_import_fits(
+    root: &Path,
+    archive_bytes: u64,
+) -> Result<bool, IncidentPackError> {
+    let used = used_bytes(root)?;
+    let peak = used
+        .saturating_add(archive_bytes)
+        .saturating_add(ARCHIVE_OVERHEAD_BYTES);
+    Ok(peak <= disk_limit_bytes(root)?)
+}
+
 fn quota_allows(
     root: &Path,
     downloaded_bytes: u64,
@@ -2329,13 +2340,12 @@ async fn import_archive(
         .unwrap_or_default();
     let called = clean_name(&called)?;
 
-    let _write = store_write().lock().await;
-    // The same rule a download follows: a new pack takes the undo away from a
-    // deleted one, because these bytes are the reader's answer to what they
-    // want the disk for.
-    let _ = reap_held(root)?;
-    if !quota_allows(root, 0, archive_bytes)? {
-        return Err(IncidentPackError::DiskCeiling);
+    {
+        let _write = store_write().lock().await;
+        let _ = reap_held(root)?;
+        if !quota_import_fits(root, archive_bytes)? {
+            return Err(IncidentPackError::DiskCeiling);
+        }
     }
 
     let id = new_id(&called);
@@ -2343,22 +2353,25 @@ async fn import_archive(
     fs::create_dir_all(&pack_dir)?;
     let destination = pack_dir.join(ARCHIVE_FILE);
     let part = pack_dir.join(ARCHIVE_PART);
-    let copied = (|| -> Result<(u64, String), IncidentPackError> {
-        // Copied rather than moved: the file is the reader's and stays
-        // theirs. Through the part name and renamed, so a copy interrupted
-        // half way is debris `recover_store` clears rather than an archive
-        // the store believes in.
-        let written = fs::copy(source, &part)?;
+    // Copy and hash on a blocking thread so the store lock is not held for
+    // the duration of a multi-gigabyte file copy.
+    let source_for_copy = source.to_path_buf();
+    let part_for_copy = part.clone();
+    let dest_for_copy = destination.clone();
+    let copied = tauri::async_runtime::spawn_blocking(move || {
+        let written = fs::copy(&source_for_copy, &part_for_copy)?;
         if written != archive_bytes {
             return Err(IncidentPackError::ByteMismatch {
                 expected: archive_bytes,
                 actual: written,
             });
         }
-        let hash = sha256_file(&part)?;
-        fs::rename(&part, &destination)?;
+        let hash = sha256_file(&part_for_copy)?;
+        fs::rename(&part_for_copy, &dest_for_copy)?;
         Ok((written, hash))
-    })();
+    })
+    .await
+    .map_err(|error| IncidentPackError::Worker(error.to_string()))?;
     let (written, sha256) = match copied {
         Ok(pair) => pair,
         Err(error) => {
@@ -2366,6 +2379,7 @@ async fn import_archive(
             return Err(error);
         }
     };
+    let _write = store_write().lock().await;
     remember_verified_archive(&destination, written, &sha256)?;
 
     let timestamp = now();
@@ -2665,7 +2679,14 @@ pub async fn serve_tile(uri: &str) -> ServedTile {
         // through the scheme handler. Every tile of an imported basemap comes
         // through here, and the archive is a file somebody else made.
         let coord = tile.coord()?;
-        on_a_blocking_thread(move || drive(read_one_tile(&archive, coord))?).await
+        match on_a_blocking_thread(move || drive(read_one_tile(&archive, coord))?).await {
+            Ok(body) => Ok(body),
+            Err(ref error) if matches!(error, IncidentPackError::NotFound) => Err(IncidentPackError::NotFound),
+            Err(error) => {
+                mark_archive_failed(&pack_dir, &mut manifest, &error);
+                Err(error)
+            }
+        }
     }
     .await;
     match result {

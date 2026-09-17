@@ -306,8 +306,8 @@ export function normalizeIncidentPackReference(
   ) {
     return null;
   }
-  const minZoom = Math.round(finiteInRange(raw.minZoom, Number.NaN, 2, 15));
-  const maxZoom = Math.round(finiteInRange(raw.maxZoom, Number.NaN, 2, 15));
+  const minZoom = Math.round(finiteInRange(raw.minZoom, Number.NaN, 0, 22));
+  const maxZoom = Math.round(finiteInRange(raw.maxZoom, Number.NaN, 0, 22));
   if (
     !Number.isFinite(minZoom) ||
     !Number.isFinite(maxZoom) ||
