@@ -23,11 +23,15 @@ describe("how a percentage is written", () => {
   // One rule per language, because a catalogue that does it both ways is a
   // catalogue where the next writer guesses. French takes a space before the
   // sign and Spanish takes none; English takes none.
-  it("puts a space before the sign in French and nowhere else", () => {
-    for (const [key, value] of entries(fr)) {
-      if (!value.includes("%")) continue;
-      // Every `%` that follows something is preceded by a space.
-      expect(/\S%/.test(value), `fr ${key}: ${value}`).toBe(false);
+  it("puts a space before the sign in French and German and nowhere else", () => {
+    for (const [copy, name] of [
+      [fr, "fr"],
+      [de, "de"],
+    ] as const) {
+      for (const [key, value] of entries(copy)) {
+        if (!value.includes("%")) continue;
+        expect(/\S%/.test(value), `${name} ${key}: ${value}`).toBe(false);
+      }
     }
     for (const [copy, name] of [
       [en, "en"],

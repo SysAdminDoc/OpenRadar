@@ -116,7 +116,7 @@ describe("a failure the native side blamed on a service", () => {
       "dataExport.error.gridHttpStatus",
     ] as const;
     const statuses = [404, 429, 403, 503, 418];
-    for (const language of ["en", "es", "fr"] as const) {
+    for (const language of ["en", "es", "fr", "de"] as const) {
       await ensureLanguage(language);
       setLanguage(language);
       for (const key of keys) {

@@ -12,6 +12,7 @@ import { formatDistanceKm, setUnits, tideUnitName } from "../lib/units";
 import { en } from "./en";
 import { es } from "./es";
 import { fr } from "./fr";
+import { de } from "./de";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -246,7 +247,7 @@ describe("copy that names a unit the reader did not choose", () => {
       "chrome.terminalRadar",
       "popup.depth",
     ] as const) {
-      for (const copy of [en, es, fr]) {
+      for (const copy of [en, es, fr, de]) {
         expect(copy[key], `${key}: ${copy[key]}`).not.toMatch(/\{\w+\}\s*km\b/);
       }
     }
