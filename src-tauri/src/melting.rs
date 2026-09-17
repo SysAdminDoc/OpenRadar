@@ -12,12 +12,25 @@
 //! bright band is in the volume on screen. The hail size worked out in
 //! `derive` needs a freezing level and takes the far one today.
 //!
-//! The method is the published automated detection: normalise reflectivity,
-//! differential reflectivity and one minus the correlation onto the same
-//! scale, multiply them, and take the gates over a threshold. A high cut is
-//! used because the beam climbs through the band quickly there, so the layer
-//! is a few gates rather than a smear across the whole disc, and because the
-//! ground is far below it.
+//! The method is based on Giangrande, Krause and Ryzhkov 2008 (JAMC 47:1354),
+//! a simplified variant of the published QVP detection. It normalises
+//! reflectivity, differential reflectivity and one minus the correlation onto
+//! two-sided membership functions, multiplies them, and takes the gates over a
+//! threshold. The Z and ZDR functions are triangular bands that peak at the
+//! midpoint and fall to zero at both edges, so convective rain and hail score
+//! zero instead of clamping to one.
+//!
+//! This variant does not compute the second derivative of the product profile
+//! that the full QVP method uses as a weight of 0.75. Without it the threshold
+//! of 0.08 is calibrated against the raw product alone. The omission is
+//! deliberate: the second derivative requires azimuthal averaging, which in
+//! turn requires a steep cut (9+ degrees) that winter VCP patterns do not make.
+//! The current 4-degree floor follows Giangrande's range of 4 to 10 degrees
+//! and works on every operational pattern.
+//!
+//! A high cut is used because the beam climbs through the band quickly there,
+//! so the layer is a few gates rather than a smear across the whole disc, and
+//! because the ground is far below it.
 
 use nexrad_model::data::{GateStatus, SweepField};
 use serde::Serialize;
