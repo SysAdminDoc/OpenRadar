@@ -641,3 +641,45 @@ describe("naming the record beside the picture", () => {
     expect(provenanceFileName(".openradar")).toBe(".openradar-provenance.json");
   });
 });
+
+describe("an overlay adapter's provenance", () => {
+  const adapter = OVERLAY_ADAPTERS.find((a) => a.id === "buoys");
+  if (!adapter) throw new Error("buoys adapter not found");
+
+  it("dates the record to the observation, not the download", () => {
+    const buoyObservedAt = Date.parse("2026-09-10T07:00:00Z");
+    const fetchedAt = Date.parse("2026-09-10T12:00:00Z");
+    const record = overlayProvenance({
+      adapter,
+      fetchedAt,
+      observedAt: buoyObservedAt,
+    });
+    expect(record.observedAt).toBe(buoyObservedAt);
+    expect(record.observedAt).not.toBe(fetchedAt);
+  });
+
+  it("falls back to fetchedAt when no observation time is known", () => {
+    const fetchedAt = Date.parse("2026-09-10T12:00:00Z");
+    const record = overlayProvenance({ adapter, fetchedAt });
+    expect(record.observedAt).toBe(fetchedAt);
+  });
+
+  it("uses the argued freshness budget when one is given", () => {
+    const freshForMs = 90 * 60_000;
+    const record = overlayProvenance({
+      adapter,
+      fetchedAt: Date.now(),
+      freshForMs,
+    });
+    expect(record.freshForMs).toBe(freshForMs);
+    expect(record.freshForMs).not.toBe(adapter.refreshMs);
+  });
+
+  it("falls back to the adapter's refresh interval without an argued budget", () => {
+    const record = overlayProvenance({
+      adapter,
+      fetchedAt: Date.now(),
+    });
+    expect(record.freshForMs).toBe(adapter.refreshMs);
+  });
+});
