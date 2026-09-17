@@ -84,3 +84,31 @@ describe("what the app needs a dependency to be at least", () => {
     });
   }
 });
+
+const CARGO_FLOORS: Array<{ name: string; least: string; why: string }> = [
+  {
+    name: "rustls",
+    least: "0.23.45",
+    why: "RUSTSEC-2026-0285: TLS 1.3 handshake messages accepted across encryption level boundaries",
+  },
+];
+
+describe("what the native side needs a dependency to be at least", () => {
+  const root = join(import.meta.dirname, "..", "..");
+  const cargoLock = readFileSync(
+    join(root, "src-tauri", "Cargo.lock"),
+    "utf8",
+  );
+
+  for (const { name, least, why } of CARGO_FLOORS) {
+    it(`will not go below ${name} ${least}`, () => {
+      const re = new RegExp(
+        `^\\[\\[package\\]\\]\\nname = "${name}"\\nversion = "(\\d+\\.\\d+\\.\\d+)"`,
+        "m",
+      );
+      const match = re.exec(cargoLock);
+      expect(match, `${name} is not in Cargo.lock`).not.toBeNull();
+      expect(atLeast(match![1], least), why).toBe(true);
+    });
+  }
+});
