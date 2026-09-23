@@ -1440,13 +1440,78 @@ pub(crate) fn beside_planted_bands(phase: &SweepField, correlation: &SweepField)
     found
 }
 
+/// What starting the same phase from another offset does to the answer.
+///
+/// The radar's own offset is in every reading and is not rain, so reporting a
+/// cut again from a different one and wrapping it back into the turn the radar
+/// has room for must not change a single reading. It is the refold of
+/// `measure_unfolding_bytes` for this field: a real cut, degraded the way a
+/// radar could have degraded it, with the answer known in advance. A ray that
+/// wrapped once can wrap twice when it starts higher, which is how a pass that
+/// takes out only one wrap is caught on real rain rather than on a ramp.
+#[derive(Default)]
+pub(crate) struct UnderAnOffset {
+    /// Gates drawn both times, and how far apart in total.
+    pub(crate) compared: usize,
+    pub(crate) absolute: f64,
+    /// Drawn from the phase as recorded and not from the same phase shifted,
+    /// and the other way round.
+    pub(crate) lost: usize,
+    pub(crate) gained: usize,
+}
+
+/// The offsets a cut is reported again from, in degrees. The network's own
+/// offsets sit low in the turn to leave room above them; these are the room
+/// used up.
+const PLANTED_OFFSETS: [f32; 3] = [120.0, 200.0, 280.0];
+
+pub(crate) fn under_planted_offsets(phase: &SweepField, correlation: &SweepField) -> UnderAnOffset {
+    let mut found = UnderAnOffset::default();
+    let Some(recorded) = kdp::derive(phase, Some(correlation)) else {
+        return found;
+    };
+    for offset in PLANTED_OFFSETS {
+        let mut shifted = phase.clone();
+        for azimuth in 0..shifted.azimuth_count() {
+            for gate in 0..shifted.gate_count() {
+                let (value, status) = shifted.get(azimuth, gate);
+                if matches!(status, GateStatus::Valid) {
+                    shifted.set(azimuth, gate, (value + offset).rem_euclid(360.0), status);
+                }
+            }
+        }
+        let Some(again) = kdp::derive(&shifted, Some(correlation)) else {
+            continue;
+        };
+        for azimuth in 0..recorded.azimuth_count() {
+            for gate in 0..recorded.gate_count() {
+                let (was, was_status) = recorded.get(azimuth, gate);
+                let (now, now_status) = again.get(azimuth, gate);
+                match (
+                    matches!(was_status, GateStatus::Valid),
+                    matches!(now_status, GateStatus::Valid),
+                ) {
+                    (true, true) => {
+                        found.compared += 1;
+                        found.absolute += f64::from(now - was).abs();
+                    }
+                    (true, false) => found.lost += 1,
+                    (false, true) => found.gained += 1,
+                    (false, false) => {}
+                }
+            }
+        }
+    }
+    found
+}
+
 /// One volume's specific differential phase against the office's, or which
 /// step found nothing to compare.
 pub(crate) fn measure_kdp_bytes(
     runtime: &tokio::runtime::Runtime,
     station: &str,
     data: Vec<u8>,
-) -> Result<(AgainstOfficeKdp, BesideABand), String> {
+) -> Result<(AgainstOfficeKdp, BesideABand, UnderAnOffset), String> {
     let scan = volume::File::new(data)
         .scan()
         .map_err(|error| format!("the volume did not decode: {error}"))?;
@@ -1479,6 +1544,7 @@ pub(crate) fn measure_kdp_bytes(
     Ok((
         kdp_against_office(&phase, &correlation, &ours, &image, scale),
         beside_planted_bands(&phase, &correlation),
+        under_planted_offsets(&phase, &correlation),
     ))
 }
 
