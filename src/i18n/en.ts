@@ -449,6 +449,19 @@ export const en = {
   "history.includeWorkspaceDetail":
     "Home, watched places, saved views and settings. Off unless you tick it, every time.",
   "history.saveBundle": "Save replay bundle",
+  "backtest.heading": "What your watch would have said",
+  "backtest.note":
+    "Your warning watch's own rules, run over this replay at the pace it checks, with your quiet hours applied. Nothing is sent and nothing goes in your record. Lightning and approaching-storm notices can't be replayed, because the app keeps no archive of either.",
+  "backtest.run": "Replay the watch",
+  "backtest.noPlaces":
+    "You aren't watching anywhere yet, so there's nothing to replay. Add a place in Settings.",
+  "backtest.nothing": "Nothing would have been said here.",
+  "backtest.notSaid": "Not said",
+  "backtest.heldUntil": "Quiet hours held it back from {from}.",
+  "backtest.heldThrough":
+    "Quiet hours held it back from {from}, and it was over before they ended.",
+  "backtest.failed":
+    "The warnings archive didn't answer, so there's nothing to replay against.",
   "history.openBundle": "Open a replay bundle",
   "bundle.replayLabel": "Replay bundle",
   "bundle.openTitle": "Open an OpenRadar replay bundle",

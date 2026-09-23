@@ -9,6 +9,7 @@ import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HistoryPanel } from "./HistoryPanel";
 import * as hurdat from "../lib/hurdat";
+import type { WatchPlace } from "../lib/watch";
 
 interface Deferred<T> {
   promise: Promise<T>;
@@ -82,10 +83,12 @@ function renderPanel(
     replayId = null,
     bundlesAvailable = false,
     onSaveBundle = vi.fn(),
+    watchPlaces = [],
   }: {
     replayId?: string | null;
     bundlesAvailable?: boolean;
     onSaveBundle?: (includeWorkspace: boolean) => void;
+    watchPlaces?: WatchPlace[];
   } = {},
 ) {
   return render(
@@ -100,6 +103,8 @@ function renderPanel(
       bundlesAvailable={bundlesAvailable}
       almanac={false}
       onFlyTo={() => {}}
+      watchPlaces={watchPlaces}
+      alertKinds={{}}
       onClose={() => {}}
     />,
   );
@@ -165,6 +170,8 @@ describe("HistoryPanel selection", () => {
           bundlesAvailable={false}
           almanac={false}
           onFlyTo={() => {}}
+          watchPlaces={[]}
+          alertKinds={{}}
           onClose={() => {}}
         />
       );
@@ -203,6 +210,8 @@ describe("HistoryPanel selection", () => {
           bundlesAvailable={false}
           almanac={false}
           onFlyTo={() => {}}
+          watchPlaces={[]}
+          alertKinds={{}}
           onClose={() => {}}
         />
       );
@@ -252,6 +261,8 @@ describe("HistoryPanel replay bundles", () => {
         onSaveBundle={onSaveBundle}
         onOpenBundle={() => {}}
         bundlesAvailable
+        watchPlaces={[]}
+        alertKinds={{}}
         onClose={() => {}}
       />,
     );
@@ -362,6 +373,8 @@ describe("HistoryPanel when the selection moves under a fetch", () => {
         bundlesAvailable={false}
         almanac={false}
         onFlyTo={() => {}}
+        watchPlaces={[]}
+        alertKinds={{}}
         onClose={() => {}}
       />,
     );
@@ -374,5 +387,37 @@ describe("HistoryPanel when the selection moves under a fetch", () => {
     });
 
     expect(rows.alpha.getAttribute("aria-busy")).toBe("false");
+  });
+});
+
+describe("replaying the watch over a storm", () => {
+  const home: WatchPlace = {
+    id: "home",
+    name: "Home",
+    named: false,
+    enabled: true,
+    center: [-90, 28],
+    radiusMiles: 30,
+    minSeverity: "moderate",
+    sound: false,
+  };
+
+  it("is offered while the storm is being replayed, and not before", async () => {
+    loadStorm.mockResolvedValue(ALPHA);
+    const first = renderPanel(vi.fn(), ALPHA.id, { watchPlaces: [home] });
+    await screen.findByText("Alpha Storm 2020");
+    expect(screen.queryByText("What your watch would have said")).toBeNull();
+    first.unmount();
+
+    renderPanel(vi.fn(), ALPHA.id, {
+      replayId: ALPHA.id,
+      watchPlaces: [home],
+    });
+    expect(
+      await screen.findByText("What your watch would have said"),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /Replay the watch/ }),
+    ).toBeTruthy();
   });
 });

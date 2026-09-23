@@ -16,6 +16,7 @@ import {
   watchesBounds,
   watchReasonLines,
   WATCH_HEALTHY,
+  WATCH_POLL_MS,
   type WatchAlert,
   type WatchHealth,
   type WatchPlace,
@@ -23,9 +24,6 @@ import {
 import { translate } from "../i18n";
 import { playAlertTone } from "../lib/sound";
 import { appendJournalRow } from "../lib/journal";
-
-/** Often enough to matter for a warning, rarely enough to be a good citizen. */
-const POLL_MS = 45_000;
 
 /** Nothing announced, for asking what stands rather than what is new. */
 const EMPTY = new Map<string, ReadonlyMap<string, number>>();
@@ -400,7 +398,7 @@ export function useAlertWatch(
     // watched place has to reach somebody whose window is in the tray.
     if (isOnline()) void check();
 
-    const stop = pollWhileOnline(() => void check(), POLL_MS, false);
+    const stop = pollWhileOnline(() => void check(), WATCH_POLL_MS, false);
     return () => {
       mounted = false;
       controller.abort();

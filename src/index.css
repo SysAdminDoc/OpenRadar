@@ -890,6 +890,25 @@ input[type="range"]:disabled {
   border-color: var(--border-strong);
 }
 
+/* What the watch would have said over a replay, one place at a time. */
+.backtest-place,
+.backtest-lines,
+.backtest-lines li {
+  display: grid;
+  gap: 4px;
+}
+
+.backtest-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.backtest-lines time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* More specific than .radar-legend > span, which lays its children in a column. */
 .radar-legend > .legend-scale {
   position: relative;

@@ -341,3 +341,44 @@ test("tells a reader who cannot see the map what the replay is showing", async (
     "Tornado Warning",
   );
 });
+
+test("replays the watch over a storm and lists each warning once", async ({
+  page,
+}) => {
+  // Home in Tampa, under the archived warning. The office published it as
+  // two polygons, which the watch knows as one warning and says once.
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "openradar.settings",
+      JSON.stringify({
+        schemaVersion: 3,
+        watch: {
+          enabled: true,
+          center: [-82.5, 27.5],
+          radiusMiles: 30,
+          minSeverity: "moderate",
+          sound: false,
+        },
+      }),
+    );
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "History", exact: true }).click();
+  await findStorm(page, "Ian 2022");
+  await page.getByRole("button", { name: /IAN 2022/ }).click();
+
+  // Nothing to replay the watch over until the storm is on the map.
+  await expect(page.locator("[data-watch-backtest]")).toHaveCount(0);
+  await page.getByRole("button", { name: /Replay radar/ }).click();
+  await expect(page.getByText(/Replaying IAN 2022/)).toBeVisible();
+
+  const section = page.locator("[data-watch-backtest]");
+  await section.getByRole("button", { name: /Replay the watch/ }).click();
+  const home = section.locator('[data-backtest-place="home"]');
+  await expect(home).toContainText("Tornado Warning");
+  await expect(home.locator("li")).toHaveCount(1);
+  await expect(home.locator("time")).toHaveText(/Sep 28/);
+});
