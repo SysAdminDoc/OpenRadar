@@ -31,7 +31,6 @@ import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import { useSettings } from "./hooks/useSettings";
 import { useToasts, UNDO_LIFETIME_MS } from "./hooks/useToasts";
 import { useAutostart } from "./hooks/useAutostart";
-import { notificationPermission, type NotifyPermission } from "./lib/notify";
 import { useAlertSound } from "./hooks/useAlertSound";
 import { useGlanceWindow } from "./hooks/useGlanceWindow";
 import { useWorkspaceReport } from "./hooks/useWorkspaceReport";
@@ -54,7 +53,8 @@ import { useOpenPanel } from "./hooks/useOpenPanel";
 import { usePresence } from "./hooks/usePresence";
 import { useAmbientScreen } from "./hooks/useAmbientScreen";
 import { useFollowSignal, useFollowWarning } from "./hooks/useFollowWarning";
-import { useWelcomeHint } from "./hooks/useWelcomeHint";
+import { useNotificationPermission } from "./hooks/useNotificationPermission";
+import { useStartupNotices } from "./hooks/useStartupNotices";
 import { loadCounties } from "./lib/counties";
 import { useNativeReports } from "./hooks/useNativeReports";
 import { usePalette } from "./hooks/usePalette";
@@ -80,12 +80,6 @@ import { level2Available } from "./lib/level2";
 import { bundlesAvailable } from "./lib/replayBundle";
 import type { ArchiveReplay } from "./hooks/useRadarTimeline";
 import type { LayerSettings, MapStyleId, RadarSettings } from "./lib/settings";
-import {
-  noteWorkspaceDrawn,
-  restoreArrangement,
-  settingsRecovery,
-  startedPlain,
-} from "./lib/settings";
 import { type WorkspaceOverlayFile } from "./lib/workspaceOverlays";
 import { translate, useT } from "./i18n";
 import { fetchVwp, vwpAvailable } from "./lib/vwp";
@@ -192,24 +186,7 @@ export default function App() {
   // Read from the machine rather than from settings: the Run entry is what
   // decides whether the watch is running after a reboot.
   const autostart = useAutostart();
-  // Read once on open and again whenever a panel that shows it is opened: the
-  // answer changes the moment a watch first asks Windows, and a reader who
-  // went looking after a warning did not arrive is opening a panel to do it.
-  const [notifications, setNotifications] =
-    useState<NotifyPermission>("unasked");
-  const latestPermission = useLatestReply();
-  useEffect(() => {
-    const reply = latestPermission();
-    void notificationPermission().then((answer) => {
-      if (reply.current()) setNotifications(answer);
-    });
-    return () => {
-      reply.close();
-    };
-    // Also on the minute, because a refusal recorded while a panel is
-    // already open would otherwise not show until it was closed and opened
-    // again, and that is the panel a reader is on when they go looking.
-  }, [activeSurface, clock, latestPermission]);
+  const notifications = useNotificationPermission(activeSurface, clock);
 
   const onPersistError = useCallback(
     () =>
@@ -228,87 +205,13 @@ export default function App() {
     viewportPx,
   } = useSettings({ onPersistError });
 
-  // The workspace is up, which is the whole of what the count is about: a
-  // start that never got this far is the one worth standing an arrangement
-  // down for.
-  const latestDrawn = useLatestReply();
-  useEffect(() => {
-    if (!hydrated) return;
-    // After the map has drawn, not when the settings parsed. Everything this
-    // is protecting against is applied on the render AFTER hydration: the map
-    // itself, the theme, the colour table a product is drawn with, the camera
-    // the projection has to show. Reported at hydration, the mark was gone
-    // before any of them existed, and a workspace that died on its first
-    // frame every time was never once counted.
-    const reply = latestDrawn();
-    void mapRef.current?.onceIdle().then(() => {
-      if (reply.current()) void noteWorkspaceDrawn();
-    });
-    return reply.close;
-  }, [hydrated, latestDrawn]);
-
-  // Two starts that did not finish, and the arrangement stood down for this
-  // one. Said out loud with the one press that puts it back, because a
-  // workspace that quietly opens without the reader's theme and saved view
-  // reads as the app having forgotten them.
-  useEffect(() => {
-    if (!hydrated) return;
-    if (!startedPlain()) return;
-    pushToast({
-      title: translate("app.startedPlain"),
-      detail: translate("app.startedPlainBody"),
-      actionLabel: translate("app.startedPlainRestore"),
-      // As long as every other toast that offers to undo something. Five
-      // seconds is enough for a notice and not enough to read a sentence
-      // about the workspace being different and decide what to do about it.
-      lifetimeMs: UNDO_LIFETIME_MS,
-      onAction: () => {
-        void restoreArrangement();
-      },
-    });
-  }, [hydrated, pushToast]);
-
-  // A settings file that would not parse used to be silent: the workspace
-  // opened on the defaults and the reader was left wondering where their
-  // places went. Said once, after the load, whether the copy went back or
-  // there was none to go back to. The two are different news.
-  useEffect(() => {
-    if (!hydrated) return;
-    const recovered = settingsRecovery();
-    if (!recovered) return;
-    pushToast(
-      recovered.stuck
-        ? {
-            // The one that will happen again on every launch until the reader
-            // does something about it, and the one where a good copy is
-            // sitting beside the file unused.
-            title: translate("app.settingsLocked"),
-            detail: translate("app.settingsLockedBody"),
-          }
-        : recovered.restored
-          ? {
-              title: translate("app.settingsRestored"),
-              detail: translate("app.settingsRestoredBody"),
-            }
-          : {
-              title: translate("app.settingsUnreadable"),
-              detail: translate("app.settingsUnreadableBody"),
-            },
-    );
-  }, [hydrated, pushToast]);
-
-  // Everything the workspace can do is behind Commands and Layers, and nothing
-  // on screen says either exists. One toast, once.
-  const markWelcomeSeen = useCallback(() => {
-    applySettings({ ...settingsRef.current, seenWelcome: true });
-  }, [applySettings, settingsRef]);
-  useWelcomeHint({
-    ready: hydrated,
-    seen: settings.seenWelcome,
-    // Where the map opened, which is what the line is about.
-    center: settings.camera.center,
-    push: pushToast,
-    onSeen: markWelcomeSeen,
+  useStartupNotices({
+    hydrated,
+    mapRef,
+    pushToast,
+    settings,
+    settingsRef,
+    applySettings,
   });
 
   // Every table in force, not "the table": a reflectivity scale and a velocity
