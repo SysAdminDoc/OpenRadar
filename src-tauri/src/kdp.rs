@@ -72,7 +72,7 @@ pub fn derivation(field: &SweepField) -> String {
 }
 
 /// How many gates the window covers here, always odd and never below three.
-fn window_gates(interval_km: f64) -> usize {
+pub(crate) fn window_gates(interval_km: f64) -> usize {
     if interval_km <= 0.0 {
         return 3;
     }

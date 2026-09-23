@@ -828,3 +828,123 @@ fn a_hurricane_volume_past_the_ordinary_ceiling_opens() {
     assert!(!tilts(&scan).is_empty());
     clear_cache();
 }
+
+/// Days the specific differential phase is held against, and why each is here.
+///
+/// Pinned rather than taken from the last week, unlike the unfolding recorder
+/// above: this one exists to hold a change to `kdp.rs` against the same bytes
+/// before and after, and the questions it asks need heavy rain, which an
+/// ordinary week may not have. The volume within each day is the one the
+/// office's own product has the most of, so nobody chose it by eye.
+const KDP_DAYS: [(&str, &str, &str); 8] = [
+    // Hurricane Ian's eyewall and inner bands, a hundred kilometres south of
+    // the radar. An eyewall is where a ray accumulates the most phase, and
+    // the one place a second wrap is plausible on an S-band radar.
+    ("KTBW", "2022-09-28", "Ian"),
+    // Milton, landfall at Siesta Key about eighty kilometres south.
+    ("KTBW", "2024-10-09", "Milton"),
+    // Beryl's eyewall over the Houston area.
+    ("KHGX", "2024-07-08", "Beryl"),
+    // Helene's outer bands ahead of the Big Bend landfall.
+    ("KTLH", "2024-09-26", "Helene"),
+    // The St. Louis flash flood, record hourly rain from training cells.
+    ("KLSX", "2022-07-26", "St. Louis flood"),
+    // The eastern Kentucky flood, the same kind of rain in mountains that
+    // block parts of the lowest cut, which is a stretch the censor takes out
+    // in the middle of the rain rather than at its edge.
+    ("KJKL", "2022-07-28", "Kentucky flood"),
+    // Two more floods of 2024, one tropical and one on the plains, so a change
+    // that helps an eyewall is also seen on rain that has none.
+    ("KAMX", "2024-06-12", "Miami flood"),
+    ("KFSD", "2024-06-22", "Upper Midwest flood"),
+];
+
+/// What the office's own specific differential phase says about this app's,
+/// over the pinned days, as CSV.
+///
+/// Run it before and after any change to `kdp.rs`, and put what it prints
+/// beside the change:
+///
+/// ```text
+/// cargo test --lib recording_the_days_specific -- --ignored --nocapture --test-threads=1
+/// ```
+///
+/// The volumes and the office's files are kept in the system's temporary
+/// directory after the first run, so the second run reads the same bytes. It
+/// asserts nothing and fetches eight volumes the first time, and
+/// `scripts/live-contracts-lib.mjs` skips it by the same name as the recorder
+/// above.
+#[test]
+#[ignore = "records specific differential phase against the office's; asserts nothing"]
+fn recording_the_days_specific_differential_phase_is_held_against() {
+    let _guard = decoded_cache_test();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("a runtime");
+    println!(
+        "station,day,event,at,comparable,mad,bias,near,near_mad,near_bias,office_only,ours_only,twice_rays,twice_comparable,twice_mad,twice_office_only"
+    );
+    let mut total = AgainstOfficeKdp::default();
+    for (station, day, event) in KDP_DAYS {
+        clear_cache();
+        let day = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").expect("a date");
+        let Some(at) = rainiest_moment(&runtime, station, day) else {
+            println!("{station},{day},{event},no listing,,,,,,,,,,,,");
+            continue;
+        };
+        let Some(data) = stored_volume(&runtime, station, at) else {
+            println!("{station},{day},{event},{at},no volume,,,,,,,,,,,");
+            continue;
+        };
+        let found = match measure_kdp_bytes(&runtime, station, data) {
+            Ok(found) => found,
+            Err(why) => {
+                println!("{station},{day},{event},{at},\"{why}\",,,,,,,,,,,");
+                continue;
+            }
+        };
+        println!(
+            "{station},{day},{event},{at},{},{:.4},{:.4},{},{:.4},{:.4},{},{},{},{},{:.4},{}",
+            found.comparable,
+            found.absolute / found.comparable.max(1) as f64,
+            found.signed / found.comparable.max(1) as f64,
+            found.near,
+            found.near_absolute / found.near.max(1) as f64,
+            found.near_signed / found.near.max(1) as f64,
+            found.office_only,
+            found.ours_only,
+            found.twice_rays,
+            found.twice_comparable,
+            found.twice_absolute / found.twice_comparable.max(1) as f64,
+            found.twice_office_only,
+        );
+        total.comparable += found.comparable;
+        total.absolute += found.absolute;
+        total.signed += found.signed;
+        total.near += found.near;
+        total.near_absolute += found.near_absolute;
+        total.near_signed += found.near_signed;
+        total.office_only += found.office_only;
+        total.ours_only += found.ours_only;
+        total.twice_rays += found.twice_rays;
+        total.twice_comparable += found.twice_comparable;
+        total.twice_absolute += found.twice_absolute;
+        total.twice_office_only += found.twice_office_only;
+    }
+    println!(
+        "all,,,,{},{:.4},{:.4},{},{:.4},{:.4},{},{},{},{},{:.4},{}",
+        total.comparable,
+        total.absolute / total.comparable.max(1) as f64,
+        total.signed / total.comparable.max(1) as f64,
+        total.near,
+        total.near_absolute / total.near.max(1) as f64,
+        total.near_signed / total.near.max(1) as f64,
+        total.office_only,
+        total.ours_only,
+        total.twice_rays,
+        total.twice_comparable,
+        total.twice_absolute / total.twice_comparable.max(1) as f64,
+        total.twice_office_only,
+    );
+}

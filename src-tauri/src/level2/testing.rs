@@ -1166,6 +1166,314 @@ fn measure_unfolding_bytes(
     })
 }
 
+/// This app's specific differential phase for one cut, held against the
+/// office's own for the same cut, gate for gate.
+///
+/// The office works its product out of the same phase by a method of its own,
+/// with its own windows and its own smoothing, so the two never agree exactly
+/// and the absolute figure is not a score. What it is for is the difference a
+/// change to `kdp.rs` makes to it, measured on the same bytes before and
+/// after, because that is the one reference that did not come out of the
+/// arithmetic being changed.
+#[derive(Default)]
+pub(crate) struct AgainstOfficeKdp {
+    /// Gates both products drew, and how far apart they read in total, once as
+    /// a size and once with its sign, in degrees a kilometre.
+    pub(crate) comparable: usize,
+    pub(crate) absolute: f64,
+    pub(crate) signed: f64,
+    /// The same over the comparable gates within half a processing window of a
+    /// gate the censor took out: a clutter block, a blocked sector, the edge
+    /// of the echo. The reconciliation integrates across what is on the other
+    /// side of those, so a bias it brings with it shows here first.
+    pub(crate) near: usize,
+    pub(crate) near_absolute: f64,
+    pub(crate) near_signed: f64,
+    /// Gates the office drew and this app did not, and the other way round.
+    pub(crate) office_only: usize,
+    pub(crate) ours_only: usize,
+    /// Rays whose raw phase comes back round twice or more, counted off the
+    /// phase itself so the count cannot depend on the method being scored, and
+    /// the comparison over those rays alone.
+    pub(crate) twice_rays: usize,
+    pub(crate) twice_comparable: usize,
+    pub(crate) twice_absolute: f64,
+    pub(crate) twice_office_only: usize,
+}
+
+/// Holds a derived cut against the office's, and classifies each gate by what
+/// the censor did around it.
+///
+/// `ours` is `kdp::derive` of `phase`, so the two share a grid: same radials,
+/// same gates. The office's product is on its own, looked up the way
+/// `disagreed_with_rpg` looks up velocity: the radial by where the gate points,
+/// the bin by the floor of how far out it sits.
+pub(crate) fn kdp_against_office(
+    phase: &SweepField,
+    correlation: &SweepField,
+    ours: &SweepField,
+    reference: &crate::level3::RadialImage,
+    scale: crate::level3::FloatScale,
+) -> AgainstOfficeKdp {
+    let slots = crate::tdwr::radial_slots(reference);
+    let reference_first_km = f64::from(reference.first_bin) * reference.bin_km;
+    let first_km = ours.first_gate_range_km();
+    let interval_km = ours.gate_interval_km();
+    let gates = ours.gate_count();
+    let half = kdp::window_gates(interval_km) / 2;
+
+    let mut found = AgainstOfficeKdp::default();
+    let mut censored = vec![true; gates];
+    // How many censored gates lie before each gate, so "is anything within
+    // half a window censored" is two lookups rather than a walk.
+    let mut censored_before = vec![0usize; gates + 1];
+    for (index, azimuth) in ours.azimuths().iter().enumerate() {
+        // The censor exactly as `kdp::read_ray` applies it.
+        let mut previous: Option<f32> = None;
+        let mut turns = 0i32;
+        for gate in 0..gates {
+            let range_km = first_km + gate as f64 * interval_km;
+            let (value, status) = phase.get(index, gate);
+            let kept = matches!(status, GateStatus::Valid)
+                && matches!(
+                    reading_at(correlation, *azimuth, range_km),
+                    Some((rho, GateStatus::Valid)) if rho >= kdp::CENSOR_CORRELATION
+                );
+            censored[gate] = !kept;
+            censored_before[gate + 1] = censored_before[gate] + usize::from(!kept);
+            if !kept {
+                continue;
+            }
+            // A step of more than half a turn between neighbouring readings is
+            // the phase coming back round, one way or the other. Counted net,
+            // so a phase hovering at the top of its range and crossing back
+            // and forth is no wrap at all.
+            if let Some(before) = previous {
+                if value - before < -180.0 {
+                    turns += 1;
+                } else if value - before > 180.0 {
+                    turns -= 1;
+                }
+            }
+            previous = Some(value);
+        }
+        let twice = turns >= 2;
+        found.twice_rays += usize::from(twice);
+
+        let slot = ((azimuth * 10.0).round() as i64).rem_euclid(3600) as usize;
+        let Some(radial) = slots
+            .get(slot)
+            .filter(|found| **found != u16::MAX)
+            .and_then(|found| reference.radials.get(*found as usize))
+        else {
+            continue;
+        };
+        for gate in 0..gates {
+            let range_km = first_km + gate as f64 * interval_km;
+            let bin = ((range_km - reference_first_km) / reference.bin_km).floor();
+            let office = if bin < 0.0 {
+                None
+            } else {
+                radial
+                    .gates
+                    .get(bin as usize)
+                    .and_then(|level| scale.value(*level))
+            };
+            let (value, status) = ours.get(index, gate);
+            let drawn = matches!(status, GateStatus::Valid);
+            match (drawn, office) {
+                (true, Some(read)) => {
+                    let apart = f64::from(value - read);
+                    found.comparable += 1;
+                    found.absolute += apart.abs();
+                    found.signed += apart;
+                    let from = gate.saturating_sub(half);
+                    let to = (gate + half + 1).min(gates);
+                    if censored_before[to] > censored_before[from] {
+                        found.near += 1;
+                        found.near_absolute += apart.abs();
+                        found.near_signed += apart;
+                    }
+                    if twice {
+                        found.twice_comparable += 1;
+                        found.twice_absolute += apart.abs();
+                    }
+                }
+                (false, Some(_)) => {
+                    found.office_only += 1;
+                    found.twice_office_only += usize::from(twice);
+                }
+                (true, None) => found.ours_only += 1,
+                (false, None) => {}
+            }
+        }
+    }
+    found
+}
+
+/// The earliest cut at the volume's lowest angle carrying both the phase and
+/// the correlation coefficient.
+///
+/// The earliest rather than the latest `sweep_field` picks, because under SAILS
+/// the lowest angle is cut several times a volume and the office publishes a
+/// product for each: the one nearest the volume's start is the first cut's,
+/// and a comparison against a picture two minutes older is a measure of how
+/// far the storm moved.
+fn first_lowest_phase(scan: &Scan) -> Option<(SweepField, SweepField, f32)> {
+    let lowest = *tilts(scan).first()?;
+    let mut best: Option<(Option<DateTime<Utc>>, SweepField, SweepField, f32)> = None;
+    for sweep in scan.sweeps() {
+        let Some(angle) = sweep.elevation_angle_degrees() else {
+            continue;
+        };
+        if ((angle * 100.0).round() / 100.0 - lowest).abs() > SAME_CUT_DEGREES {
+            continue;
+        }
+        let Some(phase) = SweepField::from_radials(sweep.radials(), Product::DifferentialPhase)
+        else {
+            continue;
+        };
+        let Some(correlation) =
+            SweepField::from_radials(sweep.radials(), Product::CorrelationCoefficient)
+        else {
+            continue;
+        };
+        let collected = sweep.time_range().map(|(start, _)| start);
+        if best.as_ref().is_none_or(|held| collected < held.0) {
+            best = Some((collected, phase, correlation, angle));
+        }
+    }
+    best.map(|(_, phase, correlation, angle)| (phase, correlation, angle))
+}
+
+/// One volume's specific differential phase against the office's, or which
+/// step found nothing to compare.
+pub(crate) fn measure_kdp_bytes(
+    runtime: &tokio::runtime::Runtime,
+    station: &str,
+    data: Vec<u8>,
+) -> Result<AgainstOfficeKdp, String> {
+    let scan = volume::File::new(data)
+        .scan()
+        .map_err(|error| format!("the volume did not decode: {error}"))?;
+    let (phase, correlation, angle) =
+        first_lowest_phase(&scan).ok_or("no lowest cut carries phase and correlation")?;
+    let start = scan
+        .sweeps()
+        .iter()
+        .filter_map(|sweep| sweep.time_range().map(|(start, _)| start))
+        .min()
+        .ok_or("no sweep carries a time")?;
+    let name = format!("{station}-N0K-{}", start.format("%Y%m%dT%H%M%S%.3fZ"));
+    let office = kept(&name, || {
+        runtime.block_on(crate::level3::specific_differential_phase_bytes(
+            station, start,
+        ))
+    })
+    .ok_or_else(|| format!("the office published nothing for the volume of {start}"))?;
+    let (description, scale, image) =
+        crate::level3::read_specific_differential_phase(&office, start)
+            .ok_or_else(|| format!("the office's file is not the product for {start}"))?;
+    // A file for a different cut is worse than no file, as for velocity.
+    if (description.elevation_degrees - angle).abs() > 0.15 {
+        return Err(format!(
+            "the office's file holds {} degrees against a lowest cut of {angle}",
+            description.elevation_degrees
+        ));
+    }
+    let ours = kdp::derive(&phase, Some(&correlation)).ok_or("the derivation refused the cut")?;
+    Ok(kdp_against_office(
+        &phase,
+        &correlation,
+        &ours,
+        &image,
+        scale,
+    ))
+}
+
+/// A volume from the archive, kept on disk after the first time it is asked
+/// for.
+pub(crate) fn stored_volume(
+    runtime: &tokio::runtime::Runtime,
+    station: &str,
+    at: DateTime<Utc>,
+) -> Option<Vec<u8>> {
+    let name = format!("{station}-{}", at.format("%Y%m%dT%H%M%SZ"));
+    kept(&name, || {
+        runtime
+            .block_on(archive_volume_at(station, at))
+            .ok()
+            .map(|(_key, data)| data)
+    })
+}
+
+/// Bytes that do not change once published, kept in the system's temporary
+/// directory after the first time they are fetched.
+///
+/// A measurement held against the same bytes before and after a change is the
+/// only kind worth making. Fetched every run, a volume is twenty megabytes on
+/// a hurricane day, and one listing that times out drops a station-day from
+/// the before or the after and not from the other, which made the first runs
+/// of the specific differential phase recorder measure five days one time and
+/// eight the next. Kept, the second run reads exactly what the first one did.
+fn kept(name: &str, fetch: impl FnOnce() -> Option<Vec<u8>>) -> Option<Vec<u8>> {
+    let directory = std::env::temp_dir().join("openradar-stored-volumes");
+    if let Ok(bytes) = std::fs::read(directory.join(name)) {
+        return Some(bytes);
+    }
+    let data = fetch()?;
+    if std::fs::create_dir_all(&directory).is_ok() {
+        let _ = std::fs::write(directory.join(name), &data);
+    }
+    Some(data)
+}
+
+/// The moment of the office's largest specific differential phase file on one
+/// day, which is the volume with the most heavy rain in its lowest cut.
+///
+/// A bigger file is more gates above the product's threshold, since the
+/// compression has less nothing to squeeze. That picks the stormiest volume of
+/// a day without anybody deciding what a storm looks like.
+pub(crate) fn rainiest_moment(
+    runtime: &tokio::runtime::Runtime,
+    station: &str,
+    day: chrono::NaiveDate,
+) -> Option<DateTime<Utc>> {
+    let site = station.get(1..)?;
+    let url = format!(
+        "https://{}/?list-type=2&prefix={site}_N0K_{}&max-keys=1000",
+        crate::level3::BUCKET,
+        day.format("%Y_%m_%d")
+    );
+    // Kept like the volumes: a past day's listing does not change, and the
+    // second run of the recorder lost a hurricane to a listing that timed out.
+    let name = format!("{station}-N0K-listing-{}", day.format("%Y%m%d"));
+    let body = kept(&name, || {
+        runtime.block_on(crate::http::get_bytes(&url)).ok()
+    })?;
+    let listing = String::from_utf8_lossy(&body);
+    let mut largest: Option<(u64, String)> = None;
+    for entry in listing.split("<Contents>").skip(1) {
+        let field = |name: &str| {
+            let open = format!("<{name}>");
+            let close = format!("</{name}>");
+            let from = entry.find(&open)? + open.len();
+            let to = entry[from..].find(&close)? + from;
+            Some(entry[from..to].to_string())
+        };
+        let (Some(key), Some(size)) = (field("Key"), field("Size")) else {
+            continue;
+        };
+        let Ok(size) = size.parse::<u64>() else {
+            continue;
+        };
+        if largest.as_ref().is_none_or(|held| size > held.0) {
+            largest = Some((size, key));
+        }
+    }
+    crate::level3::key_time(&largest?.1)
+}
+
 /// A volume built to order, from the site's own registered position.
 pub(crate) fn built_volume(cuts: &[Vec<fixture::Radial>]) -> Scan {
     let entry = registry::site_by_id("KTLX").expect("Oklahoma City is in the registry");
