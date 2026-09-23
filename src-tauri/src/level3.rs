@@ -1337,6 +1337,17 @@ const NEAR_A_BOUNDARY: i64 = 10 * 60;
 #[cfg(test)]
 const DIGITAL_VELOCITY: u16 = 154;
 
+/// The office's own digital specific differential phase, product 163.
+///
+/// Same geometry and the same naming as the velocity above: `N0K` is the
+/// lowest cut the office's own list names, and the file says which angle it
+/// holds.
+#[cfg(test)]
+const SPECIFIC_DIFFERENTIAL_PHASE: &str = "N0K";
+
+#[cfg(test)]
+const DIGITAL_SPECIFIC_DIFFERENTIAL_PHASE: u16 = 163;
+
 /// The office's own dealiased velocity for the lowest cut of one volume.
 ///
 /// The RPG runs a two-dimensional dealiaser over the same radials this app
@@ -1362,6 +1373,96 @@ pub(crate) async fn dealiased_velocity(
     station: &str,
     at: DateTime<Utc>,
 ) -> Option<(Description, RadialImage)> {
+    let bytes = office_product_near(station, DEALIASED_VELOCITY, at).await?;
+    let (description, image) = read_radial_product(&bytes, QUARTER_KM).ok()?;
+    if description.product_code != DIGITAL_VELOCITY {
+        return None;
+    }
+    if (description.volume_time - at).num_seconds().abs() > SAME_VOLUME_SECONDS {
+        return None;
+    }
+    Some((description, image))
+}
+
+/// The office's own specific differential phase for the lowest cut of one
+/// volume, as the bytes it was published as.
+///
+/// The RPG works this out of the same phase `kdp.rs` differentiates, by a
+/// method of its own, and publishes it. It is not the truth any more than the
+/// app's is, but it is the one per-gate answer that did not come out of the
+/// arithmetic being scored, which is what makes a change to that arithmetic
+/// measurable rather than arguable. `None` for every reason the office might
+/// have nothing to say, as above. Bytes rather than a reading, so a recorder
+/// can keep them and hold a change against exactly the same reference.
+#[cfg(test)]
+pub(crate) async fn specific_differential_phase_bytes(
+    station: &str,
+    at: DateTime<Utc>,
+) -> Option<Vec<u8>> {
+    office_product_near(station, SPECIFIC_DIFFERENTIAL_PHASE, at).await
+}
+
+/// Those bytes read, with the scale they are on, when they are the product
+/// and the volume they were asked for.
+#[cfg(test)]
+pub(crate) fn read_specific_differential_phase(
+    bytes: &[u8],
+    at: DateTime<Utc>,
+) -> Option<(Description, FloatScale, RadialImage)> {
+    let (description, image) = read_radial_product(bytes, QUARTER_KM).ok()?;
+    if description.product_code != DIGITAL_SPECIFIC_DIFFERENTIAL_PHASE {
+        return None;
+    }
+    if (description.volume_time - at).num_seconds().abs() > SAME_VOLUME_SECONDS {
+        return None;
+    }
+    let scale = float_scale(bytes)?;
+    Some((description, scale, image))
+}
+
+/// The scale the dual-polarisation digital products write their bytes on.
+///
+/// Not the minimum and increment the base products keep in halfwords thirty-one
+/// and thirty-two: for products 159, 161 and 163 those four halfwords hold two
+/// IEEE floats, a scale and then an offset, and a level of two or more reads
+/// `(level - offset) / scale`. Read as tenths the way `read_description` reads
+/// them, the office's specific differential phase would say its lowest level is
+/// 1,680 degrees a kilometre. Its file of 2026-09-20 carries 20 and 43, which
+/// is -2.05 to 10.6 degrees a kilometre in steps of a twentieth.
+#[cfg(test)]
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct FloatScale {
+    pub(crate) scale: f32,
+    pub(crate) offset: f32,
+}
+
+#[cfg(test)]
+impl FloatScale {
+    /// What a level means, or nothing for the two levels that are not values:
+    /// nothing above the threshold, and a return the radar cannot place in
+    /// range.
+    pub(crate) fn value(&self, level: u8) -> Option<f32> {
+        (level >= 2).then(|| (f32::from(level) - self.offset) / self.scale)
+    }
+}
+
+#[cfg(test)]
+fn float_scale(bytes: &[u8]) -> Option<FloatScale> {
+    let msg = &bytes[message_start(bytes)?..];
+    let float = |at: usize| -> Option<f32> {
+        let four = msg.get(at..at + 4)?;
+        Some(f32::from_be_bytes([four[0], four[1], four[2], four[3]]))
+    };
+    // Halfwords thirty-one and thirty-three, counted from one at the start of
+    // the message header.
+    let scale = float(60)?;
+    let offset = float(64)?;
+    (scale.is_finite() && scale > 0.0 && offset.is_finite()).then_some(FloatScale { scale, offset })
+}
+
+/// The bytes of the office's product nearest one volume, for one site.
+#[cfg(test)]
+async fn office_product_near(station: &str, product: &str, at: DateTime<Utc>) -> Option<Vec<u8>> {
     let site = bucket_site(station)?;
 
     // The day the volume belongs to, and its neighbour when the volume is near
@@ -1370,7 +1471,7 @@ pub(crate) async fn dealiased_velocity(
     // which is what `wind_profile_keys` says and what the first version of
     // this got backwards: it listed the day before and never the day after,
     // so a late volume found nothing nearer than the one four to six minutes
-    // behind it and the check below threw that away.
+    // behind it and the callers' volume check threw that away.
     let mut days = vec![at];
     let into = (at
         - at.date_naive()
@@ -1388,7 +1489,7 @@ pub(crate) async fn dealiased_velocity(
     let mut keys = Vec::new();
     for day in days {
         let stamp = day.format("%Y_%m_%d").to_string();
-        if let Ok(mut found) = keys_for_day(&site, DEALIASED_VELOCITY, &stamp).await {
+        if let Ok(mut found) = keys_for_day(&site, product, &stamp).await {
             keys.append(&mut found);
         }
     }
@@ -1396,17 +1497,9 @@ pub(crate) async fn dealiased_velocity(
     keys.dedup();
 
     let key = key_for(&keys, Some(at))?;
-    let bytes = http::get_bytes(&format!("https://{BUCKET}/{key}"))
+    http::get_bytes(&format!("https://{BUCKET}/{key}"))
         .await
-        .ok()?;
-    let (description, image) = read_radial_product(&bytes, QUARTER_KM).ok()?;
-    if description.product_code != DIGITAL_VELOCITY {
-        return None;
-    }
-    if (description.volume_time - at).num_seconds().abs() > SAME_VOLUME_SECONDS {
-        return None;
-    }
-    Some((description, image))
+        .ok()
 }
 
 /// Everything one site is tracking right now.
