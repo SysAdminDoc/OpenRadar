@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.13.0
 
+- Hail size marks a three-body scatter spike in white where it finds one. Big hail aloft bounces some of the radar's energy down to the ground and back up before it returns, and the radar files that late energy behind the core as a faint streak with a look nothing else up there has. The app looks for it on every cut, right behind a core of 60 dBZ or more that the beam passes at least three kilometres up, and the legend calls it a signature of large hail, not a confirmation. On the storm at Midland on 24 May 2019 it finds the spike behind a 70 dBZ core and nothing else in the volume. Behind Florida afternoon storms, where insects and birds give clear air a similar look, it marks nothing.
+
 - Specific differential phase now throws out a slope above fourteen degrees a kilometre rather than twenty. Twenty is the method's figure for C-band radars, and the same rain reads about half as much at the S band these radars use, so a reading between fourteen and twenty is one no rain makes here. It touched a handful of gates on the stored storm days, and the picture agrees a little better with the weather service's own product for it.
 
 - Uninstalling OpenRadar with the radar wallpaper switched on puts your own wallpaper back. Closing the app leaves its last picture up, which is how it has always worked. Uninstalling was different: it left the desktop pointing at a picture nothing would ever change again, and the note of what it had replaced went with the app's data. If you've put up a picture of your own since, that one stays.

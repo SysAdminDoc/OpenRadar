@@ -381,3 +381,220 @@ fn every_kind_names_itself_and_its_unit() {
         }
     }
 }
+
+/// Where the planted hail core sits on its radial, in kilometres of ground.
+const CORE_FROM_KM: f64 = 55.0;
+const CORE_TO_KM: f64 = 60.0;
+const SPIKE_RADIAL: usize = 90;
+const PLANTED_GATES: usize = 400;
+
+/// How far over the ground a gate of a cut sits, under the beam model
+/// `slant_for` inverts.
+fn ground_km_of(slant_km: f64, elevation: f32) -> f64 {
+    let height = beam_height_km(slant_km, elevation);
+    let cosine = (elevation as f64).to_radians().cos();
+    EARTH_KM * (slant_km * cosine / (EARTH_KM + height)).asin()
+}
+
+/// One radial of one cut: a hail core, the storm's own rain behind it, then a
+/// flare, with every property a rule looks at held apart so a test can break
+/// one at a time.
+#[derive(Clone, Copy)]
+struct Flare {
+    elevation: f32,
+    core_dbz: f32,
+    starts_behind_km: f64,
+    length_km: f64,
+    dbz: f32,
+    zdr: f32,
+    rho: f32,
+    /// Kilometres into the flare where it drops back to rain, and for how far.
+    dip: Option<(f64, f64)>,
+}
+
+impl Flare {
+    /// The spike on the stored KMAF volume of 2019-05-24, behind its 70 dBZ
+    /// core: faint, 6 dB and 0.4, on a cut that passes the core at 4.4 km.
+    fn like_kmaf() -> Self {
+        Self {
+            elevation: 4.0,
+            core_dbz: 65.0,
+            starts_behind_km: 2.0,
+            length_km: 10.0,
+            dbz: 12.0,
+            zdr: 6.0,
+            rho: 0.4,
+            dip: None,
+        }
+    }
+
+    fn cut(self) -> Moments {
+        let angles: Vec<f32> = (0..720).map(|at| at as f32 * 0.5).collect();
+        let empty = |label: &str| {
+            SweepField::new_empty(
+                label,
+                "",
+                self.elevation,
+                angles.clone(),
+                0.5,
+                2.125,
+                0.25,
+                PLANTED_GATES,
+            )
+        };
+        let mut cut = Moments {
+            elevation: self.elevation,
+            reflectivity: empty("Reflectivity"),
+            correlation: empty("Correlation coefficient"),
+            differential: empty("Differential reflectivity"),
+        };
+        let flare_from = CORE_TO_KM + self.starts_behind_km;
+        let flare_to = flare_from + self.length_km;
+        let rain = (40.0, 1.0, 0.98);
+        for gate in 0..PLANTED_GATES {
+            let ground = ground_km_of(2.125 + gate as f64 * 0.25, self.elevation);
+            let dipped = self.dip.is_some_and(|(into, far)| {
+                (flare_from + into..flare_from + into + far).contains(&ground)
+            });
+            let (dbz, zdr, rho) = if (CORE_FROM_KM..CORE_TO_KM).contains(&ground) {
+                (self.core_dbz, 1.5, 0.97)
+            } else if (CORE_TO_KM..flare_from).contains(&ground) || dipped {
+                rain
+            } else if (flare_from..flare_to).contains(&ground) {
+                (self.dbz, self.zdr, self.rho)
+            } else {
+                continue;
+            };
+            cut.reflectivity
+                .set(SPIKE_RADIAL, gate, dbz, GateStatus::Valid);
+            cut.differential
+                .set(SPIKE_RADIAL, gate, zdr, GateStatus::Valid);
+            cut.correlation
+                .set(SPIKE_RADIAL, gate, rho, GateStatus::Valid);
+        }
+        cut
+    }
+}
+
+/// The bins of the planted radial the detector marks, or nothing when it
+/// finds no spike at all. Nothing off that radial is ever marked.
+fn marked(flare: Flare) -> Option<Vec<usize>> {
+    let cut = flare.cut();
+    let flagged = spike_on(std::slice::from_ref(&cut), &cut.reflectivity)?;
+    let mut on_radial = Vec::new();
+    for at in 0..flagged.azimuths().len() {
+        for bin in 0..flagged.gate_count() {
+            if matches!(flagged.get(at, bin), (_, GateStatus::Valid)) {
+                assert_eq!(at, SPIKE_RADIAL, "bin {bin} was marked off the radial");
+                on_radial.push(bin);
+            }
+        }
+    }
+    Some(on_radial)
+}
+
+/// The flare covers 62 to 72 km of ground, which is the ten bins centred at
+/// 62.5 through 71.5, and the rain between it and the core is not marked.
+#[test]
+fn a_flare_behind_a_core_aloft_is_marked_where_it_runs() {
+    assert_eq!(
+        marked(Flare::like_kmaf()),
+        Some((62..=71).collect::<Vec<_>>())
+    );
+}
+
+/// Rain's own polarimetry, and each half of the spike's look on its own.
+#[test]
+fn a_flare_without_the_look_of_a_spike_is_not_one() {
+    let rain = Flare {
+        zdr: 1.0,
+        rho: 0.98,
+        ..Flare::like_kmaf()
+    };
+    assert_eq!(marked(rain), None);
+    let only_differential = Flare {
+        rho: 0.98,
+        ..Flare::like_kmaf()
+    };
+    assert_eq!(marked(only_differential), None);
+    let only_correlation = Flare {
+        zdr: 1.0,
+        ..Flare::like_kmaf()
+    };
+    assert_eq!(marked(only_correlation), None);
+}
+
+/// The lowest cut passes the same core under a kilometre up, which is where
+/// insects and birds give the same look behind every isolated storm.
+#[test]
+fn a_flare_behind_a_core_the_beam_passes_low_is_left_alone() {
+    let low = Flare {
+        elevation: 0.5,
+        ..Flare::like_kmaf()
+    };
+    assert_eq!(marked(low), None);
+}
+
+/// Energy that came the long way round is faint. A strong flare is echo.
+#[test]
+fn a_flare_too_strong_to_have_come_the_long_way_is_not_a_spike() {
+    let strong = Flare {
+        dbz: 35.0,
+        ..Flare::like_kmaf()
+    };
+    assert_eq!(marked(strong), None);
+}
+
+#[test]
+fn a_flare_behind_a_core_short_of_hail_is_not_a_spike() {
+    let weak_core = Flare {
+        core_dbz: 55.0,
+        ..Flare::like_kmaf()
+    };
+    assert_eq!(marked(weak_core), None);
+}
+
+/// Seven kilometres of rain behind the core is inside the window and nine is
+/// past it.
+#[test]
+fn a_flare_is_only_looked_for_close_behind_the_core() {
+    let inside = Flare {
+        starts_behind_km: 7.0,
+        ..Flare::like_kmaf()
+    };
+    assert_eq!(marked(inside), Some((67..=76).collect::<Vec<_>>()));
+    let past = Flare {
+        starts_behind_km: 9.0,
+        ..Flare::like_kmaf()
+    };
+    assert_eq!(marked(past), None);
+}
+
+#[test]
+fn a_flare_shorter_than_three_kilometres_is_not_a_spike() {
+    let three = Flare {
+        length_km: 3.0,
+        ..Flare::like_kmaf()
+    };
+    assert_eq!(marked(three), Some((62..=64).collect::<Vec<_>>()));
+    let two = Flare {
+        length_km: 2.0,
+        ..Flare::like_kmaf()
+    };
+    assert_eq!(marked(two), None);
+}
+
+/// One bin of rain inside the flare is bridged. Two end it there.
+#[test]
+fn a_flare_that_dips_out_for_one_bin_is_marked_across_the_dip() {
+    let one = Flare {
+        dip: Some((4.0, 1.0)),
+        ..Flare::like_kmaf()
+    };
+    assert_eq!(marked(one), Some((62..=71).collect::<Vec<_>>()));
+    let two = Flare {
+        dip: Some((4.0, 2.0)),
+        ..Flare::like_kmaf()
+    };
+    assert_eq!(marked(two), Some((62..=65).collect::<Vec<_>>()));
+}

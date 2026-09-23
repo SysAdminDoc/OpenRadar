@@ -1829,6 +1829,8 @@ export const es: Catalogue = {
   "legend.melting": "Capa de fusión a {height}, del corte de {tilt}°",
   "legend.debrisMark":
     "Marca blanca: posible firma de escombros de tornado, no una confirmación",
+  "legend.spikeMark":
+    "Marca blanca: espiga de dispersión de tres cuerpos, firma de granizo grande en altura, no una confirmación",
   "legend.echoTopped":
     "El tope del eco alcanza la elevación más alta escaneada. La altura real puede estar por encima de lo que el volumen puede ver.",
   "legend.partlyUnfolded": "{share}% sigue plegado",

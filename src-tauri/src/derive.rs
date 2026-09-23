@@ -136,6 +136,185 @@ pub fn derivation(kind: Kind, isotherms: &Isotherms<'_>) -> String {
     }
 }
 
+/// The reflectivity a core has to reach before a spike is looked for behind
+/// it. Lemon (1998) found the signature behind cores of 63 dBZ and more.
+const SPIKE_CORE_DBZ: f32 = 60.0;
+
+/// How high above the antenna the core's back edge has to be. The beam climbs,
+/// so every gate the spike is looked for in behind it is higher still.
+///
+/// The spike is the radar's energy scattered off hail aloft to the ground and
+/// back, so it appears at the height of the hail. Insects and birds have the
+/// same polarimetric look and live in the lowest two kilometres or so, and
+/// ground return lives on the ground, so height keeps both out. None of the
+/// seventeen stored volumes the detector was checked against needed it, the
+/// look and the stand-off below having turned their clear air away already:
+/// it is here for a core low down with insects right behind it, and a planted
+/// test holds it to that.
+const SPIKE_ALOFT_KM: f64 = 3.0;
+
+/// How far behind the core's back edge the spike may start. The storm's own
+/// precipitation falls off first.
+const SPIKE_START_WITHIN_KM: f64 = 8.0;
+
+/// The spike is energy that came the long way round, so it is faint.
+const SPIKE_CEILING_DBZ: f32 = 30.0;
+
+/// Its polarimetric look: differential reflectivity well above anything rain
+/// or ice gives, and a correlation the precipitation around it never falls
+/// to. On the stored KMAF volume of 2019-05-24 the spike behind a 70 dBZ core
+/// reads 6 to 8 dB and 0.2 to 0.6 while the storm's own precipitation beside
+/// it reads 0 dB and 0.98.
+const SPIKE_ZDR_DB: f32 = 3.0;
+const SPIKE_RHO: f32 = 0.8;
+
+/// The shortest unbroken run that counts, and how far behind a core it is
+/// looked for at all. Lemon's spikes are 10 to 30 kilometres long.
+const SPIKE_MIN_KM: f64 = 3.0;
+const SPIKE_REACH_KM: f64 = 40.0;
+
+/// One cut's three moments, as the spike needs them.
+struct Moments {
+    elevation: f32,
+    reflectivity: SweepField,
+    correlation: SweepField,
+    differential: SweepField,
+}
+
+/// Where a three-body scatter spike reaches behind a hail core, on the grid
+/// the column products are drawn on, or nothing when there is none.
+///
+/// A signature, not a measurement: large hail aloft sends some of the radar's
+/// energy down to the ground and back up before it returns, and the radar
+/// files that late energy behind the core as a faint radial flare. It is
+/// looked for on each cut separately, starting at the back edge of a core
+/// that cut sees aloft, and only in gates that are weak and carry the
+/// polarimetric look nothing else at that height does.
+pub fn spike(scan: &Scan) -> Option<SweepField> {
+    let cuts: Vec<Moments> = tilts(scan)
+        .iter()
+        .filter_map(|angle| {
+            let reflectivity = sweep_field_at(scan, Product::Reflectivity, *angle)?;
+            let correlation = sweep_field_at(scan, Product::CorrelationCoefficient, *angle)?;
+            let differential = sweep_field_at(scan, Product::DifferentialReflectivity, *angle)?;
+            Some(Moments {
+                elevation: reflectivity.elevation_degrees,
+                reflectivity: reflectivity.field,
+                correlation: correlation.field,
+                differential: differential.field,
+            })
+        })
+        .collect();
+    let lowest = sweep_field_at(scan, Product::Reflectivity, *tilts(scan).first()?)?.field;
+    spike_on(&cuts, &lowest)
+}
+
+/// The same, over cuts already read, onto the grid `like` sets out.
+fn spike_on(cuts: &[Moments], like: &SweepField) -> Option<SweepField> {
+    let azimuths = like.azimuths().to_vec();
+    if azimuths.is_empty() {
+        return None;
+    }
+    let bins = (MAX_RANGE_KM / BIN_KM).floor() as usize;
+    let mut flagged = SweepField::new_empty(
+        "Three-body scatter spike",
+        "",
+        0.0,
+        azimuths.clone(),
+        like.azimuth_spacing_degrees(),
+        FIRST_BIN_KM,
+        BIN_KM,
+        bins,
+    );
+    let start_within = (SPIKE_START_WITHIN_KM / BIN_KM).round() as usize;
+    let reach = (SPIKE_REACH_KM / BIN_KM).round() as usize;
+    let shortest = (SPIKE_MIN_KM / BIN_KM).round() as usize;
+    let mut any = false;
+    for (at, azimuth) in azimuths.iter().enumerate() {
+        for cut in cuts {
+            // What this cut reads over each bin of ground along the radial,
+            // and how high the beam is there.
+            let along: Vec<Option<(f32, f64)>> = (0..bins)
+                .map(|bin| {
+                    let ground_km = FIRST_BIN_KM + bin as f64 * BIN_KM;
+                    let slant_km = slant_for(ground_km, cut.elevation)?;
+                    let Some((dbz, GateStatus::Valid)) =
+                        reading_at(&cut.reflectivity, *azimuth, slant_km)
+                    else {
+                        return None;
+                    };
+                    Some((dbz, beam_height_km(slant_km, cut.elevation)))
+                })
+                .collect();
+            let signature = |bin: usize| -> bool {
+                let Some((dbz, _)) = along[bin] else {
+                    return false;
+                };
+                if dbz > SPIKE_CEILING_DBZ {
+                    return false;
+                }
+                let ground_km = FIRST_BIN_KM + bin as f64 * BIN_KM;
+                let Some(slant_km) = slant_for(ground_km, cut.elevation) else {
+                    return false;
+                };
+                let rho = reading_at(&cut.correlation, *azimuth, slant_km);
+                let zdr = reading_at(&cut.differential, *azimuth, slant_km);
+                matches!(rho, Some((rho, GateStatus::Valid)) if rho < SPIKE_RHO)
+                    && matches!(zdr, Some((zdr, GateStatus::Valid)) if zdr >= SPIKE_ZDR_DB)
+            };
+
+            let mut bin = 0;
+            while bin < bins {
+                let core = matches!(along[bin], Some((dbz, _)) if dbz >= SPIKE_CORE_DBZ);
+                if !core {
+                    bin += 1;
+                    continue;
+                }
+                while bin + 1 < bins
+                    && matches!(along[bin + 1], Some((dbz, _)) if dbz >= SPIKE_CORE_DBZ)
+                {
+                    bin += 1;
+                }
+                // `bin` is the core's back edge. Only a core the cut sees
+                // aloft can be the hail that makes a spike.
+                let back = bin;
+                bin += 1;
+                if along[back].is_none_or(|(_, height)| height < SPIKE_ALOFT_KM) {
+                    continue;
+                }
+                let last = (back + reach).min(bins - 1);
+                let Some(first) =
+                    (back + 1..=(back + start_within).min(last)).find(|at| signature(*at))
+                else {
+                    continue;
+                };
+                // Unbroken, save for a single bin the flare dips out of.
+                let mut end = first;
+                let mut next = first + 1;
+                while next <= last {
+                    if signature(next) {
+                        end = next;
+                        next += 1;
+                    } else if next < last && signature(next + 1) {
+                        end = next + 1;
+                        next += 2;
+                    } else {
+                        break;
+                    }
+                }
+                if end + 1 - first < shortest {
+                    continue;
+                }
+                for marked in first..=end {
+                    flagged.set(at, marked, 1.0, GateStatus::Valid);
+                }
+                any = true;
+            }
+        }
+    }
+    any.then_some(flagged)
+}
+
 /// A derived grid.
 pub struct Derived {
     pub field: SweepField,

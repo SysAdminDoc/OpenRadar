@@ -661,3 +661,80 @@ fn every_reading_of_where_a_gate_begins_agrees_with_the_one_that_reads_gates() {
         );
     }
 }
+
+/// A mark is drawn where the picture beneath it has nothing, and past a
+/// threshold that hides the picture.
+///
+/// A three-body scatter spike sits behind the hail core, where the size it is
+/// marked on has no value at all, so a mark drawn only over coloured gates was
+/// never drawn. And a signature is not a value on the scale, so a threshold on
+/// the scale has nothing to say about it.
+#[test]
+fn a_mark_is_drawn_where_the_picture_beneath_it_has_nothing() {
+    let (mut field, coordinates) = stepped_field(Product::Reflectivity);
+    let mut marks = field.clone();
+    for azimuth in 0..field.azimuth_count() {
+        for gate in 0..field.gate_count() {
+            // A hole in the picture, and marks only inside it.
+            let inside = (100..140).contains(&gate);
+            if inside {
+                field.set(azimuth, gate, 0.0, GateStatus::NoData);
+            }
+            let status = if inside && (40..50).contains(&azimuth) {
+                GateStatus::Valid
+            } else {
+                GateStatus::NoData
+            };
+            marks.set(azimuth, gate, 1.0, status);
+        }
+    }
+    let drawn = |threshold: Option<f32>, flags: Option<&SweepField>| {
+        render_sweep(
+            &field,
+            &coordinates,
+            Product::Reflectivity,
+            "dBZ",
+            Shading {
+                unfolded: false,
+                threshold,
+                high_contrast: false,
+                derived: None,
+            },
+            false,
+            None,
+            flags,
+        )
+        .0
+    };
+    let bare = drawn(None, None);
+    let marked = drawn(None, Some(&marks));
+    let mut added = 0;
+    for (before, after) in bare
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .zip(marked.as_chunks::<4>().0)
+    {
+        if before != after {
+            // Only where the picture had nothing, and only the mark.
+            assert_eq!(before[3], 0, "a mark changed a gate the picture drew");
+            assert_eq!(
+                after,
+                &[FLAG_MARK[0], FLAG_MARK[1], FLAG_MARK[2], MAX_ALPHA]
+            );
+            added += 1;
+        }
+    }
+    assert!(added > 0, "no mark was drawn in the hole");
+
+    // With the whole picture under the threshold the marks are all that is
+    // left, and every one of them is still there.
+    let hidden = drawn(Some(1000.0), Some(&marks));
+    let left = hidden
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .filter(|pixel| pixel[3] > 0)
+        .count();
+    assert_eq!(left, added);
+}

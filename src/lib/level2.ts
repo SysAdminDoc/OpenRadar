@@ -161,6 +161,8 @@ export interface SweepImage {
   dealiased: boolean;
   /** True when a tornado debris signature was found in this sweep. */
   hasDebris: boolean;
+  /** True when a three-body scatter spike was found behind a hail core. */
+  hasSpike: boolean;
   /** True when the echo top reaches the highest scanned cut. */
   echoTopped: boolean;
   /**

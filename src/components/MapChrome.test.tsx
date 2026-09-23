@@ -391,3 +391,30 @@ describe("the melting layer on the bar", () => {
     expect(document.querySelector("[data-legend-melting]")).toBeNull();
   });
 });
+
+describe("the spike mark on the bar", () => {
+  const legend = (hasSpike: boolean, radarEnabled = true) => (
+    <RadarLegend
+      open={false}
+      radarEnabled={radarEnabled}
+      productLabel="Hail size"
+      eyebrow="KMAF"
+      scale="none"
+      hasSpike={hasSpike}
+      onToggle={() => {}}
+    />
+  );
+
+  it("says what the white mark is where a spike was found", () => {
+    render(legend(true));
+    expect(screen.getByText(/three-body scatter spike/)).toBeTruthy();
+  });
+
+  it("says nothing where none was found or the radar is off", () => {
+    render(legend(false));
+    expect(screen.queryByText(/three-body scatter spike/)).toBeNull();
+    cleanup();
+    render(legend(true, false));
+    expect(screen.queryByText(/three-body scatter spike/)).toBeNull();
+  });
+});
