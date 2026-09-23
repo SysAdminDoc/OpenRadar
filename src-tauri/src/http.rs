@@ -274,13 +274,28 @@ async fn fetch_bytes_inner(url: &str, limit: usize) -> Result<Vec<u8>, HttpError
         ));
     }
 
-    let response = shared_client()?.get(parsed).send().await?;
+    let response = shared_client()?
+        .get(parsed)
+        .timeout(timeout_for(limit))
+        .send()
+        .await?;
     // A refused redirect comes back as the 3xx itself, which error_for_status
     // treats as success. Saying so beats handing back an empty body.
     if response.status().is_redirection() {
         return Err(HttpError::RedirectRefused);
     }
     read_limited(response.error_for_status()?, limit).await
+}
+
+/// How long a fetch under a ceiling may take, reading included.
+///
+/// The client's timeout is a deadline for the whole request, body and all, so
+/// a ceiling raised without it raises the speed a line needs: thirty seconds
+/// for thirty-two megabytes is about nine megabits a second, which a hurricane
+/// day's connection is often not. Scaled with the ceiling, every fetch needs
+/// the same four and a half the ordinary one always did.
+fn timeout_for(limit: usize) -> Duration {
+    REQUEST_TIMEOUT.mul_f64((limit as f64 / MAX_BODY_BYTES as f64).max(1.0))
 }
 
 /// Streams a response into a bounded buffer. Content-Length is only a hint:
@@ -461,6 +476,20 @@ mod tests {
         // The status the client is left holding when a redirect is refused.
         let error = HttpError::RedirectRefused;
         assert!(error.to_string().contains("may not follow"));
+    }
+
+    #[test]
+    fn a_larger_ceiling_gets_a_deadline_to_match() {
+        // Every fetch asks the same speed of a line: sixteen megabytes in
+        // thirty seconds. A smaller ceiling is not hurried for it.
+        assert_eq!(timeout_for(MAX_BODY_BYTES), REQUEST_TIMEOUT);
+        assert_eq!(timeout_for(MAX_BODY_BYTES / 4), REQUEST_TIMEOUT);
+        assert_eq!(timeout_for(MAX_BODY_BYTES * 2), REQUEST_TIMEOUT * 2);
+        // The one ceiling above the ordinary one today, a hurricane's volume.
+        assert_eq!(
+            timeout_for(crate::level2::VOLUME_MAX_BYTES),
+            Duration::from_secs(60)
+        );
     }
 
     #[test]

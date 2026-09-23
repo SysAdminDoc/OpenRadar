@@ -343,6 +343,44 @@ fn a_phase_settled_at_the_top_of_its_turn_reads_as_no_rain() {
     }
 }
 
+/// A reading no radar could make is not taken, and does not stop the rest.
+///
+/// A local Archive II file names its own scale and offset, and one that made a
+/// phase infinite, or so large that taking a turn off it changed nothing, had
+/// the unwrap looping for ever on the worker thread the panel waits on. Run on
+/// a thread of its own with a deadline, so that coming back is part of the
+/// assertion and a regression fails here rather than hanging the suite.
+#[test]
+fn a_reading_no_radar_could_make_is_not_taken() {
+    let mut field = ramp(4.0, 63.0);
+    for azimuth in 0..AZIMUTHS {
+        field.set(azimuth, 100, f32::INFINITY, GateStatus::Valid);
+        field.set(azimuth, 200, 1.0e33, GateStatus::Valid);
+        field.set(azimuth, 300, f32::NAN, GateStatus::Valid);
+    }
+    let (sent, received) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = sent.send(derive(&field, Some(&clean())));
+    });
+    let derived = received
+        .recv_timeout(std::time::Duration::from_secs(20))
+        .expect("the derivation came back")
+        .expect("a derived cut");
+    for gate in [100usize, 200, 300] {
+        let (_, status) = derived.get(4, gate);
+        assert!(
+            !matches!(status, GateStatus::Valid),
+            "gate {gate} was drawn"
+        );
+    }
+    // The rain either side reads its own rate, one missing gate being a gap
+    // the fit reads straight across.
+    for gate in [60usize, 150, 250, 350] {
+        let found = at(&derived, gate);
+        assert!((found - 2.0).abs() < 0.05, "gate {gate} read {found}");
+    }
+}
+
 /// A censored block does not pull the reading beside it down.
 ///
 /// The reconciliation integrates the slope into a phase and fits the slope

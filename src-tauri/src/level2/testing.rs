@@ -1229,7 +1229,6 @@ pub(crate) fn kdp_against_office(
     let half = kdp::window_gates(interval_km) / 2;
 
     let mut found = AgainstOfficeKdp::default();
-    let mut censored = vec![true; gates];
     // How many censored gates lie before each gate, so "is anything within
     // half a window censored" is two lookups rather than a walk.
     let mut censored_before = vec![0usize; gates + 1];
@@ -1245,7 +1244,6 @@ pub(crate) fn kdp_against_office(
                     reading_at(correlation, *azimuth, range_km),
                     Some((rho, GateStatus::Valid)) if rho >= kdp::CENSOR_CORRELATION
                 );
-            censored[gate] = !kept;
             censored_before[gate + 1] = censored_before[gate] + usize::from(!kept);
             if !kept {
                 continue;

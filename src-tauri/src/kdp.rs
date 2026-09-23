@@ -22,7 +22,11 @@
 //! out in alternate gates. Held against eight stored heavy-rain days reported
 //! again from three other starting offsets, which must not change a single
 //! reading, the paper's step lost 434,311 gates and moved the rest by 0.18
-//! degrees a kilometre on average; unwrapping loses none and moves none.
+//! degrees a kilometre on average. Unwrapping cannot be moved by an offset at
+//! all, which is why it loses none there and why that measure says nothing
+//! about its own ways of going wrong: against the office's own product on the
+//! same days it agrees better overall, near gaps, and on the rays that wrap
+//! twice.
 
 use nexrad_model::data::{GateStatus, SweepField};
 
@@ -54,6 +58,14 @@ const MAX_SLOPE: f32 = 20.0;
 
 /// How many times phase and slope are reconciled against each other.
 const ITERATIONS: usize = 2;
+
+/// The largest phase a reading may claim, in degrees either way.
+///
+/// The radar reports inside one turn, so two turns is room for any offset a
+/// decoder could honestly add. A local file names its own scale and offset,
+/// and one that makes a reading infinite, or so large that taking a turn off
+/// it changes nothing, once had `unwrap` looping for ever on a worker thread.
+const REPORTED_PHASE_LIMIT: f32 = 720.0;
 
 /// The label and unit this is drawn under.
 pub fn named() -> (&'static str, &'static str) {
@@ -205,6 +217,12 @@ fn read_ray(
         if !matches!(status, GateStatus::Valid) {
             continue;
         }
+        // The radar reports the phase inside one turn. A reading that is not
+        // a number, or is turns away from one, came out of a file's own scale
+        // and offset rather than out of the air, and it is not taken.
+        if !value.is_finite() || value.abs() > REPORTED_PHASE_LIMIT {
+            continue;
+        }
         let range_km = first_km + gate as f64 * interval_km;
         let Some((rho, GateStatus::Valid)) = reading_at(correlation, azimuth, range_km) else {
             continue;
@@ -300,14 +318,13 @@ fn unwrap(ray: &mut [Option<f32>]) {
     for value in ray.iter_mut().flatten() {
         let mut now = *value + turns;
         if let Some(before) = previous {
-            while now - before < -180.0 {
-                turns += 360.0;
-                now += 360.0;
-            }
-            while now - before > 180.0 {
-                turns -= 360.0;
-                now -= 360.0;
-            }
+            // The whole turns that bring it within half a turn, in one step
+            // rather than a turn at a time: a loop that takes a turn off until
+            // the gap closes never finishes on a reading so large that a turn
+            // is lost in its rounding.
+            let shift = ((before - now) / 360.0).round() * 360.0;
+            turns += shift;
+            now += shift;
         }
         *value = now;
         previous = Some(now);
