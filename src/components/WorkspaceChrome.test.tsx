@@ -11,6 +11,7 @@ import { WorkspaceChrome } from "./WorkspaceChrome";
 import { en } from "../i18n/en";
 import { DEFAULT_SETTINGS } from "../lib/settings";
 import type { SweepImage } from "../lib/level2";
+import { sweepImage } from "../test/sweepImage";
 import type { SiteStatus } from "../lib/radarStatus";
 import type { OverlayLegend } from "../lib/overlays";
 import { formatClock, formatDistance, setUnits } from "../lib/units";
@@ -44,48 +45,18 @@ const COLLECTED = "2026-08-30T12:00:00Z";
 
 /** A drawn sweep, live or not, for the legend to read. */
 function sweepOf(live: boolean): SweepImage {
-  return {
-    station: "KDMX",
-    siteName: "Des Moines, IA",
-    productId: "reflectivity",
-    paletteApplied: false,
-    highContrast: false,
-    smoothed: false,
-    dealiased: false,
-    hasDebris: false,
-    echoTopped: false,
-    unplacedShare: 0,
+  return sweepImage({
     live,
     liveTilts: live ? 3 : 0,
-    liveFailed: null,
-    nextChunkAt: null,
-    volumeEndsAt: null,
-    stormMotion: null,
-    hailHeights: null,
-    product: "Reflectivity",
-    unit: "dBZ",
-    elevationDegrees: 0.48,
     tilts: [0.48, 0.87],
-    tiltIndex: 0,
     collected: COLLECTED,
-    beneathCollected: null,
-    west: -96.5,
     south: 40,
     east: -90.5,
     north: 44,
     siteLon: -93.7,
-    siteLat: 41.7,
     image: "data:image/png;base64,",
     volume: "v",
-    radar: "WSR-88D",
-    rangeKm: 230,
-    gateKm: 0.25,
-    source: {
-      kind: "recent",
-      label: "NOAA NEXRAD Level II",
-      url: "https://registry.opendata.aws/noaa-nexrad/",
-    },
-  };
+  });
 }
 
 function chrome(

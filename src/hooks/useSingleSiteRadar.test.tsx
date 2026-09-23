@@ -15,6 +15,7 @@ import {
 } from "../lib/radarKinds";
 import { log } from "../lib/log";
 import { providerHealth, resetHealth } from "../lib/providers/health";
+import { sweepImage } from "../test/sweepImage";
 
 const nearestSite =
   vi.fn<(lon: number, lat: number) => Promise<string | null>>();
@@ -194,28 +195,14 @@ function sweepFor(
   product: Level2ProductId,
   tilt: number,
 ): SweepImage {
-  return {
+  return sweepImage({
     station,
     productId: product,
-    paletteApplied: false,
-    highContrast: false,
-    smoothed: false,
-    dealiased: false,
-    hasDebris: false,
-    echoTopped: false,
-    unplacedShare: 0,
-    liveFailed: null,
-    nextChunkAt: null,
-    volumeEndsAt: null,
-    stormMotion: null,
-    hailHeights: null,
     product: product === "velocity" ? "Velocity" : "Reflectivity",
     unit: product === "velocity" ? "m/s" : "dBZ",
     elevationDegrees: [0.48, 0.87, 1.31][tilt] ?? 0.48,
-    tilts: [0.48, 0.87, 1.31],
     tiltIndex: tilt,
     collected: new Date().toISOString(),
-    beneathCollected: null,
     // Its own disc, which every station shared until 2026-09-08. A shared one
     // made every box legal on every site's reach, so a sweep measured against
     // the wrong station's disc was indistinguishable from one measured
@@ -224,14 +211,14 @@ function sweepFor(
     ...DISCS[station],
     siteLon: (DISCS[station].west + DISCS[station].east) / 2,
     siteLat: (DISCS[station].south + DISCS[station].north) / 2,
-    image: "data:image/png;base64,AAAA",
     volume: `${station}-${product}-${tilt}`,
     // What the site is, not what the caller asked for. A terminal radar has
     // no Level II volume and reads from its Level III products, and a fixture
     // that called one a WSR-88D would let a test pass on a picture the app
     // could never have been given. Every field the native side writes
     // differently for one is written differently here: the source it names,
-    // the site's own name, and the live half it does not have.
+    // the site's own name, and the live half it does not have. A WSR-88D is
+    // what the shared sweep already is.
     ...(isTdwrStation(station)
       ? {
           radar: "TDWR" as const,
@@ -256,20 +243,8 @@ function sweepFor(
             url: "https://registry.opendata.aws/noaa-nexrad/",
           },
         }
-      : {
-          radar: "WSR-88D" as const,
-          rangeKm: 230,
-          gateKm: 0.25,
-          siteName: "Des Moines, IA",
-          live: false,
-          liveTilts: 0,
-          source: {
-            kind: "recent" as const,
-            label: "NOAA NEXRAD Level II",
-            url: "https://registry.opendata.aws/noaa-nexrad/",
-          },
-        }),
-  };
+      : {}),
+  });
 }
 
 const radar: RadarSettings = {
