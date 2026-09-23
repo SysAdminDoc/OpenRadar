@@ -198,6 +198,151 @@ fn a_phase_that_wraps_is_put_back_before_the_slope_is_taken() {
     }
 }
 
+/// A phase climbing at a stated rate from a stated start, reported the way the
+/// radar reports it, brought back into the one turn it has room for, on gates
+/// of a stated length.
+fn wrapping(start: f32, degrees_per_km: f32, interval_km: f64, gates: usize) -> SweepField {
+    let angles: Vec<f32> = (0..AZIMUTHS).map(|at| at as f32 * SPACING).collect();
+    let mut field = SweepField::new_empty(
+        "Differential phase",
+        "deg",
+        0.5,
+        angles,
+        SPACING,
+        FIRST_KM,
+        interval_km,
+        gates,
+    );
+    for azimuth in 0..AZIMUTHS {
+        for gate in 0..gates {
+            let climbed = start + degrees_per_km * (gate as f64 * interval_km) as f32;
+            field.set(azimuth, gate, climbed.rem_euclid(360.0), GateStatus::Valid);
+        }
+    }
+    field
+}
+
+/// A correlation coefficient that clears the censor everywhere, on the same
+/// gates as a phase built for a test.
+fn clean_like(phase: &SweepField) -> SweepField {
+    let mut field = phase.new_like("Correlation coefficient", "");
+    for azimuth in 0..phase.azimuth_count() {
+        for gate in 0..phase.gate_count() {
+            field.set(azimuth, gate, 0.98, GateStatus::Valid);
+        }
+    }
+    field
+}
+
+/// Where a phase climbing at a rate from a start reaches a whole number of
+/// turns, as a gate.
+fn wraps_at(turns: f32, start: f32, degrees_per_km: f32, interval_km: f64) -> usize {
+    ((360.0 * turns - start) / degrees_per_km / interval_km as f32).round() as usize
+}
+
+/// A ray the phase comes back round on twice, and both are put back.
+///
+/// Three hundred degrees and four more a kilometre reaches 360 fifteen
+/// kilometres out and 720 a hundred and five out, which is ninety kilometres
+/// of the rain an eyewall or a squall line holds. The first unfold took the
+/// first wrap out and nothing looked again, so the second stayed in and the
+/// slope across it was a drop of three hundred and sixty degrees, which the
+/// band refuses: the rain past it was drawn as nothing at all.
+#[test]
+fn a_phase_that_wraps_twice_is_put_back_both_times() {
+    let field = wrapping(300.0, 4.0, INTERVAL_KM, 600);
+    let correlation = clean_like(&field);
+    let derived = derive(&field, Some(&correlation)).expect("a derived cut");
+    let second = wraps_at(2.0, 300.0, 4.0, INTERVAL_KM);
+    assert_eq!(second, 420);
+    let half = window_gates(INTERVAL_KM) / 2;
+    for gate in [second - half + 2, second, second + half - 2, 500, 580] {
+        let found = at(&derived, gate);
+        assert!(
+            (found - 2.0).abs() < 0.1,
+            "gate {gate} read {found} across the second wrap"
+        );
+    }
+}
+
+/// A wrap is put back on gates of any length.
+///
+/// The paper's step found the fold where the slope first dropped past a
+/// threshold, and a least-squares slope drops that far well before the wrap
+/// itself: about nine gates early at a quarter of a kilometre and eighteen at
+/// an eighth. Every gate in between was moved a turn it never lost and put
+/// back only inside a band of ten gates, so at an eighth of a kilometre
+/// several stayed a turn too high. Unwrapping against the reading before
+/// moves no gate before the wrap, whatever the gates are.
+#[test]
+fn a_wrap_is_put_back_at_an_eighth_of_a_kilometre() {
+    let interval = 0.125;
+    let field = wrapping(300.0, 4.0, interval, 800);
+    let correlation = clean_like(&field);
+    let derived = derive(&field, Some(&correlation)).expect("a derived cut");
+    let wrapped = wraps_at(1.0, 300.0, 4.0, interval);
+    assert_eq!(wrapped, 120);
+    let half = window_gates(interval) / 2;
+    for gate in [
+        wrapped - half + 2,
+        wrapped - 10,
+        wrapped,
+        wrapped + half - 2,
+        400,
+        700,
+    ] {
+        let found = at(&derived, gate);
+        assert!(
+            (found - 2.0).abs() < 0.1,
+            "gate {gate} read {found} across the wrap"
+        );
+    }
+}
+
+/// A phase that settles at the top of its turn reads as no rain, not as a
+/// downpour.
+///
+/// After the rain the phase stops climbing wherever it got to, and if that is
+/// close to a whole turn the radar's noise carries it back and forth across
+/// the boundary: 357, 2, 359, 1. The paper's step took the first crossing for
+/// a wrap, added a turn to everything after it and put back what overshot
+/// only within one window, so past that window alternate gates sat a turn
+/// apart and read as tens of degrees a kilometre or were refused. Held against
+/// stored volumes reported from other offsets, that lost 434,311 gates and
+/// moved the rest by 0.18 degrees a kilometre on average.
+#[test]
+fn a_phase_settled_at_the_top_of_its_turn_reads_as_no_rain() {
+    let mut field = empty("Differential phase", "deg");
+    let correlation = clean();
+    // Rain for fifteen kilometres, climbing from 300 to a whole turn, and then
+    // none: the phase stays where it got to, wandering a few degrees either
+    // side of the boundary in runs of several gates the way a real one does.
+    let climb_gates = 60usize;
+    for azimuth in 0..AZIMUTHS {
+        for gate in 0..GATES {
+            let total = if gate < climb_gates {
+                300.0 + 4.0 * (gate as f64 * INTERVAL_KM) as f32
+            } else {
+                let at = gate as f32;
+                360.0
+                    + 3.0 * (std::f32::consts::TAU * at / 23.0).sin()
+                    + 1.5 * (std::f32::consts::TAU * at / 7.0).sin()
+            };
+            field.set(azimuth, gate, total.rem_euclid(360.0), GateStatus::Valid);
+        }
+    }
+    let derived = derive(&field, Some(&correlation)).expect("a derived cut");
+    // Well past the climb and its window, where the only thing the phase is
+    // doing is sitting at the boundary.
+    for gate in [120usize, 170, 220, 270, 320, 370] {
+        let found = at(&derived, gate);
+        assert!(
+            found.abs() < 0.5,
+            "gate {gate} read {found} deg/km on a phase that stopped climbing"
+        );
+    }
+}
+
 /// A censored block does not pull the reading beside it down.
 ///
 /// The reconciliation integrates the slope into a phase and fits the slope
