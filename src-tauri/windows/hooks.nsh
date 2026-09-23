@@ -11,10 +11,21 @@
 ; asked to put the reader's own wallpaper back while it and the note are both
 ; still here, and it does that only if the desktop is still showing ours.
 ;
-; Not during an update. The new installer runs this uninstaller with /UPDATE
-; to replace the old copy, and the app comes straight back to keep its picture.
+; The app is closed first, with the uninstaller's own check. The template
+; makes that check after this hook, so a reader who pressed Cancel at
+; "OpenRadar is running" had already lost the note while the app kept
+; running, and its next picture went up with nothing recorded to put back.
+; Asked here, Cancel stops the uninstall before anything is touched, and the
+; template's own check afterwards finds nothing left to close.
+;
+; An update never reaches this: the updater's installer skips the old
+; uninstaller altogether. The guard is for somebody running it with /UPDATE
+; by hand. A reinstall that uninstalls first does come through here, and that
+; is right, because the new copy notes the restored wallpaper the next time it
+; puts a picture up.
 !macro NSIS_HOOK_PREUNINSTALL
   ${If} $UpdateMode <> 1
+    !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
     ExecWait '"$INSTDIR\${MAINBINARYNAME}.exe" --restore-wallpaper "$APPDATA\${BUNDLEID}"'
   ${EndIf}
 !macroend

@@ -273,22 +273,72 @@ fn remember_previous() {
 
 #[cfg(windows)]
 fn current() -> Result<Option<String>, String> {
-    use std::os::windows::process::CommandExt;
-
     // The registry rather than COM for the read. `IDesktopWallpaper` answers
     // per monitor and this only has to put one thing back; the value under
     // `Control Panel\Desktop` is what the shell itself restores from.
     //
-    // Without a console of its own. The app is a windowed binary with none,
-    // and a console program it starts is given a window of its own, which
-    // opened over whatever the reader was doing the first time the desktop
-    // picture was written.
-    let output = std::process::Command::new("reg")
-        .args(["query", r"HKCU\Control Panel\Desktop", "/v", "Wallpaper"])
-        .creation_flags(crate::CREATE_NO_WINDOW)
-        .output()
-        .map_err(|error| error.to_string())?;
-    Ok(parse_wallpaper(&String::from_utf8_lossy(&output.stdout)))
+    // Read in this process rather than by starting `reg.exe`. That was a
+    // program started for one value, it had to be kept from opening a window
+    // of its own, and a policy that disables the registry tools disables it
+    // too: its failure printed nothing a parser recognised, which read as
+    // "no wallpaper", and uninstalling left the radar picture up. The API is
+    // not covered by that policy and says which failure it was. A value that
+    // is not there is a desktop with no picture; anything else is a read that
+    // failed, and the callers treat that as not knowing.
+    const HKEY_CURRENT_USER: isize = 0x8000_0001_u32 as i32 as isize;
+    const RRF_RT_REG_SZ: u32 = 0x0000_0002;
+    const RRF_RT_REG_EXPAND_SZ: u32 = 0x0000_0004;
+    const RRF_NOEXPAND: u32 = 0x1000_0000;
+    const ERROR_SUCCESS: i32 = 0;
+    const ERROR_FILE_NOT_FOUND: i32 = 2;
+
+    #[link(name = "advapi32")]
+    unsafe extern "system" {
+        fn RegGetValueW(
+            key: isize,
+            subkey: *const u16,
+            value: *const u16,
+            flags: u32,
+            kind: *mut u32,
+            data: *mut core::ffi::c_void,
+            bytes: *mut u32,
+        ) -> i32;
+    }
+
+    let wide = |text: &str| -> Vec<u16> { text.encode_utf16().chain(std::iter::once(0)).collect() };
+    let (subkey, value) = (wide(r"Control Panel\Desktop"), wide("Wallpaper"));
+    // Far longer than any path, so a value that does not fit is not one.
+    let mut buffer = vec![0u16; 32_768];
+    let mut bytes = (buffer.len() * 2) as u32;
+    // SAFETY: both names are null-terminated wide strings that outlive the
+    // call, and the buffer is `bytes` long, which is what the call is told.
+    // Unexpanded, so `expand` does it the way it always has.
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            subkey.as_ptr(),
+            value.as_ptr(),
+            RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ | RRF_NOEXPAND,
+            std::ptr::null_mut(),
+            buffer.as_mut_ptr().cast(),
+            &mut bytes,
+        )
+    };
+    match status {
+        ERROR_SUCCESS => {
+            let length = buffer
+                .iter()
+                .position(|unit| *unit == 0)
+                .unwrap_or(buffer.len());
+            Ok(wallpaper_value(&String::from_utf16_lossy(
+                &buffer[..length],
+            )))
+        }
+        ERROR_FILE_NOT_FOUND => Ok(None),
+        other => Err(format!(
+            "the registry answered {other} when asked for the wallpaper"
+        )),
+    }
 }
 
 #[cfg(not(windows))]
@@ -296,23 +346,17 @@ fn current() -> Result<Option<String>, String> {
     Ok(None)
 }
 
-/// Reads a wallpaper path out of what `reg query` printed.
+/// A wallpaper value as the registry holds it, made into a path that can be
+/// handed back.
 ///
-/// Both value types, because a wallpaper set by a theme or by policy is often
-/// REG_EXPAND_SZ, and "REG_EXPAND_SZ" does not contain "REG_SZ". Missing it
-/// read as "no wallpaper", which is how a reader's own picture gets recorded
-/// as nothing and never comes back. Expanded here rather than kept raw: the
-/// whole point of the expandable type is that the reader expands it, and
-/// `SystemParametersInfoW` will not.
-fn parse_wallpaper(text: &str) -> Option<String> {
-    text.lines()
-        .find_map(|line| {
-            line.split_once("REG_EXPAND_SZ")
-                .or_else(|| line.split_once("REG_SZ"))
-                .map(|(_, rest)| rest)
-        })
-        .map(|rest| expand(rest.trim()))
-        .filter(|rest| !rest.is_empty())
+/// Both value types are read, because a wallpaper set by a theme or by policy
+/// is often REG_EXPAND_SZ, and missing that read as "no wallpaper", which is
+/// how a reader's own picture gets recorded as nothing and never comes back.
+/// Expanded here rather than kept raw: the whole point of the expandable type
+/// is that the reader expands it, and `SystemParametersInfoW` will not. An
+/// empty value is a desktop with no picture.
+fn wallpaper_value(raw: &str) -> Option<String> {
+    Some(expand(raw.trim())).filter(|value| !value.is_empty())
 }
 
 /// Fills in the `%VARIABLES%` an expandable registry value is stored with.
@@ -601,17 +645,13 @@ mod tests {
 
     #[test]
     fn an_expandable_path_is_expanded_before_it_is_kept() {
-        // Driven through the parser rather than through `expand`, because the
-        // parser is where the expansion has to happen: reading the value and
-        // keeping it raw leaves a path SystemParametersInfoW cannot use, and
-        // a restore that either fails for ever or blanks the desktop with the
-        // note already deleted.
+        // Driven through the value reader rather than through `expand`,
+        // because that is where the expansion has to happen: reading the value
+        // and keeping it raw leaves a path SystemParametersInfoW cannot use,
+        // and a restore that either fails for ever or blanks the desktop with
+        // the note already deleted.
         let (name, value) = a_real_variable();
-        let printed = format!(
-            "\r\nHKEY_CURRENT_USER\\Control Panel\\Desktop\r\n    \
-             Wallpaper    REG_EXPAND_SZ    %{name}%\\web\\img19.jpg\r\n\r\n"
-        );
-        let read = parse_wallpaper(&printed).expect("a value was printed");
+        let read = wallpaper_value(&format!("%{name}%\\web\\img19.jpg")).expect("a value was read");
         assert!(!read.contains('%'), "{read}");
         assert!(read.starts_with(&value), "{read}");
         assert!(read.ends_with(r"\web\img19.jpg"), "{read}");
@@ -619,23 +659,36 @@ mod tests {
 
     #[test]
     fn a_plain_value_is_read_whole() {
-        let printed = "\r\nHKEY_CURRENT_USER\\Control Panel\\Desktop\r\n    \
-             Wallpaper    REG_SZ    C:\\WINDOWS\\web\\wallpaper\\Windows\\img19.jpg\r\n";
         assert_eq!(
-            parse_wallpaper(printed).as_deref(),
+            wallpaper_value(r"C:\WINDOWS\web\wallpaper\Windows\img19.jpg ").as_deref(),
             Some(r"C:\WINDOWS\web\wallpaper\Windows\img19.jpg")
         );
     }
 
     #[test]
-    fn an_empty_value_and_no_value_both_read_as_nothing() {
-        let empty = "    Wallpaper    REG_SZ    \r\n";
-        assert_eq!(parse_wallpaper(empty), None);
-        assert_eq!(
-            parse_wallpaper("ERROR: The system was unable to find"),
-            None
-        );
-        assert_eq!(parse_wallpaper(""), None);
+    fn an_empty_value_reads_as_nothing() {
+        assert_eq!(wallpaper_value(""), None);
+        assert_eq!(wallpaper_value("   "), None);
+    }
+
+    /// The desktop is read in this process, and the read answers.
+    ///
+    /// A real read of this machine's own setting, which is harmless: it is
+    /// the value the shell keeps, and nothing is written. A failed read is an
+    /// error rather than "no wallpaper", which is the difference the callers
+    /// depend on.
+    #[cfg(windows)]
+    #[test]
+    fn the_desktop_is_read_without_starting_a_program() {
+        assert!(current().is_ok(), "{:?}", current());
+        let source = include_str!("wallpaper.rs");
+        let body = source
+            .split("#[cfg(windows)]\nfn current()")
+            .nth(1)
+            .and_then(|rest| rest.split("\n}\n").next())
+            .expect("the Windows read");
+        assert!(body.contains("RegGetValueW"), "{body}");
+        assert!(!body.contains("Command::new"), "{body}");
     }
 
     #[test]
@@ -779,12 +832,18 @@ mod tests {
             body.contains("${If} $UpdateMode <> 1"),
             "an update would put the picture back every time it replaced the app"
         );
-        assert!(
-            body.contains(&format!(
+        let restore = body
+            .find(&format!(
                 r#"ExecWait '"$INSTDIR\${{MAINBINARYNAME}}.exe" {RESTORE_ARG} "$APPDATA\${{BUNDLEID}}"'"#
-            )),
-            "{body}"
-        );
+            ))
+            .unwrap_or_else(|| panic!("{body}"));
+        // The app closed first, with the uninstaller's own check: the
+        // template makes that check after this hook, so a Cancel there left
+        // the app running with the note already taken.
+        let closed = body
+            .find(r#"!insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}""#)
+            .unwrap_or_else(|| panic!("the app is not closed first: {body}"));
+        assert!(closed < restore, "{body}");
     }
 
     #[test]
