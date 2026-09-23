@@ -198,6 +198,46 @@ fn a_phase_that_wraps_is_put_back_before_the_slope_is_taken() {
     }
 }
 
+/// A censored block does not pull the reading beside it down.
+///
+/// The reconciliation integrates the slope into a phase and fits the slope
+/// back out of it, and a censored stretch has no slope, so it used to go into
+/// the integral as zero and come back out as a flat stretch of phase that
+/// every window reaching it fitted a line through. This holds each gate from
+/// the one touching the block out to half a window away against the same gate
+/// with the block not there. The tolerance is a fifth of the office's own
+/// step, which is a twentieth of a degree a kilometre: a difference nobody
+/// reading either product could see.
+#[test]
+fn a_censored_block_does_not_pull_down_the_reading_beside_it() {
+    const TOLERANCE: f32 = 0.01;
+    let field = ramp(4.0, 63.0);
+    let open = clean();
+    let mut blocked = clean();
+    let block = 150..190;
+    for azimuth in 0..AZIMUTHS {
+        for gate in block.clone() {
+            blocked.set(azimuth, gate, CENSOR_CORRELATION - 0.05, GateStatus::Valid);
+        }
+    }
+    let without = derive(&field, Some(&open)).expect("a derived cut");
+    let with = derive(&field, Some(&blocked)).expect("a derived cut");
+    let half = window_gates(INTERVAL_KM) / 2;
+    let mut worst = (0usize, 0.0f32);
+    for gate in (block.start - half..block.start).chain(block.end..=block.end + half) {
+        let apart = (at(&with, gate) - at(&without, gate)).abs();
+        if apart > worst.1 {
+            worst = (gate, apart);
+        }
+    }
+    assert!(
+        worst.1 < TOLERANCE,
+        "gate {} reads {} deg/km off with the block beside it",
+        worst.0,
+        worst.1
+    );
+}
+
 /// A rate past the ceiling is more rain than falls, so it is discarded rather
 /// than drawn.
 ///
