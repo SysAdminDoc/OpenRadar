@@ -274,6 +274,9 @@ pub(crate) fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> dealias::
     found
 }
 
+/// `unfold_velocity`, saying which pass placed each gate, for the archive
+/// recorder in `testing.rs` and nothing else.
+#[cfg(test)]
 pub(crate) fn unfold_velocity_recording(
     field: &mut SweepField,
     nyquist: f32,
