@@ -392,6 +392,10 @@ pub fn dealias(
 /// rather than something every caller pays for: the app draws sweeps and does
 /// not care, and the recorder that holds the dealiaser against the archive is
 /// the one thing that has to tell a boundary's mistakes from the wind's.
+///
+/// Test-only, because that recorder is: compiled into the library it is a
+/// function nothing calls, and the release gate's clippy refuses the build.
+#[cfg(test)]
 pub fn dealias_recording(
     values: &mut [f32],
     valid: &[bool],
