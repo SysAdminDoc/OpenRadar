@@ -19,7 +19,7 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testIgnore: /wide\.spec\.ts/,
+      testIgnore: /(wide|soak)\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1440, height: 900 },
@@ -28,7 +28,7 @@ export default defineConfig({
     {
       // The narrowest window the app allows, where the command bar collapses.
       name: "compact",
-      testIgnore: /wide\.spec\.ts/,
+      testIgnore: /(wide|soak)\.spec\.ts/,
       // A case that sets its own viewport overrides this project's, so it does
       // the same work it did under `chromium` and proves nothing the second
       // time. The sixteen-load overflow case alone was 35 seconds of that.
