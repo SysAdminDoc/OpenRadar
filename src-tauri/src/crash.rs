@@ -376,12 +376,17 @@ pub fn install(app_data: &Path) -> Option<crash_handler::CrashHandler> {
         }
     }
     let socket = app_data.join(format!("crash-{}.sock", std::process::id()));
-    std::process::Command::new(exe)
-        .arg(MONITOR_ARG)
-        .arg(&socket)
-        .arg(&dumps)
-        .spawn()
-        .ok()?;
+    let mut monitor = std::process::Command::new(exe);
+    monitor.arg(MONITOR_ARG).arg(&socket).arg(&dumps);
+    // A release build is a windowed binary and its monitor starts with no
+    // console anyway; a debug build is a console one, and its monitor would
+    // otherwise share or open one.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        monitor.creation_flags(crate::CREATE_NO_WINDOW);
+    }
+    monitor.spawn().ok()?;
 
     // The monitor has to be listening before a client can connect, and it has
     // just been started. A short wait rather than a handshake, because the

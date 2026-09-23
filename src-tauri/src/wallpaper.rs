@@ -206,11 +206,19 @@ fn remember_previous() {
 
 #[cfg(windows)]
 fn current() -> Result<Option<String>, String> {
+    use std::os::windows::process::CommandExt;
+
     // The registry rather than COM for the read. `IDesktopWallpaper` answers
     // per monitor and this only has to put one thing back; the value under
     // `Control Panel\Desktop` is what the shell itself restores from.
+    //
+    // Without a console of its own. The app is a windowed binary with none,
+    // and a console program it starts is given a window of its own, which
+    // opened over whatever the reader was doing the first time the desktop
+    // picture was written.
     let output = std::process::Command::new("reg")
         .args(["query", r"HKCU\Control Panel\Desktop", "/v", "Wallpaper"])
+        .creation_flags(crate::CREATE_NO_WINDOW)
         .output()
         .map_err(|error| error.to_string())?;
     Ok(parse_wallpaper(&String::from_utf8_lossy(&output.stdout)))
