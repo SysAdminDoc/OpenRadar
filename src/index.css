@@ -4429,10 +4429,14 @@ input[type="range"]:disabled {
   min-width: 0;
 }
 
+/* Two pixels a side rather than three, which is the room "Einstellungen"
+   needs. German says Settings with a word of thirteen letters, 49 pixels of
+   caption in a 47 pixel box at three a side, and the rail and the panel it
+   opens agree on the word. */
 .command-button {
   height: 48px;
   gap: 4px;
-  padding: 5px 3px;
+  padding: 5px 2px;
   border-radius: 7px;
 }
 

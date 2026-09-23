@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.13.0
 
+- In German the Settings button on the rail reads "Einstellungen" in full again. It is the same word as the panel it opens, and it was two pixels too wide for its button, so it came out cut off.
+
 - Specific differential phase no longer reads low beside a patch of clutter, a blocked sector or the edge of the rain. The method rebuilds the phase from its own first guess and fits the slope back out of it, and wherever the radar measured nothing the rebuilt phase ran flat, so every window that reached a gap fitted a line through a stretch of no rain. Measured on eight stored heavy-rain days with bands censored on purpose, heavy rain beside a band read about a third of a degree a kilometre low. Now it reads within a few hundredths of what it reads with no band there. Light rain beside a gap is a little noisier than before, because the old reading was being pulled toward nothing, and nothing happens to be close to right for light rain.
 
 - A held site opens during a hurricane. The single-site radar refused any volume over sixteen megabytes, and a volume is as big as the weather makes it. On the day Ian came ashore, 187 of the 206 volumes the Tampa Bay radar published were over that line, and so was every one of Florence's at Morehead City. Those are the days a reader holds a site, and the panel answered them with a download error. Volumes can now be up to thirty-two megabytes, which is room above the largest one in the archive (Milton's at Tampa Bay, just under twenty-five). Saving the volume behind the picture had the same limit and gets the same fix. Everything else the app downloads keeps the old ceiling.
