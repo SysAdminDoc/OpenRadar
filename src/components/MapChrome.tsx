@@ -62,6 +62,7 @@ interface RadarLegendProps {
    */
   melting?: MeltingLayer | null;
   hasDebris?: boolean;
+  hasSpike?: boolean;
   echoTopped?: boolean;
   onToggle: () => void;
 }
@@ -78,6 +79,7 @@ export function RadarLegend({
   unplacedShare = 0,
   melting = null,
   hasDebris = false,
+  hasSpike = false,
   echoTopped = false,
   onToggle,
 }: RadarLegendProps) {
@@ -117,6 +119,9 @@ export function RadarLegend({
         ) : null}
         {radarEnabled && hasDebris ? (
           <small className="legend-smoothed">{t("legend.debrisMark")}</small>
+        ) : null}
+        {radarEnabled && hasSpike ? (
+          <small className="legend-smoothed">{t("legend.spikeMark")}</small>
         ) : null}
         {radarEnabled && echoTopped ? (
           <small className="legend-smoothed">{t("legend.echoTopped")}</small>

@@ -48,9 +48,10 @@ pub fn render_sweep(
     // disc affords is to spend the same pixels on less ground. Clipped to the
     // disc, because a box outside it is pixels spent on nothing.
     within: Option<[f64; 4]>,
-    // The gates a debris signature was found at, on the same geometry as the
-    // field. Drawn over whatever the reading there was, because a signature is
-    // a mark rather than a value on the scale.
+    // The gates a signature was found at, on the same geometry as the field:
+    // a tornado debris signature on the rotation products, a three-body
+    // scatter spike on the hail size. Drawn over whatever the reading there
+    // was, because a signature is a mark rather than a value on the scale.
     debris: Option<&SweepField>,
 ) -> (Vec<u8>, [f64; 4]) {
     // A loaded colour table replaces the built-in ramp for the product it says
@@ -93,27 +94,29 @@ pub fn render_sweep(
                 },
                 elevation,
             );
-            let sample = if smooth {
-                smoothed_gate(field, product, polar.azimuth_degrees, polar.range_km)
-            } else {
-                reading_at(field, polar.azimuth_degrees, polar.range_km)
-            };
-            let Some((value, status)) = sample else {
-                continue;
-            };
-
-            let Some((color, alpha)) =
-                gate_color(&status, value, product, table.as_ref(), range, shading)
-            else {
-                continue;
-            };
+            // Looked for before the reading and drawn whatever the reading was,
+            // including nothing. A three-body scatter spike sits behind the
+            // hail core, where the size it is marked on has no value at all,
+            // and drawn only over coloured gates it was never drawn.
             let marked = debris.is_some_and(|flags| {
                 matches!(
                     reading_at(flags, polar.azimuth_degrees, polar.range_km),
                     Some((_, GateStatus::Valid))
                 )
             });
-            let color = if marked { FLAG_MARK } else { color };
+            let sample = if smooth {
+                smoothed_gate(field, product, polar.azimuth_degrees, polar.range_km)
+            } else {
+                reading_at(field, polar.azimuth_degrees, polar.range_km)
+            };
+            let drawn = sample.and_then(|(value, status)| {
+                gate_color(&status, value, product, table.as_ref(), range, shading)
+            });
+            let (color, alpha) = match (marked, drawn) {
+                (true, _) => (FLAG_MARK, MAX_ALPHA),
+                (false, Some(drawn)) => drawn,
+                (false, None) => continue,
+            };
 
             let at = (row * IMAGE_SIZE + column) * 4;
             pixels[at] = color[0];

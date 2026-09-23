@@ -829,6 +829,117 @@ fn a_hurricane_volume_past_the_ordinary_ceiling_opens() {
     clear_cache();
 }
 
+/// Where a volume's three-body scatter spike is marked, as azimuth and
+/// kilometres of ground.
+fn spike_marks(scan: &Scan) -> Vec<(f32, f64)> {
+    let Some(flagged) = crate::derive::spike(scan) else {
+        return Vec::new();
+    };
+    let mut marks = Vec::new();
+    for (at, azimuth) in flagged.azimuths().iter().enumerate() {
+        for bin in 0..flagged.gate_count() {
+            if matches!(flagged.get(at, bin), (_, GateStatus::Valid)) {
+                marks.push((
+                    *azimuth,
+                    flagged.first_gate_range_km() + bin as f64 * flagged.gate_interval_km(),
+                ));
+            }
+        }
+    }
+    marks
+}
+
+/// A spike is marked where one was seen and nowhere else.
+///
+/// KMAF at 23:56 on 2019-05-24: a 70 dBZ core aloft with a spike behind it to
+/// the south-southwest, 6 to 8 dB and 0.2 to 0.6 against the 0 dB and 0.98 of
+/// the storm's own rain beside it. The detector marks 54 bins between 202 and
+/// 206 degrees and 162.5 and 170.5 km, so a detector that stopped finding it
+/// fails here as surely as one that marked the storm.
+#[test]
+#[ignore = "live: fetches a volume from the archive"]
+fn a_spike_behind_a_hail_core_is_marked_where_it_was_seen() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("a runtime");
+    let at = Utc
+        .with_ymd_and_hms(2019, 5, 24, 23, 56, 0)
+        .single()
+        .expect("a UTC time");
+    let data = stored_volume(&runtime, "KMAF", at).expect("the archive hands over the volume");
+    let scan = volume::File::new(data).scan().expect("the volume decodes");
+    let marks = spike_marks(&scan);
+    assert!(!marks.is_empty(), "the spike behind the core was not found");
+    for (azimuth, km) in marks {
+        assert!(
+            (195.0..=210.0).contains(&azimuth) && (155.0..=180.0).contains(&km),
+            "{azimuth:.1} degrees at {km:.1} km is not where the spike was"
+        );
+    }
+}
+
+/// Clear air behind a core is not a spike.
+///
+/// KMLB at 21:00 on 2024-07-10: Florida afternoon storms, a 60 dBZ reading
+/// high in the column, and past it faint clear-air return from insects and
+/// birds with several decibels of differential reflectivity. The first
+/// version of the detector took the column's strongest reading, looked ten to
+/// thirty kilometres behind any 60 dBZ in it for nothing stronger than
+/// 20 dBZ, and marked 63 bins of that clear air. The test first shows the
+/// trap is still in the volume, so a volume that lost it could not pass for
+/// a detector that walks around it.
+#[test]
+#[ignore = "live: fetches a volume from the archive"]
+fn clear_air_behind_a_core_is_not_marked_as_a_spike() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("a runtime");
+    let at = Utc
+        .with_ymd_and_hms(2024, 7, 10, 21, 0, 0)
+        .single()
+        .expect("a UTC time");
+    let data = stored_volume(&runtime, "KMLB", at).expect("the archive hands over the volume");
+    let scan = volume::File::new(data).scan().expect("the volume decodes");
+    let cuts: Vec<(f32, SweepField)> = tilts(&scan)
+        .iter()
+        .filter_map(|angle| {
+            sweep_field_at(&scan, Product::Reflectivity, *angle)
+                .map(|chosen| (chosen.elevation_degrees, chosen.field))
+        })
+        .collect();
+    let (_, lowest) = cuts.first().expect("a cut");
+    let strongest = |azimuth: f32, ground_km: f64| {
+        cuts.iter()
+            .filter_map(|(elevation, cut)| {
+                let slant_km = ground_km / (*elevation as f64).to_radians().cos();
+                match crate::gates::reading_at(cut, azimuth, slant_km) {
+                    Some((dbz, GateStatus::Valid)) => Some(dbz),
+                    _ => None,
+                }
+            })
+            .reduce(f32::max)
+    };
+    let mut trap = 0;
+    for azimuth in lowest.azimuths() {
+        for ground_km in (1..230).map(f64::from) {
+            if strongest(*azimuth, ground_km).is_some_and(|dbz| dbz >= 60.0) {
+                trap += (10..=30)
+                    .filter(|behind| {
+                        strongest(*azimuth, ground_km + f64::from(*behind))
+                            .is_some_and(|dbz| dbz <= 20.0)
+                    })
+                    .count();
+            }
+        }
+    }
+    assert!(
+        trap > 0,
+        "nothing behind a core here fooled the first version, so this volume tests nothing"
+    );
+    assert_eq!(spike_marks(&scan), Vec::new());
+}
 /// Days the specific differential phase is held against, and why each is here.
 ///
 /// Pinned rather than taken from the last week, unlike the unfolding recorder

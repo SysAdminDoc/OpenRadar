@@ -266,6 +266,8 @@ pub struct SweepImage {
     pub unplaced_share: f32,
     /// True when a tornado debris signature was found in this sweep.
     pub has_debris: bool,
+    /// True when a three-body scatter spike is marked on this hail size.
+    pub has_spike: bool,
     /// True when the echo top on screen reaches the highest scanned cut with
     /// no sample above it. The true height may be above what the volume saw.
     pub echo_topped: bool,

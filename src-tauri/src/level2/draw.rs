@@ -223,6 +223,8 @@ pub(crate) struct Prepared {
     derivation: Option<String>,
     /// The gates a debris signature was found at, on the same geometry.
     debris: Option<SweepField>,
+    /// Where a three-body scatter spike reaches, on the hail size's own grid.
+    spike: Option<SweepField>,
     /// True when an echo top reading sits at the highest scanned cut.
     echo_topped: bool,
 }
@@ -324,6 +326,7 @@ pub(crate) fn prepare_sweep(
     }
 
     let mut debris = None;
+    let mut spike = None;
     let mut echo_topped = false;
     let mut hail_heights = None;
     let derivation = match derived {
@@ -374,6 +377,13 @@ pub(crate) fn prepare_sweep(
                 .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
             chosen.field = found.field;
             echo_topped = found.topped;
+            // Beside the size rather than in it: the spike is a sign that
+            // hail large enough to make one is up there, which is the question
+            // the size answers from the other direction, and it is drawn as a
+            // mark over the picture the way the debris signature is.
+            if kind == derive::Kind::HailSize {
+                spike = derive::spike(scan);
+            }
             // A column has no elevation. Reporting the cut this happened to be
             // chosen from would put a tilt beside a picture that is every tilt
             // at once, and the page reads this number to say what it is
@@ -398,6 +408,7 @@ pub(crate) fn prepare_sweep(
         hail_heights,
         derivation,
         debris,
+        spike,
         echo_topped,
     })
 }
@@ -445,6 +456,7 @@ pub(crate) fn draw_sweep(
         hail_heights,
         derivation: _,
         debris,
+        spike,
         echo_topped,
     } = prepared;
     let threshold = asked.threshold;
@@ -466,7 +478,9 @@ pub(crate) fn draw_sweep(
         },
         asked.smooth,
         asked.within,
-        debris.as_ref(),
+        // One mark per picture: the debris signature belongs to the rotation
+        // products and the spike to the hail size, so never both at once.
+        debris.as_ref().or(spike.as_ref()),
     );
 
     // Read before the composite consumes it. Both halves of a composite go
@@ -496,7 +510,7 @@ pub(crate) fn draw_sweep(
             // The same ground as the sweep above it, which is what lets the
             // two composite pixel for pixel.
             asked.within,
-            under.debris.as_ref(),
+            under.debris.as_ref().or(under.spike.as_ref()),
         );
         // The older cut's own time, which is what the legend says the oldest
         // thing on screen is. Without it a composite reports only the age of
@@ -558,6 +572,7 @@ pub(crate) fn draw_sweep(
         product: label.to_string(),
         unit: unit.to_string(),
         has_debris: debris.is_some(),
+        has_spike: spike.is_some(),
         echo_topped,
         hail_heights,
         dealiased,

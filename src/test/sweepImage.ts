@@ -19,6 +19,7 @@ export function sweepImage(overrides: Partial<SweepImage> = {}): SweepImage {
     smoothed: false,
     dealiased: false,
     hasDebris: false,
+    hasSpike: false,
     echoTopped: false,
     unplacedShare: 0,
     live: false,
