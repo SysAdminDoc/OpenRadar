@@ -116,11 +116,12 @@ pub fn derive(phase: &SweepField, correlation: Option<&SweepField>) -> Option<Sw
         despeckle(&mut ray);
         refused.fill(false);
         // Which gates the radar actually measured, kept before the ray is
-        // filled in. The reconciliation below runs over the whole ray because
-        // an integral cannot skip a stretch and carry on, but a gate the radar
-        // saw nothing at is not a gate where it is not raining: it is one
-        // there is no answer for, and drawing the zero the arithmetic left
-        // there would paint clear sky as light rain right across the disc.
+        // filled in. The reconciliation below integrates over the whole ray
+        // because an integral cannot skip a stretch and carry on, but a gate
+        // the radar saw nothing at is not a gate where it is not raining: it
+        // is one there is no answer for, so it is neither fitted through nor
+        // drawn, and drawing the zero the arithmetic left there would paint
+        // clear sky as light rain right across the disc.
         for (gate, slot) in measured.iter_mut().enumerate() {
             *slot = ray[gate].is_some();
         }
@@ -153,8 +154,22 @@ pub fn derive(phase: &SweepField, correlation: Option<&SweepField>) -> Option<Sw
         // Phase and slope reconciled against each other: the phase a slope
         // implies, then the slope that phase implies. A field already
         // consistent with itself is unchanged by this, which is the point.
+        //
+        // The slope is fitted back out only through gates the radar measured.
+        // The integral carries on across a censored stretch at a slope of
+        // nothing, which is what keeps the two sides of it level with each
+        // other, but the flat run of phase it leaves there is not a reading.
+        // Fitted through, it pulled every gate within half a window of the
+        // stretch toward no rain: along a clutter block, across a blocked
+        // sector, at the edge of every echo. A planted ramp read 1.04 degrees a
+        // kilometre instead of 2 at the gate beside a block.
         for _ in 0..ITERATIONS {
             integrate(&slope, interval_km, &mut rebuilt);
+            for (value, seen) in rebuilt.iter_mut().zip(&measured) {
+                if !seen {
+                    *value = None;
+                }
+            }
             slopes(&rebuilt, interval_km, window, &mut slope);
         }
         for (gate, found) in slope.iter().enumerate() {
