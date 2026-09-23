@@ -614,7 +614,7 @@ mod tests {
                 }
             }
         }
-        let mut started = 0usize;
+        let mut starters = Vec::new();
         let mut offenders = Vec::new();
         for path in files {
             let name = path.file_name().expect("a file name").to_string_lossy();
@@ -627,19 +627,21 @@ mod tests {
             let windowless = shipped
                 .matches("creation_flags(crate::CREATE_NO_WINDOW)")
                 .count();
-            started += spawned;
+            if spawned > 0 {
+                starters.push(name.to_string());
+            }
             if windowless < spawned {
                 offenders.push(format!(
                     "{name}: {spawned} started, {windowless} windowless"
                 ));
             }
         }
-        // The crash monitor and the wallpaper's registry read, today. Fewer
-        // than that is the scan reading nothing rather than the app starting
-        // nothing.
+        // The crash monitor, today, since the wallpaper reads the registry in
+        // its own process. Not finding it is the scan reading nothing rather
+        // than the app starting nothing.
         assert!(
-            started >= 2,
-            "found {started} child processes in the source"
+            starters.iter().any(|name| name == "crash.rs"),
+            "the scan found child processes only in {starters:?}"
         );
         assert!(offenders.is_empty(), "{offenders:?}");
     }
