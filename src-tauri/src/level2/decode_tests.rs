@@ -883,12 +883,12 @@ fn recording_the_days_specific_differential_phase_is_held_against() {
         .build()
         .expect("a runtime");
     println!(
-        "station,day,event,at,comparable,mad,bias,near,near_mad,near_bias,near_heavy,near_heavy_mad,near_heavy_bias,office_only,ours_only,twice_rays,twice_comparable,twice_mad,twice_office_only,band_compared,band_mad,band_bias,heavy,heavy_mad,heavy_bias"
+        "station,day,event,at,comparable,mad,bias,near,near_mad,near_bias,near_heavy,near_heavy_mad,near_heavy_bias,office_only,ours_only,twice_rays,twice_comparable,twice_mad,twice_office_only,band_compared,band_mad,band_bias,heavy,heavy_mad,heavy_bias,offset_compared,offset_mad,offset_lost,offset_gained"
     );
     let share = |sum: f64, count: usize| sum / count.max(1) as f64;
-    let row = |found: &AgainstOfficeKdp, band: &BesideABand| {
+    let row = |found: &AgainstOfficeKdp, band: &BesideABand, offset: &UnderAnOffset| {
         format!(
-            "{},{:.4},{:.4},{},{:.4},{:.4},{},{:.4},{:.4},{},{},{},{},{:.4},{},{},{:.4},{:.4},{},{:.4},{:.4}",
+            "{},{:.4},{:.4},{},{:.4},{:.4},{},{:.4},{:.4},{},{},{},{},{:.4},{},{},{:.4},{:.4},{},{:.4},{:.4},{},{:.4},{},{}",
             found.comparable,
             share(found.absolute, found.comparable),
             share(found.signed, found.comparable),
@@ -910,10 +910,15 @@ fn recording_the_days_specific_differential_phase_is_held_against() {
             band.heavy,
             share(band.heavy_absolute, band.heavy),
             share(band.heavy_signed, band.heavy),
+            offset.compared,
+            share(offset.absolute, offset.compared),
+            offset.lost,
+            offset.gained,
         )
     };
     let mut total = AgainstOfficeKdp::default();
     let mut total_band = BesideABand::default();
+    let mut total_offset = UnderAnOffset::default();
     for (station, day, event) in KDP_DAYS {
         clear_cache();
         let day = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").expect("a date");
@@ -925,14 +930,17 @@ fn recording_the_days_specific_differential_phase_is_held_against() {
             println!("{station},{day},{event},{at},no volume");
             continue;
         };
-        let (found, band) = match measure_kdp_bytes(&runtime, station, data) {
+        let (found, band, offset) = match measure_kdp_bytes(&runtime, station, data) {
             Ok(found) => found,
             Err(why) => {
                 println!("{station},{day},{event},{at},\"{why}\"");
                 continue;
             }
         };
-        println!("{station},{day},{event},{at},{}", row(&found, &band));
+        println!(
+            "{station},{day},{event},{at},{}",
+            row(&found, &band, &offset)
+        );
         total.comparable += found.comparable;
         total.absolute += found.absolute;
         total.signed += found.signed;
@@ -954,6 +962,10 @@ fn recording_the_days_specific_differential_phase_is_held_against() {
         total_band.heavy += band.heavy;
         total_band.heavy_absolute += band.heavy_absolute;
         total_band.heavy_signed += band.heavy_signed;
+        total_offset.compared += offset.compared;
+        total_offset.absolute += offset.absolute;
+        total_offset.lost += offset.lost;
+        total_offset.gained += offset.gained;
     }
-    println!("all,,,,{}", row(&total, &total_band));
+    println!("all,,,,{}", row(&total, &total_band, &total_offset));
 }
