@@ -524,6 +524,12 @@ export function testWatchAlert(place: WatchPlace): WatchAlert {
   };
 }
 
+/**
+ * How often the warning watch asks. Often enough to matter for a warning,
+ * rarely enough to be a good citizen, and the pace a backtest of it steps at.
+ */
+export const WATCH_POLL_MS = 45_000;
+
 /** How many polls in a row have to fail before the reader is told. */
 export const WATCH_FAILURES_BEFORE_SAYING = 3;
 

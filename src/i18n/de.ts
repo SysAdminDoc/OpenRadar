@@ -483,6 +483,19 @@ export const de: Catalogue = {
   "history.includeWorkspaceDetail":
     "Zuhause, beobachtete Orte, gespeicherte Ansichten und Einstellungen. Aus, solange Sie es nicht ankreuzen, jedes Mal.",
   "history.saveBundle": "Wiedergabepaket speichern",
+  "backtest.heading": "Was Ihre Beobachtung gesagt hätte",
+  "backtest.note":
+    "Die eigenen Regeln Ihrer Warnungsbeobachtung, auf diese Wiedergabe angewandt, im Takt ihrer Abfragen und mit Ihren Ruhezeiten. Nichts wird gesendet und nichts landet in Ihrem Verlauf. Hinweise auf Blitze und herannahende Gewitter lassen sich nicht wiedergeben, weil die App von keinem der beiden ein Archiv führt.",
+  "backtest.run": "Beobachtung wiedergeben",
+  "backtest.noPlaces":
+    "Sie beobachten noch keinen Ort, also gibt es nichts wiederzugeben. Fügen Sie in den Einstellungen einen hinzu.",
+  "backtest.nothing": "Hier wäre nichts gesagt worden.",
+  "backtest.notSaid": "Nicht gesagt",
+  "backtest.heldUntil": "Die Ruhezeiten hielten sie ab {from} zurück.",
+  "backtest.heldThrough":
+    "Die Ruhezeiten hielten sie ab {from} zurück, und sie war vorbei, bevor diese endeten.",
+  "backtest.failed":
+    "Das Warnungsarchiv hat nicht geantwortet, also gibt es nichts, womit sich die Beobachtung wiedergeben ließe.",
   "history.openBundle": "Ein Wiedergabepaket öffnen",
   "bundle.replayLabel": "Wiedergabepaket",
   "bundle.openTitle": "Ein OpenRadar-Wiedergabepaket öffnen",

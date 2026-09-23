@@ -470,6 +470,20 @@ export const fr: Catalogue = {
   "history.includeWorkspaceDetail":
     "Le domicile, les endroits surveillés, les vues enregistrées et les réglages. Exclus à moins que vous ne cochiez, chaque fois.",
   "history.saveBundle": "Enregistrer le paquet de reprise",
+  "backtest.heading": "Ce que votre surveillance aurait dit",
+  "backtest.note":
+    "Les règles de votre surveillance des alertes, appliquées à cette reprise au rythme où elle interroge, avec vos heures de silence. Rien n'est envoyé et rien n'entre dans votre registre. Les avis de foudre et d'orage qui approche ne peuvent pas être rejoués, car l'application ne garde aucune archive ni de l'un ni de l'autre.",
+  "backtest.run": "Rejouer la surveillance",
+  "backtest.noPlaces":
+    "Vous ne surveillez encore aucun lieu, il n'y a donc rien à rejouer. Ajoutez-en un dans les réglages.",
+  "backtest.nothing": "Rien n'aurait été dit ici.",
+  "backtest.notSaid": "Pas dit",
+  "backtest.heldUntil":
+    "Les heures de silence l'ont retenue à partir de {from}.",
+  "backtest.heldThrough":
+    "Les heures de silence l'ont retenue à partir de {from}, et elle a pris fin avant elles.",
+  "backtest.failed":
+    "L'archive des alertes n'a pas répondu, il n'y a donc rien contre quoi rejouer.",
   "history.openBundle": "Ouvrir un paquet de reprise",
   "bundle.replayLabel": "Paquet de reprise",
   "bundle.openTitle": "Ouvrir un paquet de reprise OpenRadar",

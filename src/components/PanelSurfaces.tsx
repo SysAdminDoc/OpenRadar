@@ -25,7 +25,7 @@ import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import type { UpdateState } from "../lib/updates";
 import { CommandPalette } from "./CommandPalette";
 import { LazyPanel } from "./LazyPanel";
-import type { WatchHealth } from "../lib/watch";
+import { watchedPlaces, type WatchHealth } from "../lib/watch";
 import type { NotifyPermission } from "../lib/notify";
 import type { UndoableRemoval } from "./ToastHost";
 import { CrossSectionPanel } from "../panels/CrossSectionPanel";
@@ -575,6 +575,8 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             bundlesAvailable={props.bundlesAvailable}
             almanac={props.almanac}
             onFlyTo={props.onFlyTo}
+            watchPlaces={watchedPlaces(settings)}
+            alertKinds={settings.alertTypes}
             onClose={onClose}
           />
         </LazyPanel>

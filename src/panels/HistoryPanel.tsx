@@ -12,6 +12,7 @@ import { PanelShell } from "../components/PanelShell";
 import { failureSentence } from "../lib/serviceAnswer";
 import {
   ARCHIVE_FIRST_YEAR,
+  archiveFrames,
   canReplay,
   categoryLabel,
   loadStorm,
@@ -25,6 +26,9 @@ import {
 import { formatNumber, locale, translate, useT } from "../i18n";
 import { almanacFor, readNotes, type AlmanacNote } from "../lib/almanac";
 import { useLatestReply } from "../hooks/useLatestReply";
+import type { AlertType } from "../lib/alertTypes";
+import type { WatchPlace } from "../lib/watch";
+import { WatchBacktest } from "./WatchBacktest";
 
 /** The curated notes, beside the track record, in the app's own bundle. */
 const ALMANAC_URL = "/almanac.json";
@@ -50,6 +54,10 @@ interface HistoryPanelProps {
   almanac: boolean;
   /** Takes the camera to a note's own place, without touching a live layer. */
   onFlyTo: (point: { lon: number; lat: number }) => void;
+  /** The places the warning watch reads, for replaying it over a storm. */
+  watchPlaces: WatchPlace[];
+  /** The kinds of warning the watch has switched on. */
+  alertKinds: Partial<Record<AlertType, boolean>>;
   onClose: () => void;
 }
 
@@ -81,6 +89,8 @@ export function HistoryPanel({
   bundlesAvailable,
   almanac,
   onFlyTo,
+  watchPlaces,
+  alertKinds,
   onClose,
 }: HistoryPanelProps) {
   // Off unless ticked, every time: the workspace knows where home is, and a
@@ -226,6 +236,17 @@ export function HistoryPanel({
     () => (selected && canReplay(selected) ? replayFocus(selected) : null),
     [selected],
   );
+  // The window the replay on screen plays, first frame to last, which is
+  // what the watch is replayed over.
+  const replayed = useMemo(() => {
+    if (!selected || replayId !== selected.id) return null;
+    const frames = archiveFrames(selected);
+    if (!frames.length) return null;
+    return {
+      from: frames[0].time * 1000,
+      to: frames[frames.length - 1].time * 1000,
+    };
+  }, [replayId, selected]);
 
   return (
     <PanelShell
@@ -398,6 +419,15 @@ export function HistoryPanel({
             </button>
           </div>
         </div>
+      ) : null}
+
+      {replayed ? (
+        <WatchBacktest
+          places={watchPlaces}
+          kinds={alertKinds}
+          from={replayed.from}
+          to={replayed.to}
+        />
       ) : null}
 
       {bundlesAvailable ? (

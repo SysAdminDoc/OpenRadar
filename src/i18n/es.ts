@@ -464,6 +464,19 @@ export const es: Catalogue = {
   "history.includeWorkspaceDetail":
     "Casa, lugares vigilados, vistas guardadas y ajustes. Desactivado salvo que lo marques, cada vez.",
   "history.saveBundle": "Guardar paquete de repetición",
+  "backtest.heading": "Lo que habría dicho tu vigilancia",
+  "backtest.note":
+    "Las mismas reglas de tu vigilancia de avisos, aplicadas a esta repetición al ritmo al que consulta y con tus horas de silencio. No se envía nada y nada se anota en tu registro. Los avisos de rayos y de tormentas que se acercan no se pueden repetir, porque la aplicación no guarda archivo de ninguno de los dos.",
+  "backtest.run": "Repetir la vigilancia",
+  "backtest.noPlaces":
+    "Todavía no vigilas ningún lugar, así que no hay nada que repetir. Añade uno en Ajustes.",
+  "backtest.nothing": "Aquí no se habría dicho nada.",
+  "backtest.notSaid": "No se dijo",
+  "backtest.heldUntil": "Las horas de silencio lo retuvieron desde {from}.",
+  "backtest.heldThrough":
+    "Las horas de silencio lo retuvieron desde {from}, y terminó antes que ellas.",
+  "backtest.failed":
+    "El archivo de avisos no respondió, así que no hay con qué repetirla.",
   "history.openBundle": "Abrir un paquete de repetición",
   "bundle.replayLabel": "Paquete de repetición",
   "bundle.openTitle": "Abrir un paquete de repetición de OpenRadar",
