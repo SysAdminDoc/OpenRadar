@@ -1189,6 +1189,12 @@ pub(crate) struct AgainstOfficeKdp {
     pub(crate) near: usize,
     pub(crate) near_absolute: f64,
     pub(crate) near_signed: f64,
+    /// The near gates again, where the office itself reads heavy rain. Sorted
+    /// by the office's reading rather than this app's, so a change to
+    /// `kdp.rs` cannot move a gate into or out of the count it is scored on.
+    pub(crate) near_heavy: usize,
+    pub(crate) near_heavy_absolute: f64,
+    pub(crate) near_heavy_signed: f64,
     /// Gates the office drew and this app did not, and the other way round.
     pub(crate) office_only: usize,
     pub(crate) ours_only: usize,
@@ -1293,6 +1299,11 @@ pub(crate) fn kdp_against_office(
                         found.near += 1;
                         found.near_absolute += apart.abs();
                         found.near_signed += apart;
+                        if read >= HEAVY_KDP {
+                            found.near_heavy += 1;
+                            found.near_heavy_absolute += apart.abs();
+                            found.near_heavy_signed += apart;
+                        }
                     }
                     if twice {
                         found.twice_comparable += 1;
@@ -1346,13 +1357,96 @@ fn first_lowest_phase(scan: &Scan) -> Option<(SweepField, SweepField, f32)> {
     best.map(|(_, phase, correlation, angle)| (phase, correlation, angle))
 }
 
+/// What a censored stretch does to the readings beside it, on real rain.
+///
+/// The one measure here with a reference that is neither the office's method
+/// nor a planted ramp: the same cut derived twice, once as the radar recorded
+/// it and once with bands of it censored on purpose, the way clutter or a
+/// blocked sector would censor them. A gate the band does not cover reads
+/// whatever it read before, if the band leaves it alone. Only gates both runs
+/// drew and within half a window of a band count, because further out the
+/// band is out of reach of any window and the two agree by construction.
+#[derive(Default)]
+pub(crate) struct BesideABand {
+    pub(crate) compared: usize,
+    pub(crate) absolute: f64,
+    pub(crate) signed: f64,
+    /// The same over the gates reading a degree a kilometre or more with no
+    /// band there, which is heavy rain: the readings this field is opened
+    /// for. Most gates are light rain, where the answer is close to nothing
+    /// and pulling a reading toward nothing costs little, so the whole-sweep
+    /// figures can favour a change that fails exactly where it matters.
+    pub(crate) heavy: usize,
+    pub(crate) heavy_absolute: f64,
+    pub(crate) heavy_signed: f64,
+}
+
+/// A degree a kilometre, the edge of heavy rain on this field at S band.
+const HEAVY_KDP: f32 = 1.0;
+
+/// Where the planted bands go, in kilometres from the radar: three ten
+/// kilometre stretches, far enough apart that no window reaches two.
+const PLANTED_BANDS_KM: [(f64, f64); 3] = [(40.0, 50.0), (80.0, 90.0), (120.0, 130.0)];
+
+pub(crate) fn beside_planted_bands(phase: &SweepField, correlation: &SweepField) -> BesideABand {
+    let mut found = BesideABand::default();
+    let Some(open) = kdp::derive(phase, Some(correlation)) else {
+        return found;
+    };
+    let mut banded = correlation.clone();
+    for azimuth in 0..banded.azimuth_count() {
+        for gate in 0..banded.gate_count() {
+            let range_km = crate::gates::gate_centre_km(&banded, gate);
+            if PLANTED_BANDS_KM
+                .iter()
+                .any(|(from, to)| range_km >= *from && range_km < *to)
+            {
+                banded.set(azimuth, gate, 0.5, GateStatus::Valid);
+            }
+        }
+    }
+    let Some(blocked) = kdp::derive(phase, Some(&banded)) else {
+        return found;
+    };
+    let reach_km =
+        kdp::window_gates(phase.gate_interval_km()) as f64 / 2.0 * phase.gate_interval_km();
+    for azimuth in 0..open.azimuth_count() {
+        for gate in 0..open.gate_count() {
+            let range_km = crate::gates::gate_centre_km(&open, gate);
+            let beside = PLANTED_BANDS_KM.iter().any(|(from, to)| {
+                (range_km >= from - reach_km && range_km < *from)
+                    || (range_km >= *to && range_km < to + reach_km)
+            });
+            if !beside {
+                continue;
+            }
+            let (was, was_status) = open.get(azimuth, gate);
+            let (now, now_status) = blocked.get(azimuth, gate);
+            if !matches!(was_status, GateStatus::Valid) || !matches!(now_status, GateStatus::Valid)
+            {
+                continue;
+            }
+            let apart = f64::from(now - was);
+            found.compared += 1;
+            found.absolute += apart.abs();
+            found.signed += apart;
+            if was >= HEAVY_KDP {
+                found.heavy += 1;
+                found.heavy_absolute += apart.abs();
+                found.heavy_signed += apart;
+            }
+        }
+    }
+    found
+}
+
 /// One volume's specific differential phase against the office's, or which
 /// step found nothing to compare.
 pub(crate) fn measure_kdp_bytes(
     runtime: &tokio::runtime::Runtime,
     station: &str,
     data: Vec<u8>,
-) -> Result<AgainstOfficeKdp, String> {
+) -> Result<(AgainstOfficeKdp, BesideABand), String> {
     let scan = volume::File::new(data)
         .scan()
         .map_err(|error| format!("the volume did not decode: {error}"))?;
@@ -1382,12 +1476,9 @@ pub(crate) fn measure_kdp_bytes(
         ));
     }
     let ours = kdp::derive(&phase, Some(&correlation)).ok_or("the derivation refused the cut")?;
-    Ok(kdp_against_office(
-        &phase,
-        &correlation,
-        &ours,
-        &image,
-        scale,
+    Ok((
+        kdp_against_office(&phase, &correlation, &ours, &image, scale),
+        beside_planted_bands(&phase, &correlation),
     ))
 }
 

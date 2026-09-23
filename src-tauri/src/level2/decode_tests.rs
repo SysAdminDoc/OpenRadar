@@ -883,68 +883,77 @@ fn recording_the_days_specific_differential_phase_is_held_against() {
         .build()
         .expect("a runtime");
     println!(
-        "station,day,event,at,comparable,mad,bias,near,near_mad,near_bias,office_only,ours_only,twice_rays,twice_comparable,twice_mad,twice_office_only"
+        "station,day,event,at,comparable,mad,bias,near,near_mad,near_bias,near_heavy,near_heavy_mad,near_heavy_bias,office_only,ours_only,twice_rays,twice_comparable,twice_mad,twice_office_only,band_compared,band_mad,band_bias,heavy,heavy_mad,heavy_bias"
     );
-    let mut total = AgainstOfficeKdp::default();
-    for (station, day, event) in KDP_DAYS {
-        clear_cache();
-        let day = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").expect("a date");
-        let Some(at) = rainiest_moment(&runtime, station, day) else {
-            println!("{station},{day},{event},no listing,,,,,,,,,,,,");
-            continue;
-        };
-        let Some(data) = stored_volume(&runtime, station, at) else {
-            println!("{station},{day},{event},{at},no volume,,,,,,,,,,,");
-            continue;
-        };
-        let found = match measure_kdp_bytes(&runtime, station, data) {
-            Ok(found) => found,
-            Err(why) => {
-                println!("{station},{day},{event},{at},\"{why}\",,,,,,,,,,,");
-                continue;
-            }
-        };
-        println!(
-            "{station},{day},{event},{at},{},{:.4},{:.4},{},{:.4},{:.4},{},{},{},{},{:.4},{}",
+    let share = |sum: f64, count: usize| sum / count.max(1) as f64;
+    let row = |found: &AgainstOfficeKdp, band: &BesideABand| {
+        format!(
+            "{},{:.4},{:.4},{},{:.4},{:.4},{},{:.4},{:.4},{},{},{},{},{:.4},{},{},{:.4},{:.4},{},{:.4},{:.4}",
             found.comparable,
-            found.absolute / found.comparable.max(1) as f64,
-            found.signed / found.comparable.max(1) as f64,
+            share(found.absolute, found.comparable),
+            share(found.signed, found.comparable),
             found.near,
-            found.near_absolute / found.near.max(1) as f64,
-            found.near_signed / found.near.max(1) as f64,
+            share(found.near_absolute, found.near),
+            share(found.near_signed, found.near),
+            found.near_heavy,
+            share(found.near_heavy_absolute, found.near_heavy),
+            share(found.near_heavy_signed, found.near_heavy),
             found.office_only,
             found.ours_only,
             found.twice_rays,
             found.twice_comparable,
-            found.twice_absolute / found.twice_comparable.max(1) as f64,
+            share(found.twice_absolute, found.twice_comparable),
             found.twice_office_only,
-        );
+            band.compared,
+            share(band.absolute, band.compared),
+            share(band.signed, band.compared),
+            band.heavy,
+            share(band.heavy_absolute, band.heavy),
+            share(band.heavy_signed, band.heavy),
+        )
+    };
+    let mut total = AgainstOfficeKdp::default();
+    let mut total_band = BesideABand::default();
+    for (station, day, event) in KDP_DAYS {
+        clear_cache();
+        let day = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").expect("a date");
+        let Some(at) = rainiest_moment(&runtime, station, day) else {
+            println!("{station},{day},{event},no listing");
+            continue;
+        };
+        let Some(data) = stored_volume(&runtime, station, at) else {
+            println!("{station},{day},{event},{at},no volume");
+            continue;
+        };
+        let (found, band) = match measure_kdp_bytes(&runtime, station, data) {
+            Ok(found) => found,
+            Err(why) => {
+                println!("{station},{day},{event},{at},\"{why}\"");
+                continue;
+            }
+        };
+        println!("{station},{day},{event},{at},{}", row(&found, &band));
         total.comparable += found.comparable;
         total.absolute += found.absolute;
         total.signed += found.signed;
         total.near += found.near;
         total.near_absolute += found.near_absolute;
         total.near_signed += found.near_signed;
+        total.near_heavy += found.near_heavy;
+        total.near_heavy_absolute += found.near_heavy_absolute;
+        total.near_heavy_signed += found.near_heavy_signed;
         total.office_only += found.office_only;
         total.ours_only += found.ours_only;
         total.twice_rays += found.twice_rays;
         total.twice_comparable += found.twice_comparable;
         total.twice_absolute += found.twice_absolute;
         total.twice_office_only += found.twice_office_only;
+        total_band.compared += band.compared;
+        total_band.absolute += band.absolute;
+        total_band.signed += band.signed;
+        total_band.heavy += band.heavy;
+        total_band.heavy_absolute += band.heavy_absolute;
+        total_band.heavy_signed += band.heavy_signed;
     }
-    println!(
-        "all,,,,{},{:.4},{:.4},{},{:.4},{:.4},{},{},{},{},{:.4},{}",
-        total.comparable,
-        total.absolute / total.comparable.max(1) as f64,
-        total.signed / total.comparable.max(1) as f64,
-        total.near,
-        total.near_absolute / total.near.max(1) as f64,
-        total.near_signed / total.near.max(1) as f64,
-        total.office_only,
-        total.ours_only,
-        total.twice_rays,
-        total.twice_comparable,
-        total.twice_absolute / total.twice_comparable.max(1) as f64,
-        total.twice_office_only,
-    );
+    println!("all,,,,{}", row(&total, &total_band));
 }
