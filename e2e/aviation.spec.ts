@@ -8,6 +8,11 @@ import { routeWorkspace, test } from "./support/fixtures";
 
 const LAYER = "openradar-overlay-aviation-fill";
 
+// Valid now, whenever now is. The layer drops a hazard whose window has
+// closed, which is right, and a fixture pinned to the day it was written
+// expired twelve days later and took the popup with it.
+const HOUR = 60 * 60 * 1000;
+
 const SIGMET = {
   type: "FeatureCollection",
   features: [
@@ -16,8 +21,8 @@ const SIGMET = {
       properties: {
         airSigmetType: "SIGMET",
         hazard: "CONVECTIVE",
-        validTimeFrom: "2026-09-10T06:55:00.000Z",
-        validTimeTo: "2026-09-10T08:55:00.000Z",
+        validTimeFrom: new Date(Date.now() - HOUR).toISOString(),
+        validTimeTo: new Date(Date.now() + 2 * HOUR).toISOString(),
         altitudeHi1: 34000,
         altitudeLow1: null,
         rawAirSigmet: "CONVECTIVE SIGMET 10W",

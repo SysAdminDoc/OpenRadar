@@ -10,7 +10,11 @@ import { routeWorkspace, test } from "./support/fixtures";
  */
 const HOME: [number, number] = [-96.8, 32.78];
 
-async function start(page: Page, watch: Record<string, unknown> = {}) {
+async function start(
+  page: Page,
+  watch: Record<string, unknown> = {},
+  view = "",
+) {
   await page.addInitScript((value) => {
     window.localStorage.setItem(
       "openradar.settings",
@@ -28,7 +32,7 @@ async function start(page: Page, watch: Record<string, unknown> = {}) {
     );
   }, watch);
   await routeWorkspace(page);
-  await page.goto("/?testMode=1");
+  await page.goto(`/?testMode=1${view}`);
   await expect(page.getByRole("application")).toBeVisible();
 }
 
@@ -44,21 +48,27 @@ async function runHome(page: Page) {
 test("comes home from the other side of the world in one action", async ({
   page,
 }) => {
-  await start(page);
+  // Opened over Perth, a hundred and fifty degrees of the globe from home.
+  // This used to get away from home with six presses of the left arrow, and
+  // since the arrows moved a readout cursor instead of the camera, six presses
+  // from the middle of the map never reach the edge that pans it: the camera
+  // stayed where it was and the test stopped there.
+  //
+  // Not the antipode itself. A flight to the exact opposite point has no
+  // great circle to follow, and MapLibre's globe answers it with a projection
+  // matrix it cannot invert, throwing on every frame with the camera stuck;
+  // a hundredth of a degree off, it flies. Nobody's camera is on the antipode
+  // to five decimal places, and a test that was would be about MapLibre.
+  await start(page, {}, "&lon=115.86&lat=-31.95&zoom=3&bearing=0&pitch=0");
   // The globe is the case worth covering: a camera on the far side of it is
-  // as far from home as the app can put somebody.
+  // the longest way home.
   await page.getByRole("button", { name: "Globe", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Flat", exact: true }),
   ).toBeVisible();
-
-  const pane = page.getByRole("application").first();
-  await pane.click({ position: { x: 60, y: 60 } });
-  const before = await camera(page);
-  for (let press = 0; press < 6; press += 1) {
-    await page.keyboard.press("ArrowLeft");
-  }
-  await expect.poll(() => camera(page)).not.toBe(before);
+  await expect
+    .poll(async () => (await camera(page))?.split(",").slice(0, 2).join(","))
+    .toBe("115.86000,-31.95000");
 
   await runHome(page);
   await expect
