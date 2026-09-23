@@ -54,11 +54,7 @@ test("comes home from the other side of the world in one action", async ({
   // from the middle of the map never reach the edge that pans it: the camera
   // stayed where it was and the test stopped there.
   //
-  // Not the antipode itself. A flight to the exact opposite point has no
-  // great circle to follow, and MapLibre's globe answers it with a projection
-  // matrix it cannot invert, throwing on every frame with the camera stuck;
-  // a hundredth of a degree off, it flies. Nobody's camera is on the antipode
-  // to five decimal places, and a test that was would be about MapLibre.
+  // Not the antipode itself, which has a test of its own below.
   await start(page, {}, "&lon=115.86&lat=-31.95&zoom=3&bearing=0&pitch=0");
   // The globe is the case worth covering: a camera on the far side of it is
   // the longest way home.
@@ -80,6 +76,23 @@ test("comes home from the other side of the world in one action", async ({
   await expect(
     page.getByRole("button", { name: "Flat", exact: true }),
   ).toBeVisible();
+});
+
+test("comes home from the exact far side of the world", async ({ page }) => {
+  // The antipode itself. A flight to the exact opposite point has no one
+  // great circle to follow, and MapLibre's globe answered it with a
+  // projection matrix it could not invert, throwing on every frame with the
+  // camera stuck. The flight is skipped there and the camera goes straight
+  // home.
+  await start(page, {}, "&lon=83.2&lat=-32.78&zoom=3&bearing=0&pitch=0");
+  await page.getByRole("button", { name: "Globe", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Flat", exact: true }),
+  ).toBeVisible();
+  await runHome(page);
+  await expect
+    .poll(async () => (await camera(page))?.split(",").slice(0, 2).join(","))
+    .toBe(`${HOME[0].toFixed(5)},${HOME[1].toFixed(5)}`);
 });
 
 test("says what the reader calls home, in the watch and in an alert", async ({

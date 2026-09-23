@@ -99,6 +99,33 @@ export function cameraMotion(duration: number): {
 }
 
 /**
+ * The same for a flight from one centre to another, with no flight at all
+ * between the two ends of a diameter.
+ *
+ * MapLibre's globe has no one great circle to follow between two antipodal
+ * points and throws on every frame of the flight, so Home pressed from the
+ * exact far side of the world never arrived. Within a tenth of a degree of
+ * that, the camera goes straight there instead.
+ */
+export function flightMotion(
+  from: { lng: number; lat: number } | undefined,
+  to: [number, number],
+  duration: number,
+): { duration: number; essential: false; animate?: false } {
+  const motion = cameraMotion(duration);
+  if (!from) return motion;
+  const radians = Math.PI / 180;
+  const [lon, lat] = to;
+  const cosine =
+    Math.sin(from.lat * radians) * Math.sin(lat * radians) +
+    Math.cos(from.lat * radians) *
+      Math.cos(lat * radians) *
+      Math.cos((from.lng - lon) * radians);
+  const apart = Math.acos(Math.min(1, Math.max(-1, cosine))) / radians;
+  return apart > 179.9 ? { ...motion, animate: false } : motion;
+}
+
+/**
  * Watches one media query, for the three that are watched here.
  *
  * Written three times before, and the first of the three had no guard: a

@@ -81,7 +81,7 @@ import {
 } from "../i18n";
 import { overlayBandOrder } from "../lib/overlayOrder";
 import { popupFrom, safePopupUrl } from "../lib/mapPopup";
-import { cameraMotion, useHighContrast } from "../hooks/useClock";
+import { cameraMotion, flightMotion, useHighContrast } from "../hooks/useClock";
 import { loadCounties } from "../lib/counties";
 import { nightPolygon } from "../lib/terminator";
 import { MRMS_MAX_ZOOM } from "../lib/providers/mrms";
@@ -2209,7 +2209,7 @@ function MapViewportInner(
         zoom: nextCamera.zoom,
         bearing: nextCamera.bearing,
         pitch: nextCamera.pitch,
-        ...cameraMotion(850),
+        ...flightMotion(mapRef.current?.getCenter(), nextCamera.center, 850),
       });
     },
     clearTools: () => {
