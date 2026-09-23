@@ -685,17 +685,32 @@ test.describe("the rail's own words, in every language it ships @ownViewport", (
             // and a zero inside a zero is not a fit. Only what a reader can
             // actually see is measured.
             .filter((span) => span.clientWidth > 0)
-            .map((span) => ({
-              text: span.textContent ?? "",
-              wants: span.scrollWidth,
-              has: span.clientWidth,
-            })),
+            .map((span) => {
+              // The room is the button's box inside its padding. The span's
+              // own width is no measure of it: the span is as wide as its
+              // words whenever they fit, so it always reads as full.
+              const button = span.closest(".command-button") as HTMLElement;
+              const style = getComputedStyle(button);
+              return {
+                text: span.textContent ?? "",
+                wants: span.scrollWidth,
+                has:
+                  button.clientWidth -
+                  parseFloat(style.paddingLeft) -
+                  parseFloat(style.paddingRight),
+              };
+            }),
         );
         // Without this the whole test passes by measuring nothing, which is
         // exactly what the compact run was doing.
         expect(measured.length).toBeGreaterThan(3);
+        // A pixel of room at least. This held "wants no more than has plus
+        // one", and under an ellipsis that pixel is the caption shown cut:
+        // "Einstellungen" sat at exactly its box and passed, with nothing
+        // spare for a display scaled to 125 per cent that rounds the other
+        // way.
         const cut = measured
-          .filter((span) => span.wants > span.has + 1)
+          .filter((span) => span.wants >= span.has)
           .map((span) => `${span.text}: ${span.wants} in ${span.has}`);
         expect(cut).toEqual([]);
       });

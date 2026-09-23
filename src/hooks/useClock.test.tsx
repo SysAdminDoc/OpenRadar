@@ -2,6 +2,7 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cameraMotion,
+  flightMotion,
   reducedMotionRequested,
   useMinuteClock,
   useSecondClock,
@@ -93,5 +94,29 @@ describe("the current motion preference", () => {
     reduce = false;
     expect(reducedMotionRequested()).toBe(false);
     expect(cameraMotion(850)).toEqual({ duration: 850, essential: false });
+  });
+});
+
+describe("a flight between two centres", () => {
+  it("jumps between the two ends of a diameter and flies everywhere else", () => {
+    // Home at Dallas and a camera on its exact antipode, where MapLibre's
+    // globe has no one great circle to fly and throws on every frame.
+    const home: [number, number] = [-96.8, 32.78];
+    expect(flightMotion({ lng: 83.2, lat: -32.78 }, home, 850)).toMatchObject({
+      animate: false,
+    });
+    // A twentieth of a degree off is still a jump, a degree off is a flight,
+    // and so is the ordinary case of somewhere else on the map.
+    expect(flightMotion({ lng: 83.25, lat: -32.78 }, home, 850).animate).toBe(
+      false,
+    );
+    expect(
+      flightMotion({ lng: 82.2, lat: -32.78 }, home, 850).animate,
+    ).toBeUndefined();
+    expect(flightMotion({ lng: 115.86, lat: -31.95 }, home, 850)).toEqual(
+      cameraMotion(850),
+    );
+    // No camera yet is no flight to worry about.
+    expect(flightMotion(undefined, home, 850)).toEqual(cameraMotion(850));
   });
 });
