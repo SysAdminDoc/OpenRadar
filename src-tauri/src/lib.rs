@@ -159,6 +159,11 @@ pub fn run() {
     if crash::ran_as_monitor() {
         return;
     }
+    // The uninstaller's errand, for the same reasons: put the reader's own
+    // wallpaper back and go, with no window and no second copy of the app.
+    if wallpaper::ran_as_restore() {
+        return;
+    }
 
     std::panic::set_hook(Box::new(|panic_info| {
         log::error!("OpenRadar panic: {panic_info}");
