@@ -846,9 +846,11 @@ pub async fn export_volume_file(
     // Level II volume that is the ordinary case, and it costs nothing and
     // cannot come back as a different object. A terminal radar's products are
     // not put in that cache by anything, so its save always fetches.
+    // Under the volume ceiling rather than the ordinary one, because a volume
+    // that has fallen out of the cache is as large as the day made it.
     let bytes = match level2::cached(&key) {
         Some(held) => held,
-        None => crate::http::get_bytes(&format!("{host}/{key}"))
+        None => crate::http::get_bytes_up_to(&format!("{host}/{key}"), level2::VOLUME_MAX_BYTES)
             .await
             .map_err(Level2Error::from)?,
     };
