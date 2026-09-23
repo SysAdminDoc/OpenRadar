@@ -141,6 +141,73 @@ fn restore_with(apply_to: impl Fn(&str) -> Result<(), String>) -> Result<(), Str
     Ok(())
 }
 
+/// What the uninstaller starts this binary with, and the app's data directory
+/// after it.
+///
+/// A contract with the installer rather than with this build, so the literal
+/// is pinned by a test: the uninstaller of the version being removed is the
+/// one that runs, and it asks with whatever it was built to ask with.
+pub const RESTORE_ARG: &str = "--restore-wallpaper";
+
+/// Puts the reader's own wallpaper back when this process was started only to
+/// do that, and says whether it was.
+///
+/// The caller returns without building anything when this answers true: the
+/// process is the uninstaller's errand, not the app. Nothing here creates a
+/// directory, because it runs as the app is being taken off the machine.
+pub fn ran_as_restore() -> bool {
+    let mut arguments = std::env::args().skip(1);
+    if arguments.next().as_deref() != Some(RESTORE_ARG) {
+        return false;
+    }
+    if let Some(dir) = arguments.next() {
+        *TARGET.lock().unwrap_or_else(|held| held.into_inner()) =
+            Some(std::path::Path::new(&dir).join("wallpaper.png"));
+        if let Err(error) = restore_if_ours(current, apply) {
+            log::warn!("OpenRadar could not put the wallpaper back: {error}");
+        }
+    }
+    true
+}
+
+/// Puts back what was taken, if the desktop is still showing ours.
+///
+/// The uninstall's version of `restore_with`. Closing the app leaves its last
+/// picture up, which is the design; taking the app off the machine is not the
+/// same thing, because nothing would ever change that picture again and the
+/// note saying what it replaced goes with the app's data. But a reader who has
+/// put a picture of their own up since is not given back one they replaced
+/// themselves, so the old one goes back only over ours. The note goes either
+/// way: after this nothing is taken.
+///
+/// A desktop that cannot be read is treated as showing ours. The note only
+/// exists while the feature is switched on, so ours is by far the likelier
+/// answer, and the defect this exists for is a radar picture nobody can take
+/// down.
+fn restore_if_ours(
+    showing: impl Fn() -> Result<Option<String>, String>,
+    apply_to: impl Fn(&str) -> Result<(), String>,
+) -> Result<(), String> {
+    let Some(was) = read_record() else {
+        return Ok(());
+    };
+    let ours = target()
+        .map(|path| path.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let still_ours = match showing() {
+        Ok(Some(path)) => path.eq_ignore_ascii_case(&ours),
+        Ok(None) => false,
+        Err(_) => true,
+    };
+    if still_ours {
+        apply_to(was.as_deref().unwrap_or(""))?;
+    }
+    if let Some(path) = record_path() {
+        let _ = std::fs::remove_file(path);
+    }
+    Ok(())
+}
+
 /// The note from a previous run, if this app wrote one and has not put it back.
 fn read_record() -> Option<Option<String>> {
     let path = record_path()?;
@@ -615,6 +682,108 @@ mod tests {
         assert_eq!(
             asked.into_inner().unwrap_or_else(|held| held.into_inner()),
             0
+        );
+    }
+
+    /// What the uninstaller's errand asked the desktop for, with the desktop
+    /// said to be showing `showing`.
+    fn restored_on_uninstall(showing: Result<Option<String>, String>) -> Vec<String> {
+        let asked = Mutex::new(Vec::<String>::new());
+        restore_if_ours(
+            || showing.clone(),
+            |path| {
+                asked
+                    .lock()
+                    .unwrap_or_else(|held| held.into_inner())
+                    .push(path.to_string());
+                Ok(())
+            },
+        )
+        .expect("the errand does not fail");
+        asked.into_inner().unwrap_or_else(|held| held.into_inner())
+    }
+
+    #[test]
+    fn uninstalling_puts_the_readers_picture_back_over_ours() {
+        let held = guard();
+        let note = held.dir.join("wallpaper-previous.txt");
+        std::fs::write(&note, r"C:\Users\somebody\dog.jpg").unwrap();
+        let ours = held.dir.join("wallpaper.png").to_string_lossy().to_string();
+        assert_eq!(
+            restored_on_uninstall(Ok(Some(ours.to_uppercase()))),
+            vec![r"C:\Users\somebody\dog.jpg".to_string()]
+        );
+        assert!(!note.exists(), "nothing is taken once the app is going");
+    }
+
+    #[test]
+    fn uninstalling_leaves_a_picture_the_reader_chose_since() {
+        // The feature is switched on, the app has been closed for a week and
+        // the reader has put up a photograph of their own. Giving them back
+        // the one they had before the radar would undo their choice.
+        let held = guard();
+        let note = held.dir.join("wallpaper-previous.txt");
+        std::fs::write(&note, r"C:\Users\somebody\dog.jpg").unwrap();
+        assert!(restored_on_uninstall(Ok(Some(r"C:\Users\somebody\beach.jpg".into()))).is_empty());
+        assert!(!note.exists(), "the note goes whether or not it was used");
+        // And a plain colour they chose since, which is a choice too.
+        std::fs::write(&note, r"C:\Users\somebody\dog.jpg").unwrap();
+        assert!(restored_on_uninstall(Ok(None)).is_empty());
+        assert!(!note.exists());
+    }
+
+    #[test]
+    fn uninstalling_with_a_desktop_it_cannot_read_still_takes_ours_down() {
+        let held = guard();
+        std::fs::write(held.dir.join("wallpaper-previous.txt"), "").unwrap();
+        // An empty note is the plain colour, asked for as an empty path.
+        assert_eq!(
+            restored_on_uninstall(Err("reg is not there".into())),
+            vec![String::new()]
+        );
+    }
+
+    #[test]
+    fn uninstalling_with_nothing_taken_touches_nothing() {
+        // The errand runs as the app is taken off the machine, so a reader
+        // who never switched the feature on must not be left with a
+        // directory the uninstall then has to be asked about.
+        let _held = guard();
+        let gone =
+            std::env::temp_dir().join(format!("openradar-wallpaper-never-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&gone);
+        *TARGET.lock().unwrap_or_else(|inner| inner.into_inner()) =
+            Some(gone.join("wallpaper.png"));
+        assert!(restored_on_uninstall(Ok(None)).is_empty());
+        assert!(!gone.exists(), "the errand made a directory");
+    }
+
+    /// The flag is a contract with whichever version's uninstaller runs, and
+    /// the hook is a file nothing in the build runs before an installer is
+    /// made. Both are held here.
+    #[test]
+    fn the_uninstaller_asks_for_the_wallpaper_back_and_not_during_an_update() {
+        assert_eq!(RESTORE_ARG, "--restore-wallpaper");
+        let config = include_str!("../tauri.conf.json");
+        assert!(
+            config.contains(r#""installerHooks": "./windows/hooks.nsh""#),
+            "the installer is not given the hooks"
+        );
+        let hooks = include_str!("../windows/hooks.nsh");
+        let body = hooks
+            .split("!macro NSIS_HOOK_PREUNINSTALL")
+            .nth(1)
+            .and_then(|rest| rest.split("!macroend").next())
+            .expect("a pre-uninstall hook");
+        assert!(
+            body.contains("${If} $UpdateMode <> 1"),
+            "an update would put the picture back every time it replaced the app"
+        );
+        assert!(
+            body.contains(&format!(
+                r#"ExecWait '"$INSTDIR\${{MAINBINARYNAME}}.exe" {RESTORE_ARG} "$APPDATA\${{BUNDLEID}}"'"#
+            )),
+            "{body}"
         );
     }
 
