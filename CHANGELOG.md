@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.13.0
 
+- Specific differential phase now throws out a slope above fourteen degrees a kilometre rather than twenty. Twenty is the method's figure for C-band radars, and the same rain reads about half as much at the S band these radars use, so a reading between fourteen and twenty is one no rain makes here. It touched a handful of gates on the stored storm days, and the picture agrees a little better with the weather service's own product for it.
+
 - Uninstalling OpenRadar with the radar wallpaper switched on puts your own wallpaper back. Closing the app leaves its last picture up, which is how it has always worked. Uninstalling was different: it left the desktop pointing at a picture nothing would ever change again, and the note of what it had replaced went with the app's data. If you've put up a picture of your own since, that one stays.
 
 - Switching on the radar wallpaper no longer flashes a black console window across the screen. Before it writes the first picture the app notes down the reader's own wallpaper, and it did that by starting a small Windows program that was given a window of its own. It now starts with none, and so does anything else the app starts.

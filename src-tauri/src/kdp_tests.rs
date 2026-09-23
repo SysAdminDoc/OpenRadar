@@ -343,6 +343,28 @@ fn a_phase_settled_at_the_top_of_its_turn_reads_as_no_rain() {
     }
 }
 
+/// The ceiling is the one for the band these radars work in.
+///
+/// Sixteen degrees a kilometre is believable from a C-band radar and not from
+/// an S-band one, where the same rain reads about half as much: the heaviest
+/// rain the office's own product can say is 10.6. The paper's 20 is its
+/// C-band figure, and this used to draw everything under it.
+#[test]
+fn a_rate_only_a_shorter_wavelength_could_read_is_discarded() {
+    let correlation = clean();
+    // Thirty-two degrees a kilometre of phase is sixteen of slope.
+    let field = derive(&ramp(32.0, 0.0), Some(&correlation)).expect("a derived cut");
+    for gate in [60usize, 150, 300] {
+        let (value, status) = field.get(4, gate);
+        assert!(
+            !matches!(status, GateStatus::Valid),
+            "gate {gate} was drawn at {value} deg/km on an S-band radar"
+        );
+    }
+    // And the method line says which ceiling was in force.
+    assert!(derivation(&field).contains("-2 to 14 degrees"));
+}
+
 /// A reading no radar could make is not taken, and does not stop the rest.
 ///
 /// A local Archive II file names its own scale and offset, and one that made a
