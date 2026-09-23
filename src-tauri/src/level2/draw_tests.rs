@@ -1164,6 +1164,47 @@ fn a_composite_reports_the_worse_of_its_two_halves() {
     assert!((drawn.unplaced_share - 0.7).abs() < 1e-6);
 }
 
+/// A mark on the older half of a live composite is named in the legend.
+///
+/// The older half's marks are drawn wherever it shows, and only the newer
+/// half's reached the legend, so a white mark with nothing saying what it
+/// was is what the composite drew while a new volume's cut filled in.
+#[test]
+fn a_mark_on_the_older_half_of_a_composite_is_named_in_the_legend() {
+    let older_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 35, 0).unwrap();
+    let live_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 41, 0).unwrap();
+    let (older, live) = faded_pair(older_at, live_at);
+    let none = |_: u8| None;
+    let asked = SweepRequest {
+        product_name: "reflectivity",
+        ..SweepRequest::default()
+    };
+    for (debris, spike) in [(true, false), (false, true)] {
+        let over = prepare_sweep("KTLX", &live, &none, asked, None).expect("the newer half");
+        let mut under = prepare_sweep("KTLX", &older, &none, asked, None).expect("the older half");
+        let flags = under.chosen.field.clone();
+        if debris {
+            under.debris = Some(flags.clone());
+        }
+        if spike {
+            under.spike = Some(flags);
+        }
+        let drawn = draw_sweep(
+            "KTLX",
+            "live",
+            tilts(&live),
+            0,
+            over,
+            Some(under),
+            asked,
+            None,
+            None,
+        )
+        .expect("a composite");
+        assert_eq!((drawn.has_debris, drawn.has_spike), (debris, spike));
+    }
+}
+
 /// A volume with a velocity couplet planted at a stated place and strength.
 ///
 /// One cut, half a degree, with reflectivity everywhere so nothing is masked

@@ -662,7 +662,7 @@ fn every_reading_of_where_a_gate_begins_agrees_with_the_one_that_reads_gates() {
     }
 }
 
-/// A mark is drawn where the picture beneath it has nothing, and past a
+/// A spike is drawn where the picture beneath it has nothing, and past a
 /// threshold that hides the picture.
 ///
 /// A three-body scatter spike sits behind the hail core, where the size it is
@@ -670,7 +670,7 @@ fn every_reading_of_where_a_gate_begins_agrees_with_the_one_that_reads_gates() {
 /// never drawn. And a signature is not a value on the scale, so a threshold on
 /// the scale has nothing to say about it.
 #[test]
-fn a_mark_is_drawn_where_the_picture_beneath_it_has_nothing() {
+fn a_spike_is_drawn_where_the_picture_beneath_it_has_nothing() {
     let (mut field, coordinates) = stepped_field(Product::Reflectivity);
     let mut marks = field.clone();
     for azimuth in 0..field.azimuth_count() {
@@ -688,7 +688,7 @@ fn a_mark_is_drawn_where_the_picture_beneath_it_has_nothing() {
             marks.set(azimuth, gate, 1.0, status);
         }
     }
-    let drawn = |threshold: Option<f32>, flags: Option<&SweepField>| {
+    let drawn = |threshold: Option<f32>, flags: Option<Marks<'_>>| {
         render_sweep(
             &field,
             &coordinates,
@@ -707,7 +707,7 @@ fn a_mark_is_drawn_where_the_picture_beneath_it_has_nothing() {
         .0
     };
     let bare = drawn(None, None);
-    let marked = drawn(None, Some(&marks));
+    let marked = drawn(None, Some(Marks::Spike(&marks)));
     let mut added = 0;
     for (before, after) in bare
         .as_chunks::<4>()
@@ -729,7 +729,7 @@ fn a_mark_is_drawn_where_the_picture_beneath_it_has_nothing() {
 
     // With the whole picture under the threshold the marks are all that is
     // left, and every one of them is still there.
-    let hidden = drawn(Some(1000.0), Some(&marks));
+    let hidden = drawn(Some(1000.0), Some(Marks::Spike(&marks)));
     let left = hidden
         .as_chunks::<4>()
         .0
@@ -737,4 +737,14 @@ fn a_mark_is_drawn_where_the_picture_beneath_it_has_nothing() {
         .filter(|pixel| pixel[3] > 0)
         .count();
     assert_eq!(left, added);
+
+    // The debris signature is drawn as it always was: over a gate the picture
+    // drew and nowhere else. Its flags are not checked against a value, so
+    // drawing them over nothing would put white on gates with no rotation.
+    assert_eq!(drawn(None, Some(Marks::Debris(&marks))), bare);
+    assert!(drawn(Some(1000.0), Some(Marks::Debris(&marks)))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .all(|pixel| pixel[3] == 0));
 }

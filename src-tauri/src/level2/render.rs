@@ -28,6 +28,21 @@ pub struct Shading {
     pub derived: Option<Worked>,
 }
 
+/// The gates a signature was found at, on the same geometry as the field,
+/// drawn in white because a signature is a mark rather than a value on the
+/// scale. Which one it is decides where it may be drawn.
+#[derive(Clone, Copy)]
+pub enum Marks<'a> {
+    /// A tornado debris signature, on the rotation products. Drawn only over
+    /// a gate the picture drew, which is how it has always been drawn.
+    Debris(&'a SweepField),
+    /// A three-body scatter spike, on the hail size. Drawn whatever the
+    /// reading under it was, nothing included: the spike sits behind the hail
+    /// core where the size has no value at all, and drawn only over coloured
+    /// gates it was never drawn.
+    Spike(&'a SweepField),
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn render_sweep(
     field: &SweepField,
@@ -48,12 +63,14 @@ pub fn render_sweep(
     // disc affords is to spend the same pixels on less ground. Clipped to the
     // disc, because a box outside it is pixels spent on nothing.
     within: Option<[f64; 4]>,
-    // The gates a signature was found at, on the same geometry as the field:
-    // a tornado debris signature on the rotation products, a three-body
-    // scatter spike on the hail size. Drawn over whatever the reading there
-    // was, because a signature is a mark rather than a value on the scale.
-    debris: Option<&SweepField>,
+    // The signature to mark, if one was found.
+    marks: Option<Marks<'_>>,
 ) -> (Vec<u8>, [f64; 4]) {
+    let (flags, over_nothing) = match marks {
+        Some(Marks::Debris(flags)) => (Some(flags), false),
+        Some(Marks::Spike(flags)) => (Some(flags), true),
+        None => (None, false),
+    };
     // A loaded colour table replaces the built-in ramp for the product it says
     // it is for, and nothing else. That is the whole point of loading one: two
     // people comparing the same storm see the same colours.
@@ -94,11 +111,7 @@ pub fn render_sweep(
                 },
                 elevation,
             );
-            // Looked for before the reading and drawn whatever the reading was,
-            // including nothing. A three-body scatter spike sits behind the
-            // hail core, where the size it is marked on has no value at all,
-            // and drawn only over coloured gates it was never drawn.
-            let marked = debris.is_some_and(|flags| {
+            let marked = flags.is_some_and(|flags| {
                 matches!(
                     reading_at(flags, polar.azimuth_degrees, polar.range_km),
                     Some((_, GateStatus::Valid))
@@ -113,9 +126,10 @@ pub fn render_sweep(
                 gate_color(&status, value, product, table.as_ref(), range, shading)
             });
             let (color, alpha) = match (marked, drawn) {
-                (true, _) => (FLAG_MARK, MAX_ALPHA),
-                (false, Some(drawn)) => drawn,
-                (false, None) => continue,
+                (true, Some((_, alpha))) => (FLAG_MARK, alpha),
+                (true, None) if over_nothing => (FLAG_MARK, MAX_ALPHA),
+                (_, Some(drawn)) => drawn,
+                (_, None) => continue,
             };
 
             let at = (row * IMAGE_SIZE + column) * 4;

@@ -410,6 +410,9 @@ struct Flare {
     rho: f32,
     /// Kilometres into the flare where it drops back to rain, and for how far.
     dip: Option<(f64, f64)>,
+    /// Ground, in kilometres from the radar and how far it runs, where the
+    /// rain behind the core has a patch with the spike's own look.
+    stray: Option<(f64, f64)>,
 }
 
 impl Flare {
@@ -425,11 +428,18 @@ impl Flare {
             zdr: 6.0,
             rho: 0.4,
             dip: None,
+            stray: None,
         }
     }
 
     fn cut(self) -> Moments {
-        let angles: Vec<f32> = (0..720).map(|at| at as f32 * 0.5).collect();
+        self.cut_through(720)
+    }
+
+    /// The same cut with only its first `radials` swept, half a degree apart,
+    /// the way a cut still being swept arrives.
+    fn cut_through(self, radials: usize) -> Moments {
+        let angles: Vec<f32> = (0..radials).map(|at| at as f32 * 0.5).collect();
         let empty = |label: &str| {
             SweepField::new_empty(
                 label,
@@ -456,8 +466,13 @@ impl Flare {
             let dipped = self.dip.is_some_and(|(into, far)| {
                 (flare_from + into..flare_from + into + far).contains(&ground)
             });
+            let stray = self
+                .stray
+                .is_some_and(|(at, far)| (at..at + far).contains(&ground));
             let (dbz, zdr, rho) = if (CORE_FROM_KM..CORE_TO_KM).contains(&ground) {
                 (self.core_dbz, 1.5, 0.97)
+            } else if stray {
+                (self.dbz, self.zdr, self.rho)
             } else if (CORE_TO_KM..flare_from).contains(&ground) || dipped {
                 rain
             } else if (flare_from..flare_to).contains(&ground) {
@@ -597,4 +612,155 @@ fn a_flare_that_dips_out_for_one_bin_is_marked_across_the_dip() {
         ..Flare::like_kmaf()
     };
     assert_eq!(marked(two), Some((62..=65).collect::<Vec<_>>()));
+}
+
+/// Each rule is held at its own value, not only held.
+///
+/// The first set of these broke each rule by a wide margin, and six
+/// thresholds loosened together (the core to 56, the height to 1 km, the
+/// window to 9, the ceiling to 34, the differential to 1.5, the correlation
+/// to 0.95) still passed every one. These sit either side of each line.
+#[test]
+fn every_rule_is_held_at_its_own_value() {
+    let found = |flare: Flare| marked(flare).is_some();
+    let kmaf = Flare::like_kmaf;
+    assert!(found(Flare {
+        core_dbz: 60.0,
+        ..kmaf()
+    }));
+    assert!(!found(Flare {
+        core_dbz: 59.9,
+        ..kmaf()
+    }));
+    assert!(found(Flare {
+        dbz: 30.0,
+        ..kmaf()
+    }));
+    assert!(!found(Flare {
+        dbz: 30.1,
+        ..kmaf()
+    }));
+    assert!(found(Flare { zdr: 3.0, ..kmaf() }));
+    assert!(!found(Flare { zdr: 2.9, ..kmaf() }));
+    assert!(found(Flare {
+        rho: 0.79,
+        ..kmaf()
+    }));
+    assert!(!found(Flare { rho: 0.8, ..kmaf() }));
+    // The core's back edge is the bin centred at 59.5 km, so a flare from
+    // 67 km starts in the eighth bin behind it and one from 68 in the ninth.
+    assert!(found(Flare {
+        starts_behind_km: 7.0,
+        ..kmaf()
+    }));
+    assert!(!found(Flare {
+        starts_behind_km: 8.0,
+        ..kmaf()
+    }));
+    // Two tilts either side of three kilometres at the back edge, checked
+    // against the beam model so the pair tests the rule, not the arithmetic.
+    let back_edge = |elevation: f32| {
+        beam_height_km(
+            slant_for(59.5, elevation).expect("a slant range"),
+            elevation,
+        )
+    };
+    assert!(back_edge(2.8) > SPIKE_ALOFT_KM && back_edge(2.55) < SPIKE_ALOFT_KM);
+    assert!(found(Flare {
+        elevation: 2.8,
+        ..kmaf()
+    }));
+    assert!(!found(Flare {
+        elevation: 2.55,
+        ..kmaf()
+    }));
+}
+
+/// A patch with the spike's look right behind the core, too short to count,
+/// does not hide the flare that starts further back inside the window. Only
+/// the first start was tried, so one gate at 60.5 km took the whole core out.
+#[test]
+fn a_short_patch_behind_the_core_does_not_hide_the_flare_behind_it() {
+    let flare = Flare {
+        starts_behind_km: 5.0,
+        stray: Some((60.0, 1.0)),
+        ..Flare::like_kmaf()
+    };
+    // The flare covers 65 to 75 km, the ten bins centred at 65.5 to 74.5.
+    assert_eq!(marked(flare), Some((65..=74).collect::<Vec<_>>()));
+}
+
+/// A reflectivity grid on half-degree radials reading the same everywhere.
+fn uniform(elevation: f32, dbz: f32, radials: usize) -> SweepField {
+    let angles: Vec<f32> = (0..radials).map(|at| at as f32 * 0.5).collect();
+    let mut field = SweepField::new_empty(
+        "Reflectivity",
+        "dBZ",
+        elevation,
+        angles,
+        0.5,
+        2.125,
+        0.25,
+        PLANTED_GATES,
+    );
+    for azimuth in 0..radials {
+        for gate in 0..PLANTED_GATES {
+            field.set(azimuth, gate, dbz, GateStatus::Valid);
+        }
+    }
+    field
+}
+
+/// A cut still being swept is read only where it has been swept.
+///
+/// Forty-five degrees of a cut with the flare on its last radial. The
+/// model's reader answers any bearing with the nearest radial it holds, so
+/// before this asked which bearings the cut had reached, the flare was
+/// marked on every bearing from 45 round to 202.5 degrees.
+#[test]
+fn a_cut_still_being_swept_is_searched_only_where_it_has_been() {
+    let cut = Flare::like_kmaf().cut_through(91);
+    let like = uniform(0.5, 0.0, 720);
+    let flagged = spike_on(std::slice::from_ref(&cut), &like).expect("the swept flare");
+    let bearings: Vec<f32> = (0..flagged.azimuths().len())
+        .filter(|at| {
+            (0..flagged.gate_count())
+                .any(|bin| matches!(flagged.get(*at, bin), (_, GateStatus::Valid)))
+        })
+        .map(|at| flagged.azimuths()[at])
+        .collect();
+    assert!(!bearings.is_empty());
+    assert!(
+        bearings
+            .iter()
+            .all(|bearing| (44.0..=46.0).contains(bearing)),
+        "{bearings:?}"
+    );
+}
+
+/// The column products read a cut still being swept only where it has been.
+///
+/// The same smear, on every column product: the upper cut's last radial was
+/// lent to the whole circle, so a composite read 50 dBZ round the far side
+/// where only the lowest cut, at 20, had reached.
+#[test]
+fn a_column_is_not_filled_from_a_radial_that_is_not_over_it() {
+    let cuts = vec![
+        (0.5, uniform(0.5, 20.0, 720)),
+        (4.0, uniform(4.0, 50.0, 91)),
+    ];
+    let composite = derive_on(&cuts, Kind::Composite, &plain_air(), 0.0)
+        .expect("a composite")
+        .field;
+    // Bin 30 is 30.5 km of ground, inside both cuts' reach.
+    assert_eq!(
+        composite.get(40, 30).0,
+        50.0,
+        "twenty degrees, both cuts swept it"
+    );
+    assert_eq!(
+        composite.get(360, 30).0,
+        20.0,
+        "a hundred and eighty, only the lowest"
+    );
 }

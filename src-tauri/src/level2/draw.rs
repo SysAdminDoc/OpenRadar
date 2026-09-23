@@ -180,7 +180,10 @@ pub fn sweep_from_scan(
     nyquist_for: &dyn Fn(u8) -> Option<f32>,
     asked: SweepRequest<'_>,
 ) -> Result<SweepImage, Level2Error> {
-    let prepared = prepare_sweep(station, scan, nyquist_for, asked, None)?;
+    let prepared = with_marks(
+        prepare_sweep(station, scan, nyquist_for, asked, None)?,
+        scan,
+    );
     draw_sweep(
         station,
         volume_key,
@@ -326,7 +329,6 @@ pub(crate) fn prepare_sweep(
     }
 
     let mut debris = None;
-    let mut spike = None;
     let mut echo_topped = false;
     let mut hail_heights = None;
     let derivation = match derived {
@@ -377,13 +379,6 @@ pub(crate) fn prepare_sweep(
                 .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
             chosen.field = found.field;
             echo_topped = found.topped;
-            // Beside the size rather than in it: the spike is a sign that
-            // hail large enough to make one is up there, which is the question
-            // the size answers from the other direction, and it is drawn as a
-            // mark over the picture the way the debris signature is.
-            if kind == derive::Kind::HailSize {
-                spike = derive::spike(scan);
-            }
             // A column has no elevation. Reporting the cut this happened to be
             // chosen from would put a tilt beside a picture that is every tilt
             // at once, and the page reads this number to say what it is
@@ -408,9 +403,36 @@ pub(crate) fn prepare_sweep(
         hail_heights,
         derivation,
         debris,
-        spike,
+        // Worked out by `with_marks`, for a picture only.
+        spike: None,
         echo_topped,
     })
+}
+
+/// A prepared sweep with the marks only a picture carries.
+///
+/// The three-body scatter spike is looked for across every cut of the volume,
+/// which costs about as much as the hail size under it: 123 to 158 ms against
+/// 108 to 162 on three stored volumes. `prepare_sweep` also answers the
+/// readout under the cursor and every export of the readings, neither of
+/// which shows a mark, so the spike is found here and only the drawing paths
+/// ask for it. Beside the size rather than in it: the spike is a sign that
+/// hail large enough to make one is up there, which is the question the size
+/// answers from the other direction.
+pub(crate) fn with_marks(mut prepared: Prepared, scan: &Scan) -> Prepared {
+    if prepared.derived == Some(Worked::Column(derive::Kind::HailSize)) {
+        prepared.spike = derive::spike(scan);
+    }
+    prepared
+}
+
+/// The one mark a picture carries: the debris signature belongs to the
+/// rotation products and the spike to the hail size, so never both at once.
+fn marks_of<'a>(
+    debris: Option<&'a SweepField>,
+    spike: Option<&'a SweepField>,
+) -> Option<Marks<'a>> {
+    debris.map(Marks::Debris).or(spike.map(Marks::Spike))
 }
 
 /// How far the volume being swept right now has got, for the legend.
@@ -478,9 +500,7 @@ pub(crate) fn draw_sweep(
         },
         asked.smooth,
         asked.within,
-        // One mark per picture: the debris signature belongs to the rotation
-        // products and the spike to the hail size, so never both at once.
-        debris.as_ref().or(spike.as_ref()),
+        marks_of(debris.as_ref(), spike.as_ref()),
     );
 
     // Read before the composite consumes it. Both halves of a composite go
@@ -490,6 +510,11 @@ pub(crate) fn draw_sweep(
     let beneath_unplaced = beneath.as_ref().map_or(0.0, |under| {
         share_of(under.unfolding.unplaced, under.unfolding.valid)
     });
+    // The same for the marks: the older half's are drawn wherever it shows,
+    // and a white mark with no line in the legend saying what it is was the
+    // picture the live composite drew while a new volume's cut filled in.
+    let beneath_debris = beneath.as_ref().is_some_and(|under| under.debris.is_some());
+    let beneath_spike = beneath.as_ref().is_some_and(|under| under.spike.is_some());
 
     let mut beneath_collected = None;
     if let Some(under) = beneath {
@@ -510,7 +535,7 @@ pub(crate) fn draw_sweep(
             // The same ground as the sweep above it, which is what lets the
             // two composite pixel for pixel.
             asked.within,
-            under.debris.as_ref().or(under.spike.as_ref()),
+            marks_of(under.debris.as_ref(), under.spike.as_ref()),
         );
         // The older cut's own time, which is what the legend says the oldest
         // thing on screen is. Without it a composite reports only the age of
@@ -571,8 +596,8 @@ pub(crate) fn draw_sweep(
             .unwrap_or_else(|| station.to_string()),
         product: label.to_string(),
         unit: unit.to_string(),
-        has_debris: debris.is_some(),
-        has_spike: spike.is_some(),
+        has_debris: debris.is_some() || beneath_debris,
+        has_spike: spike.is_some() || beneath_spike,
         echo_topped,
         hail_heights,
         dealiased,
