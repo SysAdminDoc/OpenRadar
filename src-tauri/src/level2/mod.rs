@@ -114,9 +114,23 @@ const MAX_SITE_CANDIDATES: usize = 4;
 /// reach the cut above or below.
 const SAME_CUT_DEGREES: f32 = 0.1;
 
+/// The largest volume the archive fetch will read.
+///
+/// A volume's size is set by the weather, because every gate holding echo is
+/// bytes, so a hurricane filling the disc in every cut makes the largest ones.
+/// Listed on 2026-09-22: 187 of the 206 volumes KTBW published on Ian's day
+/// were over sixteen megabytes, all 215 of KMHX's on Florence's, and the
+/// largest of Milton's at KTBW was 25,874,676 bytes. Sixteen megabytes is what
+/// every other fetch is held to, and held to it the single-site radar refused
+/// every one of those, on the days it matters most. This is the figure the
+/// volume cache was already budgeted against, almost a third again the
+/// largest measured.
+pub(crate) const VOLUME_MAX_BYTES: usize = 32 * 1024 * 1024;
+
 /// Local imports are bounded before they are read. Published Archive II files
-/// are normally under 20 MB; this leaves room for unusually long volumes
-/// without letting an accidental multi-gigabyte selection become an allocation.
+/// reach about 25 MB in a hurricane; this leaves room for unusually long
+/// volumes without letting an accidental multi-gigabyte selection become an
+/// allocation.
 const LOCAL_VOLUME_MAX_BYTES: u64 = 128 * 1024 * 1024;
 /// A gzip wrapper may be much smaller than what it expands to. Keep that
 /// second boundary independent of the selected file's size.

@@ -659,13 +659,22 @@ mod malformed {
 /// against that; what would breach it is caching decoded scans instead,
 /// which is why this holds the bytes and decodes on demand.
 pub(crate) const BUDGET_BYTES: usize = 512 * 1024 * 1024;
-/// Comfortably larger than any volume the archive publishes.
-pub(crate) const LARGEST_VOLUME_BYTES: usize = 32 * 1024 * 1024;
+/// The largest volume the archive fetch will read, which is the largest the
+/// cache can be asked to hold. This used to be a figure of its own, described
+/// as larger than anything the archive publishes, while the fetch refused
+/// anything over half of it.
+pub(crate) const LARGEST_VOLUME_BYTES: usize = VOLUME_MAX_BYTES;
+
+/// The largest volume measured in the archive, Milton's at KTBW,
+/// `2024/10/09/KTBW/KTBW20241009_175521_V06`. A ceiling under it refuses the
+/// held site in the next hurricane.
+const LARGEST_VOLUME_SEEN_BYTES: usize = 25_874_676;
 
 /// The worst case the cache can ever be in, checked when the crate is
 /// compiled rather than when the tests are run: a capacity or a limit that
 /// breaks the budget should not build at all.
 const _: () = assert!(CACHE_CAPACITY * LARGEST_VOLUME_BYTES < BUDGET_BYTES);
+const _: () = assert!(LARGEST_VOLUME_SEEN_BYTES < VOLUME_MAX_BYTES);
 
 /// One press of the wind profile panel must not empty the cache under the
 /// volume the loop is drawing. Checked at compile time for the same

@@ -179,7 +179,7 @@ pub(crate) async fn latest_volume(station: &str) -> Result<(String, Vec<u8>), Le
     if let Some(hit) = cached(&key) {
         return Ok((key, hit));
     }
-    let data = http::get_bytes(&format!("{ARCHIVE_HOST}/{key}")).await?;
+    let data = http::get_bytes_up_to(&format!("{ARCHIVE_HOST}/{key}"), VOLUME_MAX_BYTES).await?;
     remember(&key, &data);
     Ok((key, data))
 }
@@ -188,7 +188,7 @@ pub(crate) async fn volume_by_key(key: &str) -> Result<(String, Vec<u8>), Level2
     if let Some(hit) = cached(key) {
         return Ok((key.to_string(), hit));
     }
-    let data = http::get_bytes(&format!("{ARCHIVE_HOST}/{key}")).await?;
+    let data = http::get_bytes_up_to(&format!("{ARCHIVE_HOST}/{key}"), VOLUME_MAX_BYTES).await?;
     remember(key, &data);
     Ok((key.to_string(), data))
 }
@@ -218,7 +218,7 @@ pub(crate) async fn archive_volume_at(
     if let Some(hit) = cached(&key) {
         return Ok((key, hit));
     }
-    let data = http::get_bytes(&format!("{ARCHIVE_HOST}/{key}")).await?;
+    let data = http::get_bytes_up_to(&format!("{ARCHIVE_HOST}/{key}"), VOLUME_MAX_BYTES).await?;
     remember(&key, &data);
     Ok((key, data))
 }

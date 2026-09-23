@@ -82,7 +82,7 @@ pub enum HttpError {
     HostNotAllowed(String),
     #[error("the address could not be read")]
     BadUrl,
-    #[error("the response was larger than the {MAX_BODY_BYTES} byte limit")]
+    #[error("the response was larger than the ceiling it was fetched under")]
     TooLarge,
     #[error("the request failed: {0}")]
     Transport(#[from] reqwest::Error),
@@ -202,6 +202,17 @@ pub fn client() -> Result<Client, HttpError> {
 /// change once it exists, so the copy is either the same bytes or a picture of
 /// an older moment, which the timeline already dates for the user.
 pub async fn get_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
+    get_bytes_up_to(url, MAX_BODY_BYTES).await
+}
+
+/// The same, under a ceiling of the caller's own rather than the usual one.
+///
+/// For a file whose size is set by the weather rather than by the service. A
+/// Level II volume grows with how much of the sky is echo, and on a hurricane
+/// day most of them are past the sixteen megabytes that bound everything
+/// else, so the ceiling for those belongs to the caller that knows what it is
+/// asking for.
+pub async fn get_bytes_up_to(url: &str, limit: usize) -> Result<Vec<u8>, HttpError> {
     // Checked before the cache is consulted. An address that is no longer
     // allowed must not keep being served from a copy taken when it was.
     let parsed = Url::parse(url).map_err(|_| HttpError::BadUrl)?;
@@ -211,7 +222,7 @@ pub async fn get_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
         ));
     }
 
-    match fetch_bytes(url).await {
+    match fetch_bytes(url, limit).await {
         Ok(body) => {
             cache::put_async(url, "application/octet-stream", &body).await;
             Ok(body)
@@ -237,11 +248,11 @@ pub async fn get_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
 /// 2,048-entry cache over in about nine minutes and flushes the tiles, grids
 /// and alerts the offline view is made of.
 pub async fn get_bytes_uncached(url: &str) -> Result<Vec<u8>, HttpError> {
-    fetch_bytes(url).await
+    fetch_bytes(url, MAX_BODY_BYTES).await
 }
 
-async fn fetch_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
-    match fetch_bytes_inner(url).await {
+async fn fetch_bytes(url: &str, limit: usize) -> Result<Vec<u8>, HttpError> {
+    match fetch_bytes_inner(url, limit).await {
         Ok(body) => Ok(body),
         Err(error) => {
             // The one place the address and the library's own words are
@@ -255,7 +266,7 @@ async fn fetch_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
     }
 }
 
-async fn fetch_bytes_inner(url: &str) -> Result<Vec<u8>, HttpError> {
+async fn fetch_bytes_inner(url: &str, limit: usize) -> Result<Vec<u8>, HttpError> {
     let parsed = Url::parse(url).map_err(|_| HttpError::BadUrl)?;
     if !is_allowed(&parsed) {
         return Err(HttpError::HostNotAllowed(
@@ -269,7 +280,7 @@ async fn fetch_bytes_inner(url: &str) -> Result<Vec<u8>, HttpError> {
     if response.status().is_redirection() {
         return Err(HttpError::RedirectRefused);
     }
-    read_limited(response.error_for_status()?, MAX_BODY_BYTES).await
+    read_limited(response.error_for_status()?, limit).await
 }
 
 /// Streams a response into a bounded buffer. Content-Length is only a hint:

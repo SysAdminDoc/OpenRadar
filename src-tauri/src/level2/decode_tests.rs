@@ -793,3 +793,38 @@ fn recording_the_days_unfolding_is_held_against() {
         }
     }
 }
+
+/// A hurricane's volume opens, although it is larger than the sixteen
+/// megabytes every other fetch is held to.
+///
+/// Milton at KTBW, the largest volume measured in the archive. Under the old
+/// ceiling the archive fetch refused it before a byte was read, and it refused
+/// 207 of the 216 volumes KTBW published that day. Through the call site the
+/// panel uses rather than through the fetch, so a path that went round the
+/// volume ceiling would fail here.
+#[test]
+#[ignore = "live: fetches a 25 MB volume from the archive"]
+fn a_hurricane_volume_past_the_ordinary_ceiling_opens() {
+    let _guard = decoded_cache_test();
+    clear_cache();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("a runtime");
+    let at = Utc
+        .with_ymd_and_hms(2024, 10, 9, 17, 55, 21)
+        .single()
+        .expect("a UTC time");
+    let (key, data) = runtime
+        .block_on(archive_volume_at("KTBW", at))
+        .expect("the archive hands over the volume");
+    assert_eq!(key, "2024/10/09/KTBW/KTBW20241009_175521_V06");
+    assert!(
+        data.len() > 16 * 1024 * 1024,
+        "{} bytes is not past the ordinary ceiling",
+        data.len()
+    );
+    let (scan, _) = decoded_volume(&key, data).expect("the volume decodes");
+    assert!(!tilts(&scan).is_empty());
+    clear_cache();
+}

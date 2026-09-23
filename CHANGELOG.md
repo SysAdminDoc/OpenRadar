@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.13.0
 
+- A held site opens during a hurricane. The single-site radar refused any volume over sixteen megabytes, and a volume is as big as the weather makes it. On the day Ian came ashore, 187 of the 206 volumes the Tampa Bay radar published were over that line, and so was every one of Florence's at Morehead City. Those are the days a reader holds a site, and the panel answered them with a download error. Volumes can now be up to thirty-two megabytes, which is room above the largest one in the archive (Milton's at Tampa Bay, just under twenty-five). Saving the volume behind the picture had the same limit and gets the same fix. Everything else the app downloads keeps the old ceiling.
+
 - With a site held, the product panel puts the site controls (product picker, tilt, threshold) first and the national mosaic after them, so the picker is visible without scrolling.
 
 - The dealiaser's misplaced-gate counter now prints boundary-placed and wind-placed separately, so the wind's contribution can carry its own bound. The recorder and the CSV both carry the split.
