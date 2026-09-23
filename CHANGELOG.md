@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.13.0
 
+- The column products (composite, echo top, VIL, VIL density and hail size) drawn from the volume the radar is still sweeping no longer smear. A cut the antenna was only partway round lent its last radial to the rest of the circle, so a composite could show an upper cut's reading on the far side, where only the lowest cut had reached yet. Each cut is now read only where it's been swept.
+
 - Replaying a past storm, you can ask what your warning watch would have said. The History panel runs the watch's own rules over the replay at the pace it checks, and lists for each watched place the notice it would have sent and the time it would have gone. Quiet hours are applied, so a warning they held back says when it was held and when it was finally said, or that it was over first. Nothing is sent and nothing goes into your record. A warning the office redrew is still one warning, the way the live watch counts it. Lightning and approaching-storm notices can't be replayed, because the app keeps no archive of either.
 
 - Velocity comes back on the right interval when the biggest patch of a sweep is itself a fold. The unfolder places every patch against the largest one, so when that one had folded (a strong wind all the way round under a low limit), the whole picture came back one interval out: smooth, and wrong at every gate. It now checks the mean around rings of the sweep. Real air averages to a few metres a second, and a picture an interval out averages to that interval, so the rings say which one it belongs on. Across 41 days of the archive at six radars it never had to move a picture, so nothing drawn on those days changes.

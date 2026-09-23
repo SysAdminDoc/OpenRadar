@@ -440,8 +440,11 @@ pub(crate) fn sweep_over(
         ));
     };
 
-    let beneath = prepare_sweep(station, older, older_nyquist, asked, Some(angle));
-    let Ok(newer) = prepare_sweep(station, live, live_nyquist, asked, Some(angle)) else {
+    let beneath = prepare_sweep(station, older, older_nyquist, asked, Some(angle))
+        .map(|prepared| with_marks(prepared, older));
+    let Ok(newer) = prepare_sweep(station, live, live_nyquist, asked, Some(angle))
+        .map(|prepared| with_marks(prepared, live))
+    else {
         // The radar has not reached this cut in the volume it is sweeping now,
         // so the finished volume is the whole picture and says nothing about
         // being live, because none of what is on screen is. It names the

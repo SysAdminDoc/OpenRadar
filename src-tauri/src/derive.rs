@@ -229,9 +229,16 @@ fn spike_on(cuts: &[Moments], like: &SweepField) -> Option<SweepField> {
     let start_within = (SPIKE_START_WITHIN_KM / BIN_KM).round() as usize;
     let reach = (SPIKE_REACH_KM / BIN_KM).round() as usize;
     let shortest = (SPIKE_MIN_KM / BIN_KM).round() as usize;
+    let covered: Vec<Vec<bool>> = cuts
+        .iter()
+        .map(|cut| swept(&cut.reflectivity, &azimuths))
+        .collect();
     let mut any = false;
     for (at, azimuth) in azimuths.iter().enumerate() {
-        for cut in cuts {
+        for (cut, covered) in cuts.iter().zip(&covered) {
+            if !covered[at] {
+                continue;
+            }
             // What this cut reads over each bin of ground along the radial,
             // and how high the beam is there.
             let along: Vec<Option<(f32, f64)>> = (0..bins)
@@ -283,28 +290,45 @@ fn spike_on(cuts: &[Moments], like: &SweepField) -> Option<SweepField> {
                     continue;
                 }
                 let last = (back + reach).min(bins - 1);
-                let Some(first) =
-                    (back + 1..=(back + start_within).min(last)).find(|at| signature(*at))
-                else {
-                    continue;
-                };
                 // Unbroken, save for a single bin the flare dips out of.
-                let mut end = first;
-                let mut next = first + 1;
-                while next <= last {
-                    if signature(next) {
-                        end = next;
-                        next += 1;
-                    } else if next < last && signature(next + 1) {
-                        end = next + 1;
-                        next += 2;
-                    } else {
+                let run_from = |first: usize| {
+                    let mut end = first;
+                    let mut next = first + 1;
+                    while next <= last {
+                        if signature(next) {
+                            end = next;
+                            next += 1;
+                        } else if next < last && signature(next + 1) {
+                            end = next + 1;
+                            next += 2;
+                        } else {
+                            break;
+                        }
+                    }
+                    end
+                };
+                // Every start the window offers rather than only the first:
+                // one stray gate with the look just behind the core would
+                // otherwise hide the flare that starts a kilometre further
+                // back.
+                let window_end = (back + start_within).min(last);
+                let mut start = back + 1;
+                let mut found = None;
+                while start <= window_end {
+                    if !signature(start) {
+                        start += 1;
+                        continue;
+                    }
+                    let end = run_from(start);
+                    if end + 1 - start >= shortest {
+                        found = Some((start, end));
                         break;
                     }
+                    start = end + 1;
                 }
-                if end + 1 - first < shortest {
+                let Some((first, end)) = found else {
                     continue;
-                }
+                };
                 for marked in first..=end {
                     flagged.set(at, marked, 1.0, GateStatus::Valid);
                 }
@@ -348,6 +372,16 @@ pub fn derive(
                 .map(|chosen| (chosen.elevation_degrees, chosen.field))
         })
         .collect();
+    derive_on(&cuts, kind, isotherms, antenna_km)
+}
+
+/// The same, over cuts already read, lowest first.
+fn derive_on(
+    cuts: &[(f32, SweepField)],
+    kind: Kind,
+    isotherms: &Isotherms<'_>,
+    antenna_km: f64,
+) -> Option<Derived> {
     let (_, lowest) = cuts.first()?;
     let azimuths = lowest.azimuths().to_vec();
     let spacing = lowest.azimuth_spacing_degrees();
@@ -370,12 +404,22 @@ pub fn derive(
         bins,
     );
 
+    let covered: Vec<Vec<bool>> = cuts.iter().map(|(_, cut)| swept(cut, &azimuths)).collect();
     let mut any_topped = false;
     let mut column: Vec<Sample> = Vec::with_capacity(cuts.len());
     for (at, angle) in azimuths.iter().enumerate() {
+        // Only the cuts that reached this bearing: a cut still being swept
+        // would otherwise lend its nearest radial to all the rest of the
+        // circle.
+        let here: Vec<&(f32, SweepField)> = cuts
+            .iter()
+            .zip(&covered)
+            .filter(|(_, covered)| covered[at])
+            .map(|(cut, _)| cut)
+            .collect();
         for bin in 0..bins {
             let ground_km = FIRST_BIN_KM + bin as f64 * BIN_KM;
-            read_column(&cuts, *angle, ground_km, antenna_km, &mut column);
+            read_column(&here, *angle, ground_km, antenna_km, &mut column);
             if column.is_empty() {
                 continue;
             }
@@ -401,6 +445,35 @@ pub fn derive(
     })
 }
 
+/// Which of `azimuths` a cut actually swept.
+///
+/// A cut still being swept holds only the radials the antenna has reached,
+/// and the model's reader answers every bearing with the nearest radial it
+/// has, however far round that is: read that way, a cut forty-five degrees
+/// into its sweep lent its last radial to the other three hundred. A bearing
+/// counts as swept when a radial lies within two radials' spacing of it, and
+/// never less than a degree, which a finished cut with a radial or two
+/// missing still satisfies everywhere.
+fn swept(field: &SweepField, azimuths: &[f32]) -> Vec<bool> {
+    let mut held: Vec<f32> = field.azimuths().to_vec();
+    held.sort_by(f32::total_cmp);
+    if held.is_empty() {
+        return vec![false; azimuths.len()];
+    }
+    let reach = (field.azimuth_spacing_degrees() * 2.0).max(1.0) + 0.01;
+    azimuths
+        .iter()
+        .map(|azimuth| {
+            let at = held.partition_point(|radial| radial < azimuth);
+            let apart = |index: usize| {
+                let gap = (held[index % held.len()] - azimuth).abs();
+                gap.min(360.0 - gap)
+            };
+            apart(at).min(apart(at + held.len() - 1)) <= reach
+        })
+        .collect()
+}
+
 /// Every cut's reading over one point of ground, lowest beam first.
 ///
 /// A cut is asked at the slant range whose ground distance is the one wanted,
@@ -408,14 +481,14 @@ pub fn derive(
 /// `gates` rather than the model's own reader, because a kilometre bin walked
 /// against quarter kilometre gates is where a half gate of shift shows.
 fn read_column(
-    cuts: &[(f32, SweepField)],
+    cuts: &[&(f32, SweepField)],
     azimuth: f32,
     ground_km: f64,
     antenna_km: f64,
     into: &mut Vec<Sample>,
 ) {
     into.clear();
-    for (elevation, cut) in cuts {
+    for (elevation, cut) in cuts.iter().copied() {
         let Some(slant_km) = slant_for(ground_km, *elevation) else {
             continue;
         };
