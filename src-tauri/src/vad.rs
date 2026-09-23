@@ -238,6 +238,113 @@ pub fn median_wind(rings: &[Wind]) -> Option<Wind> {
     })
 }
 
+/// A ring's fit with the mean radial velocity solved for beside the wind.
+///
+/// The wind profile fits the wave alone, and should: around a whole ring the
+/// mean radial velocity is divergence and the fall speed of the rain, a few
+/// metres a second, and a profile has no use for it. The unfolder does. A
+/// sweep placed a whole interval out reads that interval on every gate, and a
+/// wave-only fit meets it as noise it cannot explain and trusts no ring at
+/// all, while the mean says outright which interval the picture sits in,
+/// because no weather averages to one.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MeanFit {
+    /// The wave fitted once the mean is taken out, with the same checks a
+    /// profile holds a ring to.
+    pub ring: RingFit,
+    /// The mean radial velocity around the ring.
+    pub mean_ms: f32,
+}
+
+/// Fits one ring for its mean and its wind together.
+///
+/// Three unknowns rather than two, solved once over everything and again
+/// without the gates that disagreed, the same two passes `fit_ring` makes.
+/// The halves are then compared by `fit_ring_checked` with the mean taken
+/// out, because half a circle cannot tell a mean from a wave on its own.
+pub fn fit_ring_with_mean(samples: &[(f32, f32)], elevation_degrees: f32) -> Option<MeanFit> {
+    if samples.len() < MIN_RING_GATES {
+        return None;
+    }
+    let tilt = f64::from(elevation_degrees.to_radians().cos());
+    if tilt.abs() < 1e-3 {
+        return None;
+    }
+    let basis = |azimuth: f32| {
+        let angle = f64::from(azimuth).to_radians();
+        [1.0, tilt * angle.sin(), tilt * angle.cos()]
+    };
+    let solve = |keep: &dyn Fn(f32, f32) -> bool| -> Option<[f64; 3]> {
+        let mut normal = [[0.0f64; 3]; 3];
+        let mut right = [0.0f64; 3];
+        let mut used = 0;
+        for &(azimuth, radial) in samples {
+            if !keep(azimuth, radial) {
+                continue;
+            }
+            let terms = basis(azimuth);
+            for row in 0..3 {
+                for column in 0..3 {
+                    normal[row][column] += terms[row] * terms[column];
+                }
+                right[row] += terms[row] * f64::from(radial);
+            }
+            used += 1;
+        }
+        if used < MIN_RING_GATES {
+            return None;
+        }
+        solve_three(normal, right)
+    };
+    let first = solve(&|_, _| true)?;
+    let predicted = |fit: [f64; 3], azimuth: f32| {
+        let terms = basis(azimuth);
+        fit[0] * terms[0] + fit[1] * terms[1] + fit[2] * terms[2]
+    };
+    let refined = solve(&|azimuth, radial| {
+        (f64::from(radial) - predicted(first, azimuth)).abs() <= f64::from(OUTLIER_MS)
+    })
+    .unwrap_or(first);
+    let mean = refined[0] as f32;
+    let centred: Vec<(f32, f32)> = samples
+        .iter()
+        .map(|(azimuth, radial)| (*azimuth, radial - mean))
+        .collect();
+    Some(MeanFit {
+        ring: fit_ring_checked(&centred, elevation_degrees)?,
+        mean_ms: mean,
+    })
+}
+
+/// Three equations in three unknowns, by Cramer's rule.
+///
+/// `None` when the gates cannot tell the three apart, which is a ring whose
+/// echo covers too narrow an arc: measured against the scale of the sums, so
+/// a ring of a thousand gates is not refused for holding a thousand of them.
+fn solve_three(normal: [[f64; 3]; 3], right: [f64; 3]) -> Option<[f64; 3]> {
+    let determinant = |m: [[f64; 3]; 3]| {
+        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+    };
+    let whole = determinant(normal);
+    if !whole.is_finite() || whole.abs() <= normal[0][0].powi(3) * 1e-6 {
+        return None;
+    }
+    let mut solved = [0.0; 3];
+    for (column, value) in solved.iter_mut().enumerate() {
+        let mut swapped = normal;
+        for row in 0..3 {
+            swapped[row][column] = right[row];
+        }
+        *value = determinant(swapped) / whole;
+    }
+    solved
+        .iter()
+        .all(|value| value.is_finite())
+        .then_some(solved)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -264,6 +371,42 @@ mod tests {
         let apart = fit.symmetry_ms.expect("both halves fitted");
         assert!(apart < 0.5, "{apart}");
         assert_eq!(fit.used, 360);
+    }
+
+    #[test]
+    fn a_ring_a_whole_interval_out_is_read_as_its_mean() {
+        let truth = Wind {
+            east: 20.0,
+            north: -5.0,
+        };
+        let out: Vec<(f32, f32)> = ring(truth, 0.5, 360)
+            .into_iter()
+            .map(|(azimuth, radial)| (azimuth, radial + 16.0))
+            .collect();
+        // The wave alone meets sixteen metres a second on every gate as noise
+        // it cannot explain, which is why the unfolder needs the mean.
+        assert!(fit_ring_checked(&out, 0.5).is_none_or(|fit| !fit.trusted()));
+        let fit = fit_ring_with_mean(&out, 0.5).expect("a full ring fits");
+        assert!(fit.ring.trusted(), "{fit:?}");
+        assert!((fit.mean_ms - 16.0).abs() < 0.01, "{}", fit.mean_ms);
+        assert!((fit.ring.wind.east - truth.east).abs() < 0.01);
+        assert!((fit.ring.wind.north - truth.north).abs() < 0.01);
+    }
+
+    #[test]
+    fn a_ring_down_one_side_cannot_vouch_for_a_mean() {
+        let narrow: Vec<(f32, f32)> = ring(
+            Wind {
+                east: 20.0,
+                north: 0.0,
+            },
+            0.5,
+            360,
+        )
+        .into_iter()
+        .filter(|(azimuth, _)| *azimuth < 30.0)
+        .collect();
+        assert!(fit_ring_with_mean(&narrow, 0.5).is_none_or(|fit| !fit.ring.trusted()));
     }
 
     #[test]

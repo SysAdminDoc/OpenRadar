@@ -360,6 +360,89 @@ fn reference_wind(
     vad::median_wind(&winds)
 }
 
+/// How many rings have to be trusted before the whole sweep may be moved.
+///
+/// More than the wind asks for, because the wind places patches one at a time
+/// and this moves every gate the boundaries reached at once.
+const ANCHOR_RINGS: usize = 3;
+
+/// How many whole intervals the placed part of the sweep sits from the air
+/// it is in, when the rings can say, and `None` when they cannot or it sits
+/// in none.
+///
+/// The boundaries place every patch they reach relative to the largest one,
+/// which keeps its own reading, so when that patch is itself a fold the whole
+/// picture comes back an interval out and every gate agrees with its
+/// neighbours about it. Nothing inside the picture is wrong, which is why the
+/// boundaries cannot see it. Around a ring it can be seen: the mean radial
+/// velocity of real air is a few metres a second, and a picture an interval
+/// out averages to that interval instead.
+///
+/// The top-down pass the roadmap first proposed was tried in its one-level
+/// form on 2026-09-10 and does not work, because the cut above is settled by
+/// the same method and lands on the same wrong interval for the same reason.
+/// The mean needs no other cut, and every cut has one.
+///
+/// Held to the bars the wind is, so the rings have to agree on the interval
+/// and the air has to be accounted for once it is taken out. A picture no
+/// interval brings within that margin of still, such as a fixture of pure
+/// outbound flow, is left where it is.
+fn whole_interval(
+    values: &[f32],
+    valid: &[bool],
+    region: &[usize],
+    shift: &[Option<i32>],
+    sweep: &Geometry<'_>,
+    interval: f32,
+) -> Option<i32> {
+    let gates = sweep.gates;
+    let mut rings: Vec<(i32, f32)> = Vec::with_capacity(REFERENCE_RINGS);
+    for ring in 0..REFERENCE_RINGS {
+        let gate = gates * (ring * 2 + 1) / (REFERENCE_RINGS * 2);
+        let mut samples = Vec::with_capacity(sweep.azimuth_degrees.len());
+        for (index, azimuth) in sweep.azimuth_degrees.iter().enumerate() {
+            let at = index * gates + gate;
+            if !valid[at] {
+                continue;
+            }
+            let label = region[at];
+            if label == usize::MAX {
+                continue;
+            }
+            let Some(by) = shift[label] else { continue };
+            samples.push((*azimuth, values[at] + interval * by as f32));
+        }
+        let Some(fit) = vad::fit_ring_with_mean(&samples, sweep.elevation_degrees) else {
+            continue;
+        };
+        if !fit.ring.trusted() {
+            continue;
+        }
+        let by = (fit.mean_ms / interval).round() as i32;
+        rings.push((by, fit.mean_ms - interval * by as f32));
+    }
+    if rings.len() < ANCHOR_RINGS {
+        return None;
+    }
+    let mut votes: BTreeMap<i32, usize> = BTreeMap::new();
+    for (by, _) in &rings {
+        *votes.entry(*by).or_default() += 1;
+    }
+    let (&by, &agreed) = votes
+        .iter()
+        .max_by_key(|(offset, count)| (**count, Reverse(offset.abs())))?;
+    if by == 0 || (agreed as f64) < rings.len() as f64 * REFERENCE_AGREEMENT {
+        return None;
+    }
+    let mut left: Vec<f32> = rings
+        .iter()
+        .filter(|(offset, _)| *offset == by)
+        .map(|(_, rest)| rest.abs())
+        .collect();
+    left.sort_by(f32::total_cmp);
+    (left[left.len() / 2] <= REFERENCE_MARGIN_MS).then_some(by)
+}
+
 /// Shifts whole patches of a velocity sweep back onto the flow they belong to.
 ///
 /// `values` is the sweep laid out radial by radial, `valid` marks the gates
@@ -498,10 +581,10 @@ fn dealias_here(
     //
     // The largest patch keeps its own reading, which is all a boundary can
     // ever establish. Every patch is placed relative to its neighbours, so the
-    // sweep as a whole is recovered up to a whole Nyquist interval and no
-    // further: with no still air anywhere in it, nothing in the data says which
-    // interval the whole picture belongs to. This is what Py-ART does when it
-    // is given no reference field, for the same reason.
+    // boundaries recover the sweep up to a whole Nyquist interval and no
+    // further, which is what Py-ART does when it is given no reference field.
+    // `whole_interval` below settles the rest when the rings can: a picture a
+    // whole interval out averages to that interval, which no air does.
     let Some(root) = (0..region_count).max_by_key(|label| sizes[*label]) else {
         return Dealiased::default();
     };
@@ -560,6 +643,14 @@ fn dealias_here(
         gates,
         elevation_degrees,
     };
+    // Which interval the whole picture belongs in, settled before the wind is
+    // fitted from it: a picture an interval out fits no wave, so the wind was
+    // silent on exactly the sweeps whose largest patch had folded.
+    if let Some(by) = whole_interval(values, valid, &region, &shift, &sweep, interval) {
+        for placed in shift.iter_mut().flatten() {
+            *placed -= by;
+        }
+    }
     let wind = reference_wind(values, valid, &region, &shift, &sweep, interval);
     let mut placed: Vec<bool> = shift.iter().map(|offset| offset.is_some()).collect();
 
@@ -802,6 +893,147 @@ mod tests {
 
         let after = worst_jump(&values, &valid, azimuths, gates);
         assert!(after < 1.0, "a jump of {after} m/s is left in the echo");
+    }
+
+    /// A steady wind under a low limit, all the way round.
+    ///
+    /// Twenty metres a second from the west against an eight metre limit:
+    /// the air reads as itself only on the two arcs across the beam, 47
+    /// degrees each, and the arcs either side of them are folds of 133. So
+    /// the largest patch is a fold, and the boundaries hand every gate its
+    /// interval.
+    fn steady_wind_under_a_low_limit(
+        nyquist: f32,
+        azimuths: usize,
+        gates: usize,
+    ) -> (Vec<f32>, Vec<f32>) {
+        let wind = vad::Wind {
+            east: 20.0,
+            north: 0.0,
+        };
+        let mut truth = Vec::with_capacity(azimuths * gates);
+        for azimuth in pointing(azimuths) {
+            for _ in 0..gates {
+                truth.push(wind.along_beam(azimuth, ELEVATION));
+            }
+        }
+        let observed = truth.iter().map(|value| fold(*value, nyquist)).collect();
+        (observed, truth)
+    }
+
+    #[test]
+    fn a_sweep_whose_largest_patch_is_a_fold_comes_back_on_the_right_interval() {
+        let (nyquist, azimuths, gates) = (8.0, 360, 120);
+        let (mut values, truth) = steady_wind_under_a_low_limit(nyquist, azimuths, gates);
+        let valid = vec![true; values.len()];
+        let found = dealias(
+            &mut values,
+            &valid,
+            &pointing(azimuths),
+            gates,
+            nyquist,
+            ELEVATION,
+        );
+        assert!(found.moved > 0, "nothing was shifted");
+        // Every gate, and exactly: continuous and a whole interval out is
+        // what the boundaries alone gave, 16 m/s high everywhere.
+        for (at, (got, want)) in values.iter().zip(&truth).enumerate() {
+            assert!(
+                (got - want).abs() < 0.01,
+                "gate {at}: {got} should be {want}"
+            );
+        }
+    }
+
+    /// What `whole_interval` says of a picture already placed, one patch the
+    /// boundaries settled where it stands, with `reading` giving each gate
+    /// by azimuth and gate, or nothing there.
+    fn anchored(reading: &dyn Fn(f32, usize) -> Option<f32>) -> Option<i32> {
+        let (azimuths, gates) = (360, 120);
+        let directions = pointing(azimuths);
+        let mut values = vec![0.0; azimuths * gates];
+        let mut valid = vec![false; azimuths * gates];
+        for (at_azimuth, azimuth) in directions.iter().enumerate() {
+            for gate in 0..gates {
+                if let Some(value) = reading(*azimuth, gate) {
+                    values[index(at_azimuth, gate, gates)] = value;
+                    valid[index(at_azimuth, gate, gates)] = true;
+                }
+            }
+        }
+        let region = vec![0; azimuths * gates];
+        let sweep = Geometry {
+            azimuth_degrees: &directions,
+            gates,
+            elevation_degrees: ELEVATION,
+        };
+        whole_interval(&values, &valid, &region, &[Some(0)], &sweep, 16.0)
+    }
+
+    /// The wind from the fixture above, as a gate reads it.
+    fn westerly(azimuth: f32) -> f32 {
+        vad::Wind {
+            east: 20.0,
+            north: 0.0,
+        }
+        .along_beam(azimuth, ELEVATION)
+    }
+
+    #[test]
+    fn the_rings_name_the_interval_a_whole_picture_sits_out_by() {
+        assert_eq!(
+            anchored(&|azimuth, _| Some(westerly(azimuth) + 16.0)),
+            Some(1)
+        );
+        assert_eq!(
+            anchored(&|azimuth, _| Some(westerly(azimuth) - 32.0)),
+            Some(-2)
+        );
+        // A picture on the air's own interval sits out by none.
+        assert_eq!(anchored(&|azimuth, _| Some(westerly(azimuth))), None);
+    }
+
+    /// Four metres a second of mean left over is air. Eight is half an
+    /// interval, which no interval accounts for, so nothing is moved on it.
+    #[test]
+    fn a_mean_no_interval_accounts_for_moves_nothing() {
+        assert_eq!(
+            anchored(&|azimuth, _| Some(westerly(azimuth) + 20.0)),
+            Some(1)
+        );
+        assert_eq!(anchored(&|azimuth, _| Some(westerly(azimuth) + 8.0)), None);
+    }
+
+    /// Half a circle cannot have its halves compared, and two rings are too
+    /// few to move a whole picture on.
+    #[test]
+    fn rings_that_cannot_vouch_for_the_air_move_nothing() {
+        let out = |azimuth: f32| westerly(azimuth) + 16.0;
+        assert_eq!(
+            anchored(&|azimuth, _| (azimuth < 180.0).then(|| out(azimuth))),
+            None
+        );
+        // The rings sit at gates 2, 7, 12 and so on.
+        assert_eq!(
+            anchored(&|azimuth, gate| (gate < 10).then(|| out(azimuth))),
+            None
+        );
+        assert_eq!(
+            anchored(&|azimuth, gate| (gate < 15).then(|| out(azimuth))),
+            Some(1)
+        );
+    }
+
+    /// Fifteen rings of twenty-four is enough to move on and thirteen is not.
+    #[test]
+    fn rings_that_do_not_agree_move_nothing() {
+        let split = |near: usize| {
+            move |azimuth: f32, gate: usize| {
+                Some(westerly(azimuth) + if gate < near { 16.0 } else { 0.0 })
+            }
+        };
+        assert_eq!(anchored(&split(75)), Some(1));
+        assert_eq!(anchored(&split(65)), None);
     }
 
     /// A cheap deterministic generator, so a failure names a seed that can be
