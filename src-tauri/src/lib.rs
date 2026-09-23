@@ -104,6 +104,16 @@ fn refused_response() -> tauri::http::Response<Vec<u8>> {
         .expect("a response of constants is well formed")
 }
 
+/// The creation flag that starts a console program without a window.
+///
+/// The app is a windowed binary with no console, and Windows gives a console
+/// program it starts a window of its own unless it is told not to: a black
+/// box over whatever the reader was doing, for as long as the child runs.
+/// Every child process this app starts is started with it, and a gate in the
+/// tests below holds that.
+#[cfg(windows)]
+pub(crate) const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 const LOG_MAX_FILE_SIZE_BYTES: u128 = 2_000_000;
 const LOG_ROTATED_FILE_COUNT: usize = 3;
 
@@ -558,5 +568,74 @@ mod tests {
             "OpenRadar.exe",
             "openradar://view?place=hidden%20valley"
         ])));
+    }
+
+    /// The part of a source file that ships: everything before its tests.
+    fn shipped_part(text: &str) -> &str {
+        let lines: Vec<&str> = text.split_inclusive('\n').collect();
+        let mut at = 0usize;
+        for (index, line) in lines.iter().enumerate() {
+            let opens_tests = line.trim() == "#[cfg(test)]"
+                && lines[index + 1..]
+                    .iter()
+                    .take(3)
+                    .any(|next| next.trim_start().starts_with("mod tests"));
+            if opens_tests {
+                return &text[..at];
+            }
+            at += line.len();
+        }
+        text
+    }
+
+    /// Every child process the app starts is started without a window.
+    ///
+    /// Read off the crate's own source rather than a list here, so a
+    /// `Command::new` added next month is a failing test rather than a black
+    /// box over somebody's screen: the wallpaper's registry read opened one
+    /// every time it ran. Test code is left out, because a test starts the
+    /// test binary from a console that is already there.
+    #[test]
+    fn no_child_process_opens_a_window_of_its_own() {
+        let mut pending = vec![std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src")];
+        let mut files = Vec::new();
+        while let Some(dir) = pending.pop() {
+            for entry in std::fs::read_dir(&dir).expect("the source tree").flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    pending.push(path);
+                } else if path.extension().is_some_and(|extension| extension == "rs") {
+                    files.push(path);
+                }
+            }
+        }
+        let mut started = 0usize;
+        let mut offenders = Vec::new();
+        for path in files {
+            let name = path.file_name().expect("a file name").to_string_lossy();
+            if name.ends_with("_tests.rs") || name == "testing.rs" {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).expect("a source file");
+            let shipped = shipped_part(&text);
+            let spawned = shipped.matches("Command::new(").count();
+            let windowless = shipped
+                .matches("creation_flags(crate::CREATE_NO_WINDOW)")
+                .count();
+            started += spawned;
+            if windowless < spawned {
+                offenders.push(format!(
+                    "{name}: {spawned} started, {windowless} windowless"
+                ));
+            }
+        }
+        // The crash monitor and the wallpaper's registry read, today. Fewer
+        // than that is the scan reading nothing rather than the app starting
+        // nothing.
+        assert!(
+            started >= 2,
+            "found {started} child processes in the source"
+        );
+        assert!(offenders.is_empty(), "{offenders:?}");
     }
 }

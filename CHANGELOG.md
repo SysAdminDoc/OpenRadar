@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.13.0
 
+- Switching on the radar wallpaper no longer flashes a black console window across the screen. Before it writes the first picture the app notes down the reader's own wallpaper, and it did that by starting a small Windows program that was given a window of its own. It now starts with none, and so does anything else the app starts.
+
 - In German the Settings button on the rail reads "Einstellungen" in full again. It is the same word as the panel it opens, and it was two pixels too wide for its button, so it came out cut off.
 
 - Specific differential phase keeps reading through the heaviest rain on a ray. The radar reports the phase inside one turn, and a ray through enough rain runs out of room and comes back round, sometimes twice. The old step spotted the first wrap from a steep stretch of slope, took it out and stopped, so rain past a second wrap was drawn as nothing. A phase that settled right at the top of its turn came out with neighbouring gates a turn apart. Each reading is now brought within half a turn of the one before it instead. Eight stored heavy-rain days were reported again from other starting points, which must not change the answer at all: the old step lost 434,311 readings that way and this loses none.
