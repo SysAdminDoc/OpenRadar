@@ -981,7 +981,9 @@ pub(crate) fn measure_unfolding_at(
     station: &str,
     at: DateTime<Utc>,
 ) -> Option<Measured> {
-    let (_key, data) = runtime.block_on(archive_volume_at(station, at)).ok()?;
+    // Kept, so a change held against these days before and after is held
+    // against the same bytes: `kept` says why that matters.
+    let data = stored_volume(runtime, station, at)?;
     measure_unfolding_bytes(runtime, station, data)
 }
 
