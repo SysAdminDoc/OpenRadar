@@ -483,6 +483,36 @@ fn a_tie_point_that_is_not_a_place_is_refused() {
 }
 
 #[test]
+fn each_edge_of_the_globe_is_held_on_its_own() {
+    // The case above puts both latitudes off the globe at once, so the south
+    // check alone refuses it and the other three went untested: deleting both
+    // longitude checks and the north one left the suite green. The published
+    // grid is sixty degrees wide and thirty-four tall, so each of these moves
+    // exactly one edge past the globe and leaves the other three on it.
+    for (tie, edge) in [
+        ([0.0, 0.0, 0.0, -200.0, 55.0, 0.0], "west"),
+        ([0.0, 0.0, 0.0, 150.0, 55.0, 0.0], "east"),
+        ([0.0, 0.0, 0.0, -126.0, 95.0, 0.0], "north"),
+        ([0.0, 0.0, 0.0, -126.0, -60.0, 0.0], "south"),
+    ] {
+        let Err(error) = read(&tied_to(&tie)) else {
+            panic!("a grid off the {edge} edge of the globe was accepted");
+        };
+        assert!(error.contains("globe"), "{edge}: {error}");
+    }
+    // And a grid that reaches exactly to an edge is on it, or the four above
+    // would pass on a check that refused everything near one.
+    for tie in [
+        [0.0, 0.0, 0.0, -180.0, 90.0, 0.0],
+        [0.0, 0.0, 0.0, 120.0, -56.0, 0.0],
+    ] {
+        if let Err(error) = read(&tied_to(&tie)) {
+            panic!("a grid reaching an edge was refused: {tie:?}: {error}");
+        }
+    }
+}
+
+#[test]
 fn a_rectangular_cell_is_read_on_the_axis_it_belongs_to() {
     // The published grid is square, so nothing about it can tell the two
     // scales apart: crossing them, or transposing the tag, leaves every

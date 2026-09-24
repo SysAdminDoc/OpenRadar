@@ -21,7 +21,12 @@ fn empty(label: &str, elevation: f32) -> SweepField {
 /// Correlation that wanders from gate to gate around `middle`, the way a
 /// bloom's does, by `spread` either way.
 fn noisy(middle: f32, spread: f32, gate: usize) -> f32 {
-    middle + if gate.is_multiple_of(2) { spread } else { -spread }
+    middle
+        + if gate.is_multiple_of(2) {
+            spread
+        } else {
+            -spread
+        }
 }
 
 /// A cut with one kind of target in each block of radials, and the cut above

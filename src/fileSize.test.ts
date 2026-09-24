@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -13,20 +13,38 @@ import { describe, expect, it } from "vitest";
  * files that had motivated the ceiling in the first place: `MapViewport.tsx` at
  * three thousand lines was not a panel.
  *
- * So this measures the whole of `src`. A directory read rather than a list of
- * names, because a list of names is what let the last two through: it goes
- * stale the moment a file is renamed or added, and the whole point is to catch
- * the next one.
+ * So this measures everything `tsc -b` compiles, read off the project's own
+ * references rather than named here. A list of names is what let the last
+ * two through: it goes stale the moment a file is renamed or added, and the
+ * whole point is to catch the next one. Reading `src` alone was the same
+ * mistake one level up, because the build also compiles `e2e` through
+ * `tsconfig.e2e.json`, where a spec had passed two thousand lines.
  */
 const CEILING = 1500;
 
-const SOURCE = join(process.cwd(), "src");
+const ROOT = process.cwd();
+const SOURCE = join(ROOT, "src");
+
+/** What each project the build references says it includes. */
+function compiledRoots(): string[] {
+  const read = (name: string) =>
+    JSON.parse(readFileSync(join(ROOT, name), "utf8")) as {
+      references?: { path: string }[];
+      include?: string[];
+    };
+  const roots: string[] = [];
+  for (const reference of read("tsconfig.json").references ?? []) {
+    for (const included of read(reference.path).include ?? []) {
+      roots.push(join(ROOT, included));
+    }
+  }
+  return roots;
+}
 
 /**
  * Everything the build compiles.
  *
- * `tsconfig.app.json` includes `src` and takes every one of these, so a
- * `.mts` panel is a panel. The earlier spelling of this test matched `.ts` and
+ * The build takes every one of these, so a `.mts` panel is a panel. The earlier spelling of this test matched `.ts` and
  * `.tsx` alone, which left a two-thousand-line `layerRows.mts` invisible to it,
  * to `format:check`, and to eslint, while `tsc -b` compiled it happily.
  */
@@ -58,10 +76,19 @@ const CATALOGUES = new Set([
  * in the meantime.
  */
 const ALREADY_OVER: Record<string, number> = {
-  "components/MapViewport.tsx": 3094,
+  "src/components/MapViewport.tsx": 3094,
+  // Browser specs, which the build compiles and this did not measure until
+  // it read the build's own list of what it compiles.
+  "e2e/level2.spec.ts": 2175,
+  "e2e/workspace.spec.ts": 1575,
+  "e2e/layers.spec.ts": 1562,
 };
 
 function every(from: string): string[] {
+  if (!existsSync(from)) return [];
+  // A root can be a file as well as a directory: the node project includes
+  // its config files by name.
+  if (!statSync(from).isDirectory()) return COMPILED.test(from) ? [from] : [];
   const found: string[] = [];
   for (const entry of readdirSync(from)) {
     const path = join(from, entry);
@@ -87,18 +114,21 @@ function lengthOf(path: string): number {
 describe("how big a source file is allowed to get", () => {
   it("keeps every file the build compiles inside the ceiling", () => {
     const over: string[] = [];
-    const files = every(SOURCE);
+    const roots = compiledRoots();
+    // The three projects the build references, found rather than assumed.
+    expect(roots).toEqual(expect.arrayContaining([SOURCE, join(ROOT, "e2e")]));
+    const files = roots.flatMap(every);
     // The tree itself has to be found, or this passes by reading none.
     expect(files.length).toBeGreaterThan(100);
     // And every extension has to be reachable, or the pattern is the gate.
     expect(files.some((path) => path.endsWith(".tsx"))).toBe(true);
     expect(files.some((path) => path.endsWith(".ts"))).toBe(true);
+    expect(files.some((path) => path.includes(`${join(ROOT, "e2e")}`))).toBe(
+      true,
+    );
     for (const path of files) {
       if (CATALOGUES.has(path)) continue;
-      const name = path
-        .slice(SOURCE.length + 1)
-        .split("\\")
-        .join("/");
+      const name = relative(ROOT, path).split("\\").join("/");
       const lines = lengthOf(path);
       const allowed = ALREADY_OVER[name] ?? CEILING;
       if (lines > allowed) over.push(`${name} is ${lines} lines`);
@@ -111,7 +141,7 @@ describe("how big a source file is allowed to get", () => {
     // has to still be over the ceiling, or it belongs in the ordinary rule.
     for (const [name, lines] of Object.entries(ALREADY_OVER)) {
       expect(lines, name).toBeGreaterThan(CEILING);
-      const path = join(SOURCE, ...name.split("/"));
+      const path = join(ROOT, ...name.split("/"));
       expect(
         lengthOf(path),
         `${name} is no longer over the ceiling`,
@@ -134,7 +164,11 @@ describe("how big a source file is allowed to get", () => {
     // markup and one hook is what the first version of this did, and it could
     // not see `createElement`, `useReducer`, or a render closure: a table with
     // a component in it passed with everything else green.
-    expect(catalogue).not.toMatch(/from ["']react["']/);
+    // Any mention of the package at all, because a dynamic `import("react")`
+    // or a `require` reaches it without the word `from`, and a table that
+    // needs the package is not a table.
+    expect(catalogue).not.toMatch(/["']react(-dom)?(\/[^"']*)?["']/);
+    expect(catalogue).not.toContain("createElement");
     expect(catalogue).not.toContain("</");
   });
 });
