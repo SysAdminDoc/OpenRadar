@@ -497,3 +497,16 @@ Nothing here is committed. `src-tauri/src/dealias.rs` is untouched.
 ## AUD-523: Beam height above ground needs a DEM source
 
 Found 2026-09-17. The item assumed the Topography style provides terrain elevation, but OpenTopoMap is a raster tileset (contour lines rendered as images), not a `raster-dem` source. MapLibre's `queryTerrainElevation` requires a `terrain` property with a DEM source. Adding one needs a new host (e.g. `demotiles.maplibre.org` or a self-hosted Terrarium tileset), an ALLOWED_HOSTS entry, a ledger row, and a CSP rule. Blocked on the decision to add a terrain elevation host.
+
+## AUD-356: The 5 km composite stopped in 2021
+
+Found 2026-09-24. The item rests on `noaa-mrms-pds` publishing `CONUS_5KM/` alongside the 1 km grids, and its evidence line listed the two product folders without looking inside them. Both hold exactly 134 day folders, 2020-10-14 to 2021-02-24, and nothing after: a listing of `CONUS_5KM/MergedReflectivityQCComposite_00.50/2026` returns no keys, and the objects that are there carry a `LastModified` of 2025-09-25, which is a backfill rather than a feed. The item's own acceptance asks for the product's cadence and history depth to be validated live before the loop depends on it, and it has neither. Downsampling the 1 km grid after it is decoded does not meet the acceptance either, because decoding is the cost the item is about.
+
+Unblocks when NOAA publishes a current coarse composite, or when somebody decides the national loop should decode fewer frames when zoomed out instead, which is a different item.
+
+- [ ] AUD-356 (P3): Read the 5 km composite for the national loop when zoomed out
+      Why: `noaa-mrms-pds` publishes `CONUS_5KM/` with the composite and the lowest-altitude reflectivity at a twenty-fifth of the cells of the 1 km grid. The national loop decodes about sixty 1 km composites for a two-hour loop whatever the zoom, and at zoom 5 the map cannot show the difference. The fold already trades resolution for memory at the fine grids' zoom; this is the same trade one step further out, on a product the bucket already publishes.
+      Evidence: https://noaa-mrms-pds.s3.amazonaws.com/?list-type=2&prefix=CONUS_5KM/&delimiter=/ (two products, 2026-09-07); `src-tauri/src/mrms.rs` (`DOMAINS`, `listing_url`, the fold); commit `82c8699`.
+      Touches: `src-tauri/src/mrms.rs` (a domain-like source for the 5 km composite chosen by the tile's zoom, the same key replaced on zoom-in), `src/lib/providers/mrms.ts`, the live contract (the 5 km product's cadence and history depth need live validation before the loop depends on it).
+      Acceptance: Zoomed out, the loop's decode time and memory drop by an order of magnitude in the diagnostics history; zooming past the switch draws the 1 km grid with no gap; the export still reads the 1 km grid.
+      Complexity: M
