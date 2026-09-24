@@ -163,10 +163,13 @@ function SoundingView({
   which,
   center,
   at,
+  onSettled,
 }: {
   which: Which;
   center: [number, number];
   at: number;
+  /** Called once an answer or a failure is in, with the kind it was for. */
+  onSettled: (which: Which) => void;
 }) {
   const t = useT();
   const [answer, setAnswer] = useState<{
@@ -187,6 +190,7 @@ function SoundingView({
       .then((sounding) => {
         if (request !== requestRef.current) return;
         setAnswer({ sounding, error: null });
+        onSettled(which);
         // Left where the radar can read it. Hail size is worked out between
         // the freezing level and minus twenty, and this chart is the only
         // place in the app that knows either of them.
@@ -198,8 +202,9 @@ function SoundingView({
           sounding: null,
           error: failureSentence(failure, t("sounding.failedAny")),
         });
+        onSettled(which);
       });
-  }, [at, center, t, which]);
+  }, [at, center, onSettled, t, which]);
 
   const sounding = answer?.sounding ?? null;
   const error = answer?.error ?? null;
@@ -433,6 +438,9 @@ export function SoundingPanel({ center, at, onClose }: SoundingPanelProps) {
   // while a chart is on screen.
   useMeasurements();
   const [which, setWhich] = useState<Which>("observed");
+  // Which kind has answered, held with the question rather than as a flag,
+  // so switching kinds is busy again without an effect to say so.
+  const [settled, setSettled] = useState<Which | null>(null);
 
   return (
     <PanelShell
@@ -440,6 +448,7 @@ export function SoundingPanel({ center, at, onClose }: SoundingPanelProps) {
       title={t("sounding.title")}
       onClose={onClose}
       className="surface-panel--right surface-panel--wide"
+      busy={settled !== which}
     >
       <div
         className="segmented-control segmented-control--full"
@@ -465,7 +474,13 @@ export function SoundingPanel({ center, at, onClose }: SoundingPanelProps) {
       </div>
       {/* Keyed, so the other kind starts from nothing rather than showing the
           last one's chart while its own is on the way. */}
-      <SoundingView key={which} which={which} center={center} at={at} />
+      <SoundingView
+        key={which}
+        which={which}
+        center={center}
+        at={at}
+        onSettled={setSettled}
+      />
     </PanelShell>
   );
 }

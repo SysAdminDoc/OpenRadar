@@ -114,6 +114,7 @@ export function SearchPanel({
       title={t("search.title")}
       onClose={onClose}
       className="surface-panel--left"
+      busy={status === "loading"}
     >
       <label className="search-field">
         <Search size={17} />

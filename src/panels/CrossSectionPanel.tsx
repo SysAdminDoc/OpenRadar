@@ -73,6 +73,7 @@ export function CrossSectionPanel({
       title={t("section.title")}
       onClose={onClose}
       className="surface-panel--right"
+      busy={loading}
     >
       {!take ? (
         <div className="empty-copy">

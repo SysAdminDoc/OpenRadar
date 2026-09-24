@@ -116,6 +116,9 @@ export function NearbyPanel({
       title={t("nearby.title")}
       onClose={onClose}
       className="surface-panel--right"
+      // Either list still waiting on its first answer. A reader in a screen
+      // reader is in the panel, not looking at the spinner in one section.
+      busy={alertsNote === "loading" || cellsNote === "loading"}
     >
       <p className="nearby-intro">{t("nearby.intro")}</p>
 
