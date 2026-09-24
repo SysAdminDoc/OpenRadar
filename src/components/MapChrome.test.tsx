@@ -451,6 +451,20 @@ describe("the legend says what the echo mask did", () => {
     expect(screen.queryByText("Echo that is not weather hidden")).toBeNull();
   });
 
+  it("is told what the picture on screen says about it", () => {
+    // Read where the legend is placed rather than by rendering the whole
+    // chrome: the legend was given nothing, a review found, and every case
+    // above still passed because each renders the legend on its own.
+    const source = readFileSync(
+      join(process.cwd(), "src", "components", "WorkspaceChrome.tsx"),
+      "utf8",
+    );
+    const at = source.indexOf("<RadarLegend");
+    expect(at).toBeGreaterThan(-1);
+    const element = source.slice(at, source.indexOf("/>", at));
+    expect(element).toMatch(/echoMask=\{sweep\?\.echoMask\b/);
+  });
+
   it("says nothing when nobody asked, or with the radar hidden", () => {
     render(legend(null));
     expect(screen.queryByText(/not weather hidden|Echo mask/)).toBeNull();
