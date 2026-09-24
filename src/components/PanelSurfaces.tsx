@@ -242,6 +242,8 @@ interface PanelSurfacesProps {
   };
   /** True while archived radar from another day is on the map. */
   replaying: boolean;
+  /** That day's own warnings, which a replay reads instead of today's. */
+  archiveWarnings: { data: unknown; loading: boolean; error: string | null };
   nearbyPlaces: NearbyPlaceOption[];
   nearbyPlaceId: string;
   onNearbyPlace: (id: string) => void;
@@ -457,6 +459,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             enabled: settings.layers.weatherAlerts,
             replaying: props.replaying,
             alerts: overlays.alerts,
+            archive: props.archiveWarnings,
           })}
           alertsError={overlays.alerts.error ?? null}
           station={props.stormCells.report?.station ?? null}
