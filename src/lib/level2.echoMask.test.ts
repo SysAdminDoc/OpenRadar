@@ -87,6 +87,12 @@ describe("the echo mask reaches the native side", () => {
       // closes a bracket of its own long before the list does.
       const signature = source.slice(at, source.indexOf("->", at));
       expect(signature, command).toMatch(/\becho_mask: bool\b/);
+      // And it goes into the look the sweep is drawn with. A command that
+      // takes the switch and drops it compiles with a warning and draws every
+      // sweep unmasked; the archive command doing that left the suite green.
+      const next = source.indexOf("pub async fn ", at + 1);
+      const body = source.slice(at, next === -1 ? undefined : next);
+      expect(body, command).toMatch(/Look\s*\{[^}]*\becho_mask\b[^}]*\}/);
     }
   });
 });

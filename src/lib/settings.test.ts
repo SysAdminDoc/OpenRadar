@@ -26,6 +26,20 @@ import {
   type Palette,
 } from "./palette";
 
+describe("the echo mask setting", () => {
+  it("is off until the reader turns it on, and stays on once they do", () => {
+    // A review dropped it from the normaliser and every test stayed green,
+    // which would have put the switch back to off on every launch.
+    expect(normalizeSettings({}).radar.echoMask).toBe(false);
+    expect(
+      normalizeSettings({ radar: { echoMask: true } }).radar.echoMask,
+    ).toBe(true);
+    expect(
+      normalizeSettings({ radar: { echoMask: "yes" } }).radar.echoMask,
+    ).toBe(false);
+  });
+});
+
 describe("settings normalization", () => {
   it("refuses a radar site that is not a four letter call sign", () => {
     for (const station of ["kdmx", "KDMX"]) {
