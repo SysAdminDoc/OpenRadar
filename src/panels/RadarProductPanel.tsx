@@ -454,6 +454,29 @@ export function RadarProductPanel({
             <i className="toggle-track" aria-hidden="true" />
           </label>
 
+          {/* The picture only, for the same reason. An airport radar sends
+              no correlation to judge a gate by, so the switch says that
+              instead of doing nothing. */}
+          <label className="toggle-row toggle-row--plain">
+            <span>
+              <strong>{t("radar.echoMask")}</strong>
+              <small>
+                {isTdwrStation(radar.station)
+                  ? t("radar.echoMaskTdwr")
+                  : t("radar.echoMaskDetail")}
+              </small>
+            </span>
+            <input
+              type="checkbox"
+              checked={radar.echoMask && !isTdwrStation(radar.station)}
+              disabled={!radar.singleSite || isTdwrStation(radar.station)}
+              onChange={(event) =>
+                onRadar({ ...radar, echoMask: event.target.checked })
+              }
+            />
+            <i className="toggle-track" aria-hidden="true" />
+          </label>
+
           <section className="archive-browser" aria-labelledby="archive-title">
             <div className="archive-browser__title">
               <History size={17} aria-hidden="true" />

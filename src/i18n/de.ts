@@ -844,6 +844,11 @@ export const de: Catalogue = {
     "Die Produkte eines Flughafenradars kommen bereits gezeichnet an, es gibt also keine Gates, zwischen denen zu lesen wäre.",
   "radar.smoothDetail":
     "Zwischen den Gates lesen statt das nächste zu nehmen. Nur das Bild: abgefragte Messwerte und exportierte Zahlen sind die Gates selbst.",
+  "radar.echoMask": "Echos ausblenden, die kein Wetter sind",
+  "radar.echoMaskDetail":
+    "Nimmt Vogel- und Insektenschwärme, Bodenechos und Windparks aus dem Bild, gemessen daran, wie gut die beiden Polarisationen übereinstimmen. Hagel bleibt, wo ein Gewitter darüber steht. Nur das Bild: Messwerte, Exporte und der Vertikalschnitt behalten jedes Gate.",
+  "radar.echoMaskTdwr":
+    "Ein Flughafenradar liefert keine Korrelation, an der sich ein Gate messen ließe, also gibt es nichts zum Maskieren.",
   "radar.persistence": "Phosphor-Nachleuchten",
   "radar.persistenceDetail":
     "Blendet den fertigen Sweep hinter dem aus, den das Radar gerade macht, wie es ein Phosphorschirm tut. An den Messwerten ändert sich nichts; die Legende nennt das Alter der älteren Hälfte ebenso wie der neueren, denn ein verblasstes Bild ist älter als ein unverblasstes.",
@@ -1874,6 +1879,8 @@ export const de: Catalogue = {
   "palette.none": "Hier passt nichts dazu. Versuchen Sie ein kürzeres Wort.",
   "legend.hidden": "RADAR AUSGEBLENDET",
   "legend.smoothed": "Zwischen den Gates geglättet",
+  "legend.echoMasked": "Echos ohne Wetter ausgeblendet",
+  "legend.echoMaskUnavailable": "Echomaske für dieses Produkt nicht verfügbar",
   "legend.melting": "Schmelzschicht bei {height}, aus der {tilt}°-Elevation",
   "legend.debrisMark":
     "Weiße Markierung: mögliche Tornado-Trümmersignatur, keine Bestätigung",

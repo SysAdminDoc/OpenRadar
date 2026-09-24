@@ -281,6 +281,47 @@ describe("the site picker and what the office says", () => {
     });
   });
 
+  describe("hiding the echo that is not weather", () => {
+    function mask(station: string | null, onRadar = vi.fn()) {
+      render(
+        <RadarProductPanel
+          radar={{ ...DEFAULT_SETTINGS.radar, singleSite: true, station }}
+          clock={Date.parse("2026-09-03T02:06:00Z")}
+          singleSite={{ ...singleSite, sweep: null } as SingleSiteState}
+          siteStatus={[]}
+          melting={null}
+          cellJumps={new Map()}
+          stormCells={CELLS}
+          watch={DEFAULT_SETTINGS.watch}
+          onRadar={onRadar}
+          onClose={() => {}}
+        />,
+      );
+      return screen.getByRole("checkbox", {
+        name: new RegExp(en["radar.echoMask"], "i"),
+      });
+    }
+
+    it("is off until the reader turns it on", () => {
+      expect(DEFAULT_SETTINGS.radar.echoMask).toBe(false);
+      const onRadar = vi.fn();
+      const box = mask("KDMX", onRadar);
+      expect(box).not.toBeChecked();
+      expect(box.hasAttribute("disabled")).toBe(false);
+      fireEvent.click(box);
+      expect(onRadar).toHaveBeenCalledWith(
+        expect.objectContaining({ echoMask: true }),
+      );
+    });
+
+    it("is not offered on a terminal radar, and says why", () => {
+      // An airport radar sends finished products with no correlation in
+      // them, so there is nothing to judge a gate by.
+      expect(mask("TBWI").hasAttribute("disabled")).toBe(true);
+      expect(screen.getByText(en["radar.echoMaskTdwr"])).toBeInTheDocument();
+    });
+  });
+
   describe("unfolding an airport radar's velocity", () => {
     function unfold(station: string | null) {
       render(

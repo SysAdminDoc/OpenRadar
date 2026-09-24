@@ -444,6 +444,7 @@ fn draw_product(
         storm_motion: None,
         has_debris: false,
         has_spike: false,
+        echo_mask: None,
         echo_topped: false,
         // A terminal radar publishes finished products, so there is no volume
         // to work a column out of and nothing to weigh against the air.

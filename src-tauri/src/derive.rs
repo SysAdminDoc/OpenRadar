@@ -515,7 +515,7 @@ fn read_column(
 /// the height is measured against. Two passes, because the height that sets
 /// the correction is the height at the range being solved for and one pass
 /// already lands well inside a metre.
-fn slant_for(ground_km: f64, elevation: f32) -> Option<f64> {
+pub(crate) fn slant_for(ground_km: f64, elevation: f32) -> Option<f64> {
     let angle = (elevation as f64).to_radians();
     let cosine = angle.cos();
     if cosine <= 0.0 {

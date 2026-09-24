@@ -107,6 +107,16 @@ export interface RadarSettings {
    */
   smoothSweep: boolean;
   /**
+   * Hide the echo that is not weather: bird and insect blooms, ground
+   * clutter, wind farms, chaff.
+   *
+   * The same bargain as `smoothSweep`. The picture only: the readout under the
+   * cursor, every export and the vertical slice keep every gate the radar
+   * reported, because a mask is a judgement about what a gate is and those
+   * are the readings themselves. Off unless the reader turns it on.
+   */
+  echoMask: boolean;
+  /**
    * Draw the national grids by reading between their cells rather than by
    * taking the nearest one.
    *

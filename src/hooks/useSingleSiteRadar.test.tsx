@@ -88,9 +88,9 @@ vi.mock("../lib/level2", async () => {
       live: boolean,
     ) => fetchSweep(station, product, tilt, live),
     fetchArchiveSweep: (...args: Parameters<typeof actual.fetchArchiveSweep>) =>
-      fetchArchiveSweep(args[0], args[1], args[2], args[3], args[8]),
+      fetchArchiveSweep(args[0], args[1], args[2], args[3], args[9]),
     fetchLocalSweep: (...args: Parameters<typeof actual.fetchLocalSweep>) =>
-      fetchLocalSweep(args[0], args[1], args[2], args[7]),
+      fetchLocalSweep(args[0], args[1], args[2], args[8]),
     pickArchiveFile: () => pickArchiveFile(),
     recentVolumeTimes: (station: string, count: number) =>
       recentVolumeTimes(station, count),

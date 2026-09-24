@@ -36,6 +36,7 @@ use crate::chunks;
 use crate::cross_section;
 use crate::dealias;
 use crate::derive;
+use crate::echo_mask;
 use crate::http;
 use crate::kdp;
 use crate::level3;
@@ -268,6 +269,10 @@ pub struct SweepImage {
     pub has_debris: bool,
     /// True when a three-body scatter spike is marked on this hail size.
     pub has_spike: bool,
+    /// `on` when the echo that is not weather is hidden on this picture,
+    /// `unavailable` when the reader asked and it could not run here, and
+    /// nothing when it was not asked for.
+    pub echo_mask: Option<&'static str>,
     /// True when the echo top on screen reaches the highest scanned cut with
     /// no sample above it. The true height may be above what the volume saw.
     pub echo_topped: bool,

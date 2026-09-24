@@ -484,6 +484,7 @@ export function WorkspaceChrome({
         paletteScale={paletteScale}
         highContrast={drawnHighContrast}
         smoothed={Boolean(sweep?.smoothed)}
+        echoMask={sweep?.echoMask ?? null}
         // Not gated on `dealiased`, which says only that something moved: a
         // sweep the unfolder could not move at all, leaving a third of the
         // echo unplaced, is exactly the one worth saying it about.

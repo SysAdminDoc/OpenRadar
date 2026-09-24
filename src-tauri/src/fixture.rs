@@ -49,6 +49,9 @@ pub struct Radial {
     pub reflectivity: Vec<Gate>,
     /// Velocity in metres a second, one per gate, or empty for no velocity.
     pub velocity: Vec<Gate>,
+    /// Correlation coefficient, one per gate, or empty for a radial that
+    /// carries none, which is every fixture written before the echo mask.
+    pub correlation: Vec<Gate>,
 }
 
 /// Where the radar stands.
@@ -72,6 +75,11 @@ const REFLECTIVITY_OFFSET: f32 = 66.0;
 /// Velocity at 0.5 m/s a count, the resolution a wide cut uses.
 const VELOCITY_SCALE: f32 = 2.0;
 const VELOCITY_OFFSET: f32 = 129.0;
+
+/// Correlation coefficient, at the scale and offset the office publishes it
+/// with, which puts a count at a three hundredth.
+const CORRELATION_SCALE: f32 = 300.0;
+const CORRELATION_OFFSET: f32 = -60.5;
 
 /// The first two counts are reserved: nothing measured, and range folded.
 const FIRST_REAL_COUNT: f32 = 2.0;
@@ -110,12 +118,14 @@ fn stamp(at: DateTime<Utc>) -> (u16, u32) {
 pub fn radial_message(site: &Site, radial: &Radial) -> Vec<u8> {
     let gates = radial.reflectivity.len();
     let with_velocity = !radial.velocity.is_empty();
+    let with_correlation = !radial.correlation.is_empty();
     assert!(
-        !with_velocity || radial.velocity.len() == gates,
+        (!with_velocity || radial.velocity.len() == gates)
+            && (!with_correlation || radial.correlation.len() == gates),
         "a radial's moments have to cover the same gates"
     );
 
-    let blocks = if with_velocity { 5u16 } else { 4u16 };
+    let blocks = 4u16 + u16::from(with_velocity) + u16::from(with_correlation);
     // The pointers are counted from the start of the type 31 header, which is
     // 32 bytes, and are themselves four bytes each.
     let first_block = 32 + 4 * blocks as u32;
@@ -167,6 +177,14 @@ pub fn radial_message(site: &Site, radial: &Radial) -> Vec<u8> {
     );
     let velocity = with_velocity
         .then(|| moment_block(b"DVEL", &radial.velocity, VELOCITY_SCALE, VELOCITY_OFFSET));
+    let correlation = with_correlation.then(|| {
+        moment_block(
+            b"DRHO",
+            &radial.correlation,
+            CORRELATION_SCALE,
+            CORRELATION_OFFSET,
+        )
+    });
 
     let mut pointers = vec![first_block];
     for block in [Some(&volume), Some(&elevation), Some(&radial_block)]
@@ -176,9 +194,12 @@ pub fn radial_message(site: &Site, radial: &Radial) -> Vec<u8> {
         let last = *pointers.last().expect("seeded above");
         pointers.push(last + block.len() as u32);
     }
-    if velocity.is_some() {
+    // Each moment after the first starts where the one before it ended.
+    let mut previous = reflectivity.len();
+    for moment in [&velocity, &correlation].into_iter().flatten() {
         let last = *pointers.last().expect("seeded above");
-        pointers.push(last + reflectivity.len() as u32);
+        pointers.push(last + previous as u32);
+        previous = moment.len();
     }
     assert_eq!(pointers.len(), blocks as usize);
 
@@ -198,7 +219,8 @@ pub fn radial_message(site: &Site, radial: &Radial) -> Vec<u8> {
         + elevation.len()
         + radial_block.len()
         + reflectivity.len()
-        + velocity.as_ref().map_or(0, Vec::len);
+        + velocity.as_ref().map_or(0, Vec::len)
+        + correlation.as_ref().map_or(0, Vec::len);
     message.extend_from_slice(&(body as u16).to_be_bytes());
     // The code the ICD gives the spacing: one for half a degree, two for a
     // whole one. What is written here has to be the spacing the radials are
@@ -229,6 +251,9 @@ pub fn radial_message(site: &Site, radial: &Radial) -> Vec<u8> {
     message.extend_from_slice(&reflectivity);
     if let Some(velocity) = &velocity {
         message.extend_from_slice(velocity);
+    }
+    if let Some(correlation) = &correlation {
+        message.extend_from_slice(correlation);
     }
     assert_eq!(message.len(), body);
 
@@ -440,6 +465,7 @@ pub fn flat_cut(at: DateTime<Utc>, cut: Cut) -> Vec<Radial> {
             velocity: cut
                 .velocity
                 .map_or_else(Vec::new, |speed| vec![speed; cut.gates]),
+            correlation: Vec::new(),
         })
         .collect()
 }

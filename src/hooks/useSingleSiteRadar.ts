@@ -595,6 +595,7 @@ export function useSingleSiteRadar(options: {
           palette: paletteGeneration,
           air: airGeneration,
           highContrast: highContrastRequested(),
+          echoMask: radar.echoMask,
           within,
         });
   // Whatever has been settled for the key being asked about now. A reply for
@@ -642,6 +643,7 @@ export function useSingleSiteRadar(options: {
             motion,
             threshold,
             highContrastRequested(),
+            radar.echoMask,
             within,
           )
     )
@@ -685,6 +687,7 @@ export function useSingleSiteRadar(options: {
     motionSpeed,
     product,
     radar.dealias,
+    radar.echoMask,
     radar.tilt,
     station,
     threshold,
@@ -826,6 +829,7 @@ export function useSingleSiteRadar(options: {
     motionSpeed,
     motionFrom,
     threshold,
+    echoMask: radar.echoMask,
     paletteGeneration,
     airGeneration,
     historicalSource,
@@ -866,6 +870,7 @@ export function useSingleSiteRadar(options: {
             palette: paletteGeneration,
             air: airGeneration,
             highContrast: highContrastRequested(),
+            echoMask: radar.echoMask,
             within,
           }),
     [
@@ -875,6 +880,7 @@ export function useSingleSiteRadar(options: {
       paletteGeneration,
       product,
       radar.dealias,
+      radar.echoMask,
       radar.tilt,
       station,
       threshold,
@@ -1001,6 +1007,7 @@ export function useSingleSiteRadar(options: {
           radar.live && radar.persistence,
           reducedMotionRequested(),
           radar.smoothSweep,
+          radar.echoMask,
           within,
         );
         if (!reply.current() || request !== requestRef.current) return;
@@ -1118,6 +1125,7 @@ export function useSingleSiteRadar(options: {
     radar.live,
     radar.persistence,
     radar.smoothSweep,
+    radar.echoMask,
     product,
     // The two numbers rather than the object holding them. A settings object is
     // rebuilt whenever anything in it changes, including the map centre, so
@@ -1180,6 +1188,7 @@ export function useSingleSiteRadar(options: {
       palette: paletteGeneration,
       air: airGeneration,
       highContrast: contrast,
+      echoMask: radar.echoMask,
       within,
     });
 
@@ -1215,6 +1224,7 @@ export function useSingleSiteRadar(options: {
       motion,
       threshold,
       contrast,
+      radar.echoMask,
       within,
     )
       .then((next) => {
@@ -1256,6 +1266,7 @@ export function useSingleSiteRadar(options: {
     paletteGeneration,
     product,
     radar.dealias,
+    radar.echoMask,
     radar.tilt,
     loopVolumes,
     scrubbedBack,

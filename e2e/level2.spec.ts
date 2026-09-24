@@ -497,8 +497,8 @@ async function fakeNativeSide(page: Page) {
             return Promise.reject("the site did not answer");
           }
           if (command === "level2_sweep") {
-            return Promise.resolve(
-              sweep(
+            return Promise.resolve({
+              ...sweep(
                 String(args.station),
                 String(args.product),
                 Number(args.tilt),
@@ -507,7 +507,10 @@ async function fakeNativeSide(page: Page) {
                 (args.within as [number, number, number, number] | null) ??
                   null,
               ),
-            );
+              // What the native side says about the mask it was asked for,
+              // which is what the legend reads rather than the switch.
+              echoMask: args.echoMask ? "on" : null,
+            });
           }
           if (command === "plugin:dialog|open") {
             const selected = (window as unknown as { __archivePath?: string })
@@ -1303,6 +1306,48 @@ test("hides the weak returns when the reader asks and puts them back", async ({
     .fill("40");
   await expect(readout).toHaveText("Everything");
   await expect.poll(askedFor).toBe(null);
+});
+
+test("hides the echo that is not weather when asked, and the legend says so", async ({
+  page,
+}) => {
+  await open(page, 9);
+  await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
+
+  const mask = page.getByRole("checkbox", {
+    name: /Hide echo that is not weather/,
+  });
+  const askedFor = async () => {
+    const calls = await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __sweepCalls: Array<{
+              command: string;
+              args: Record<string, unknown>;
+            }>;
+          }
+        ).__sweepCalls,
+    );
+    return calls.filter((call) => call.command === "level2_sweep").at(-1)?.args
+      .echoMask;
+  };
+  // Off until the reader turns it on, and the picture is asked for whole.
+  await expect(mask).not.toBeChecked();
+  await expect.poll(askedFor).toBe(false);
+  await expect(page.getByText("Echo that is not weather hidden")).toHaveCount(
+    0,
+  );
+
+  await mask.check();
+  await expect.poll(askedFor).toBe(true);
+  await expect(page.getByText("Echo that is not weather hidden")).toBeVisible();
+
+  await mask.uncheck();
+  await expect.poll(askedFor).toBe(false);
+  await expect(page.getByText("Echo that is not weather hidden")).toHaveCount(
+    0,
+  );
 });
 
 test("turning single site off puts the mosaic back", async ({ page }) => {

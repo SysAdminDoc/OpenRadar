@@ -123,6 +123,8 @@ export function loopKey(parts: {
    */
   air: number;
   highContrast: boolean;
+  /** Whether the echo that is not weather was taken off the frame. */
+  echoMask: boolean;
   /**
    * The ground the frame was drawn over, or null for the site's whole reach.
    *
@@ -143,6 +145,7 @@ export function loopKey(parts: {
     parts.palette,
     parts.air,
     parts.highContrast,
+    parts.echoMask,
     parts.within,
   ]);
 }

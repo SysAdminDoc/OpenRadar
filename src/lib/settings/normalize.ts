@@ -167,6 +167,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       live: bool(radar.live, DEFAULT_SETTINGS.radar.live),
       persistence: bool(radar.persistence, DEFAULT_SETTINGS.radar.persistence),
       smoothSweep: bool(radar.smoothSweep, DEFAULT_SETTINGS.radar.smoothSweep),
+      echoMask: bool(radar.echoMask, DEFAULT_SETTINGS.radar.echoMask),
       smoothGrids: bool(radar.smoothGrids, DEFAULT_SETTINGS.radar.smoothGrids),
       dealias: bool(radar.dealias, DEFAULT_SETTINGS.radar.dealias),
       stormMotion: normalizeStormMotion(radar.stormMotion),

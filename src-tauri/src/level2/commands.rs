@@ -17,6 +17,8 @@ pub struct Look {
     pub reduced_motion: bool,
     /// Read between the gates rather than taking the nearest one.
     pub smooth: bool,
+    /// Hide the echo that is not weather. The picture only, like smoothing.
+    pub echo_mask: bool,
 }
 
 /// The two heights the hail algorithm weights between, as the page sends them.
@@ -64,6 +66,7 @@ pub(crate) fn requested_sweep<'a>(
         persistence: look.persistence,
         reduced_motion: look.reduced_motion,
         smooth: look.smooth,
+        echo_mask: look.echo_mask,
         isotherms: air.map(|air| derive::Isotherms {
             freezing_km: air.freezing_km,
             minus_twenty_km: air.minus_twenty_km,
@@ -109,6 +112,9 @@ pub async fn level2_sweep(
     // only: the number the inspector answers with and the numbers an export
     // writes are the gates themselves either way.
     smooth: bool,
+    // Hide the echo that is not weather: blooms, clutter, wind farms. The
+    // picture only; the readout and the exports keep every gate.
+    echo_mask: bool,
     // The freezing level and the minus twenty height, from whatever sounding
     // the workspace has loaded. Absent where it has none, and the standard
     // atmosphere is used instead. Only hail size reads it.
@@ -183,6 +189,7 @@ pub async fn level2_sweep(
                 persistence,
                 reduced_motion,
                 smooth,
+                echo_mask,
             },
             within,
         );
@@ -337,6 +344,10 @@ pub async fn level2_archive_sweep(
     motion: Option<(f32, f32)>,
     threshold: Option<f32>,
     high_contrast: bool,
+    // Hide the echo that is not weather. Taken here as well as on the live
+    // sweep because a loop plays these frames beside it, and a bloom that came
+    // and went with every frame would be a flicker the reader never asked for.
+    echo_mask: bool,
     // The freezing level and the minus twenty height, from whatever sounding
     // the workspace has loaded. Absent where it has none, and the standard
     // atmosphere is used instead. Only hail size reads it.
@@ -364,6 +375,7 @@ pub async fn level2_archive_sweep(
             threshold,
             Look {
                 high_contrast,
+                echo_mask,
                 ..Look::default()
             },
             within,
@@ -390,6 +402,10 @@ pub async fn level2_local_sweep(
     motion: Option<(f32, f32)>,
     threshold: Option<f32>,
     high_contrast: bool,
+    // Hide the echo that is not weather. Taken here as well as on the live
+    // sweep because a loop plays these frames beside it, and a bloom that came
+    // and went with every frame would be a flicker the reader never asked for.
+    echo_mask: bool,
     // The freezing level and the minus twenty height, from whatever sounding
     // the workspace has loaded. Absent where it has none, and the standard
     // atmosphere is used instead. Only hail size reads it.
@@ -414,6 +430,7 @@ pub async fn level2_local_sweep(
             threshold,
             Look {
                 high_contrast,
+                echo_mask,
                 ..Look::default()
             },
             within,

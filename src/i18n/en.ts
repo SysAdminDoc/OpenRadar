@@ -805,6 +805,11 @@ export const en = {
     "An airport radar's products arrive already drawn, so there are no gates to read between.",
   "radar.smoothDetail":
     "Read between the gates rather than taking the nearest one. The picture only: inspected readings and exported numbers are the gates themselves.",
+  "radar.echoMask": "Hide echo that is not weather",
+  "radar.echoMaskDetail":
+    "Take bird and insect blooms, ground clutter and wind farms off the picture, judged by how well the two polarisations agree. Hail stays where a storm stands above it. The picture only: inspected readings, exports and the vertical slice keep every gate.",
+  "radar.echoMaskTdwr":
+    "An airport radar sends no correlation to judge a gate by, so there is nothing to mask with.",
   "radar.persistence": "Phosphor persistence",
   "radar.persistenceDetail":
     "Fade the finished sweep behind the one the radar is making, the way a phosphor screen does. Nothing about the readings changes; the legend says the age of the older half as well as the newer, because a decayed picture is older than an undecayed one.",
@@ -1807,6 +1812,8 @@ export const en = {
   "palette.none": "Nothing here matches that. Try a shorter word.",
   "legend.hidden": "RADAR HIDDEN",
   "legend.smoothed": "Smoothed between gates",
+  "legend.echoMasked": "Echo that is not weather hidden",
+  "legend.echoMaskUnavailable": "Echo mask not available on this product",
   "legend.melting": "Melting layer at {height}, from the {tilt}° cut",
   "legend.debrisMark":
     "White mark: possible tornado debris signature, not a confirmation",

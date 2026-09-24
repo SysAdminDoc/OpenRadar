@@ -47,6 +47,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     live: false,
     persistence: false,
     smoothSweep: false,
+    echoMask: false,
     smoothGrids: false,
     stormMotion: null,
     station: null,
