@@ -24,13 +24,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
   Acceptance: each of those three plants turns its gate red, proved by planting it; the e2e files already over the ceiling are held at their measured length the way `MapViewport.tsx` is.
   Complexity: S
 
-- [ ] AUD-534 (P3): Four panels draw a loading state without saying they are busy
-  Why: `AUD-480` made the accessibility sweep wait on `data-busy` and gave it to five panels. `SoundingPanel.tsx`, `CrossSectionPanel.tsx`, `NearbyPanel.tsx` and `SearchPanel.tsx` also draw a loading state inside `PanelShell` and pass no `busy`, and the sweep opens all four, so the flake `AUD-480` closed can come back on any of them. A reader in a screen reader gets no `aria-busy` there either.
-  Evidence: `grep -c "busy=" src/panels/{Sounding,CrossSection,Nearby,Search}Panel.tsx` is 0 for each on 2026-09-24; `e2e/support/surfaces.ts` opens `sounding`, `section`, `nearby` and `search`.
-  Touches: those four panels, and a test that a panel drawing its loading state says so.
-  Acceptance: WHEN any of the four is waiting on its first answer, the dialog carries `aria-busy="true"` and `data-busy="true"`, and neither once it has an answer or a failure; a test fails if a panel under `src/panels` renders a loading state without passing `busy`.
-  Complexity: S
-
 ## Character and personalization
 
 These came out of a different question than the audit did: what makes somebody keep a weather app open on a second monitor for a year rather than opening it twice during a storm and forgetting it. None of it outranks a correctness, security, or release item, which is why it sits after P3 instead of being folded into the priority ladder.
