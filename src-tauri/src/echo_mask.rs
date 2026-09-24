@@ -17,7 +17,7 @@
 use nexrad_model::data::{GateStatus, SweepField};
 
 use crate::cross_section::beam_height_km;
-use crate::derive::slant_for;
+use crate::derive::{slant_for, swept};
 use crate::gates::reading_at;
 
 /// Precipitation reads at least this. Below it a gate is a candidate.
@@ -66,6 +66,14 @@ pub fn non_weather(
     let gates = correlation.gate_count();
     let first_km = correlation.first_gate_range_km();
     let interval_km = correlation.gate_interval_km();
+    // Which bearings each higher cut has actually swept. A cut the radar is
+    // still sweeping holds only the radials it has reached, and the reader
+    // answers any other bearing with the nearest radial however far round
+    // that is: a storm sixty degrees away was letting a wind farm back in.
+    let reached: Vec<Vec<bool>> = above
+        .iter()
+        .map(|cut| swept(cut.reflectivity, &azimuths))
+        .collect();
     let mut hidden = SweepField::new_empty(
         "Not weather",
         "",
@@ -102,8 +110,18 @@ pub fn non_weather(
                     Some((dbz, GateStatus::Valid)) if dbz >= HAIL_DBZ
                 )
             });
-            if strong && stands_in_a_column(above, *azimuth, range_km, elevation, height_km) {
-                continue;
+            if strong {
+                let over = over_the_gate(
+                    above, &reached, at, *azimuth, range_km, elevation, height_km,
+                );
+                // Kept when a higher cut sees a column over it, and kept when
+                // no higher cut passes over it at all: on the top cut, or a
+                // low one close in, nothing can tell a hail core from a wind
+                // farm, and hiding a core somebody is looking at is the worse
+                // of the two mistakes.
+                if over != Over::Clear {
+                    continue;
+                }
             }
             hidden.set(at, gate, 1.0, GateStatus::Valid);
         }
@@ -127,29 +145,53 @@ fn texture(row: &[Option<f32>], gate: usize) -> Option<f32> {
     Some(variance.sqrt())
 }
 
+/// What the higher cuts say about the air well above a gate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Over {
+    /// A higher cut sees echo there, so the gate stands in a storm's column.
+    Column,
+    /// A higher cut passed over it and saw nothing that strong.
+    Clear,
+    /// No higher cut passes that far over it where it has been swept.
+    Unseen,
+}
+
 /// Whether a higher cut sees echo well above a gate, over the same ground.
-fn stands_in_a_column(
+fn over_the_gate(
     above: &[Above<'_>],
+    reached: &[Vec<bool>],
+    row: usize,
     azimuth: f32,
     range_km: f64,
     elevation: f32,
     height_km: f64,
-) -> bool {
+) -> Over {
     // The ground under the gate, by the model the column products use.
     let ground_km = range_km * f64::from(elevation.to_radians().cos());
-    above
-        .iter()
-        .filter(|cut| cut.elevation > elevation)
-        .any(|cut| {
-            let Some(slant_km) = slant_for(ground_km, cut.elevation) else {
-                return false;
-            };
-            beam_height_km(slant_km, cut.elevation) >= height_km + ALOFT_KM
-                && matches!(
-                    reading_at(cut.reflectivity, azimuth, slant_km),
-                    Some((dbz, GateStatus::Valid)) if dbz >= ALOFT_DBZ
-                )
-        })
+    let mut seen = false;
+    for (cut, swept) in above.iter().zip(reached) {
+        if cut.elevation <= elevation || !swept[row] {
+            continue;
+        }
+        let Some(slant_km) = slant_for(ground_km, cut.elevation) else {
+            continue;
+        };
+        if beam_height_km(slant_km, cut.elevation) < height_km + ALOFT_KM {
+            continue;
+        }
+        match reading_at(cut.reflectivity, azimuth, slant_km) {
+            Some((dbz, GateStatus::Valid)) if dbz >= ALOFT_DBZ => return Over::Column,
+            // The radar looked there and found nothing strong.
+            Some(_) => seen = true,
+            // Past the end of that cut, which says nothing either way.
+            None => {}
+        }
+    }
+    if seen {
+        Over::Clear
+    } else {
+        Over::Unseen
+    }
 }
 
 #[cfg(test)]

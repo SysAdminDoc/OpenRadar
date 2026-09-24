@@ -441,9 +441,9 @@ pub(crate) fn sweep_over(
     };
 
     let beneath = prepare_sweep(station, older, older_nyquist, asked, Some(angle))
-        .map(|prepared| for_drawing(prepared, station, older, asked));
+        .map(|prepared| for_drawing(prepared, station, older, None, asked));
     let Ok(newer) = prepare_sweep(station, live, live_nyquist, asked, Some(angle))
-        .map(|prepared| for_drawing(prepared, station, live, asked))
+        .map(|prepared| for_drawing(prepared, station, live, Some(older), asked))
     else {
         // The radar has not reached this cut in the volume it is sweeping now,
         // so the finished volume is the whole picture and says nothing about

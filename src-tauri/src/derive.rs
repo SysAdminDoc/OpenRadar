@@ -454,7 +454,7 @@ fn derive_on(
 /// counts as swept when a radial lies within two radials' spacing of it, and
 /// never less than a degree, which a finished cut with a radial or two
 /// missing still satisfies everywhere.
-fn swept(field: &SweepField, azimuths: &[f32]) -> Vec<bool> {
+pub(crate) fn swept(field: &SweepField, azimuths: &[f32]) -> Vec<bool> {
     let mut held: Vec<f32> = field.azimuths().to_vec();
     held.sort_by(f32::total_cmp);
     if held.is_empty() {

@@ -1423,20 +1423,15 @@ fn a_cut_that_cannot_be_unfolded_is_refused_rather_than_drawn() {
     );
 }
 
-/// A volume with a bloom, a hail core under a column, ground clutter and rain,
-/// each on its own radials, and a higher cut that sees only the column.
-fn volume_with_a_bloom() -> (String, Vec<u8>) {
-    let at = Utc
-        .with_ymd_and_hms(2026, 9, 23, 3, 10, 0)
-        .single()
-        .expect("a UTC time");
-    let entry = registry::site_by_id("KTLX").expect("Oklahoma City is in the registry");
-    let site = fixture::Site {
-        id: *b"KTLX",
-        latitude: entry.latitude,
-        longitude: entry.longitude,
-        height_metres: 370,
-    };
+/// A lowest cut with a bloom, a hail core, ground clutter and rain on radials
+/// of their own, and a cut four degrees up that sees only the core's column.
+///
+/// Only the radials in `reached` are laid down on the lowest cut, which is
+/// what a cut the radar is still sweeping holds.
+fn bloom_cuts(
+    at: DateTime<Utc>,
+    reached: std::ops::Range<u16>,
+) -> (Vec<fixture::Radial>, Vec<fixture::Radial>) {
     let gates = 240;
     // A bloom's correlation jumps about from gate to gate, and so does a hail
     // core's and a patch of clutter's. Rain's does not.
@@ -1445,7 +1440,7 @@ fn volume_with_a_bloom() -> (String, Vec<u8>) {
             .map(|gate| fixture::Gate::Reading(if gate % 2 == 0 { low } else { high }))
             .collect()
     };
-    let lowest: Vec<fixture::Radial> = (0..360u16)
+    let lowest: Vec<fixture::Radial> = reached
         .map(|radial| {
             let mut reflectivity = vec![fixture::Gate::Nothing; gates];
             let mut correlation = vec![fixture::Gate::Nothing; gates];
@@ -1462,8 +1457,9 @@ fn volume_with_a_bloom() -> (String, Vec<u8>) {
                 90..180 => lay(20, 200, 25.0, noisy(0.4, 0.7)),
                 // A hail core, as low and noisy as the bloom but strong.
                 180..190 => lay(200, 220, 60.0, noisy(0.6, 0.9)),
-                // Clutter: as strong and as noisy, with nothing above it.
-                200..210 => lay(20, 40, 55.0, noisy(0.5, 0.8)),
+                // Clutter: as strong and as noisy, with nothing above it, as far
+                // out as the core, so the cut above passes over both.
+                200..210 => lay(200, 220, 55.0, noisy(0.5, 0.8)),
                 _ => {}
             }
             fixture::Radial {
@@ -1502,6 +1498,23 @@ fn volume_with_a_bloom() -> (String, Vec<u8>) {
             correlation: Vec::new(),
         })
         .collect();
+    (lowest, above)
+}
+
+/// The same, as the bytes of one finished volume.
+fn volume_with_a_bloom() -> (String, Vec<u8>) {
+    let at = Utc
+        .with_ymd_and_hms(2026, 9, 23, 3, 10, 0)
+        .single()
+        .expect("a UTC time");
+    let entry = registry::site_by_id("KTLX").expect("Oklahoma City is in the registry");
+    let site = fixture::Site {
+        id: *b"KTLX",
+        latitude: entry.latitude,
+        longitude: entry.longitude,
+        height_metres: 370,
+    };
+    let (lowest, above) = bloom_cuts(at, 0..360);
     let key = format!("KTLX/KTLX{}_V06", at.format("%Y%m%d_%H%M%S"));
     (key, fixture::volume(&site, at, &[lowest, above]))
 }
@@ -1538,7 +1551,7 @@ fn the_echo_mask_takes_a_bloom_off_the_picture_and_leaves_a_hail_core() {
         (45.0, 30.0, "rain"),
         (135.0, 30.0, "the bloom"),
         (185.0, 54.6, "the hail core"),
-        (205.0, 9.6, "the clutter"),
+        (205.0, 54.6, "the clutter"),
     ] {
         assert!(
             painted(&plain, &before, bearing, km),
@@ -1553,7 +1566,7 @@ fn the_echo_mask_takes_a_bloom_off_the_picture_and_leaves_a_hail_core() {
         "the bloom is still drawn"
     );
     assert!(
-        !painted(&masked, &after, 205.0, 9.6),
+        !painted(&masked, &after, 205.0, 54.6),
         "the clutter is still drawn"
     );
     assert!(
@@ -1619,4 +1632,81 @@ fn the_echo_mask_says_when_it_could_not_run() {
     )
     .expect("a composite");
     assert_eq!(column.echo_mask, Some("unavailable"));
+}
+
+/// A live composite whose newer volume has only reached its lowest cut.
+fn masked_composite(live_reached: std::ops::Range<u16>) -> SweepImage {
+    let older_at = Utc.with_ymd_and_hms(2026, 9, 23, 3, 10, 0).unwrap();
+    let live_at = Utc.with_ymd_and_hms(2026, 9, 23, 3, 15, 0).unwrap();
+    let (lowest, above) = bloom_cuts(older_at, 0..360);
+    let older = built_volume(&[lowest, above]);
+    let (reached, _) = bloom_cuts(live_at, live_reached);
+    let live = built_volume(&[reached]);
+    let none = |_: u8| None;
+    sweep_over(
+        "KTLX",
+        "live",
+        "2026/09/23/KTLX/KTLX20260923_031000_V06",
+        &older,
+        &none,
+        &live,
+        &none,
+        (None, None),
+        SweepRequest {
+            product_name: "reflectivity",
+            echo_mask: true,
+            ..SweepRequest::default()
+        },
+    )
+    .expect("a composite")
+}
+
+#[test]
+fn the_live_picture_keeps_a_hail_core_before_the_radar_reaches_the_cut_above() {
+    // For the first minute or two of every volume the one being swept has no
+    // higher cut, and judged on that alone there was nothing to see the core's
+    // column with: the core went from the live picture while the finished one
+    // kept it, and came back as the cuts arrived. The finished volume's cuts
+    // count for the live half as well.
+    let sweep = masked_composite(0..360);
+    let pixels = drawn_pixels(&sweep);
+    let painted = |bearing: f64, km: f64| pixel_at(&sweep, &pixels, bearing, km)[3] > 0;
+    assert_eq!(sweep.echo_mask, Some("on"));
+    assert!(
+        painted(185.0, 54.6),
+        "the hail core went from the live picture"
+    );
+    // And the live half is masked at all, which a live half drawn whole would
+    // pass the line above.
+    assert!(
+        !painted(135.0, 30.0),
+        "the bloom is still on the live picture"
+    );
+    assert!(
+        !painted(205.0, 54.6),
+        "the clutter is still on the live picture"
+    );
+    assert!(painted(45.0, 30.0), "rain went from the live picture");
+}
+
+#[test]
+fn the_finished_half_of_a_live_picture_is_masked_too() {
+    // The live volume has swept only the first quarter, so the bloom, the
+    // core and the clutter all come from the finished volume under it.
+    let sweep = masked_composite(0..90);
+    let pixels = drawn_pixels(&sweep);
+    let painted = |bearing: f64, km: f64| pixel_at(&sweep, &pixels, bearing, km)[3] > 0;
+    assert!(painted(45.0, 30.0), "rain went");
+    assert!(
+        !painted(135.0, 30.0),
+        "the bloom under the live sector was drawn"
+    );
+    assert!(
+        !painted(205.0, 54.6),
+        "the clutter under the live sector was drawn"
+    );
+    assert!(
+        painted(185.0, 54.6),
+        "the hail core under the live sector went"
+    );
 }
