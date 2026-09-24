@@ -239,6 +239,8 @@ interface PanelSurfacesProps {
     cellNames: ReadonlyMap<string, string>;
     onNameCell: (id: string, name: string) => void;
     summary: string;
+    /** The place the readout is about. */
+    point: GeoPoint;
   };
   /** True while archived radar from another day is on the map. */
   replaying: boolean;
@@ -465,6 +467,8 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           station={props.stormCells.report?.station ?? null}
           observed={observedAt(props.stormCells.report?.observed)}
           alertsFetchedAt={overlays.alerts.fetchedAt}
+          floodPoint={props.nearby.point}
+          floodThresholds={settings.floodThresholds}
           onClose={onClose}
         />
       ) : null}

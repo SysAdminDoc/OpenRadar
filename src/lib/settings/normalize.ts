@@ -26,6 +26,7 @@ import {
   type GridRule,
 } from "../gridWatch";
 import { isSnowfallWindow } from "../snowfall";
+import { normalizeFloodThresholds } from "../flashFlood";
 import { MAX_LOOP_VOLUMES, MIN_LOOP_VOLUMES } from "../siteLoop";
 import { isSatelliteBand, type SatelliteBandId } from "../satelliteBands";
 import { isGaugeQpePeriod } from "../gaugeQpe";
@@ -317,6 +318,7 @@ export function normalizeSettings(value: unknown): AppSettings {
     snowfallWindow: isSnowfallWindow(raw.snowfallWindow)
       ? raw.snowfallWindow
       : DEFAULT_SETTINGS.snowfallWindow,
+    floodThresholds: normalizeFloodThresholds(raw.floodThresholds),
     watch: normalizeWatch(raw.watch, DEFAULT_SETTINGS.watch),
     followNewWarnings: bool(
       raw.followNewWarnings,

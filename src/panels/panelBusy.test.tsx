@@ -1,4 +1,5 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { DEFAULT_FLOOD_THRESHOLDS } from "../lib/flashFlood";
 import { join } from "node:path";
 import {
   act,
@@ -174,6 +175,8 @@ describe("a panel waiting on its first answer", () => {
         alertsError={null}
         placeLightning={[]}
         clock={Date.parse("2026-09-04T18:00:00Z")}
+        floodPoint={null}
+        floodThresholds={DEFAULT_FLOOD_THRESHOLDS}
         onClose={() => undefined}
       />
     );

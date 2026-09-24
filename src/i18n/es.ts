@@ -1169,6 +1169,47 @@ export const es: Catalogue = {
   "nearby.warningsFailed":
     "No se pudieron consultar los avisos, así que esto no puede decir qué cubre este lugar.",
   "nearby.warningsLoading": "Consultando los avisos.",
+  "flood.heading": "Paneles de crecida repentina",
+  "flood.guide":
+    "Una guía del método de cuatro paneles del Servicio Meteorológico, no un aviso. Los avisos de tu oficina van primero.",
+  "flood.unavailable": "No hay mallas de crecidas repentinas para este lugar.",
+  "flood.reading": "Leyendo las cuatro mallas de crecidas.",
+  "flood.panelMissing": "{panel}: sin malla",
+  "flood.qpeValue": "{inches} pulg de lluvia en la última hora",
+  "flood.ariValue":
+    "{years, plural, one {Lluvia de # año como mucho} other {Lluvia de # años como mucho}}",
+  "flood.ratioValue": "{percent}% de la guía de crecidas",
+  "flood.streamflowValue": "Escorrentía {runoff} ft³/s/mi²",
+  "flood.callAdvisory":
+    "Tres de los cuatro paneles llegan al nivel de advertencia.",
+  "flood.callWarning": "Tres de los cuatro paneles llegan al nivel de aviso.",
+  "flood.callConsiderable":
+    "Tres de los cuatro paneles llegan al nivel considerable.",
+  "flood.callCatastrophic":
+    "Tres de los cuatro paneles llegan al nivel catastrófico.",
+  "flood.noCall":
+    "Menos de tres paneles coinciden, así que no se indica ningún nivel.",
+  "flood.inspect": "Paneles de crecida repentina: {panels}. {call}",
+  "flood.thresholds": "Paneles de crecida repentina",
+  "flood.thresholdsDetail":
+    "Los umbrales con los que se lee el método de cuatro paneles, en las unidades en que los escribe. Los de serie son los del propio Servicio Meteorológico, del oeste de los Grandes Lagos.",
+  "flood.panel": "Panel",
+  "flood.panelQpe": "Lluvia en una hora",
+  "flood.unitQpe": "pulgadas",
+  "flood.panelAri": "Periodo de retorno",
+  "flood.unitAri": "años",
+  "flood.panelRatio": "Lluvia frente a la guía",
+  "flood.unitRatio": "por ciento",
+  "flood.panelStreamflow": "Escorrentía",
+  "flood.unitStreamflow": "ft³/s por milla cuadrada",
+  "flood.tierAdvisory": "Advertencia",
+  "flood.tierWarning": "Aviso",
+  "flood.tierConsiderable": "Considerable",
+  "flood.tierCatastrophic": "Catastrófico",
+  "flood.barLabel": "{panel}, {tier}",
+  "flood.mustClimb":
+    "Los umbrales de un panel tienen que subir de advertencia a catastrófico, así que ese no se ha guardado.",
+  "flood.reset": "Volver a los umbrales del Servicio Meteorológico",
   "nearby.warningsHeld":
     "Los avisos actuales se retienen mientras se repite una tormenta pasada.",
   "nearby.warningsUnchecked": "Todavía no se han consultado los avisos.",

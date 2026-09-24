@@ -73,6 +73,9 @@ const ORDER = [
   "settings.character",
   "settings.radar",
   "settings.watchedArea",
+  // Beside the watch, because it is about the places a reader watches: the
+  // bars the flash flood call at each of them is read against.
+  "flood.thresholds",
   "settings.camera",
   "journal.title",
   "curiosity.found",

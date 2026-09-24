@@ -92,6 +92,8 @@ import { GAUGE_MIN_ZOOM } from "./lib/overlays/rivers";
 import { NoGpu } from "./components/NoGpu";
 import { useOfflineSince } from "./hooks/useOffline";
 import { useStateNotices } from "./hooks/useStateNotices";
+import { useFloodReading } from "./hooks/useFloodReading";
+import { withFloodReadout } from "./lib/flashFlood";
 
 const PanelSurfaces = lazy(async () => {
   const module = await import("./components/PanelSurfaces");
@@ -125,8 +127,14 @@ export default function App() {
   // miles is still on screen when the units are switched, and a written string
   // cannot follow that; a renderer can.
   const [toolResult, setToolResult] = useState<(() => string) | null>(null);
+  // The point an inspect reading is about, which the four flood panels are
+  // then read at. Null for every other tool's result.
+  const [inspected, setInspected] = useState<GeoPoint | null>(null);
   const showToolResult = useCallback(
-    (render: (() => string) | null) => setToolResult(() => render),
+    (render: (() => string) | null, at?: GeoPoint) => {
+      setToolResult(() => render);
+      setInspected(at ?? null);
+    },
     [],
   );
   // The two ends of a cross-section, once the tool has both. Held here rather
@@ -213,6 +221,18 @@ export default function App() {
     settingsRef,
     applySettings,
   });
+
+  // The four flood panels at the point an inspect reading is about.
+  const inspectedFlood = useFloodReading(inspected);
+  const shownToolResult = useMemo(
+    () =>
+      withFloodReadout(
+        toolResult,
+        inspectedFlood.reading,
+        settings.floodThresholds,
+      ),
+    [toolResult, inspectedFlood.reading, settings.floodThresholds],
+  );
 
   // Every table in force, not "the table": a reflectivity scale and a velocity
   // scale can both be on at once, and the renderer picks per unit.
@@ -1410,7 +1430,7 @@ export default function App() {
         radarAgeMinutes={radarAge}
         cursor={cursor}
         activeTool={activeTool}
-        toolResult={toolResult}
+        toolResult={shownToolResult}
         activeSurface={activeSurface}
         productOpen={productOpen}
         dualPane={dualPane}
