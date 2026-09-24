@@ -326,11 +326,152 @@ describe("the series each tracked cell carries between windows", () => {
     // The same forty flashes, and now only one cell to take them.
     const after = rememberJumps([west], both(7), closing(7));
     expect(after.get("A1")?.rate).toBeCloseTo(20, 6);
-    // The rate is real. The comparison is not: those bins were measured
-    // against a different set of storms, so there is no series to judge it
-    // against and nothing is claimed.
-    expect(after.get("A1")?.sigma).toBeNull();
+    // The rate is real, and so is the history it is judged against: every
+    // held bin is counted again with only one cell to take its flashes, so
+    // the doubling is in all of them and the newest is no rise at all.
+    expect(after.get("A1")?.sigma).not.toBeNull();
+    expect(after.get("A1")?.sigma ?? Infinity).toBeLessThan(1);
     expect(after.get("A1")?.at).toBeNull();
+  });
+
+  it("does not call a neighbour drifting away a jump", () => {
+    // A neighbour that moves off without leaving: twelve miles north for
+    // seven bins, nineteen on the eighth. Still inside two radii, so the set
+    // of neighbours never changed, but at nineteen it is too far to claim the
+    // storm eight miles north of A1 that it had been taking, and those
+    // flashes fall to A1. Resetting on a change of neighbours could not see
+    // it and reported a jump at eleven sigma from steady weather.
+    const mile = 1 / 69.05;
+    const west = cell("A1", 41.6, -93.6);
+    const counts = [20, 22, 20, 22, 20, 22, 20, 20];
+    const storms = (at: number) => [
+      ...new Array(counts[at])
+        .fill(null)
+        .map(() => flash(41.6, -93.6, closing(at))),
+      ...new Array(counts[at])
+        .fill(null)
+        .map(() => flash(41.6 + 8 * mile, -93.6, closing(at))),
+    ];
+    for (let at = 0; at < 7; at += 1) {
+      const east = cell("A2", 41.6 + 12 * mile, -93.6);
+      rememberJumps([west, east], storms(at), closing(at));
+    }
+    const drifted = cell("A2", 41.6 + 19 * mile, -93.6);
+    const after = rememberJumps([west, drifted], storms(7), closing(7));
+    // The flashes did reach A1, which is what makes this a test of anything.
+    expect(after.get("A1")?.rate).toBeCloseTo(20, 6);
+    expect(after.get("A1")?.at).toBeNull();
+  });
+
+  it("still reports a real rise while a distant cell comes and goes", () => {
+    // A cell fifteen miles off that the tracker finds on every other scan,
+    // which is what a cell table does in a line of storms. It takes none of
+    // A1's flashes. Resetting A1's history every time the set of neighbours
+    // changed meant a real fivefold rise was never reported.
+    const mile = 1 / 69.05;
+    const own = cell("A1", 41.6, -93.6);
+    const flicker = cell("C3", 41.6 + 15 * mile, -93.6);
+    const counts = [20, 22, 20, 22, 20, 22, 20, 100];
+    let found = new Map<string, ReturnType<typeof jumpIn>>();
+    counts.forEach((count, at) => {
+      const flashes = new Array(count)
+        .fill(null)
+        .map(() => flash(41.6, -93.6, closing(at)));
+      found = rememberJumps(
+        at % 2 === 0 ? [own, flicker] : [own],
+        flashes,
+        closing(at),
+      );
+    });
+    expect(found.get("A1")?.rate).toBeCloseTo(50, 6);
+    expect(found.get("A1")?.at).not.toBeNull();
+  });
+
+  it("does not judge a new cell against flashes from before it was found", () => {
+    // History is held as flashes and counted again under the cells there are
+    // now, so a cell the tracker has just found could be handed the flashes
+    // that fell where it stands before it existed. A storm the tracker has
+    // been flashing under for ten minutes before naming it would then read
+    // its first bin against that and be called a jump the moment it was
+    // found. Its series starts when it does.
+    const mile = 1 / 69.05;
+    const watching = cell("A1", 41.6, -93.6);
+    const born = cell("N9", 41.6 + 15 * mile, -93.6);
+    const counts = [20, 22, 20, 22, 20, 22, 20, 60];
+    let found = new Map<string, ReturnType<typeof jumpIn>>();
+    counts.forEach((count, at) => {
+      const flashes = new Array(count)
+        .fill(null)
+        .map(() => flash(41.6 + 15 * mile, -93.6, closing(at)));
+      found = rememberJumps(
+        at < 7 ? [watching] : [watching, born],
+        flashes,
+        closing(at),
+      );
+    });
+    expect(found.get("N9")?.rate).toBeCloseTo(30, 6);
+    expect(found.get("N9")?.sigma).toBeNull();
+    expect(found.get("N9")?.at).toBeNull();
+  });
+
+  it("does not call a centroid that moved onto a storm a jump", () => {
+    // The tracker re-centres a cell as it grows or merges, and a centroid that
+    // moves five miles brings flashes into its circle that were just outside
+    // it. They were there all along. Held only where some cell could claim
+    // them at the time, the history would not have them and the move would
+    // read as the storm doubling.
+    const mile = 1 / 69.05;
+    const counts = [20, 22, 20, 22, 20, 22, 20, 20];
+    const storms = (at: number) => [
+      ...new Array(counts[at])
+        .fill(null)
+        .map(() => flash(41.6, -93.6, closing(at))),
+      ...new Array(counts[at])
+        .fill(null)
+        .map(() => flash(41.6 + 12 * mile, -93.6, closing(at))),
+    ];
+    for (let at = 0; at < 7; at += 1) {
+      rememberJumps([cell("A1", 41.6, -93.6)], storms(at), closing(at));
+    }
+    const moved = cell("A1", 41.6 + 5 * mile, -93.6);
+    const after = rememberJumps([moved], storms(7), closing(7));
+    expect(after.get("A1")?.rate).toBeCloseTo(20, 6);
+    expect(after.get("A1")?.at).toBeNull();
+  });
+
+  it("claims a flash out to the radius and not past it", () => {
+    // The one distance that decides whether a neighbour can change a cell's
+    // count, held from both sides. A rival ring of two radii used to decide
+    // it as well, and widening that to eight radii left every test green.
+    const mile = 1 / 69.05;
+    const inside = flash(41.6 + 9.8 * mile, -93.6);
+    const outside = flash(41.6 + 10.2 * mile, -93.6);
+    expect(flashesByCell([CELL], [inside]).get("A1")).toBe(1);
+    expect(flashesByCell([CELL], [outside]).get("A1")).toBe(0);
+  });
+
+  it("reports a fast storm's real rise while its report moves with it", () => {
+    // Thirty metres a second to the north, and a fresh report every bin that
+    // puts the cell where it has got to. The history is counted again under
+    // the newest report, so each old bin has to be counted where the cell was
+    // then: counted at the newest position, the oldest bins lie thirteen
+    // miles behind a ten-mile circle, read as nothing, and the spread they
+    // add buries the doubling at the end.
+    const speed = 30;
+    const north = (ms: number) => (speed * (ms - AT)) / 1000 / 1000 / 111.32;
+    const counts = [24, 26, 24, 26, 24, 26, 24, 26, 52];
+    let found = new Map<string, ReturnType<typeof jumpIn>>();
+    counts.forEach((count, at) => {
+      const when = closing(at);
+      const reportedAt = when - 30_000;
+      const moving = cell("A1", 41.6 + north(reportedAt), -93.6, speed, 0);
+      const flashes = new Array(count)
+        .fill(null)
+        .map(() => flash(41.6 + north(when), -93.6, when));
+      found = rememberJumps([moving], flashes, when, false, reportedAt);
+    });
+    expect(found.get("A1")?.rate).toBeCloseTo(26, 6);
+    expect(found.get("A1")?.at).not.toBeNull();
   });
 
   it("keeps a cell's history while the same neighbours are around it", () => {
