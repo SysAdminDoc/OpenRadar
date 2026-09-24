@@ -1144,6 +1144,7 @@ export default function App() {
             melting={melting}
             nearby={{ ...nearby, cellNames: namesHere, onNameCell: nameCell }}
             replaying={Boolean(replay)}
+            archiveWarnings={archiveWarnings}
             nearbyPlaces={nearbyPlaces}
             nearbyPlaceId={nearbyPlaceId}
             approaching={approaching}

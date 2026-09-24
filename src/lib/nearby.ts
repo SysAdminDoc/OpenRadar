@@ -238,17 +238,28 @@ export type WarningsNote =
  * What the warnings feed is doing, for the section that lists what it found.
  *
  * "Loading" only while a request is out. Keyed on there being no answer yet,
- * it said the warnings were being checked through a whole replay, when they
- * are held back on purpose, and through a spell offline, when nothing asks,
- * and the panel said it was busy through both.
+ * it said the warnings were being checked through a whole replay and through
+ * a spell offline, when nothing asks, and the panel said it was busy through
+ * both.
+ *
+ * A replay reads that day's own warnings out of the archive rather than
+ * today's, so through a replay it is the archive's answer that counts: an
+ * archive with nothing over the place said so, and that is "no warnings over
+ * this place" for that day, not warnings held back. Only where the archive
+ * has nothing to say at all are they held back.
  */
 export function warningsNote(feed: {
   enabled: boolean;
   replaying: boolean;
   alerts: { error: string | null; fetchedAt: number | null; fetching: boolean };
+  archive: { data: unknown; loading: boolean; error: string | null };
 }): WarningsNote {
   if (!feed.enabled) return "off";
-  if (feed.replaying) return "held";
+  if (feed.replaying) {
+    if (feed.archive.loading) return "loading";
+    if (feed.archive.error) return "failed";
+    return feed.archive.data !== null ? null : "held";
+  }
   if (feed.alerts.error) return "failed";
   if (feed.alerts.fetchedAt !== null) return null;
   return feed.alerts.fetching ? "loading" : "unchecked";

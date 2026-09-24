@@ -366,31 +366,50 @@ describe("what the warnings section says the feed is doing", () => {
     fetchedAt?: number | null;
     fetching?: boolean;
   }) => ({ error: null, fetchedAt: null, fetching: false, ...over });
+  const archive = (over: {
+    data?: unknown;
+    loading?: boolean;
+    error?: string | null;
+  }) => ({ data: null, loading: false, error: null, ...over });
 
   it("is loading only while a request is out", () => {
     expect(
       warningsNote({
         enabled: true,
         replaying: false,
+        archive: archive({}),
         alerts: alerts({ fetching: true }),
       }),
     ).toBe("loading");
     // Nothing asked yet, which is what a spell offline looks like.
     expect(
-      warningsNote({ enabled: true, replaying: false, alerts: alerts({}) }),
+      warningsNote({
+        enabled: true,
+        replaying: false,
+        alerts: alerts({}),
+        archive: archive({}),
+      }),
     ).toBe("unchecked");
   });
 
-  it("says the warnings are held back through a replay", () => {
-    // The feed is not asked while a past storm is replayed, so a replay is
-    // never waiting on it, whatever the feed last said.
-    expect(
+  it("follows that day's warnings through a replay, not today's feed", () => {
+    // The live feed is not asked while a past storm is replayed, so a replay
+    // is never waiting on it, whatever the feed last said. It reads that
+    // day's warnings out of the archive, and that is what it waits on.
+    const replay = (from: ReturnType<typeof archive>) =>
       warningsNote({
         enabled: true,
         replaying: true,
         alerts: alerts({ fetching: true }),
-      }),
-    ).toBe("held");
+        archive: from,
+      });
+    expect(replay(archive({ loading: true }))).toBe("loading");
+    expect(replay(archive({ error: "the archive is busy" }))).toBe("failed");
+    // An archive that answered with nothing over the place said so: no
+    // warnings that day, rather than warnings held back.
+    expect(replay(archive({ data: { features: [] } }))).toBeNull();
+    // Held back only where the archive has nothing to say at all.
+    expect(replay(archive({}))).toBe("held");
   });
 
   it("says what the feed answered once it has", () => {
@@ -398,6 +417,7 @@ describe("what the warnings section says the feed is doing", () => {
       warningsNote({
         enabled: true,
         replaying: false,
+        archive: archive({}),
         alerts: alerts({ fetchedAt: 1 }),
       }),
     ).toBeNull();
@@ -405,11 +425,17 @@ describe("what the warnings section says the feed is doing", () => {
       warningsNote({
         enabled: true,
         replaying: false,
+        archive: archive({}),
         alerts: alerts({ error: "busy" }),
       }),
     ).toBe("failed");
     expect(
-      warningsNote({ enabled: false, replaying: false, alerts: alerts({}) }),
+      warningsNote({
+        enabled: false,
+        replaying: false,
+        alerts: alerts({}),
+        archive: archive({}),
+      }),
     ).toBe("off");
   });
 });
