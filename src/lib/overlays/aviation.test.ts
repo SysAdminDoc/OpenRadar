@@ -621,12 +621,40 @@ describe("what the hazard actually is", () => {
             (same as readonly string[]).includes(code.toLowerCase()),
           ),
         );
+      // Strictly, apart from the one pair the schema lists as the same
+      // report: NEGclr is NEG made in clear air. Allowed to tie anywhere, the
+      // check passed a scale that had merged moderate into moderate to
+      // severe, which draws a report of both as the milder of the two.
       for (let at = 1; at < ranks.length; at += 1) {
-        expect(ranks[at], list).toBeGreaterThanOrEqual(ranks[at - 1]);
+        const pair = list
+          .split(",")
+          .slice(at - 1, at + 1)
+          .join(",");
+        if (pair === "NEG,NEGclr") {
+          expect(ranks[at], pair).toBe(ranks[at - 1]);
+        } else {
+          expect(ranks[at], pair).toBeGreaterThan(ranks[at - 1]);
+        }
       }
     }
-    // And the International SIGMET codes, which are ICAO's spellings.
-    for (const code of ["ICE", "MTW", "TC", "TS", "TURB", "VA"]) {
+    // And the International SIGMET phenomena, quoted from ICAO Annex 3,
+    // Appendix 6, Table A6-1A, rather than read off the mapping service,
+    // whose layer answered with six of them on the day it was asked. The
+    // hazard a SIGMET carries is the phenomenon without its qualifier.
+    const annex3 =
+      "OBSC TS,EMBD TS,FRQ TS,SQL TS,OBSC TSGR,EMBD TSGR,FRQ TSGR,SQL TSGR," +
+      "TC,SEV TURB,SEV ICE,SEV ICE (FZRA),SEV MTW,HVY DS,HVY SS,VA,RDOACT CLD";
+    const phenomena = new Set(
+      annex3
+        .split(",")
+        .map((named) =>
+          named
+            .replace(/^(OBSC|EMBD|FRQ|SQL|SEV|HVY) /, "")
+            .replace(/ \(FZRA\)$/, ""),
+        ),
+    );
+    expect(phenomena.size).toBe(10);
+    for (const code of phenomena) {
       expect(hazardWords(code), code).not.toBe(code);
     }
   });
