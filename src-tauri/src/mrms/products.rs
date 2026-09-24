@@ -384,6 +384,32 @@ pub(crate) const HIGH_CONTRAST_UNIT_STREAMFLOW_RAMP: &[(f32, [u8; 3])] = &[
     (5.0, HIGH_CONTRAST_STEPS[5]),
 ];
 
+/// How rare the rain that fell is, as the average number of years between
+/// falls that heavy: the worst of the windows the FLASH system measures over.
+///
+/// The stops are the four-panel method's own bars (one year for an advisory,
+/// five for a warning, a hundred and twenty-five for considerable and a
+/// hundred and seventy-five for catastrophic, from the Central Region's
+/// Technical Attachment 23-03), with two and twenty-five between them so the
+/// middle of the scale is not one colour.
+pub(crate) const ARI_RAMP: &[(f32, [u8; 3])] = &[
+    (1.0, [0x38, 0xbd, 0xf8]),
+    (2.0, [0x4a, 0xde, 0x80]),
+    (5.0, [0xfa, 0xcc, 0x15]),
+    (25.0, [0xfb, 0x92, 0x3c]),
+    (125.0, [0xf4, 0x3f, 0x5e]),
+    (175.0, [0xc0, 0x26, 0xd3]),
+];
+
+pub(crate) const HIGH_CONTRAST_ARI_RAMP: &[(f32, [u8; 3])] = &[
+    (1.0, HIGH_CONTRAST_STEPS[0]),
+    (2.0, HIGH_CONTRAST_STEPS[1]),
+    (5.0, HIGH_CONTRAST_STEPS[2]),
+    (25.0, HIGH_CONTRAST_STEPS[3]),
+    (125.0, HIGH_CONTRAST_STEPS[4]),
+    (175.0, HIGH_CONTRAST_STEPS[5]),
+];
+
 pub(crate) const HIGH_CONTRAST_STEPS: [[u8; 3]; 6] = [
     [0x00, 0x25, 0x6c],
     [0x00, 0x44, 0x7e],
@@ -999,6 +1025,35 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         ramp: FFG_RATIO_RAMP,
         high_contrast_ramp: HIGH_CONTRAST_FFG_RATIO_RAMP,
         floor: 25.0,
+        sampling: Sampling::Nearest,
+        categories: None,
+        levels: None,
+    },
+    MrmsProduct {
+        // The worst of the one, three and six hour ratios, which is the one
+        // the four-panel method reads: a flood that builds over six hours is
+        // under guidance at every hour of it.
+        id: "ffg-max",
+        folder: "FLASH_QPE_FFGMAX_00.00",
+        label: "Rain against flash flood guidance, worst window",
+        unit: "%",
+        ramp: FFG_RATIO_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_FFG_RATIO_RAMP,
+        floor: 25.0,
+        sampling: Sampling::Nearest,
+        categories: None,
+        levels: None,
+    },
+    MrmsProduct {
+        id: "ari-max",
+        folder: "FLASH_QPE_ARIMAX_00.00",
+        label: "How rare the rain is, worst window",
+        unit: "yr",
+        ramp: ARI_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_ARI_RAMP,
+        // Rain heavier than falls once a year somewhere every afternoon of a
+        // wet summer; below that the map would be covered wherever it rained.
+        floor: 1.0,
         sampling: Sampling::Nearest,
         categories: None,
         levels: None,

@@ -198,6 +198,7 @@ describe("settings normalization", () => {
     expect(settings.radar.tilt).toBe(0);
     expect(Object.keys(settings.layers).sort()).toEqual([
       "airnow",
+      "ariMax",
       "aviation",
       "azShear",
       "buoys",
@@ -209,6 +210,7 @@ describe("settings normalization", () => {
       "earthquakes",
       "echoTops",
       "ffgHour",
+      "ffgMax",
       "ffgThreeHour",
       "firms",
       "forecastSmoke",

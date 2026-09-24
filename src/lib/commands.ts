@@ -283,6 +283,18 @@ const LAYER_COMMANDS: Array<{
     keywords: ["flash", "flood", "guidance", "ffg", "three", "ratio"],
   },
   {
+    layer: "ffgMax",
+    key: "layer.ffgMax",
+    extra: "keywords.ffgMax",
+    keywords: ["flash", "flood", "guidance", "ffg", "worst", "ratio"],
+  },
+  {
+    layer: "ariMax",
+    key: "layer.ariMax",
+    extra: "keywords.ariMax",
+    keywords: ["flash", "flood", "return", "period", "ari", "rare"],
+  },
+  {
     layer: "unitStreamflow",
     key: "layer.unitStreamflow",
     extra: "keywords.unitStreamflow",

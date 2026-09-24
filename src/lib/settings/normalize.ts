@@ -274,6 +274,8 @@ export function normalizeSettings(value: unknown): AppSettings {
         layers.ffgThreeHour,
         DEFAULT_SETTINGS.layers.ffgThreeHour,
       ),
+      ffgMax: bool(layers.ffgMax, DEFAULT_SETTINGS.layers.ffgMax),
+      ariMax: bool(layers.ariMax, DEFAULT_SETTINGS.layers.ariMax),
       unitStreamflow: bool(
         layers.unitStreamflow,
         DEFAULT_SETTINGS.layers.unitStreamflow,

@@ -992,6 +992,8 @@ export const en = {
   "layer.gaugeQpe": "Rain, Gauge Corrected",
   "layer.unitStreamflow": "Modelled Runoff",
   "layer.ffgThreeHour": "Flash Flood Guidance, 3 h",
+  "layer.ffgMax": "Flash Flood Guidance, worst window",
+  "layer.ariMax": "Return Period of the Rain",
   "layer.ffgHour": "Flash Flood Guidance, 1 h",
   "layers.qpeDayDetail": "How much has fallen since this time yesterday",
   "counties.failed": "The county outlines could not be read.",
@@ -1004,6 +1006,10 @@ export const en = {
     "What the flash flood model has running off each square kilometre. A model of the ground, not a reading of the sky.",
   "layers.ffgThreeHourDetail":
     "The same over three hours, which is the window a slower flood builds in",
+  "layers.ffgMaxDetail":
+    "The worst of the one, three and six hour ratios, which is the one the four-panel flood method reads",
+  "layers.ariMaxDetail":
+    "How rare the rain that fell is, as the average number of years between falls this heavy",
   "layers.ffgHourDetail":
     "How the past hour of rain compares with what the office says the ground there can take. 100% means the rain has met it.",
   "layer.precipType": "Rain or Snow",
@@ -1222,6 +1228,8 @@ export const en = {
   "keywords.gaugeQpe": "gauge corrected accumulation multisensor",
   "keywords.unitStreamflow": "runoff streamflow flood water",
   "keywords.ffgThreeHour": "flash flood guidance three hours ratio",
+  "keywords.ffgMax": "flash flood guidance worst ratio six hours",
+  "keywords.ariMax": "return period recurrence interval rare rain flood",
   "keywords.ffgHour": "flash flood guidance hour ratio",
   "keywords.spcOutlooks": "convective outlook categorical day one",
   "keywords.wpcExcessiveRain": "flash flood rainfall outlook wpc ero",
@@ -1547,6 +1555,8 @@ export const en = {
   "mrms.gaugeQpeHour": "Rain in the past hour, gauge corrected",
   "mrms.unitStreamflow": "Modelled runoff",
   "mrms.ffgThreeHour": "Rain against flash flood guidance, past three hours",
+  "mrms.ffgMax": "Rain against flash flood guidance, worst window",
+  "mrms.ariMax": "How rare the rain is, worst window",
   "mrms.ffgHour": "Rain against flash flood guidance, past hour",
   "mrms.hailSwath": "Largest hail in the past day",
   "mrms.lightning": "Cloud-to-ground lightning, 5 min",

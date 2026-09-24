@@ -69,6 +69,8 @@ export const MRMS_PRODUCT_IDS = [
   "gauge-qpe-three-day",
   "ffg-hour",
   "ffg-three-hour",
+  "ffg-max",
+  "ari-max",
   "unit-streamflow",
   "hail-swath",
   "precip-type",

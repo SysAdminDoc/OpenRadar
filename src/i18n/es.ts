@@ -1011,6 +1011,8 @@ export const es: Catalogue = {
   "layer.gaugeQpe": "Lluvia, corregida con pluviómetros",
   "layer.unitStreamflow": "Escorrentía modelada",
   "layer.ffgThreeHour": "Guía de crecidas, 3 h",
+  "layer.ffgMax": "Guía de crecidas, peor ventana",
+  "layer.ariMax": "Periodo de retorno de la lluvia",
   "layer.ffgHour": "Guía de crecidas, 1 h",
   "layers.qpeDayDetail": "Cuánta ha caído desde ayer a esta hora",
   "counties.failed": "No se pudieron leer los límites de los condados.",
@@ -1023,6 +1025,10 @@ export const es: Catalogue = {
     "Lo que el modelo de crecidas hace correr por cada kilómetro cuadrado. Es un modelo del terreno, no una medida del cielo.",
   "layers.ffgThreeHourDetail":
     "Lo mismo en tres horas, que es la ventana en la que se forma una crecida más lenta",
+  "layers.ffgMaxDetail":
+    "La peor de las proporciones a una, tres y seis horas, que es la que lee el método de los cuatro paneles",
+  "layers.ariMaxDetail":
+    "Lo rara que es la lluvia caída, como el número medio de años entre lluvias así de fuertes",
   "layers.ffgHourDetail":
     "Compara la lluvia de la última hora con lo que la oficina calcula que el terreno admite. El 100% significa que la lluvia ya lo ha alcanzado.",
   "layer.precipType": "Lluvia o nieve",
@@ -1244,6 +1250,8 @@ export const es: Catalogue = {
   "keywords.gaugeQpe": "acumulacion multisensor lluvia medida",
   "keywords.unitStreamflow": "caudal agua inundacion",
   "keywords.ffgThreeHour": "inundacion repentina tres horas proporcion",
+  "keywords.ffgMax": "inundacion repentina peor proporcion seis horas",
+  "keywords.ariMax": "periodo retorno recurrencia lluvia rara inundacion",
   "keywords.ffgHour": "inundacion repentina hora proporcion",
   "keywords.spcOutlooks": "pronostico convectivo riesgo categorico",
   "keywords.wpcExcessiveRain": "inundacion repentina lluvia wpc ero",
@@ -1574,6 +1582,8 @@ export const es: Catalogue = {
   "mrms.unitStreamflow": "Escorrentía modelada",
   "mrms.ffgThreeHour":
     "Lluvia frente a la guía de crecidas, últimas tres horas",
+  "mrms.ffgMax": "Lluvia frente a la guía de crecidas, peor ventana",
+  "mrms.ariMax": "Lo rara que es la lluvia, peor ventana",
   "mrms.ffgHour": "Lluvia frente a la guía de crecidas, última hora",
   "mrms.hailSwath": "Granizo más grande del último día",
   "mrms.lightning": "Rayos nube-tierra, 5 min",

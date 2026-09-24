@@ -117,6 +117,8 @@ fn every_product_is_drawn_the_way_its_data_is_shaped() {
         // made from.
         ("ffg-hour", Sampling::Nearest),
         ("ffg-three-hour", Sampling::Nearest),
+        ("ffg-max", Sampling::Nearest),
+        ("ari-max", Sampling::Nearest),
         ("unit-streamflow", Sampling::Nearest),
         ("hail-swath", Sampling::Cells),
         ("lightning", Sampling::Cells),

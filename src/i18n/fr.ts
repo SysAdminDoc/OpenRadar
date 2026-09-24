@@ -1020,6 +1020,8 @@ export const fr: Catalogue = {
   "layer.gaugeQpe": "Pluie, corrigée par les pluviomètres",
   "layer.unitStreamflow": "Ruissellement modélisé",
   "layer.ffgThreeHour": "Seuil de crue soudaine, 3 h",
+  "layer.ffgMax": "Seuil de crue soudaine, pire fenêtre",
+  "layer.ariMax": "Période de retour de la pluie",
   "layer.ffgHour": "Seuil de crue soudaine, 1 h",
   "layers.qpeDayDetail": "Ce qui est tombé depuis hier à la même heure",
   "counties.failed": "Les limites de comtés n'ont pas pu être lues.",
@@ -1032,6 +1034,10 @@ export const fr: Catalogue = {
     "Ce que le modèle de crue fait ruisseler par kilomètre carré. Un modèle du sol, pas une mesure du ciel.",
   "layers.ffgThreeHourDetail":
     "La même chose sur trois heures, la fenêtre dans laquelle une crue plus lente se forme",
+  "layers.ffgMaxDetail":
+    "Le pire des rapports sur une, trois et six heures, celui que lit la méthode des quatre panneaux",
+  "layers.ariMaxDetail":
+    "La rareté de la pluie tombée, en nombre moyen d’années entre deux pluies aussi fortes",
   "layers.ffgHourDetail":
     "Compare la pluie de la dernière heure à ce que le service estime que le sol peut absorber. 100 % veut dire que la pluie l'a atteint.",
   "layer.precipType": "Pluie ou neige",
@@ -1256,6 +1262,8 @@ export const fr: Catalogue = {
   "keywords.gaugeQpe": "cumul multisensor pluie mesuree",
   "keywords.unitStreamflow": "ruissellement debit crue eau",
   "keywords.ffgThreeHour": "seuil crue trois heures rapport",
+  "keywords.ffgMax": "seuil crue pire rapport six heures",
+  "keywords.ariMax": "retour recurrence pluie rare crue",
   "keywords.ffgHour": "seuil crue heure rapport",
   "keywords.spcOutlooks": "perspective convective catégorique jour un",
   "keywords.wpcExcessiveRain": "crue soudaine pluie wpc ero",
@@ -1588,6 +1596,8 @@ export const fr: Catalogue = {
   "mrms.unitStreamflow": "Ruissellement modélisé",
   "mrms.ffgThreeHour":
     "Pluie face au seuil de crue soudaine, trois dernières heures",
+  "mrms.ffgMax": "Pluie face au seuil de crue soudaine, pire fenêtre",
+  "mrms.ariMax": "Rareté de la pluie, pire fenêtre",
   "mrms.ffgHour": "Pluie face au seuil de crue soudaine, dernière heure",
   "mrms.hailSwath": "Plus grosse grêle du dernier jour",
   "mrms.lightning": "Foudre nuage-sol, 5 min",
