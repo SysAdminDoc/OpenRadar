@@ -10,13 +10,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
-- [ ] AUD-533 (P3): Three gates that a planted defect walks past
-  Why: `src/fileSize.test.ts` measures `src` only, while `tsc -b` also compiles `e2e` through `tsconfig.e2e.json`, where `e2e/level2.spec.ts` is over two thousand lines; its catalogue check refuses `from "react"` and misses `await import("react")`. `a_tie_point_that_is_not_a_place_is_refused` in `src-tauri/src/snowfall_tests.rs` plants a corner that puts both latitudes off the globe, so only the south check is exercised: deleting both longitude checks and the north one leaves the suite green.
-  Evidence: a review on 2026-09-10 planted a 2,001-line `.mts` under `e2e/support` (green), a dynamic React import in `layerCatalogue.ts` (green), and the three snowfall mutations (green).
-  Touches: `src/fileSize.test.ts`, `src-tauri/src/snowfall_tests.rs`.
-  Acceptance: each of those three plants turns its gate red, proved by planting it; the e2e files already over the ceiling are held at their measured length the way `MapViewport.tsx` is.
-  Complexity: S
-
 ## Character and personalization
 
 These came out of a different question than the audit did: what makes somebody keep a weather app open on a second monitor for a year rather than opening it twice during a storm and forgetting it. None of it outranks a correctness, security, or release item, which is why it sits after P3 instead of being folded into the priority ladder.
