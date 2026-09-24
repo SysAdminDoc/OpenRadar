@@ -10,6 +10,13 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
+- [ ] AUD-535 (P3): The echo mask's melting layer height is not held by any test
+  Why: `not_weather` in `src-tauri/src/level2/draw.rs` reads the melting layer above sea level and subtracts the antenna height, because the mask measures beam height above the antenna. A review on 2026-09-24 removed the subtraction and every test stayed green: the test volume builder in `src-tauri/src/fixture.rs` writes reflectivity, velocity and correlation but not differential reflectivity, and `melting::from_volume` needs all three, so no fixture can put a melting layer in a drawn volume.
+  Evidence: mutation `.map(|layer| (layer.bottom_km, layer.top_km))` in `not_weather` survives `cargo test --lib` (671 passed). At KTLX the antenna is about 0.4 km up, so the band the mask lowers its bar inside would sit 0.4 km too high.
+  Touches: `src-tauri/src/fixture.rs` (a `DZDR` moment beside `DRHO`), `src-tauri/src/level2/draw_tests.rs` (a volume with a bright band on a high cut and low-correlation melting snow under it on the lowest).
+  Acceptance: WHEN the subtraction is removed, a drawn-volume test fails; the test volume carries a bright band that `melting::from_volume` finds.
+  Complexity: S
+
 ## Character and personalization
 
 These came out of a different question than the audit did: what makes somebody keep a weather app open on a second monitor for a year rather than opening it twice during a storm and forgetting it. None of it outranks a correctness, security, or release item, which is why it sits after P3 instead of being folded into the priority ladder.
