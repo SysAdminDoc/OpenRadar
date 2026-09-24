@@ -8,7 +8,35 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P2
 
+- [ ] AUD-531 (P2): A pilot report of light-to-moderate turbulence is drawn as light icing
+  Why: `worse()` in `src/lib/overlays/aviation.ts` ranks a PIREP intensity by its place in `SEVERITY_WORDS`, which is the G-AIRMET list (`lgt`, `lt-mod`, `mod`, `mod-sev`, `sev`). The PIREP spellings `lgt-mod`, `trc`, `extm`, `sev-extm`, `mod-extm`, `trc-lgt`, `smth-lgt` and `hvy` are not in it, so `indexOf` answers -1 and sorts below light. A report of `TB LGT-MOD / IC LGT` is drawn as light icing and the turbulence is thrown away. `hazard: drawn === icing ? "ICE" : "TURB"` also compares values, so `TB MOD / IC MOD` is labelled icing. `EXTM`, `SEV-EXTM`, `MOD-EXTM`, `TRC-LGT` and `HVY` have no phrase and reach a reader as the letters, and the International SIGMET spellings `VA`, `TC` and `MTW` have none either.
+  Evidence: a review on 2026-09-10 read `EXTM` and `SEV` live on MapServer layer 0 `turbulence_intensity` and `MOD` on `icing_intensity`, and `MOD-EXTM` and `TRC-LGT` over a 30-day sweep; layer 112 (International SIGMET) answers `hazard` with `ICE, MTW, TC, TS, TURB, VA`. Layer 0 holds about ninety minutes of reports, so a `returnDistinctValues` there is a snapshot, which is why the vocabulary this code was built from missed them. The live contract was green on 2026-09-24 only because none was being published that hour.
+  Touches: `src/lib/overlays/aviation.ts` (one ordered PIREP intensity scale for ranking, `worse()` returning which field won, keys for every spelling), `src/i18n/*` (the new phrases), `src/lib/overlays/aviation.test.ts`.
+  Acceptance: WHEN a report carries `TB LGT-MOD / IC LGT` the map draws turbulence at light to moderate; WHEN both intensities are equal the hazard is the field that was reported first rather than a guess from the value; every spelling of the FAA PIREP intensity scale and every International SIGMET hazard code has a phrase in all four catalogues, held by a test that lists them from the published scale rather than from a live snapshot.
+  Complexity: S
+
 ## P3
+
+- [ ] AUD-532 (P3): The lightning jump's rival check keys on which cells are near, not how near
+  Why: `rivalsOf` in `src/lib/lightningJump.ts` resets a cell's history when the set of cells within two radii changes. The flashes a cell is given depend on distance, not membership: a neighbour that drifts from 12 to 19 miles away keeps the same set and stops taking the flashes between them, and the cell that inherits them reports a jump with nothing about the weather having changed. The other way round, a third cell 15 miles away that the tracker finds on alternate scans resets the series every other bin, and a real fivefold rise is never reported.
+  Evidence: two probes run by a review on 2026-09-10 against `rememberJumps`: a drifting neighbour gave `rate=24 sigma=10.95` from steady flashes; a flickering third cell gave `sigma=null` through a real rise from 10 to 50 a minute. `3fb7dca` changed the coverage floor and sigma threshold and did not touch the rival key. Widening the rival radius to eight radii leaves every test green, so the two-radii figure is held from below only.
+  Touches: `src/lib/lightningJump.ts` (a rival key that changes when the share of flashes a neighbour could take changes, or a history rebuilt from stored flashes under the current partition), `src/lib/lightningJump.test.ts`.
+  Acceptance: WHEN a neighbour drifts within the two-radius ring far enough to stop claiming flashes it used to, the cell that inherits them does not report a jump; WHEN a distant cell comes and goes on alternate scans without taking any of a cell's flashes, a real rise in that cell is still reported; a test holds the rival distance from above as well as below.
+  Complexity: M
+
+- [ ] AUD-533 (P3): Three gates that a planted defect walks past
+  Why: `src/fileSize.test.ts` measures `src` only, while `tsc -b` also compiles `e2e` through `tsconfig.e2e.json`, where `e2e/level2.spec.ts` is over two thousand lines; its catalogue check refuses `from "react"` and misses `await import("react")`. `a_tie_point_that_is_not_a_place_is_refused` in `src-tauri/src/snowfall_tests.rs` plants a corner that puts both latitudes off the globe, so only the south check is exercised: deleting both longitude checks and the north one leaves the suite green.
+  Evidence: a review on 2026-09-10 planted a 2,001-line `.mts` under `e2e/support` (green), a dynamic React import in `layerCatalogue.ts` (green), and the three snowfall mutations (green).
+  Touches: `src/fileSize.test.ts`, `src-tauri/src/snowfall_tests.rs`.
+  Acceptance: each of those three plants turns its gate red, proved by planting it; the e2e files already over the ceiling are held at their measured length the way `MapViewport.tsx` is.
+  Complexity: S
+
+- [ ] AUD-534 (P3): Four panels draw a loading state without saying they are busy
+  Why: `AUD-480` made the accessibility sweep wait on `data-busy` and gave it to five panels. `SoundingPanel.tsx`, `CrossSectionPanel.tsx`, `NearbyPanel.tsx` and `SearchPanel.tsx` also draw a loading state inside `PanelShell` and pass no `busy`, and the sweep opens all four, so the flake `AUD-480` closed can come back on any of them. A reader in a screen reader gets no `aria-busy` there either.
+  Evidence: `grep -c "busy=" src/panels/{Sounding,CrossSection,Nearby,Search}Panel.tsx` is 0 for each on 2026-09-24; `e2e/support/surfaces.ts` opens `sounding`, `section`, `nearby` and `search`.
+  Touches: those four panels, and a test that a panel drawing its loading state says so.
+  Acceptance: WHEN any of the four is waiting on its first answer, the dialog carries `aria-busy="true"` and `data-busy="true"`, and neither once it has an answer or a failure; a test fails if a panel under `src/panels` renders a loading state without passing `busy`.
+  Complexity: S
 
 ## Character and personalization
 
