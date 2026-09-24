@@ -52,6 +52,9 @@ pub struct Radial {
     /// Correlation coefficient, one per gate, or empty for a radial that
     /// carries none, which is every fixture written before the echo mask.
     pub correlation: Vec<Gate>,
+    /// Differential reflectivity in dB, one per gate, or empty for none. With
+    /// reflectivity and correlation it is what a melting layer is read from.
+    pub differential_reflectivity: Vec<Gate>,
 }
 
 /// Where the radar stands.
@@ -75,6 +78,11 @@ const REFLECTIVITY_OFFSET: f32 = 66.0;
 /// Velocity at 0.5 m/s a count, the resolution a wide cut uses.
 const VELOCITY_SCALE: f32 = 2.0;
 const VELOCITY_OFFSET: f32 = 129.0;
+
+/// Differential reflectivity at the office's scale and offset: a count is a
+/// sixteenth of a decibel, and the offset puts zero dB at count 128.
+const DIFFERENTIAL_SCALE: f32 = 16.0;
+const DIFFERENTIAL_OFFSET: f32 = 128.0;
 
 /// Correlation coefficient, at the scale and offset the office publishes it
 /// with, which puts a count at a three hundredth.
@@ -119,13 +127,18 @@ pub fn radial_message(site: &Site, radial: &Radial) -> Vec<u8> {
     let gates = radial.reflectivity.len();
     let with_velocity = !radial.velocity.is_empty();
     let with_correlation = !radial.correlation.is_empty();
+    let with_differential = !radial.differential_reflectivity.is_empty();
     assert!(
         (!with_velocity || radial.velocity.len() == gates)
-            && (!with_correlation || radial.correlation.len() == gates),
+            && (!with_correlation || radial.correlation.len() == gates)
+            && (!with_differential || radial.differential_reflectivity.len() == gates),
         "a radial's moments have to cover the same gates"
     );
 
-    let blocks = 4u16 + u16::from(with_velocity) + u16::from(with_correlation);
+    let blocks = 4u16
+        + u16::from(with_velocity)
+        + u16::from(with_correlation)
+        + u16::from(with_differential);
     // The pointers are counted from the start of the type 31 header, which is
     // 32 bytes, and are themselves four bytes each.
     let first_block = 32 + 4 * blocks as u32;
@@ -185,6 +198,14 @@ pub fn radial_message(site: &Site, radial: &Radial) -> Vec<u8> {
             CORRELATION_OFFSET,
         )
     });
+    let differential = with_differential.then(|| {
+        moment_block(
+            b"DZDR",
+            &radial.differential_reflectivity,
+            DIFFERENTIAL_SCALE,
+            DIFFERENTIAL_OFFSET,
+        )
+    });
 
     let mut pointers = vec![first_block];
     for block in [Some(&volume), Some(&elevation), Some(&radial_block)]
@@ -196,7 +217,10 @@ pub fn radial_message(site: &Site, radial: &Radial) -> Vec<u8> {
     }
     // Each moment after the first starts where the one before it ended.
     let mut previous = reflectivity.len();
-    for moment in [&velocity, &correlation].into_iter().flatten() {
+    for moment in [&velocity, &correlation, &differential]
+        .into_iter()
+        .flatten()
+    {
         let last = *pointers.last().expect("seeded above");
         pointers.push(last + previous as u32);
         previous = moment.len();
@@ -220,7 +244,8 @@ pub fn radial_message(site: &Site, radial: &Radial) -> Vec<u8> {
         + radial_block.len()
         + reflectivity.len()
         + velocity.as_ref().map_or(0, Vec::len)
-        + correlation.as_ref().map_or(0, Vec::len);
+        + correlation.as_ref().map_or(0, Vec::len)
+        + differential.as_ref().map_or(0, Vec::len);
     message.extend_from_slice(&(body as u16).to_be_bytes());
     // The code the ICD gives the spacing: one for half a degree, two for a
     // whole one. What is written here has to be the spacing the radials are
@@ -254,6 +279,9 @@ pub fn radial_message(site: &Site, radial: &Radial) -> Vec<u8> {
     }
     if let Some(correlation) = &correlation {
         message.extend_from_slice(correlation);
+    }
+    if let Some(differential) = &differential {
+        message.extend_from_slice(differential);
     }
     assert_eq!(message.len(), body);
 
@@ -466,6 +494,7 @@ pub fn flat_cut(at: DateTime<Utc>, cut: Cut) -> Vec<Radial> {
                 .velocity
                 .map_or_else(Vec::new, |speed| vec![speed; cut.gates]),
             correlation: Vec::new(),
+            differential_reflectivity: Vec::new(),
         })
         .collect()
 }

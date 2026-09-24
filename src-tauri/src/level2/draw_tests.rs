@@ -1259,6 +1259,7 @@ fn volume_with_a_couplet(delta_v: f32, half_radials: i64, centre_radial: u16) ->
                 reflectivity: vec![fixture::Gate::Reading(40.0); gates],
                 velocity: vec![fixture::Gate::Reading(across * delta_v / 2.0); gates],
                 correlation: Vec::new(),
+                differential_reflectivity: Vec::new(),
             }
         })
         .collect();
@@ -1473,6 +1474,7 @@ fn bloom_cuts(
                 reflectivity,
                 velocity: Vec::new(),
                 correlation,
+                differential_reflectivity: Vec::new(),
             }
         })
         .collect();
@@ -1496,6 +1498,7 @@ fn bloom_cuts(
             ],
             velocity: Vec::new(),
             correlation: Vec::new(),
+            differential_reflectivity: Vec::new(),
         })
         .collect();
     (lowest, above)
@@ -1708,5 +1711,139 @@ fn the_finished_half_of_a_live_picture_is_masked_too() {
     assert!(
         painted(185.0, 54.6),
         "the hail core under the live sector went"
+    );
+}
+
+/// A volume with a bright band on a six degree cut, and melting snow under it
+/// on the lowest cut: correlation that wanders between 0.72 and 0.94, which
+/// is under the bar outside the melting layer and over the bar inside it.
+fn volume_with_a_melting_layer() -> (String, Vec<u8>) {
+    let at = Utc
+        .with_ymd_and_hms(2026, 9, 24, 21, 0, 0)
+        .single()
+        .expect("a UTC time");
+    let entry = registry::site_by_id("KTLX").expect("Oklahoma City is in the registry");
+    let site = fixture::Site {
+        id: *b"KTLX",
+        latitude: entry.latitude,
+        longitude: entry.longitude,
+        height_metres: 370,
+    };
+    let range = |gate: usize| 2.125 + gate as f64 * 0.25;
+    // The band, above the antenna, which is where beam height is measured.
+    let band = 2.5..2.8;
+    let high_gates = 200;
+    let high: Vec<fixture::Radial> = (0..360u16)
+        .map(|radial| {
+            let inside = |gate: usize| {
+                band.contains(&crate::cross_section::beam_height_km(range(gate), 6.0))
+            };
+            let pick = |yes: f32, no: f32| -> Vec<fixture::Gate> {
+                (0..high_gates)
+                    .map(|gate| fixture::Gate::Reading(if inside(gate) { yes } else { no }))
+                    .collect()
+            };
+            fixture::Radial {
+                azimuth_degrees: f32::from(radial),
+                azimuth_number: radial + 1,
+                elevation_number: 2,
+                elevation_degrees: 6.0,
+                nyquist_ms: 8.0,
+                collected: at,
+                azimuth_spacing_degrees: 1.0,
+                reflectivity: pick(37.5, 15.0),
+                velocity: Vec::new(),
+                correlation: pick(0.93, 0.99),
+                differential_reflectivity: pick(1.5, 0.2),
+            }
+        })
+        .collect();
+    let low_gates = 700;
+    let lowest: Vec<fixture::Radial> = (0..360u16)
+        .map(|radial| {
+            let mut reflectivity = vec![fixture::Gate::Nothing; low_gates];
+            let mut correlation = vec![fixture::Gate::Nothing; low_gates];
+            for gate in 0..low_gates {
+                let height = crate::cross_section::beam_height_km(range(gate), 0.5);
+                // Inside the band on the first quarter, a kilometre under it
+                // on the second: the same melting-snow look in both.
+                let planted = match radial {
+                    0..90 => (2.55..2.75).contains(&height),
+                    90..180 => (1.55..1.75).contains(&height),
+                    _ => false,
+                };
+                if planted {
+                    reflectivity[gate] = fixture::Gate::Reading(30.0);
+                    correlation[gate] =
+                        fixture::Gate::Reading(if gate % 2 == 0 { 0.72 } else { 0.94 });
+                }
+            }
+            fixture::Radial {
+                azimuth_degrees: f32::from(radial),
+                azimuth_number: radial + 1,
+                elevation_number: 1,
+                elevation_degrees: 0.5,
+                nyquist_ms: 8.0,
+                collected: at,
+                azimuth_spacing_degrees: 1.0,
+                reflectivity,
+                velocity: Vec::new(),
+                correlation,
+                differential_reflectivity: Vec::new(),
+            }
+        })
+        .collect();
+    let key = format!("KTLX/KTLX{}_V06", at.format("%Y%m%d_%H%M%S"));
+    (key, fixture::volume(&site, at, &[lowest, high]))
+}
+
+#[test]
+fn the_echo_mask_reads_the_melting_layer_where_the_beam_is() {
+    // The layer is read above sea level and the mask measures the beam above
+    // the antenna. Left in sea level, a layer at KTLX sat four hundred metres
+    // too high, and the melting snow in its lower part was hidden as a bloom.
+    let _guard = decoded_cache_test();
+    clear_cache();
+    let (key, data) = volume_with_a_melting_layer();
+    let (scan, _) = decoded_volume(&key, data.clone()).expect("the volume decodes");
+    let antenna_km = registry::site_by_id("KTLX").map_or(0.0, |site| {
+        RadarCoordinateSystem::new(&site.to_site()).antenna_height_meters() / 1000.0
+    });
+    // The planted band is found at all, or this says nothing.
+    let layer = crate::melting::from_volume(&scan, antenna_km).expect("a melting layer");
+    assert!(
+        (layer.bottom_km - antenna_km - 2.5).abs() < 0.15,
+        "the band's bottom is {} above sea level",
+        layer.bottom_km
+    );
+
+    let sweep = sweep_from_volume(
+        "KTLX",
+        &key,
+        data,
+        SweepRequest {
+            product_name: "reflectivity",
+            echo_mask: true,
+            ..SweepRequest::default()
+        },
+    )
+    .expect("the lowest cut");
+    let pixels = drawn_pixels(&sweep);
+    // Where the planted gates are: the band at 0.5 degrees is about 150 km
+    // out, and a kilometre under it about 110.
+    let range_at = |height: f64| {
+        (0..700)
+            .map(|gate| 2.125 + gate as f64 * 0.25)
+            .find(|range| crate::cross_section::beam_height_km(*range, 0.5) >= height)
+            .expect("a gate that high")
+    };
+    let painted = |bearing: f64, km: f64| pixel_at(&sweep, &pixels, bearing, km)[3] > 0;
+    assert!(
+        painted(45.0, range_at(2.65)),
+        "melting snow inside the layer was hidden"
+    );
+    assert!(
+        !painted(135.0, range_at(1.65)),
+        "the same look under the layer was kept"
     );
 }

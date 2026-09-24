@@ -10,42 +10,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
-- [ ] AUD-535 (P3): The echo mask's melting layer height is not held by any test
-  Why: `not_weather` in `src-tauri/src/level2/draw.rs` reads the melting layer above sea level and subtracts the antenna height, because the mask measures beam height above the antenna. A review on 2026-09-24 removed the subtraction and every test stayed green: the test volume builder in `src-tauri/src/fixture.rs` writes reflectivity, velocity and correlation but not differential reflectivity, and `melting::from_volume` needs all three, so no fixture can put a melting layer in a drawn volume.
-  Evidence: mutation `.map(|layer| (layer.bottom_km, layer.top_km))` in `not_weather` survives `cargo test --lib` (671 passed). At KTLX the antenna is about 0.4 km up, so the band the mask lowers its bar inside would sit 0.4 km too high.
-  Touches: `src-tauri/src/fixture.rs` (a `DZDR` moment beside `DRHO`), `src-tauri/src/level2/draw_tests.rs` (a volume with a bright band on a high cut and low-correlation melting snow under it on the lowest).
-  Acceptance: WHEN the subtraction is removed, a drawn-volume test fails; the test volume carries a bright band that `melting::from_volume` finds.
-  Complexity: S
-
-## Character and personalization
-
-These came out of a different question than the audit did: what makes somebody keep a weather app open on a second monitor for a year rather than opening it twice during a storm and forgetting it. None of it outranks a correctness, security, or release item, which is why it sits after P3 instead of being folded into the priority ladder.
-
-Every item below obeys the same rules, and one that cannot obey them is not worth building.
-
-- Data is never decoration. A theme, an effect, or a mode may restyle the interface around the map. It may not change a reflectivity ramp, a warning outline, a probability figure, or a timestamp. Anything that does change how hazard information reads has to say so where the reader turns it on.
-- Nothing new leaves the machine. No account, no sync, no usage reporting, and no new host in the native allowlist unless the item names it and the ledger carries it.
-- Everything is reversible in one action, and the workspace opens plain for a reader who wants it plain.
-- `prefers-reduced-motion` removes the motion, not the feature.
-- Nothing applies pressure. No streaks to break, no badges to chase, and no notification that is about the app rather than about the weather.
-- Playful surfaces stand down during danger. While a warning is active at a watched place, themes stay quiet, effects stop, and nothing discoverable reveals itself; the map is a serious instrument for as long as the warning stands. (Added 2026-08-31; the safety precedent and the backlash record are in `RESEARCH.md`.)
-
-## Audit Findings, 2026-09-02
-
-Read-only audit of `d608d27` (v0.7.0). Baseline at that commit, all green: `npm run check` 146 files / 1282 passed / 19 skipped, lint clean, every bundle inside budget; `npx playwright test` 424 passed across chromium, compact and wide; `cargo test` 353 passed / 26 ignored; `npm run release` staged a signed `OpenRadar_0.7.0_x64-setup.exe`. GitHub issues are enabled but the tracker holds zero issues (open or closed) and zero pull requests, so there was nothing to take in from reporters. Every P1 below survived a fresh-context refutation pass. Items are numbered on from `AUD-126`.
-
-Two things to know before draining. First, most of what follows lives where the e2e suite cannot see: inside the packaged Tauri window (the ACL, the opener plugin, the asset protocol) and in the light theme with a panel open. Second, the browser probe that found the light-theme items is not in the repo; the acceptance lines say what to assert instead.
-
-### P1
-
-### P2
-
-### P3
-
-### Unaudited, needs a pass
-
-These could not be observed in this pass, which ran headless browser automation and read the packaged binary's configuration but did not drive the installed app on a screen. Each is a place where the e2e suite also cannot see.
-
 - [ ] AUD-166: Long-session memory and the two-day-old cached view
       Note 2026-09-07: Anvil measured this instead of estimating it (commit 0f5972d, 2026-09-04): a retained-geometry sampler walking the frames every 5 s, deduped by ArrayBuffer identity, beside performance.memory. The ceiling was a per-renderer V8 heap cap of about 4,192 MB unrelated to machine RAM, a 26-frame replay retained 2,178 MB, and capping the dual-pol prefetch at 12 frames on that evidence took a 39-frame peak from 3,427 to 2,042 MB. That sampler is the shape this item's soak script wants.
       Category: perf

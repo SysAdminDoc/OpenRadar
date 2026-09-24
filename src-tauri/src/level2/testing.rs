@@ -290,6 +290,7 @@ pub(crate) fn stranded_patch_volume() -> (DateTime<Utc>, String, Vec<u8>) {
                     reflectivity,
                     velocity,
                     correlation: Vec::new(),
+                    differential_reflectivity: Vec::new(),
                 }
             })
             .collect::<Vec<_>>()
@@ -1717,6 +1718,7 @@ pub(crate) fn sector(
             reflectivity: vec![reading; 200],
             velocity: Vec::new(),
             correlation: Vec::new(),
+            differential_reflectivity: Vec::new(),
         });
         angle += spacing;
         number += 1;
