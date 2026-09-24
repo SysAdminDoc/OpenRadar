@@ -439,6 +439,20 @@ export const LAYER_OPTIONS: Array<{
     icon: Droplets,
   },
   {
+    key: "ffgMax",
+    group: "water",
+    labelKey: "layer.ffgMax",
+    detailKey: "layers.ffgMaxDetail",
+    icon: Droplets,
+  },
+  {
+    key: "ariMax",
+    group: "water",
+    labelKey: "layer.ariMax",
+    detailKey: "layers.ariMaxDetail",
+    icon: Droplets,
+  },
+  {
     key: "unitStreamflow",
     group: "water",
     labelKey: "layer.unitStreamflow",

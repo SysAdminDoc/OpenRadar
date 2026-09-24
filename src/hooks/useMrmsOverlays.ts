@@ -94,6 +94,8 @@ export const MRMS_LAYERS: Array<{
   { layer: "gaugeQpe", product: "gauge-qpe-day" },
   { layer: "ffgHour", product: "ffg-hour" },
   { layer: "ffgThreeHour", product: "ffg-three-hour" },
+  { layer: "ffgMax", product: "ffg-max" },
+  { layer: "ariMax", product: "ari-max" },
   { layer: "unitStreamflow", product: "unit-streamflow" },
   { layer: "precipType", product: "precip-type" },
   // One switch over three fields at any of thirty-three heights; the entry
@@ -147,6 +149,8 @@ const LABEL_KEYS: Record<MrmsProductId, StringKey> = {
   "gauge-qpe-three-day": "mrms.gaugeQpeThreeDay",
   "ffg-hour": "mrms.ffgHour",
   "ffg-three-hour": "mrms.ffgThreeHour",
+  "ffg-max": "mrms.ffgMax",
+  "ari-max": "mrms.ariMax",
   "unit-streamflow": "mrms.unitStreamflow",
   "precip-type": "mrms.precipType",
   "cappi-reflectivity": "mrms.cappiReflectivity",

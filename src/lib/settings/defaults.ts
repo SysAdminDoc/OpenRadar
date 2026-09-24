@@ -98,6 +98,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     gaugeQpe: false,
     ffgHour: false,
     ffgThreeHour: false,
+    ffgMax: false,
+    ariMax: false,
     unitStreamflow: false,
     precipType: false,
     snowfall: false,

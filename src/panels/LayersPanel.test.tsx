@@ -600,10 +600,11 @@ describe("the seven headings the switches are read under", () => {
     // is still on it, counted rather than named. Fifty-two since the air
     // quality monitors and the fire detections joined on 2026-09-10, after
     // the buoys, the aviation hazards, the snowfall analysis and the
-    // volunteer gauges the same day.
+    // volunteer gauges the same day; fifty-four since the worst-window ratio
+    // to flash flood guidance and the rain's return period on 2026-09-24.
     expect(
       container.querySelectorAll(".setting-list .toggle-row"),
-    ).toHaveLength(52);
+    ).toHaveLength(54);
   });
 
   it("names each heading in the reader's own language", () => {

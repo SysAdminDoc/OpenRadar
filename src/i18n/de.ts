@@ -1035,6 +1035,8 @@ export const de: Catalogue = {
   "layer.gaugeQpe": "Regen, an Messern korrigiert",
   "layer.unitStreamflow": "Modellierter Abfluss",
   "layer.ffgThreeHour": "Sturzflut-Richtwert, 3 h",
+  "layer.ffgMax": "Sturzflut-Richtwert, ungünstigstes Fenster",
+  "layer.ariMax": "Wiederkehrzeit des Regens",
   "layer.ffgHour": "Sturzflut-Richtwert, 1 h",
   "layers.qpeDayDetail": "Wie viel seit dieser Zeit gestern gefallen ist",
   "counties.failed": "Die Landkreisgrenzen ließen sich nicht lesen.",
@@ -1047,6 +1049,10 @@ export const de: Catalogue = {
     "Was das Sturzflutmodell von jedem Quadratkilometer ablaufen lässt. Ein Modell des Bodens, keine Messung des Himmels.",
   "layers.ffgThreeHourDetail":
     "Dasselbe über drei Stunden, das Fenster, in dem sich eine langsamere Flut aufbaut",
+  "layers.ffgMaxDetail":
+    "Die höchste der Quoten über eine, drei und sechs Stunden, die die Vier-Felder-Methode liest",
+  "layers.ariMaxDetail":
+    "Wie selten der gefallene Regen ist, als mittlere Zahl der Jahre zwischen so starken Regenfällen",
   "layers.ffgHourDetail":
     "Wie sich die letzte Regenstunde zu dem verhält, was der Boden dort nach Angabe des Amtes aufnehmen kann. 100 % heißt, der Regen hat es erreicht.",
   "layer.precipType": "Regen oder Schnee",
@@ -1269,6 +1275,8 @@ export const de: Catalogue = {
   "keywords.gaugeQpe": "messer korrigiert summe multisensor",
   "keywords.unitStreamflow": "abfluss wasser flut",
   "keywords.ffgThreeHour": "sturzflut richtwert drei stunden quote",
+  "keywords.ffgMax": "sturzflut richtwert hoechste quote sechs stunden",
+  "keywords.ariMax": "wiederkehrzeit jaehrlichkeit seltener regen flut",
   "keywords.ffgHour": "sturzflut richtwert stunde quote",
   "keywords.spcOutlooks": "konvektiver ausblick kategorie tag eins",
   "keywords.wpcExcessiveRain": "sturzflut niederschlag ausblick wpc ero",
@@ -1601,6 +1609,8 @@ export const de: Catalogue = {
   "mrms.unitStreamflow": "Modellierter Abfluss",
   "mrms.ffgThreeHour":
     "Regen gegen den Sturzflut-Richtwert, letzte drei Stunden",
+  "mrms.ffgMax": "Regen gegen den Sturzflut-Richtwert, ungünstigstes Fenster",
+  "mrms.ariMax": "Wie selten der Regen ist, ungünstigstes Fenster",
   "mrms.ffgHour": "Regen gegen den Sturzflut-Richtwert, letzte Stunde",
   "mrms.hailSwath": "Größter Hagel des letzten Tages",
   "mrms.lightning": "Wolke-Boden-Blitze, 5 Min.",

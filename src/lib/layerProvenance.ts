@@ -459,6 +459,26 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
       "estimated three-hour rain against the office's flash flood guidance",
     freshForMs: MRMS_FRESH_FOR,
   },
+  ffgMax: {
+    sourceId: "ffg-max",
+    label: "Rain against flash flood guidance, worst window",
+    attribution: MRMS,
+    kind: "derived",
+    derivedFrom:
+      "estimated rain over one, three and six hours against the office's flash flood guidance, the worst of the three",
+    freshForMs: MRMS_FRESH_FOR,
+  },
+  ariMax: {
+    sourceId: "ari-max",
+    label: "How rare the rain is, worst window",
+    attribution: MRMS,
+    // A statistic about the rain rather than the rain: how many years on
+    // average between falls this heavy, from the NOAA Atlas 14 frequencies.
+    kind: "derived",
+    derivedFrom:
+      "estimated rain over each window set against the NOAA Atlas 14 frequency estimates, the rarest of them",
+    freshForMs: MRMS_FRESH_FOR,
+  },
   unitStreamflow: {
     sourceId: "unit-streamflow",
     label: "Modelled runoff",

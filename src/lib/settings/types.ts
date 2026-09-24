@@ -223,6 +223,10 @@ export interface LayerSettings {
   gaugeQpe: boolean;
   ffgHour: boolean;
   ffgThreeHour: boolean;
+  /** The worst of the one, three and six hour ratios to guidance. */
+  ffgMax: boolean;
+  /** How rare the rain is, as a return period, over its worst window. */
+  ariMax: boolean;
   /** What the flash flood model has running off each square kilometre. */
   unitStreamflow: boolean;
   /** MRMS cloud-to-ground flash density over the past five minutes. */
