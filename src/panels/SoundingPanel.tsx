@@ -204,6 +204,13 @@ function SoundingView({
         });
         onSettled(which);
       });
+    // Superseded by the next request or gone with its view. A view switched
+    // away from before its answer came back used to report it anyway, and
+    // the panel took the late answer for the kind now on screen: busy for
+    // ever over a chart that had already arrived.
+    return () => {
+      requestRef.current += 1;
+    };
   }, [at, center, onSettled, t, which]);
 
   const sounding = answer?.sounding ?? null;

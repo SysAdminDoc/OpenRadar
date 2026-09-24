@@ -140,7 +140,11 @@ import {
 import type { StormCellState } from "../hooks/useStormCells";
 import type { CellJump } from "../lib/lightningJump";
 import type { MeltingLayer, NoLayer } from "../lib/melting";
-import type { NearbyCell, NearbyWarning } from "../lib/nearby";
+import {
+  warningsNote,
+  type NearbyCell,
+  type NearbyWarning,
+} from "../lib/nearby";
 import type { Approach } from "../lib/approach";
 import { cellsAvailable } from "../lib/cells";
 import type { AlertType } from "../lib/alertTypes";
@@ -449,15 +453,11 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
                     ? "loading"
                     : null
           }
-          alertsNote={
-            !settings.layers.weatherAlerts
-              ? "off"
-              : overlays.alerts.error
-                ? "failed"
-                : overlays.alerts.fetchedAt === null
-                  ? "loading"
-                  : null
-          }
+          alertsNote={warningsNote({
+            enabled: settings.layers.weatherAlerts,
+            replaying: props.replaying,
+            alerts: overlays.alerts,
+          })}
           alertsError={overlays.alerts.error ?? null}
           station={props.stormCells.report?.station ?? null}
           observed={observedAt(props.stormCells.report?.observed)}

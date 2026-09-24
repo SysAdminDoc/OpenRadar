@@ -11,6 +11,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CrossSectionPanel } from "./CrossSectionPanel";
 import { NearbyPanel } from "./NearbyPanel";
+import { warningsNote } from "../lib/nearby";
 import { SearchPanel } from "./SearchPanel";
 import { SoundingPanel } from "./SoundingPanel";
 import type { CrossSection } from "../lib/crossSection";
@@ -98,6 +99,42 @@ describe("a panel waiting on its first answer", () => {
     await waitFor(() => expect(busy()).toEqual(["false", null]));
   });
 
+  it("the sounding is not kept busy by a kind it has switched away from", async () => {
+    // The observed balloon is still out when the reader switches to the
+    // model; the model answers; then the balloon answers late. That late
+    // answer is for a view nobody is looking at.
+    const observed = later<null>();
+    const forecast = later<null>();
+    lookups.observed.mockReturnValue(observed.promise);
+    lookups.forecast.mockReturnValue(forecast.promise);
+    render(
+      <SoundingPanel
+        center={[-93.6, 41.6]}
+        at={1_756_747_800}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /forecast/i }));
+    await act(async () => forecast.settle(null));
+    await waitFor(() => expect(busy()).toEqual(["false", null]));
+    await act(async () => observed.settle(null));
+    expect(busy()).toEqual(["false", null]);
+  });
+
+  it("the vertical slice is not busy with no site to cut", () => {
+    render(
+      <CrossSectionPanel
+        line={{
+          from: { lon: -94.1, lat: 41.6 },
+          to: { lon: -93.4, lat: 41.9 },
+        }}
+        take={null}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(busy()).toEqual(["false", null]);
+  });
+
   it("the vertical slice is busy while it is being cut", async () => {
     const cut = later<CrossSection>();
     render(
@@ -117,7 +154,7 @@ describe("a panel waiting on its first answer", () => {
 
   it("the nearby panel is busy while either list is still coming", () => {
     const nearby = (
-      alertsNote: "loading" | null,
+      alertsNote: "loading" | "failed" | "held" | "unchecked" | "off" | null,
       cellsNote: "loading" | null,
     ) => (
       <NearbyPanel
@@ -146,6 +183,12 @@ describe("a panel waiting on its first answer", () => {
     expect(busy()).toEqual(["true", "true"]);
     rerender(nearby(null, null));
     expect(busy()).toEqual(["false", null]);
+    // And a list that failed, or that is not being asked for at all, is not
+    // one the panel is waiting on.
+    for (const note of ["failed", "held", "unchecked", "off"] as const) {
+      rerender(nearby(note, null));
+      expect(busy(), note).toEqual(["false", null]);
+    }
   });
 
   it("the search is busy from the keystroke to the answer", async () => {
@@ -170,6 +213,27 @@ describe("a panel waiting on its first answer", () => {
     await act(async () => found.settle([]));
     expect(busy()).toEqual(["false", null]);
   });
+
+  it("the search is not busy once a search has failed", async () => {
+    vi.useFakeTimers();
+    const found = later<[]>();
+    lookups.places.mockReturnValue(found.promise);
+    render(
+      <SearchPanel
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        onSelectStorm={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Ames" },
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    await act(async () => found.refuse(new Error("the geocoder is down")));
+    expect(busy()).toEqual(["false", null]);
+  });
 });
 
 /** Every panel component under the directory, tests left out. */
@@ -186,6 +250,14 @@ function panels(from: string): string[] {
   return found;
 }
 
+/** Source with its comments taken out, so a comment cannot open a button. */
+function uncommented(source: string): string {
+  return source
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
+}
+
 /**
  * Whether a spinner stands for the content or for a press.
  *
@@ -193,13 +265,45 @@ function panels(from: string): string[] {
  * running, and the panel around it is not about to change: an export in
  * progress is not a dialog waiting on its answer. Anywhere else the spinner
  * is where content will be.
+ *
+ * Any of the icon set's loaders, and anything drawn with the spin class or
+ * as the loading line, rather than the one icon the panels happened to use
+ * when this was written: a panel that reached for `Loader2` walked past it.
  */
 function spinsOutsideAButton(source: string): boolean {
-  for (const found of source.matchAll(/<LoaderCircle\b/g)) {
-    const before = source.slice(0, found.index);
+  const code = uncommented(source);
+  const spinners =
+    /<Loader\w*\b|className=["'][^"']*\b(spin|panel-loading)\b[^"']*["']/g;
+  for (const found of code.matchAll(spinners)) {
+    const before = code.slice(0, found.index);
     const opened = before.lastIndexOf("<button");
     const closed = before.lastIndexOf("</button>");
     if (opened === -1 || closed > opened) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether `busy` is on the shell itself.
+ *
+ * Anywhere in the file was the first spelling of this, and a `busy={false}`
+ * on some child element satisfied it.
+ */
+function shellSaysBusy(source: string): boolean {
+  const code = uncommented(source);
+  for (const found of code.matchAll(/<PanelShell\b/g)) {
+    // The opening tag runs to the first `>` that closes it, which is the
+    // first one not inside a `{...}` expression.
+    let depth = 0;
+    let at = (found.index ?? 0) + "<PanelShell".length;
+    for (; at < code.length; at += 1) {
+      const char = code[at];
+      if (char === "{") depth += 1;
+      else if (char === "}") depth -= 1;
+      else if (char === ">" && depth === 0) break;
+    }
+    const tag = code.slice(found.index, at);
+    if (/\bbusy=\{/.test(tag)) return true;
   }
   return false;
 }
@@ -213,6 +317,29 @@ describe("the gate on that", () => {
     expect(
       spinsOutsideAButton("<button>x</button><span><LoaderCircle /></span>"),
     ).toBe(true);
+    // The three a review walked past it with: another loader, a comment
+    // that mentions a button before the spinner, and the spin class alone.
+    expect(spinsOutsideAButton("<p><Loader2 /> Loading</p>")).toBe(true);
+    expect(
+      spinsOutsideAButton(
+        "{/* the <button beside it */}<p><LoaderCircle /></p>",
+      ),
+    ).toBe(true);
+    expect(spinsOutsideAButton('<p className="spin">...</p>')).toBe(true);
+  });
+
+  it("finds busy on the shell and not on a child", () => {
+    expect(shellSaysBusy("<PanelShell title={t('x')} busy={loading}>")).toBe(
+      true,
+    );
+    expect(
+      shellSaysBusy(
+        "<PanelShell title={t('x')}><Row busy={false} /></PanelShell>",
+      ),
+    ).toBe(false);
+    expect(shellSaysBusy("{/* busy={x} */}<PanelShell title={t('x')}>")).toBe(
+      false,
+    );
   });
 
   it("holds every panel that spins for its content to saying so", () => {
@@ -225,10 +352,64 @@ describe("the gate on that", () => {
         return (
           source.includes("<PanelShell") &&
           spinsOutsideAButton(source) &&
-          !/\bbusy=\{/.test(source)
+          !shellSaysBusy(source)
         );
       })
       .map((path) => path.slice(root.length + 1));
     expect(silent).toEqual([]);
+  });
+});
+
+describe("what the warnings section says the feed is doing", () => {
+  const alerts = (over: {
+    error?: string | null;
+    fetchedAt?: number | null;
+    fetching?: boolean;
+  }) => ({ error: null, fetchedAt: null, fetching: false, ...over });
+
+  it("is loading only while a request is out", () => {
+    expect(
+      warningsNote({
+        enabled: true,
+        replaying: false,
+        alerts: alerts({ fetching: true }),
+      }),
+    ).toBe("loading");
+    // Nothing asked yet, which is what a spell offline looks like.
+    expect(
+      warningsNote({ enabled: true, replaying: false, alerts: alerts({}) }),
+    ).toBe("unchecked");
+  });
+
+  it("says the warnings are held back through a replay", () => {
+    // The feed is not asked while a past storm is replayed, so a replay is
+    // never waiting on it, whatever the feed last said.
+    expect(
+      warningsNote({
+        enabled: true,
+        replaying: true,
+        alerts: alerts({ fetching: true }),
+      }),
+    ).toBe("held");
+  });
+
+  it("says what the feed answered once it has", () => {
+    expect(
+      warningsNote({
+        enabled: true,
+        replaying: false,
+        alerts: alerts({ fetchedAt: 1 }),
+      }),
+    ).toBeNull();
+    expect(
+      warningsNote({
+        enabled: true,
+        replaying: false,
+        alerts: alerts({ error: "busy" }),
+      }),
+    ).toBe("failed");
+    expect(
+      warningsNote({ enabled: false, replaying: false, alerts: alerts({}) }),
+    ).toBe("off");
   });
 });

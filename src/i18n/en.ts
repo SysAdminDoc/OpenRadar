@@ -1148,6 +1148,9 @@ export const en = {
   "nearby.warningsFailed":
     "The warnings could not be checked, so this cannot say what covers this place.",
   "nearby.warningsLoading": "Checking the warnings.",
+  "nearby.warningsHeld":
+    "Current warnings are held back while a past storm is replayed.",
+  "nearby.warningsUnchecked": "The warnings have not been checked yet.",
   "nearby.warning": "{headline}.",
   "nearby.warningTagged": "{headline}, tagged {tag}.",
   "nearby.warningUntil": "In force until {when}.",

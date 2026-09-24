@@ -1,6 +1,6 @@
 import { Keyboard, LoaderCircle, TriangleAlert, Wind } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
-import type { NearbyCell, NearbyWarning } from "../lib/nearby";
+import type { NearbyCell, NearbyWarning, WarningsNote } from "../lib/nearby";
 import type { Approach } from "../lib/approach";
 import { relativeTime } from "../lib/overlays";
 import { formatClock, useMeasurements } from "../lib/units";
@@ -42,7 +42,7 @@ interface NearbyPanelProps {
    * cannot see the map has, so a claim it cannot support is worse here than
    * anywhere else in the app.
    */
-  alertsNote: "off" | "failed" | "loading" | null;
+  alertsNote: WarningsNote;
   /** The radar the tracker read, and when it ran, like every other surface. */
   station: string | null;
   observed: number | null;
@@ -186,7 +186,11 @@ export function NearbyPanel({
                   ? "nearby.warningsOff"
                   : alertsNote === "failed"
                     ? "nearby.warningsFailed"
-                    : "nearby.noWarnings",
+                    : alertsNote === "held"
+                      ? "nearby.warningsHeld"
+                      : alertsNote === "unchecked"
+                        ? "nearby.warningsUnchecked"
+                        : "nearby.noWarnings",
             )}
           />
         )}

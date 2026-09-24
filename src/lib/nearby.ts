@@ -229,3 +229,27 @@ export function nearbySummary(
     ? said.join(" ")
     : translate("nearby.nothing", { place: placeName });
 }
+
+/** What the warnings section says about the feed behind it. */
+export type WarningsNote =
+  "off" | "failed" | "loading" | "held" | "unchecked" | null;
+
+/**
+ * What the warnings feed is doing, for the section that lists what it found.
+ *
+ * "Loading" only while a request is out. Keyed on there being no answer yet,
+ * it said the warnings were being checked through a whole replay, when they
+ * are held back on purpose, and through a spell offline, when nothing asks,
+ * and the panel said it was busy through both.
+ */
+export function warningsNote(feed: {
+  enabled: boolean;
+  replaying: boolean;
+  alerts: { error: string | null; fetchedAt: number | null; fetching: boolean };
+}): WarningsNote {
+  if (!feed.enabled) return "off";
+  if (feed.replaying) return "held";
+  if (feed.alerts.error) return "failed";
+  if (feed.alerts.fetchedAt !== null) return null;
+  return feed.alerts.fetching ? "loading" : "unchecked";
+}
