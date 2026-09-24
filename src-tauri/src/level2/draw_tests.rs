@@ -1258,6 +1258,7 @@ fn volume_with_a_couplet(delta_v: f32, half_radials: i64, centre_radial: u16) ->
                 azimuth_spacing_degrees: spacing,
                 reflectivity: vec![fixture::Gate::Reading(40.0); gates],
                 velocity: vec![fixture::Gate::Reading(across * delta_v / 2.0); gates],
+                correlation: Vec::new(),
             }
         })
         .collect();
@@ -1420,4 +1421,202 @@ fn a_cut_that_cannot_be_unfolded_is_refused_rather_than_drawn() {
         matches!(refused, Err(Level2Error::NoSweep(_, _))),
         "a cut with no Nyquist velocity was derived anyway"
     );
+}
+
+/// A volume with a bloom, a hail core under a column, ground clutter and rain,
+/// each on its own radials, and a higher cut that sees only the column.
+fn volume_with_a_bloom() -> (String, Vec<u8>) {
+    let at = Utc
+        .with_ymd_and_hms(2026, 9, 23, 3, 10, 0)
+        .single()
+        .expect("a UTC time");
+    let entry = registry::site_by_id("KTLX").expect("Oklahoma City is in the registry");
+    let site = fixture::Site {
+        id: *b"KTLX",
+        latitude: entry.latitude,
+        longitude: entry.longitude,
+        height_metres: 370,
+    };
+    let gates = 240;
+    // A bloom's correlation jumps about from gate to gate, and so does a hail
+    // core's and a patch of clutter's. Rain's does not.
+    let noisy = |low: f32, high: f32| -> Vec<fixture::Gate> {
+        (0..gates)
+            .map(|gate| fixture::Gate::Reading(if gate % 2 == 0 { low } else { high }))
+            .collect()
+    };
+    let lowest: Vec<fixture::Radial> = (0..360u16)
+        .map(|radial| {
+            let mut reflectivity = vec![fixture::Gate::Nothing; gates];
+            let mut correlation = vec![fixture::Gate::Nothing; gates];
+            let mut lay = |from: usize, to: usize, dbz: f32, rho: Vec<fixture::Gate>| {
+                for gate in from..to {
+                    reflectivity[gate] = fixture::Gate::Reading(dbz);
+                    correlation[gate] = rho[gate];
+                }
+            };
+            match radial {
+                // Rain, which reads high and steady.
+                0..90 => lay(20, 200, 35.0, vec![fixture::Gate::Reading(0.99); gates]),
+                // A bloom: weak, and its correlation all over the place.
+                90..180 => lay(20, 200, 25.0, noisy(0.4, 0.7)),
+                // A hail core, as low and noisy as the bloom but strong.
+                180..190 => lay(200, 220, 60.0, noisy(0.6, 0.9)),
+                // Clutter: as strong and as noisy, with nothing above it.
+                200..210 => lay(20, 40, 55.0, noisy(0.5, 0.8)),
+                _ => {}
+            }
+            fixture::Radial {
+                azimuth_degrees: f32::from(radial),
+                azimuth_number: radial + 1,
+                elevation_number: 1,
+                elevation_degrees: 0.5,
+                nyquist_ms: 8.0,
+                collected: at,
+                azimuth_spacing_degrees: 1.0,
+                reflectivity,
+                velocity: Vec::new(),
+                correlation,
+            }
+        })
+        .collect();
+    // The column over the core, on a cut four degrees up.
+    let above: Vec<fixture::Radial> = (0..360u16)
+        .map(|radial| fixture::Radial {
+            azimuth_degrees: f32::from(radial),
+            azimuth_number: radial + 1,
+            elevation_number: 2,
+            elevation_degrees: 4.0,
+            nyquist_ms: 8.0,
+            collected: at,
+            azimuth_spacing_degrees: 1.0,
+            reflectivity: vec![
+                if (180..190).contains(&radial) {
+                    fixture::Gate::Reading(50.0)
+                } else {
+                    fixture::Gate::Nothing
+                };
+                gates
+            ],
+            velocity: Vec::new(),
+            correlation: Vec::new(),
+        })
+        .collect();
+    let key = format!("KTLX/KTLX{}_V06", at.format("%Y%m%d_%H%M%S"));
+    (key, fixture::volume(&site, at, &[lowest, above]))
+}
+
+#[test]
+fn the_echo_mask_takes_a_bloom_off_the_picture_and_leaves_a_hail_core() {
+    let _guard = decoded_cache_test();
+    clear_cache();
+    let (key, data) = volume_with_a_bloom();
+    let draw = |echo_mask: bool| {
+        sweep_from_volume(
+            "KTLX",
+            &key,
+            data.clone(),
+            SweepRequest {
+                product_name: "reflectivity",
+                echo_mask,
+                ..SweepRequest::default()
+            },
+        )
+        .expect("the lowest reflectivity cut")
+    };
+    let plain = draw(false);
+    let masked = draw(true);
+    let before = drawn_pixels(&plain);
+    let after = drawn_pixels(&masked);
+    let painted = |sweep: &SweepImage, pixels: &[u8], bearing: f64, km: f64| {
+        pixel_at(sweep, pixels, bearing, km)[3] > 0
+    };
+
+    // Every target is on the picture when nobody asked for the mask, so what
+    // the mask takes away below is something that was there.
+    for (bearing, km, what) in [
+        (45.0, 30.0, "rain"),
+        (135.0, 30.0, "the bloom"),
+        (185.0, 54.6, "the hail core"),
+        (205.0, 9.6, "the clutter"),
+    ] {
+        assert!(
+            painted(&plain, &before, bearing, km),
+            "{what} was not drawn"
+        );
+    }
+    assert_eq!(plain.echo_mask, None, "nobody asked for the mask");
+
+    assert_eq!(masked.echo_mask, Some("on"));
+    assert!(
+        !painted(&masked, &after, 135.0, 30.0),
+        "the bloom is still drawn"
+    );
+    assert!(
+        !painted(&masked, &after, 205.0, 9.6),
+        "the clutter is still drawn"
+    );
+    assert!(
+        painted(&masked, &after, 45.0, 30.0),
+        "rain went with the bloom"
+    );
+    assert!(
+        painted(&masked, &after, 185.0, 54.6),
+        "the hail core went with the clutter"
+    );
+
+    // The picture only. The readings a reader inspects and an export writes
+    // are the gates the radar reported, bloom and all.
+    let values = sweep_values(
+        "KTLX",
+        &key,
+        data.clone(),
+        SweepRequest {
+            product_name: "reflectivity",
+            echo_mask: true,
+            ..SweepRequest::default()
+        },
+    )
+    .expect("the readings");
+    let reading = crate::gates::reading_at(&values.field, 135.0, 30.0);
+    assert!(
+        matches!(reading, Some((dbz, GateStatus::Valid)) if (dbz - 25.0).abs() < 0.5),
+        "the bloom's reading was taken out of the readout: {reading:?}"
+    );
+}
+
+#[test]
+fn the_echo_mask_says_when_it_could_not_run() {
+    let _guard = decoded_cache_test();
+    clear_cache();
+    // A cut with no correlation in it has nothing to judge a gate by, which is
+    // what a radar with no dual polarisation sends.
+    let (key, data) = volume_with_a_couplet(40.0, 8, 360);
+    let sweep = sweep_from_volume(
+        "KDMX",
+        &key,
+        data.clone(),
+        SweepRequest {
+            product_name: "reflectivity",
+            echo_mask: true,
+            ..SweepRequest::default()
+        },
+    )
+    .expect("the lowest reflectivity cut");
+    assert_eq!(sweep.echo_mask, Some("unavailable"));
+
+    // And a product built from the whole column has no one cut to judge by.
+    let (key, data) = volume_with_a_bloom();
+    let column = sweep_from_volume(
+        "KTLX",
+        &key,
+        data,
+        SweepRequest {
+            product_name: "composite-reflectivity",
+            echo_mask: true,
+            ..SweepRequest::default()
+        },
+    )
+    .expect("a composite");
+    assert_eq!(column.echo_mask, Some("unavailable"));
 }

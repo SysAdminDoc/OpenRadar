@@ -134,6 +134,7 @@ describe("what one rendered volume is held under", () => {
       palette: 1,
       air: 0,
       highContrast: false,
+      echoMask: false,
       within: null,
     } as const;
     // Every one of these changes what is drawn, and a key that ignored any of
@@ -145,6 +146,9 @@ describe("what one rendered volume is held under", () => {
     expect(loopKey({ ...base, highContrast: true })).not.toBe(loopKey(base));
     expect(loopKey({ ...base, palette: 2 })).not.toBe(loopKey(base));
     expect(loopKey({ ...base, motion: [10, 270] })).not.toBe(loopKey(base));
+    // A frame drawn with the bloom still in it is not the frame a reader who
+    // has just turned the mask on is asking for.
+    expect(loopKey({ ...base, echoMask: true })).not.toBe(loopKey(base));
   });
 });
 
@@ -210,6 +214,7 @@ describe("which frames a held picture answers for", () => {
     palette: 1,
     air: 0,
     highContrast: false,
+    echoMask: false,
   } as const;
 
   it("does not hand a frame drawn over one box to a reader looking at another", () => {

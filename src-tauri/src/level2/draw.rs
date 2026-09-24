@@ -29,6 +29,8 @@ pub struct SweepRequest<'a> {
     /// nearest one. The picture only; the numbers a reader inspects and the
     /// numbers an export writes are the gates themselves either way.
     pub smooth: bool,
+    /// Hide the echo that is not weather. The picture only, for the same reason.
+    pub echo_mask: bool,
     /// The two heights the hail algorithm weights between, from whatever
     /// sounding the workspace has loaded.
     ///
@@ -180,9 +182,11 @@ pub fn sweep_from_scan(
     nyquist_for: &dyn Fn(u8) -> Option<f32>,
     asked: SweepRequest<'_>,
 ) -> Result<SweepImage, Level2Error> {
-    let prepared = with_marks(
+    let prepared = for_drawing(
         prepare_sweep(station, scan, nyquist_for, asked, None)?,
+        station,
         scan,
+        asked,
     );
     draw_sweep(
         station,
@@ -228,8 +232,32 @@ pub(crate) struct Prepared {
     debris: Option<SweepField>,
     /// Where a three-body scatter spike reaches, on the hail size's own grid.
     spike: Option<SweepField>,
+    /// The gates the echo mask hides, on the correlation's own geometry.
+    hidden: Option<SweepField>,
+    /// Whether the echo mask was asked for, and whether it could run.
+    mask: Option<MaskOutcome>,
     /// True when an echo top reading sits at the highest scanned cut.
     echo_topped: bool,
+}
+
+/// What became of an echo mask the reader asked for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MaskOutcome {
+    /// The echo that is not weather is hidden on this picture.
+    On,
+    /// It could not run here: the cut carries no correlation coefficient to
+    /// judge by, or the product is built from the whole volume.
+    Unavailable,
+}
+
+impl MaskOutcome {
+    /// The word the page reads.
+    fn named(self) -> &'static str {
+        match self {
+            MaskOutcome::On => "on",
+            MaskOutcome::Unavailable => "unavailable",
+        }
+    }
 }
 
 pub(crate) fn prepare_sweep(
@@ -252,6 +280,7 @@ pub(crate) fn prepare_sweep(
         persistence: _,
         reduced_motion: _,
         smooth: _,
+        echo_mask: _,
         isotherms,
         within: _,
     } = asked;
@@ -403,27 +432,113 @@ pub(crate) fn prepare_sweep(
         hail_heights,
         derivation,
         debris,
-        // Worked out by `with_marks`, for a picture only.
+        // Worked out by `for_drawing`, for a picture only.
         spike: None,
+        hidden: None,
+        mask: None,
         echo_topped,
     })
 }
 
-/// A prepared sweep with the marks only a picture carries.
+/// A prepared sweep with what only a picture carries: the spike marked on a
+/// hail size, and the echo mask when the reader asked for one.
 ///
 /// The three-body scatter spike is looked for across every cut of the volume,
 /// which costs about as much as the hail size under it: 123 to 158 ms against
 /// 108 to 162 on three stored volumes. `prepare_sweep` also answers the
 /// readout under the cursor and every export of the readings, neither of
-/// which shows a mark, so the spike is found here and only the drawing paths
-/// ask for it. Beside the size rather than in it: the spike is a sign that
-/// hail large enough to make one is up there, which is the question the size
-/// answers from the other direction.
-pub(crate) fn with_marks(mut prepared: Prepared, scan: &Scan) -> Prepared {
+/// which shows a mark or hides a gate, so both are worked out here and only
+/// the drawing paths ask for them. The spike goes beside the size rather than
+/// in it: it is a sign that hail large enough to make one is up there, which
+/// is the question the size answers from the other direction.
+pub(crate) fn for_drawing(
+    mut prepared: Prepared,
+    station: &str,
+    scan: &Scan,
+    asked: SweepRequest<'_>,
+) -> Prepared {
     if prepared.derived == Some(Worked::Column(derive::Kind::HailSize)) {
         prepared.spike = derive::spike(scan);
     }
+    if asked.echo_mask {
+        prepared.hidden = not_weather(&prepared, station, scan);
+        prepared.mask = Some(if prepared.hidden.is_some() {
+            MaskOutcome::On
+        } else {
+            MaskOutcome::Unavailable
+        });
+    }
     prepared
+}
+
+/// The gates of a prepared cut that are not weather, or nothing when there
+/// is nothing to judge them by.
+///
+/// A column is every cut at once and has no one correlation to be judged
+/// against, and a cut from a radar with no dual polarisation has none at all.
+fn not_weather(prepared: &Prepared, station: &str, scan: &Scan) -> Option<SweepField> {
+    if matches!(prepared.derived, Some(Worked::Column(_))) {
+        return None;
+    }
+    let elevation = prepared.chosen.elevation_degrees;
+    let correlation = sweep_field_at(scan, Product::CorrelationCoefficient, elevation)?;
+    let reflectivity = sweep_field_at(scan, Product::Reflectivity, elevation);
+    let cuts: Vec<(f32, SweepField)> = tilts(scan)
+        .into_iter()
+        .filter(|angle| *angle > elevation)
+        .filter_map(|angle| {
+            sweep_field_at(scan, Product::Reflectivity, angle)
+                .map(|chosen| (chosen.elevation_degrees, chosen.field))
+        })
+        .collect();
+    let above: Vec<echo_mask::Above<'_>> = cuts
+        .iter()
+        .map(|(elevation, field)| echo_mask::Above {
+            elevation: *elevation,
+            reflectivity: field,
+        })
+        .collect();
+    // The melting layer is read above sea level and the mask asks above the
+    // antenna, which is what the beam height is measured from.
+    let antenna_km = registry::site_by_id(station).map_or(0.0, |site| {
+        RadarCoordinateSystem::new(&site.to_site()).antenna_height_meters() / 1000.0
+    });
+    let melting_km = crate::melting::from_volume(scan, antenna_km)
+        .ok()
+        .map(|layer| (layer.bottom_km - antenna_km, layer.top_km - antenna_km));
+    Some(echo_mask::non_weather(
+        &correlation.field,
+        reflectivity.as_ref().map(|chosen| &chosen.field),
+        correlation.elevation_degrees,
+        &above,
+        melting_km,
+    ))
+}
+
+/// A cut with the gates the mask hides taken out, for drawing.
+///
+/// Set to no reading rather than removed, so smoothing, which never reads
+/// across a gate the radar did not read, does not read across these either.
+fn without(field: &SweepField, hidden: &SweepField) -> SweepField {
+    let mut drawn = field.clone();
+    let first_km = field.first_gate_range_km();
+    let interval_km = field.gate_interval_km();
+    for (at, azimuth) in field.azimuths().iter().enumerate() {
+        for gate in 0..field.gate_count() {
+            let (value, status) = field.get(at, gate);
+            if !matches!(status, GateStatus::Valid) {
+                continue;
+            }
+            let range_km = first_km + gate as f64 * interval_km;
+            if matches!(
+                reading_at(hidden, *azimuth, range_km),
+                Some((_, GateStatus::Valid))
+            ) {
+                drawn.set(at, gate, value, GateStatus::NoData);
+            }
+        }
+    }
+    drawn
 }
 
 /// The one mark a picture carries: the debris signature belongs to the
@@ -479,6 +594,8 @@ pub(crate) fn draw_sweep(
         derivation: _,
         debris,
         spike,
+        hidden,
+        mask,
         echo_topped,
     } = prepared;
     let threshold = asked.threshold;
@@ -487,8 +604,12 @@ pub(crate) fn draw_sweep(
     let site = site.ok_or_else(|| Level2Error::UnknownSite(station.to_string()))?;
     let coordinates = RadarCoordinateSystem::new(&site);
 
+    // The cut as it is drawn, with the echo mask's gates taken out when there
+    // is one. `chosen.field` itself is left whole, because the sector the
+    // radar has reached is read off it below and the mask is no part of that.
+    let masked = hidden.as_ref().map(|hidden| without(&chosen.field, hidden));
     let (mut pixels, [west, south, east, north]) = render_sweep(
-        &chosen.field,
+        masked.as_ref().unwrap_or(&chosen.field),
         &coordinates,
         product,
         unit,
@@ -520,8 +641,12 @@ pub(crate) fn draw_sweep(
     if let Some(under) = beneath {
         // Every render covers the same extent at the same size, so the two
         // line up pixel for pixel and the sector decides which one shows.
+        let under_masked = under
+            .hidden
+            .as_ref()
+            .map(|hidden| without(&under.chosen.field, hidden));
         let (older, _) = render_sweep(
-            &under.chosen.field,
+            under_masked.as_ref().unwrap_or(&under.chosen.field),
             &coordinates,
             under.product,
             under.unit,
@@ -598,6 +723,7 @@ pub(crate) fn draw_sweep(
         unit: unit.to_string(),
         has_debris: debris.is_some() || beneath_debris,
         has_spike: spike.is_some() || beneath_spike,
+        echo_mask: mask.map(MaskOutcome::named),
         echo_topped,
         hail_heights,
         dealiased,

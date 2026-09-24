@@ -418,3 +418,44 @@ describe("the spike mark on the bar", () => {
     expect(screen.queryByText(/three-body scatter spike/)).toBeNull();
   });
 });
+
+describe("the legend says what the echo mask did", () => {
+  const legend = (
+    echoMask: "on" | "unavailable" | null,
+    radarEnabled = true,
+  ) => (
+    <RadarLegend
+      open={false}
+      radarEnabled={radarEnabled}
+      productLabel="Reflectivity"
+      eyebrow="KTLX"
+      scale="reflectivity"
+      echoMask={echoMask}
+      onToggle={() => {}}
+    />
+  );
+
+  it("says the echo that is not weather is off the picture", () => {
+    render(legend("on"));
+    expect(screen.getByText("Echo that is not weather hidden")).toBeTruthy();
+  });
+
+  it("says when it was asked for and could not run", () => {
+    // A composite, or a cut with no correlation in it. Saying nothing would
+    // leave a reader who turned the mask on thinking the bloom on screen was
+    // rain that had passed it.
+    render(legend("unavailable"));
+    expect(
+      screen.getByText("Echo mask not available on this product"),
+    ).toBeTruthy();
+    expect(screen.queryByText("Echo that is not weather hidden")).toBeNull();
+  });
+
+  it("says nothing when nobody asked, or with the radar hidden", () => {
+    render(legend(null));
+    expect(screen.queryByText(/not weather hidden|Echo mask/)).toBeNull();
+    cleanup();
+    render(legend("on", false));
+    expect(screen.queryByText(/not weather hidden|Echo mask/)).toBeNull();
+  });
+});

@@ -168,6 +168,7 @@ describe("settings normalization", () => {
       "animationSpeed",
       "classificationProduct",
       "dealias",
+      "echoMask",
       "enabled",
       "futureRadar",
       "live",

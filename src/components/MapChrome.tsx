@@ -64,6 +64,11 @@ interface RadarLegendProps {
   hasDebris?: boolean;
   hasSpike?: boolean;
   echoTopped?: boolean;
+  /**
+   * What became of the echo mask on the picture beside it: hidden, asked for
+   * and not possible here, or not asked for.
+   */
+  echoMask?: "on" | "unavailable" | null;
   onToggle: () => void;
 }
 
@@ -81,6 +86,7 @@ export function RadarLegend({
   hasDebris = false,
   hasSpike = false,
   echoTopped = false,
+  echoMask = null,
   onToggle,
 }: RadarLegendProps) {
   const t = useT();
@@ -103,6 +109,13 @@ export function RadarLegend({
         <strong>{productLabel}</strong>
         {radarEnabled && smoothed ? (
           <small className="legend-smoothed">{t("legend.smoothed")}</small>
+        ) : null}
+        {radarEnabled && echoMask ? (
+          <small className="legend-smoothed" data-legend-echo-mask={echoMask}>
+            {echoMask === "on"
+              ? t("legend.echoMasked")
+              : t("legend.echoMaskUnavailable")}
+          </small>
         ) : null}
         {radarEnabled && stillFolded > 0 ? (
           <small className="legend-smoothed">

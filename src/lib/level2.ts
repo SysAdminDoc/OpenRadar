@@ -157,6 +157,15 @@ export interface SweepImage {
    * and the legend has to describe that one.
    */
   smoothed: boolean;
+  /**
+   * What became of the echo mask on this picture: `on` when the echo that is
+   * not weather was hidden, `unavailable` when it was asked for and could not
+   * run, because the cut carries no correlation to judge by or the product
+   * is built from the whole column, and null when nobody asked.
+   *
+   * Follows the picture for the same reason `smoothed` does.
+   */
+  echoMask: "on" | "unavailable" | null;
   /** True when the velocity drawn here has been unfolded. */
   dealiased: boolean;
   /** True when a tornado debris signature was found in this sweep. */
@@ -341,6 +350,8 @@ export async function fetchSweep(
   // only: the number the inspector answers with and the numbers an export
   // writes are the gates themselves either way.
   smooth: boolean,
+  // Hide the echo that is not weather. The picture only, for the same reason.
+  echoMask: boolean,
   // The ground to draw over, west, south, east and north, or null for the
   // site's whole reach. `sweepDetailBox` works it out from the zoom.
   within: [number, number, number, number] | null,
@@ -358,6 +369,7 @@ export async function fetchSweep(
     persistence,
     reducedMotion,
     smooth,
+    echoMask,
     // Whatever the workspace knows about the air, read here rather than
     // handed down: it is not a choice any caller makes, and only hail size
     // reads it. Absent where no sounding has been loaded, and the native side
@@ -449,6 +461,9 @@ export async function fetchArchiveSweep(
   motion: [number, number] | null,
   threshold: number | null,
   highContrast: boolean,
+  // Hide the echo that is not weather. Asked for here as well as on the live
+  // sweep, or a bloom would come and go as the loop played.
+  echoMask: boolean,
   // The ground to draw over, so a held frame covers the same place as the
   // live sweep beside it rather than dropping to the whole disc as it plays.
   within: [number, number, number, number] | null,
@@ -463,6 +478,7 @@ export async function fetchArchiveSweep(
     motion,
     threshold,
     highContrast,
+    echoMask,
     // Whatever the workspace knows about the air, read here rather than
     // handed down: it is not a choice any caller makes, and only hail size
     // reads it. Absent where no sounding has been loaded, and the native side
@@ -480,6 +496,8 @@ export async function fetchLocalSweep(
   motion: [number, number] | null,
   threshold: number | null,
   highContrast: boolean,
+  // Hide the echo that is not weather, as the archive sweep above does.
+  echoMask: boolean,
   // The ground to draw over. Null on a file the reader has just opened, and a
   // box on every ask after that: the first answer is what says where the
   // file's own site reaches, and the box is measured on that rather than on
@@ -495,6 +513,7 @@ export async function fetchLocalSweep(
     motion,
     threshold,
     highContrast,
+    echoMask,
     // Whatever the workspace knows about the air, read here rather than
     // handed down: it is not a choice any caller makes, and only hail size
     // reads it. Absent where no sounding has been loaded, and the native side

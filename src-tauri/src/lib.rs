@@ -21,6 +21,7 @@ mod data_export;
 mod dealias;
 mod derive;
 mod display;
+mod echo_mask;
 mod exports;
 #[cfg(test)]
 mod fixture;

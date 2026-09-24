@@ -830,6 +830,11 @@ export const fr: Catalogue = {
     "Les produits d'un radar d'aéroport arrivent déjà dessinés : il n'y a pas de portes entre lesquelles interpoler.",
   "radar.smoothDetail":
     "Interpole entre les portes au lieu de prendre la plus proche. L'image seulement : les valeurs consultées et les nombres exportés restent les portes elles-mêmes.",
+  "radar.echoMask": "Masquer les échos qui ne sont pas de la météo",
+  "radar.echoMaskDetail":
+    "Retire de l’image les nuées d’oiseaux et d’insectes, les échos de sol et les parcs éoliens, selon l’accord entre les deux polarisations. La grêle reste là où un orage se dresse au-dessus. L’image seulement : les lectures, les exports et la coupe verticale gardent toutes les portes.",
+  "radar.echoMaskTdwr":
+    "Un radar d’aéroport n’envoie aucune corrélation pour juger une porte, il n’y a donc rien pour masquer.",
   "radar.persistence": "Rémanence du phosphore",
   "radar.persistenceDetail":
     "Estompe le balayage terminé derrière celui que le radar est en train de faire, comme le fait un écran au phosphore. Rien des mesures ne change; la légende donne l'âge de la moitié la plus ancienne autant que de la plus récente, parce qu'une image estompée est plus vieille qu'une image qui ne l'est pas.",
@@ -1860,6 +1865,8 @@ export const fr: Catalogue = {
   "palette.none": "Rien ici ne correspond. Essayez un mot plus court.",
   "legend.hidden": "RADAR MASQUÉ",
   "legend.smoothed": "Lissé entre les portes",
+  "legend.echoMasked": "Échos non météo masqués",
+  "legend.echoMaskUnavailable": "Masque d’échos indisponible pour ce produit",
   "legend.melting": "Couche de fusion à {height}, de la coupe à {tilt}°",
   "legend.debrisMark":
     "Marque blanche : signature possible de débris de tornade, pas une confirmation",

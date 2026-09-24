@@ -56,6 +56,8 @@ export function useHistoricalSweep(options: {
   motionSpeed: number | null;
   motionFrom: number | null;
   threshold: number | null;
+  /** Hide the echo that is not weather, as the live sweep does. */
+  echoMask: boolean;
   paletteGeneration: number;
   airGeneration: number;
   historicalSource: HistoricalSource | null;
@@ -82,6 +84,7 @@ export function useHistoricalSweep(options: {
     motionSpeed,
     motionFrom,
     threshold,
+    echoMask,
     paletteGeneration,
     airGeneration,
     historicalSource,
@@ -185,6 +188,7 @@ export function useHistoricalSweep(options: {
         paletteGeneration,
         airGeneration,
         highContrastRequested(),
+        echoMask,
         // Without this the effect below early-returned on an unchanged key
         // however far the reader zoomed, so an archived volume stayed clipped
         // to whatever box it was opened with until the product or tilt moved.
@@ -192,6 +196,7 @@ export function useHistoricalSweep(options: {
       ]),
     [
       airGeneration,
+      echoMask,
       historicalWithin,
       motionFrom,
       motionSpeed,
@@ -216,6 +221,7 @@ export function useHistoricalSweep(options: {
         motion,
         threshold,
         highContrastRequested(),
+        echoMask,
         historicalWithin(source),
       ] as const;
       return source.kind === "archive"
@@ -223,6 +229,7 @@ export function useHistoricalSweep(options: {
         : fetchLocalSweep(source.path, ...common);
     },
     [
+      echoMask,
       historicalWithin,
       motionFrom,
       motionSpeed,

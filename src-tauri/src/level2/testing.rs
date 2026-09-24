@@ -289,6 +289,7 @@ pub(crate) fn stranded_patch_volume() -> (DateTime<Utc>, String, Vec<u8>) {
                     azimuth_spacing_degrees: spacing,
                     reflectivity,
                     velocity,
+                    correlation: Vec::new(),
                 }
             })
             .collect::<Vec<_>>()
@@ -1715,6 +1716,7 @@ pub(crate) fn sector(
             azimuth_spacing_degrees: spacing,
             reflectivity: vec![reading; 200],
             velocity: Vec::new(),
+            correlation: Vec::new(),
         });
         angle += spacing;
         number += 1;
@@ -1771,6 +1773,7 @@ pub(crate) fn ask(tilt_index: usize, product_name: &str) -> SweepRequest<'_> {
         persistence: false,
         reduced_motion: false,
         smooth: false,
+        echo_mask: false,
         // The standard atmosphere, which is what a reader with no sounding
         // loaded gets and what these tests are about.
         isotherms: None,

@@ -820,6 +820,11 @@ export const es: Catalogue = {
     "Los productos de un radar de aeropuerto llegan ya dibujados, así que no hay compuertas entre las que interpolar.",
   "radar.smoothDetail":
     "Interpola entre las compuertas en vez de tomar la más cercana. Solo la imagen: las lecturas consultadas y los números exportados siguen siendo las compuertas.",
+  "radar.echoMask": "Ocultar ecos que no son tiempo",
+  "radar.echoMaskDetail":
+    "Quita de la imagen las nubes de aves e insectos, el clutter del suelo y los parques eólicos, según lo bien que coinciden las dos polarizaciones. El granizo se queda donde hay una tormenta encima. Solo la imagen: las lecturas, las exportaciones y el corte vertical conservan todas las compuertas.",
+  "radar.echoMaskTdwr":
+    "Un radar de aeropuerto no envía correlación con la que juzgar una compuerta, así que no hay con qué enmascarar.",
   "radar.persistence": "Persistencia de fósforo",
   "radar.persistenceDetail":
     "Atenúa el barrido terminado que hay detrás del que el radar está haciendo, como lo hace una pantalla de fósforo. Nada de las mediciones cambia; la leyenda dice la antigüedad de la mitad más vieja además de la más nueva, porque una imagen atenuada es más vieja que una que no lo está.",
@@ -1839,6 +1844,9 @@ export const es: Catalogue = {
   "palette.none": "Nada de aquí coincide. Prueba con una palabra más corta.",
   "legend.hidden": "RADAR OCULTO",
   "legend.smoothed": "Suavizado entre compuertas",
+  "legend.echoMasked": "Ecos que no son tiempo ocultos",
+  "legend.echoMaskUnavailable":
+    "Máscara de ecos no disponible en este producto",
   "legend.melting": "Capa de fusión a {height}, del corte de {tilt}°",
   "legend.debrisMark":
     "Marca blanca: posible firma de escombros de tornado, no una confirmación",

@@ -607,6 +607,7 @@ mod tests {
                     azimuth_spacing_degrees: 1.0,
                     reflectivity: vec![fixture::Gate::Reading(20.0); gates],
                     velocity,
+                    correlation: Vec::new(),
                 }
             })
             .collect()
@@ -764,6 +765,7 @@ mod tests {
                     azimuth_spacing_degrees: 1.0,
                     reflectivity: vec![fixture::Gate::Reading(20.0); gates],
                     velocity,
+                    correlation: Vec::new(),
                 }
             })
             .collect()
