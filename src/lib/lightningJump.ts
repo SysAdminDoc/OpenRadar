@@ -153,6 +153,24 @@ type CellForFlash = Pick<
 >;
 
 /**
+ * Miles in a degree of latitude, rounded down.
+ *
+ * A great circle between two points is never shorter than the stretch of
+ * meridian between their latitudes, so a pair further apart than the radius
+ * in latitude alone is further apart than the radius, and the haversine can
+ * be skipped for it. Rounded down so the skip is never wrong, only sometimes
+ * not taken. Every held bin is counted again on each window, and on a
+ * sixty-cell outbreak the haversine over every pair was a tenth of a second
+ * spent while the map was drawing.
+ */
+const MILES_PER_DEGREE_LATITUDE = 69.09;
+
+/** Whether two latitudes alone put a pair further apart than a reach. */
+function beyondByLatitude(one: number, two: number, reach: number): boolean {
+  return Math.abs(one - two) * MILES_PER_DEGREE_LATITUDE > reach;
+}
+
+/**
  * Each cell's share of a window's flashes, with every flash counted once.
  *
  * A flash goes to the nearest cell that could claim it and to no other. The
@@ -185,6 +203,7 @@ export function flashesByCell(
     let nearest: { id: string; miles: number } | null = null;
     for (let at = 0; at < cells.length; at += 1) {
       const pos = positions[at];
+      if (beyondByLatitude(pos.lat, flash.latitude, radiusMiles)) continue;
       const miles = haversineMiles(pos, {
         lat: flash.latitude,
         lon: flash.longitude,
@@ -219,8 +238,12 @@ function advectedPosition(
     !(reportedAtMs > 0)
   )
     return base;
+  // Either way in time. A bin older than the report is counted where the
+  // cell was then, which is behind where the report puts it now: history is
+  // re-measured against the newest report, and a fast storm's old flashes
+  // would otherwise fall outside a circle that has moved on without them.
   const elapsedS = (atMs - reportedAtMs) / 1000;
-  if (elapsedS <= 0 || elapsedS > 3600) return base;
+  if (elapsedS === 0 || Math.abs(elapsedS) > 3600) return base;
   const distanceKm = (cell.speedMs * elapsedS) / 1000;
   const rad = (cell.directionDegrees * Math.PI) / 180;
   const dLat = (distanceKm * Math.cos(rad)) / 111.32;
@@ -231,27 +254,37 @@ function advectedPosition(
 }
 
 /**
- * Which other cells could take flashes out of this one's circle, as a key.
+ * How far past the claim radius a bin keeps a flash, in miles.
  *
- * Only a cell whose own circle overlaps this one's can: two radii apart is
- * where the lens closes. The key is sorted, so it is the set rather than the
- * order the tracker happened to list them in.
+ * A bin is held as the flashes near the cells rather than as each cell's
+ * count, so it can be counted again under whatever cells there are later. A
+ * flash further than this from every cell of the moment is one no cell could
+ * claim within the history's fourteen minutes: a storm at thirty knots covers
+ * eight miles in that time, and the tracker's centroid wanders by less.
  */
-function rivalsOf(
-  cell: CellForFlash,
+const HELD_MARGIN_MILES = 10;
+
+/** The flashes of a window that some cell could claim, now or in the history. */
+function nearAnyCell(
   cells: readonly CellForFlash[],
-  radiusMiles: number = JUMP_RADIUS_MILES,
-): string {
-  const facing: string[] = [];
-  for (const other of cells) {
-    if (other.id === cell.id) continue;
-    const miles = haversineMiles(
-      { lat: cell.latitude, lon: cell.longitude },
-      { lat: other.latitude, lon: other.longitude },
-    );
-    if (miles <= radiusMiles * 2) facing.push(other.id);
-  }
-  return facing.sort().join(" ");
+  flashes: readonly Flash[],
+  atMs: number,
+  reportedAtMs: number,
+): Flash[] {
+  const reach = JUMP_RADIUS_MILES + HELD_MARGIN_MILES;
+  const positions = cells.map((cell) =>
+    advectedPosition(cell, atMs, reportedAtMs),
+  );
+  return flashes.filter((flash) =>
+    positions.some(
+      (position) =>
+        !beyondByLatitude(position.lat, flash.latitude, reach) &&
+        haversineMiles(position, {
+          lat: flash.latitude,
+          lon: flash.longitude,
+        }) <= reach,
+    ),
+  );
 }
 
 /**
@@ -354,8 +387,31 @@ export function withSample(
   return [...kept, sample];
 }
 
+/** One bin as a window saw it, kept so it can be counted again. */
+interface HeldBin {
+  /** The end of the bin, in milliseconds. */
+  at: number;
+  /** When the window that filled it was observed, for moving a centroid. */
+  observedAt: number;
+  covered: number;
+  /** The flashes in it that some cell could claim. */
+  flashes: Flash[];
+}
+
 /**
- * Each tracked cell's series, held past the renders that would lose it.
+ * The recent bins, as flashes rather than as each cell's count.
+ *
+ * A flash belongs to one cell, so a count depends on which other cells there
+ * were. Counts held per cell were measured against whatever neighbours each
+ * bin happened to have: when a neighbour died, drifted away or was renamed,
+ * the flashes it had held fell to whoever was nearest and that cell's rate
+ * rose with nothing about the weather having changed. Resetting a cell's
+ * history whenever its set of neighbours changed stopped that for a death
+ * and missed a neighbour drifting inside the ring, and it threw away a real
+ * rise every time a distant cell flickered in and out of the table.
+ *
+ * Held as flashes, every bin is counted again under the cells there are now,
+ * so the history and the newest bin are measured against the same storms.
  *
  * Module state rather than a hook's, for the reason `lightningWatch.ts` gives
  * beside its own: a ref cannot be written while rendering, and setting state
@@ -365,35 +421,24 @@ export function withSample(
  *
  * Folding is idempotent, which is what makes it safe to do while rendering: a
  * second pass over the same window lands in the bin it already filled and
- * replaces it with the same count.
+ * replaces it with the same flashes.
  */
-const held = new Map<string, JumpSample[]>();
+const bins = new Map<number, HeldBin>();
+
+/**
+ * The bin each cell was first seen in.
+ *
+ * A cell's series starts there. Before it, the flashes near where it is now
+ * belonged to no tracked storm or to a different one, and judging a new
+ * storm's first bins against them would call every new storm a jump.
+ */
+const firstSeen = new Map<string, number>();
 
 /**
  * The `at` of each cell's last reported jump, so the hold can keep it on
  * the card for one full bin after it fires.
  */
 const priorJumps = new Map<string, number>();
-
-/**
- * Which cells were competing for each cell's flashes when its series was
- * built.
- *
- * A flash belongs to exactly one cell, so a cell's count depends on which
- * other cells existed at the time. When a neighbour dies the flashes it held
- * fall to whoever is nearest, and that cell's rate doubles with nothing about
- * the weather having changed: two cells twelve miles apart splitting forty
- * flashes read ten a minute each, and the moment the tracker dropped one the
- * other read twenty and reported a jump at nine times the bar. Cells are born
- * and die on every volume scan, so this was not a corner.
- *
- * The bins either side of such a change were measured against different
- * storms and are not a series. Saying nothing until a new one has built up is
- * the honest answer, and it is the same one the published method needs: a
- * jump is only meaningful where the storm object it is measured on held
- * still.
- */
-const rivals = new Map<string, string>();
 
 /**
  * Folds one window into every live cell's series and reads the jump off each.
@@ -416,76 +461,77 @@ export function rememberJumps(
 ): Map<string, CellJump> {
   const bin = binOf(at);
   const live = new Set(cells.map((cell) => cell.id));
-  for (const id of [...held.keys()]) {
+  for (const id of [...firstSeen.keys()]) {
     if (!live.has(id)) {
-      held.delete(id);
-      rivals.delete(id);
+      firstSeen.delete(id);
       priorJumps.delete(id);
     }
   }
-  // A trimmed or incomplete window dropped flashes, so the count in this bin
-  // is a lower bound. Rating it against full bins reads any steady storm as a
-  // drop. Keep the series as it was and re-evaluate what is already there.
-  if (trimmed) {
-    const found = new Map<string, CellJump>();
-    for (const cell of cells) {
-      const series = held.get(cell.id) ?? [];
-      const jump = jumpIn(series);
-      const prior = priorJumps.get(cell.id) ?? null;
-      if (jump.at !== null) {
-        priorJumps.set(cell.id, jump.at);
-        found.set(cell.id, jump);
-      } else if (
-        prior !== null &&
-        series.length > 0 &&
-        series[series.length - 1].at - prior <= 2 * JUMP_BIN_MS
-      ) {
-        found.set(cell.id, { ...jump, at: prior });
-      } else {
-        priorJumps.delete(cell.id);
-        found.set(cell.id, jump);
-      }
-    }
-    return found;
+  for (const cell of cells) {
+    if (!firstSeen.has(cell.id)) firstSeen.set(cell.id, bin);
   }
-  // Only the flashes that fell inside this bin. The window handed over is a
-  // rolling five minutes, and counting all of it into a two-minute bin read
-  // every rate two and a half times too high: a storm flashing ten a minute
-  // came out as twenty-six, and the floor meant to keep small storms out let
-  // anything above four through. The window is longer than a bin, so each bin
-  // is fully covered by the window that closes it.
-  const opened = bin - JUMP_BIN_MS;
-  const inBin = flashes.filter((flash) => {
-    const when = flash.time * 1000;
-    return when >= opened && when < bin;
-  });
-  // How much of this bin the count actually covers. A bin that has just
-  // opened has been watched for a few seconds and its count must be divided
-  // by that rather than by a whole bin. The observation reaches one file past
-  // the moment it was observed at, because every flash in a file carries that
-  // file's own start.
-  const covered = Math.min(
-    Math.max(at + FLASH_GRANULE_MS - opened, 0),
-    JUMP_BIN_MS,
+  // A trimmed or incomplete window dropped flashes, so the count in this bin
+  // is a lower bound, and rating it against full bins reads any steady storm
+  // as a drop. It is not held; the bins already held are read again.
+  if (!trimmed) {
+    // Only the flashes that fell inside this bin. The window handed over is a
+    // rolling five minutes, and counting all of it into a two-minute bin read
+    // every rate two and a half times too high: a storm flashing ten a minute
+    // came out as twenty-six, and the floor meant to keep small storms out
+    // let anything above four through. The window is longer than a bin, so
+    // each bin is fully covered by the window that closes it.
+    const opened = bin - JUMP_BIN_MS;
+    const inBin = flashes.filter((flash) => {
+      const when = flash.time * 1000;
+      return when >= opened && when < bin;
+    });
+    // How much of this bin the count actually covers. A bin that has just
+    // opened has been watched for a few seconds and its count must be divided
+    // by that rather than by a whole bin. The observation reaches one file
+    // past the moment it was observed at, because every flash in a file
+    // carries that file's own start.
+    const covered = Math.min(
+      Math.max(at + FLASH_GRANULE_MS - opened, 0),
+      JUMP_BIN_MS,
+    );
+    // Too little of the bin has happened to rate it. What was held stays,
+    // rather than a count over four seconds taking a minute's place.
+    if (covered >= JUMP_MIN_COVERED_MS) {
+      bins.set(bin, {
+        at: bin,
+        observedAt: at,
+        covered,
+        flashes: nearAnyCell(cells, inBin, at, reportedAtMs),
+      });
+    }
+  }
+  for (const key of [...bins.keys()]) {
+    if (bin - key >= JUMP_BIN_MS * JUMP_HISTORY_BINS) bins.delete(key);
+  }
+  // Every held bin counted under the cells there are now, each at the moment
+  // it was observed so a moving cell is where it was then.
+  const held = [...bins.values()].sort((one, two) => one.at - two.at);
+  const counted = held.map((one) =>
+    flashesByCell(
+      cells,
+      one.flashes,
+      JUMP_RADIUS_MILES,
+      one.observedAt,
+      reportedAtMs,
+    ),
   );
-  const mine = flashesByCell(cells, inBin, JUMP_RADIUS_MILES, at, reportedAtMs);
   const found = new Map<string, CellJump>();
   for (const cell of cells) {
-    const facing = rivalsOf(cell, cells);
-    const comparable = rivals.get(cell.id) === facing;
-    rivals.set(cell.id, facing);
-    const kept = comparable ? (held.get(cell.id) ?? []) : [];
-    // Too little of the bin has happened to rate it. The series keeps what it
-    // had rather than taking a count over four seconds as a minute's worth.
-    const series =
-      covered < JUMP_MIN_COVERED_MS
-        ? kept
-        : withSample(kept, {
-            at: bin,
-            flashes: mine.get(cell.id) ?? 0,
-            covered,
-          });
-    held.set(cell.id, series);
+    const since = firstSeen.get(cell.id) ?? bin;
+    let series: JumpSample[] = [];
+    held.forEach((one, index) => {
+      if (one.at < since) return;
+      series = withSample(series, {
+        at: one.at,
+        flashes: counted[index].get(cell.id) ?? 0,
+        covered: one.covered,
+      });
+    });
     const jump = jumpIn(series);
     const prior = priorJumps.get(cell.id) ?? null;
     // Hold: a jump that fired on the previous bin stays on the card for one
@@ -509,7 +555,7 @@ export function rememberJumps(
 
 /** Forgets every cell, for a test that needs an app that has seen nothing. */
 export function forgetJumps(): void {
-  held.clear();
-  rivals.clear();
+  bins.clear();
+  firstSeen.clear();
   priorJumps.clear();
 }

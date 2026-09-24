@@ -10,13 +10,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
-- [ ] AUD-532 (P3): The lightning jump's rival check keys on which cells are near, not how near
-  Why: `rivalsOf` in `src/lib/lightningJump.ts` resets a cell's history when the set of cells within two radii changes. The flashes a cell is given depend on distance, not membership: a neighbour that drifts from 12 to 19 miles away keeps the same set and stops taking the flashes between them, and the cell that inherits them reports a jump with nothing about the weather having changed. The other way round, a third cell 15 miles away that the tracker finds on alternate scans resets the series every other bin, and a real fivefold rise is never reported.
-  Evidence: two probes run by a review on 2026-09-10 against `rememberJumps`: a drifting neighbour gave `rate=24 sigma=10.95` from steady flashes; a flickering third cell gave `sigma=null` through a real rise from 10 to 50 a minute. `3fb7dca` changed the coverage floor and sigma threshold and did not touch the rival key. Widening the rival radius to eight radii leaves every test green, so the two-radii figure is held from below only.
-  Touches: `src/lib/lightningJump.ts` (a rival key that changes when the share of flashes a neighbour could take changes, or a history rebuilt from stored flashes under the current partition), `src/lib/lightningJump.test.ts`.
-  Acceptance: WHEN a neighbour drifts within the two-radius ring far enough to stop claiming flashes it used to, the cell that inherits them does not report a jump; WHEN a distant cell comes and goes on alternate scans without taking any of a cell's flashes, a real rise in that cell is still reported; a test holds the rival distance from above as well as below.
-  Complexity: M
-
 - [ ] AUD-533 (P3): Three gates that a planted defect walks past
   Why: `src/fileSize.test.ts` measures `src` only, while `tsc -b` also compiles `e2e` through `tsconfig.e2e.json`, where `e2e/level2.spec.ts` is over two thousand lines; its catalogue check refuses `from "react"` and misses `await import("react")`. `a_tie_point_that_is_not_a_place_is_refused` in `src-tauri/src/snowfall_tests.rs` plants a corner that puts both latitudes off the globe, so only the south check is exercised: deleting both longitude checks and the north one leaves the suite green.
   Evidence: a review on 2026-09-10 planted a 2,001-line `.mts` under `e2e/support` (green), a dynamic React import in `layerCatalogue.ts` (green), and the three snowfall mutations (green).
