@@ -141,6 +141,14 @@ const HAZARD_KEYS: Record<string, StringKey> = {
   // which is the same seasonal blind spot the icing vocabulary had.
   ASH: "aviation.hazardAsh",
   "MTN OBSCN": "aviation.hazardMountains",
+  // And the International SIGMET spellings, which are ICAO's rather than the
+  // domestic schema's: the mapping service's layer 112 answered `hazard` with
+  // ICE, MTW, TC, TS, TURB and VA on 2026-09-10. Volcanic ash is `VA` there,
+  // not `ASH`, and mountain wave and tropical cyclone have no domestic code
+  // at all.
+  VA: "aviation.hazardAsh",
+  MTW: "aviation.hazardMountainWave",
+  TC: "aviation.hazardTropicalCyclone",
 };
 
 /** The hazard in the reader's own words, or the service's code. */
@@ -187,7 +195,62 @@ const SEVERITY_KEYS: Record<string, StringKey> = {
   "lgt-mod": "aviation.severityLightModerate",
   trc: "aviation.severityTrace",
   neg: "aviation.severityNone",
+  // The rest of the two scales a pilot report is written in, as the Aviation
+  // Weather Center's own aircraft report schema lists them. The values above
+  // were read off the mapping service in one afternoon, and its layer holds
+  // about ninety minutes of reports, so a vocabulary taken from it is only
+  // the part of the scale that happened to be flying: `EXTM`, `SEV-EXTM`,
+  // `MOD-EXTM` and `TRC-LGT` were all seen within a month and had no phrase.
+  negclr: "aviation.severityNone",
+  "smth-lgt": "aviation.severitySmoothLight",
+  "trc-lgt": "aviation.severityTraceLight",
+  hvy: "aviation.severityHeavy",
+  "mod-extm": "aviation.severityModerateExtreme",
+  "sev-extm": "aviation.severitySevereExtreme",
+  extm: "aviation.severityExtreme",
 };
+
+/**
+ * Every intensity a pilot report can carry, least to worst, which is what
+ * decides which half of a report the map draws.
+ *
+ * The Aviation Weather Center's aircraft report schema lists turbulence as
+ * `NEG, SMTH-LGT, LGT, LGT-MOD, MOD, MOD-SEV, SEV, MOD-EXTM, SEV-EXTM, EXTM`
+ * and icing as `NEG, NEGclr, TRC, TRC-LGT, LGT, LGT-MOD, MOD, MOD-SEV, HVY,
+ * SEV`. This is the two merged on the words they share, with each list's own
+ * order kept. Ranking against the forecast products' five words instead put
+ * every spelling a pilot uses and a forecaster does not at -1, below light,
+ * so light-to-moderate turbulence lost to light ice.
+ */
+export const PIREP_INTENSITIES = [
+  ["neg", "negclr"],
+  ["smth-lgt", "trc"],
+  ["trc-lgt"],
+  ["lgt"],
+  ["lgt-mod", "lt-mod"],
+  ["mod"],
+  ["mod-sev"],
+  ["hvy"],
+  ["sev"],
+  ["mod-extm"],
+  ["sev-extm"],
+  ["extm"],
+] as const;
+
+/**
+ * Where an intensity sits on that scale.
+ *
+ * One nobody has written down yet ranks above everything that has been: an
+ * intensity this module cannot place might be the worst thing in the report,
+ * and hiding it behind a light one it can place is the wrong way to be wrong.
+ */
+function intensityRank(said: string): number {
+  const word = said.trim().toLowerCase();
+  const at = PIREP_INTENSITIES.findIndex((same) =>
+    (same as readonly string[]).includes(word),
+  );
+  return at === -1 ? PIREP_INTENSITIES.length : at;
+}
 
 /** The severity in the reader's own words, or nothing the service sent. */
 export function severityWords(value: unknown): string | null {
@@ -323,18 +386,28 @@ function parseCwas(payload: unknown): OverlayFeature[] {
 function met(value: unknown): string | null {
   const said = text(value);
   if (!said) return null;
-  return said.trim().toUpperCase() === "NEG" ? null : said;
+  // `NEGclr` is the same report made in clear air.
+  return /^neg(clr)?$/i.test(said.trim()) ? null : said;
 }
 
-/** Which of two intensities the map should draw, by the vocabulary's order. */
-function worse(one: string | null, two: string | null): string | null {
-  if (!one) return two;
-  if (!two) return one;
-  const rank = (said: string) =>
-    SEVERITY_WORDS.indexOf(
-      said.trim().toLowerCase() as (typeof SEVERITY_WORDS)[number],
-    );
-  return rank(two) > rank(one) ? two : one;
+/**
+ * Which half of a report the map draws, and how bad it was.
+ *
+ * Said by field rather than by value. The label used to be worked out by
+ * asking whether the winning intensity equalled the icing one, so a report of
+ * moderate turbulence and moderate ice was labelled icing whichever half had
+ * won. A tie goes to turbulence, the half a report lists first.
+ */
+function worse(
+  turbulence: string | null,
+  icing: string | null,
+): { hazard: "TURB" | "ICE"; severity: string } | null {
+  if (turbulence === null && icing === null) return null;
+  if (icing === null) return { hazard: "TURB", severity: turbulence! };
+  if (turbulence === null) return { hazard: "ICE", severity: icing };
+  return intensityRank(icing) > intensityRank(turbulence)
+    ? { hazard: "ICE", severity: icing }
+    : { hazard: "TURB", severity: turbulence };
 }
 
 /** Somebody who flew through it and said what it was like. */
@@ -360,7 +433,7 @@ function parsePireps(payload: unknown): OverlayFeature[] {
       properties: {
         kind: "pirep" satisfies AviationKind,
         title: "PIREP",
-        hazard: drawn === null ? null : drawn === icing ? "ICE" : "TURB",
+        hazard: drawn?.hazard ?? null,
         validFrom: instant(from.observation_time),
         validTo: null,
         lowFeet: null,
@@ -372,7 +445,7 @@ function parsePireps(payload: unknown): OverlayFeature[] {
         highFeet: number(from.altitude_ft_msl) || null,
         lowText: null,
         highText: null,
-        severity: drawn,
+        severity: drawn?.severity ?? null,
         // A pilot who met nothing said something worth reading, and it is not
         // a severity. Left as one it read "Severity: None reported" under a
         // hazard that was never there.

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import {
   AVIATION_REFRESH_MS,
+  PIREP_INTENSITIES,
   PIREP_LIMIT,
   aviationOverlay,
   hazardWords,
@@ -585,6 +586,110 @@ describe("what the hazard actually is", () => {
       "MTN OBSCN",
     ]) {
       expect(hazardWords(code), code).not.toBe(code);
+    }
+  });
+
+  it("names every intensity the published pilot report scale has", () => {
+    // Quoted from the Aviation Weather Center's aircraft report schema,
+    // `aircraftreport1_0.xsd`, rather than read off the mapping service. The
+    // service keeps about ninety minutes of reports, so a vocabulary taken
+    // from it is whatever happened to be flying that afternoon, and the one
+    // this module was first built from missed EXTM, SEV-EXTM, MOD-EXTM and
+    // TRC-LGT, all seen within a month.
+    const turbulence =
+      "NEG,SMTH-LGT,LGT,LGT-MOD,MOD,MOD-SEV,SEV,MOD-EXTM,SEV-EXTM,EXTM";
+    const icing = "NEG,NEGclr,TRC,TRC-LGT,LGT,LGT-MOD,MOD,MOD-SEV,HVY,SEV";
+    const scale = [...turbulence.split(","), ...icing.split(",")];
+    for (const code of scale) {
+      // A phrase, not the code handed back. The catalogues are held to each
+      // other key for key by the coverage gate, so English having one is
+      // every language having one.
+      expect(severityWords(code), code).not.toBe(code);
+      expect(severityWords(code), code).not.toBeNull();
+      // And a place on the scale the map ranks by.
+      const placed = PIREP_INTENSITIES.some((same) =>
+        (same as readonly string[]).includes(code.toLowerCase()),
+      );
+      expect(placed, code).toBe(true);
+    }
+    // Each list keeps its own order on the merged scale.
+    for (const list of [turbulence, icing]) {
+      const ranks = list
+        .split(",")
+        .map((code) =>
+          PIREP_INTENSITIES.findIndex((same) =>
+            (same as readonly string[]).includes(code.toLowerCase()),
+          ),
+        );
+      for (let at = 1; at < ranks.length; at += 1) {
+        expect(ranks[at], list).toBeGreaterThanOrEqual(ranks[at - 1]);
+      }
+    }
+    // And the International SIGMET codes, which are ICAO's spellings.
+    for (const code of ["ICE", "MTW", "TC", "TS", "TURB", "VA"]) {
+      expect(hazardWords(code), code).not.toBe(code);
+    }
+  });
+
+  it("draws the worse half of a report, and says which half it was", async () => {
+    const report = (turbulence: string | null, icing: string | null) => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [-93.6, 41.6] },
+      properties: {
+        observation_time: 1789023900000,
+        altitude_ft_msl: 8000,
+        aircraft_ref: "C208",
+        turbulence_intensity: turbulence,
+        icing_intensity: icing,
+        raw_text: "UA /OV DSM/TM 1800/FL080",
+      },
+    });
+    const held = globalThis.fetch;
+    globalThis.fetch = serve([
+      { type: "FeatureCollection", features: [] },
+      { type: "FeatureCollection", features: [] },
+      { type: "FeatureCollection", features: [] },
+      {
+        type: "FeatureCollection",
+        features: [
+          // Light to moderate turbulence and light ice. `LGT-MOD` is a pilot's
+          // spelling and not a forecaster's, and ranked against the forecast
+          // products' five words it sat below light and lost to the ice.
+          report("LGT-MOD", "LGT"),
+          // A tie, which used to be labelled icing because the label was
+          // worked out by asking whether the winner equalled the icing value.
+          report("MOD", "MOD"),
+          // Heavy ice, which is on the icing scale and nowhere else.
+          report("LGT", "HVY"),
+          // Negative in clear air is still negative.
+          report("NEGclr", "NEGclr"),
+          // A spelling nobody has published yet. It might be the worst thing
+          // in the report, so it is not hidden behind a light one this can
+          // place.
+          report("UNKN", "LGT"),
+        ],
+      },
+    ]) as typeof fetch;
+    try {
+      const data = await aviationOverlay.fetchData(
+        { west: -180, south: -90, east: 180, north: 90 },
+        undefined,
+        DEFAULT_OVERLAY_CHOICES,
+      );
+      const drawn = data.features.map((one) => [
+        one.properties.hazard,
+        one.properties.severity,
+        one.properties.metNothing,
+      ]);
+      expect(drawn).toEqual([
+        ["TURB", "LGT-MOD", false],
+        ["TURB", "MOD", false],
+        ["ICE", "HVY", false],
+        [null, null, true],
+        ["TURB", "UNKN", false],
+      ]);
+    } finally {
+      globalThis.fetch = held;
     }
   });
 

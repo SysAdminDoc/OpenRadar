@@ -8,13 +8,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P2
 
-- [ ] AUD-531 (P2): A pilot report of light-to-moderate turbulence is drawn as light icing
-  Why: `worse()` in `src/lib/overlays/aviation.ts` ranks a PIREP intensity by its place in `SEVERITY_WORDS`, which is the G-AIRMET list (`lgt`, `lt-mod`, `mod`, `mod-sev`, `sev`). The PIREP spellings `lgt-mod`, `trc`, `extm`, `sev-extm`, `mod-extm`, `trc-lgt`, `smth-lgt` and `hvy` are not in it, so `indexOf` answers -1 and sorts below light. A report of `TB LGT-MOD / IC LGT` is drawn as light icing and the turbulence is thrown away. `hazard: drawn === icing ? "ICE" : "TURB"` also compares values, so `TB MOD / IC MOD` is labelled icing. `EXTM`, `SEV-EXTM`, `MOD-EXTM`, `TRC-LGT` and `HVY` have no phrase and reach a reader as the letters, and the International SIGMET spellings `VA`, `TC` and `MTW` have none either.
-  Evidence: a review on 2026-09-10 read `EXTM` and `SEV` live on MapServer layer 0 `turbulence_intensity` and `MOD` on `icing_intensity`, and `MOD-EXTM` and `TRC-LGT` over a 30-day sweep; layer 112 (International SIGMET) answers `hazard` with `ICE, MTW, TC, TS, TURB, VA`. Layer 0 holds about ninety minutes of reports, so a `returnDistinctValues` there is a snapshot, which is why the vocabulary this code was built from missed them. The live contract was green on 2026-09-24 only because none was being published that hour.
-  Touches: `src/lib/overlays/aviation.ts` (one ordered PIREP intensity scale for ranking, `worse()` returning which field won, keys for every spelling), `src/i18n/*` (the new phrases), `src/lib/overlays/aviation.test.ts`.
-  Acceptance: WHEN a report carries `TB LGT-MOD / IC LGT` the map draws turbulence at light to moderate; WHEN both intensities are equal the hazard is the field that was reported first rather than a guess from the value; every spelling of the FAA PIREP intensity scale and every International SIGMET hazard code has a phrase in all four catalogues, held by a test that lists them from the published scale rather than from a live snapshot.
-  Complexity: S
-
 ## P3
 
 - [ ] AUD-532 (P3): The lightning jump's rival check keys on which cells are near, not how near
