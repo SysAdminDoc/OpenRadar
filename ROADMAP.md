@@ -8,29 +8,7 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P2
 
-
 ## P3
-
-- [ ] AUD-491 (P3): The melting layer drops a named component of the method its threshold comes from
-  Why: `src-tauri/src/melting.rs` implements the normalised product of Z, ZDR and one minus rho against a threshold of 0.08, and `AUD-225`'s own Evidence line also names a second-derivative weight of 0.75. There is no second derivative anywhere in the file, so a constant lifted from the published method is calibrated against a quantity this code does not compute.
-  Evidence: `git show 835a9de -- ROADMAP.md` for the removed item's Evidence line. The rho term itself is right: `between(-c, -0.97, -0.90)` is arithmetically identical to one minus rho normalised over the same bounds, checked at 0.97, 0.90, 1.0 and 0.5.
-  Touches: `src-tauri/src/melting.rs`, `src-tauri/src/melting_tests.rs`.
-  Acceptance: Either the second-derivative term is computed and weighted as the method specifies, with the threshold re-checked against real volumes, or the file says in its own words which published variant it implements and why that one has no such term.
-  Complexity: M
-
-- [ ] AUD-475 (P3): Three things the KDP pass does to a ray that need measuring against real volumes
-  Why: A refutation pass over `AUD-191` found three defects that are real but cannot be tuned from a fixture, the way `AUD-192` could not be. Each needs a recorded run over station-days the way `recording_the_days_unfolding_is_held_against` does for the dealiaser.
-  Evidence: (1) `src-tauri/src/kdp.rs` unfolds at most once per ray: `unfold` takes `position()` of the first gate below the fold threshold and is called once, outside the reconciliation loop, and the band clamp runs before that loop so a second wrap is undetectable in principle. A ray accumulating more than 720 degrees of differential phase, which is about 90 km of 4 deg/km rain in a squall line, keeps its second wrap. wradlib runs its unfold inside the iteration loop for exactly this reason. (2) `integrate` writes a value at every gate using `unwrap_or(0.0)`, so the reconciliation re-derives the slope over rays where censored and despeckled stretches are flat plateaus; a measured gate within half a window of a censored block has up to half its window filled with fabricated zero slope, which biases the reading low along every clutter block, blocked sector and echo edge. The `measured` mask keeps those gates from being drawn but not from being averaged into. (3) `unfold`'s over-correction band is `DESPECKLE_GATES * 2`, ten gates, under a comment claiming it is the processing window, which is 29 at quarter kilometre gates. It happens to be enough at 0.25 km and 1.0 km spacing and would leave about eight gates carrying a spurious 360 degrees at 0.125 km. Latent on current NEXRAD dual-pol.
-  Touches: `src-tauri/src/kdp.rs`, `kdp_tests.rs`, and a recording harness over stored volumes.
-  Acceptance: A ray with two wraps in it comes back continuous in a planted fixture; the reading at a gate half a window from a censored block is within a stated tolerance of the reading at the same gate with the block absent, measured rather than asserted; the over-correction band is derived from the window rather than from the despeckle length. Each change is measured against stored volumes before and after, and a change that does not improve the measurement is not made.
-  Complexity: M
-
-- [ ] AUD-473 (P3): The three-body scatter spike, done against real volumes
-  Why: `AUD-190`'s note asked for the Lemon 1998 signature as a cheap flag beside the hail size. A first attempt shipped in `1cee4e4` and was taken out again the same session because a refutation pass found it fires on ordinary weak echo: the only conditions were a 60 dBZ core somewhere on the radial, a bin 10 to 30 km behind it reading at or below 20 dBZ, and some cut's beam above 3 km. An isolated supercell with clear-air or biological return behind it flags twenty-one consecutive bins on every radial through the core, under a legend that says large hail is falling now.
-  Evidence: the removed `spike` in `src-tauri/src/derive.rs` at `1cee4e4`. What it was missing: the flare starts at the back edge of the core rather than ten kilometres behind it, so the stand-off skipped the real signature and caught the air past it; there was no contiguity requirement, so any weak bin in the window counted; and "aloft" only asked that some cut's beam was high there rather than that the echo is present aloft and absent below, which is what separates a flare from ground return. It also had no positive control: no test in the suite ever made the flag fire.
-  Touches: `src-tauri/src/derive.rs`, `derive_tests.rs`, the hail size legend, and a stored volume with a known spike in it.
-  Acceptance: A flare is flagged on a stored volume that has one, and no gate is flagged on a stored volume with a 60 dBZ core and clear-air return behind it; the test that proves the first is a positive control that fails when the flag is disabled; the mark is labelled a signature rather than a confirmation.
-  Complexity: M
 
 ## Character and personalization
 
@@ -82,15 +60,12 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P3
   Note 2026-09-04: Retention evidence: a Bluesky reader stays on RadarScope for being "the lightest running" (2026-08-26); Anvil's memory sampler (`0f5972d`) shows a 26-frame replay retaining 2,178 MB, which is the comparison the README number would sit against.
-- [ ] AUD-192 (P3): Continuity across tilts in the dealiaser
-      Note 2026-09-07: WSR-88D Build 24.0 carried 2DVDA fixes for dealiasing failures under high vertical shear (ROC software engineering page; Likely). Read them before choosing the interval rule.
-      Note 2026-09-07 (evening): R2D2 works top down, highest elevation first (larger Nyquist, cleaner velocities), each settled sweep guiding the one below, matched by azimuth and ground range `r cos(elev)`; UNRAVEL's `unfolding_3D` (`unravel/continuity.py`, lines 1037-1110) is a readable implementation of that mapping with a four-branch cascade at `alpha Vnyq` that leaves a gate alone rather than forcing it; 4DD seeds only where the sweep above and the previous volume agree within 0.25 Vn; Py-ART's own header lists 3D region finding as unimplemented, so there is nothing to copy there.
-      Note 2026-09-10: A one-level version was built and measured and does not work, so the next attempt should start from the top rather than from the cut above. A pass that votes the whole sweep's interval against the cut immediately above it, with the reference settled by the boundary traversal on its own terms, was instrumented across the six live stations: the modal offset was zero at all six, over 78,000 to 296,000 matched gates each. The reason is structural rather than a tuning problem. Both cuts are settled by the same method, so when the lower one lands on the wrong branch the reference has usually landed on the wrong branch too and the two agree with each other. R2D2 anchors from the top cut downward for exactly this reason: the highest cut has the largest Nyquist and the least folding, so it is right by construction and every cut below inherits a correct anchor. One level up inherits nothing. Two other things worth keeping: the two-cut section fixture caught a genuine 12 m/s vertical shear being rounded to a whole interval and read as a fold, so the plausibility bar has to scale with the interval rather than be a fixed speed (a fixed 8 m/s is no bar at all on a cut folding at 8); and a whole-sweep shift is safe to apply on this path because it cannot pull two touching gates apart, which a per-gate cascade can.
-  Why: The region method fixes a sweep only up to a whole Nyquist interval and can flip a whole region in strong shear; UNRAVEL's 3D pass uses the cut above and below to settle the interval, at modest cost on top of the existing core.
-  Evidence: `src-tauri/src/dealias.rs` (region growing, largest patch keeps its reading); Louf et al. 2020 (JTECH) and the MIT numba implementation at `vlouf/dealias`; the live multi-site test in `src-tauri/src/level2/decode_tests.rs` that measures refold recovery.
-  Touches: `src-tauri/src/dealias.rs` (a pass that votes a cut's interval against its neighbours in elevation), `src-tauri/src/level2/sweep.rs` (hand adjacent cuts to the unfolder), the live aggregate test.
-  Acceptance: The six-site refold test's aggregate recovery does not fall and the whole-sweep-out-by-one case is caught in a planted fixture; runtime per cut stays under the current half-second budget.
-  Complexity: M
+- [ ] AUD-529 (P3): Patches placed a whole interval out, inside a sweep that is right as a whole
+  Why: `AUD-192` asked for continuity across tilts to stop the region method flipping regions. Its whole-sweep half shipped as a ring-mean anchor in `dealias.rs` (`whole_interval`), and measured over the recorder's 41 station-days (2026-09-16 to 09-22, six radars, refolded at a third of the limit) it never fired: every sweep came back on its right interval as a whole. What the recorder still shows is patch-level. Of 983,685 folded gates only 249,046 came back to their own branch, and 117,791 gates that never folded were moved.
+  Evidence: probed on KDMX 2026-09-18 21:00 after unfolding: branch 0 held 142,830 gates, branch -1 81,371 and branch +1 65,655, while the twelve trusted rings averaged within 1 m/s of zero. KDMX 2026-09-20 (0: 206,474, +1: 110,712, -1: 63,344) and KFWS 2026-09-20 read the same way. Those are whole patches settled an interval off their neighbours, which a whole-picture anchor cannot see and a boundary vote got wrong. The 2026-09-10 note on the one-level vote still applies: the cut above is settled by the same method and fails the same way, so the anchor has to come from the top cut down (R2D2) or from the previous volume (4DD), per patch rather than per sweep.
+  Touches: `src-tauri/src/dealias.rs` (a per-patch vote against a reference built from the cut above, starting at the top of the volume), `src-tauri/src/level2/sweep.rs` (hand the settled cut above to the unfolder), the recorder.
+  Acceptance: Over the recorder's station-days the share of folded gates back on their own branch rises and `misplaced` falls, with `broken_after` no worse and `invented` still zero; a planted fixture where one patch is placed an interval off its neighbours is put back; runtime per cut stays under half a second.
+  Complexity: L
 
 ## Research-Driven Additions, 2026-09-03
 
@@ -151,12 +126,12 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
 
 ### P3
 
-- [ ] AUD-344 (P3): Replay a day through the watch rules and list what would have fired
-      Why: Ten watched places carry arrival, lightning and warning rules, and the only way to know what they would have said on 2011-04-27 is to have been there. HookEcho shipped "alert-rule backtests run in the browser" on 2026-08-31. The app has the archive warnings and reports for any day, the replayed lightning window, the rules, and the sentences; a backtest is those four joined and told to a panel instead of a toast.
-      Evidence: https://github.com/d4vid87/hookecho/releases/tag/v0.12.0-beta.2 ; `src/lib/archiveWarnings.ts`, `src/hooks/useAlertWatch.ts`, `useApproachWatch.ts`, `useLightningWatch.ts`, `src/lib/approach.ts`; `AUD-216` (the replayed day's outlook and reports).
-      Touches: a `src/lib/backtest.ts` that runs the three rule functions over a day's archive without side effects, a section in the watch settings or the History panel, `src/i18n/*`, tests with a fixed day.
-      Acceptance: Pick a replayed day and each watched place lists what it would have been told and when, in the reader's language, with nothing notified, nothing written to the record, and quiet hours shown as applied.
-      Complexity: M
+- [ ] AUD-530 (P3): Replay the lightning and storm-approach rules, not only the warning watch
+  Why: `AUD-344` shipped the backtest for the warning watch (`src/lib/backtest.ts`, the History panel's "What your watch would have said"), and the panel says plainly that lightning and approaching-storm notices can't be replayed. The roadmap item had assumed "the replayed lightning window" existed. It does not: `useLightning` asks the native `lightning_flashes` command for the current window only, and the storm cells have no replay path at all.
+  Evidence: `src/hooks/useLightning.ts` (one `invoke("lightning_flashes")`, no time argument); `src/lib/lightningWatch.ts` and `src/lib/approach.ts` are already pure and take a clock, so the rules are ready and the data is what is missing. GLM L2 flash files for past hours are on the public GOES buckets, and the storm tracking product is in the Level III archive the app already reads for other products.
+  Touches: `src-tauri/src/lightning.rs` (a window at a past time), the Level III cell reader (reports at past volume times for the replayed site), `src/lib/backtest.ts` (the two rules over those inputs), `WatchBacktest.tsx`, `src/i18n/*`.
+  Acceptance: A replayed storm lists the lightning and approach notices each watched place would have had, with the same quiet-hour handling the warnings get; a fixture day with flashes inside a place's radius yields the "started" and "quiet" notices at the right times; the panel stops saying they can't be replayed.
+  Complexity: M
 
 - [ ] AUD-351 (P3): Pick the monitor for the full-screen view and the glance window
       Why: The full-screen view takes whichever monitor the window happens to be on, so the second-monitor reader drags the window across first, every time. OBS opens a projector on a named display and reopens it there next launch; Sunshine remembers a monitor by its device id because indices reorder. Nothing in the tree asks Tauri which monitors exist.
@@ -231,23 +206,8 @@ Ninth pass. Evidence in RESEARCH.md of the same date. Numbered on from `AUD-378`
 
 ### P3
 
-- [ ] AUD-420 (P3): Uninstalling with the desktop wallpaper switched on leaves the desktop pointing at OpenRadar's picture
-      Category: reliability
-      Where: `src-tauri/src/wallpaper.rs:44-54` (the picture is written to `<app data>/wallpaper.png` and the reader's own wallpaper is remembered in `wallpaper-previous.txt` beside it); `src/App.tsx:1552-1563` (the only call to `restoreWallpaper`, when `wallpaperMinutes` goes to 0); `src-tauri/tauri.conf.json` (no `installerHooks`); nothing in `src/` or `src-tauri/src` restores on window close or app exit.
-      Problem: The feature restores the reader's wallpaper only when they switch it off in Settings. Closing the app leaves the last frame on the desktop with its age burned in, which is the documented design. Uninstalling is not: nothing runs at uninstall, so the desktop is left set to a file in a folder the uninstaller may remove, and the note that could put the original back goes with it. The reader ends up with either a stale radar picture they cannot switch off without reinstalling, or a blank desktop, and their own picture is gone in both cases.
-      Evidence: Read on 2026-09-08; `grep -rn wallpaper_restore src/` shows one caller; the config has no NSIS hooks. Not run, because the uninstaller needs a built installer and a desktop session.
-      Fix: An NSIS pre-uninstall hook (`bundle.windows.nsis.installerHooks` with `NSIS_HOOK_PREUNINSTALL`) that reads `wallpaper-previous.txt` and applies it with `SystemParametersInfo` through the same path `restore_with` uses, or a small `--restore-wallpaper` mode in the binary the hook invokes. Say in `README.md`'s wallpaper paragraph what closing the app leaves on the desktop.
-      Acceptance: With the wallpaper on, running the uninstaller puts the reader's previous wallpaper back; a scripted check reads `HKCU\Control Panel\Desktop\Wallpaper` before install and after uninstall and finds the same value.
-      Confidence: Likely
-      Effort: M
 
 
-- [ ] AUD-445 (P3): `misplaced` mixes the boundary's mistakes with the wind's, so neither can be bounded on its own
-  Why: `misplaced` counts gates that never folded and came back on a branch other than the picture's own, whatever put them there. Two different passes can do it: a boundary vote that gets a whole patch wrong, and the reference wind placing an unreached group. The first dominates. Recorded over the week of 2026-09-01 to 2026-09-07, 159,771 of these exist with no reference pass running at all, against 167,180 with the pass and its plausibility bar. That is why `AUD-388` could not be finished as written: a per-station line drawn on the total clears the recorded week at 1.285 and still clears it at 1.329 with the bar removed, so no line both leaves room for the weather and answers for the wind. Split at the point of placement and the wind's own contribution becomes a number that can carry a line.
-  Evidence: measured 2026-09-08 while draining `AUD-388`, from two full runs of `recording_the_days_unfolding_is_held_against`, 42 station-days with the plausibility bar and 38 comparable without. Per-station worst with the bar 0.166, 0.633, 0.835, 0.953, 1.263, 1.285; without it 0.200, 0.699, 0.910, 0.962, 1.285, 1.329. Worst single station-day movement 0.122, aggregate over the shared days 152,398 against 160,430. `src-tauri/src/level2/testing.rs` (where `misplaced` is counted), `src-tauri/src/level2/decode_tests.rs` (the bound and the reasoning beside it).
-  Touches: `src-tauri/src/level2/testing.rs` (carry which pass placed a gate through to the count, as two fields rather than one), `src-tauri/src/level2/decode_tests.rs` (a line on the wind's share, recorded from a week), `src-tauri/src/dealias.rs` if the placement has to be reported out.
-  Acceptance: the recorder prints boundary-placed and wind-placed separately; a per-station line on the wind's share is drawn from a recorded week and fails when the plausibility bar is removed, which the combined figure cannot do; the existing bound on the total stays.
-  Complexity: M
 
 - `AUD-295` (drained 2026-09-09, the parts it did not carry): the period rule, the numbered placeholders, the Title Case names and the six specific strings it listed are done and gated. What it collected in its notes and this pass did not take on, because each needs a decision rather than a sweep: `toast.bundleMissing` has no plural block; `settings.watching` prints raw coordinates where the toast beside it names the place; `toast.placesFull` has no next step where the settings string for the same condition does; `search.none` and `journal.noneMatch` are dead ends beside `history.none` and `palette.none`, which coach; `toast.notABackupBody` refers to "the button beside it"; and terminology still runs two ways for colour table and palette, loop and animation, site and station, and the watched place. Worth a new item when somebody is deciding the wording rather than applying a rule.
 - `AUD-370`: `scripts/build-counties.mjs` (94 statements, 0 per cent) is a third script with no test; the one rule it carries, refusing an output over a megabyte, is the kind the item's fix pins for the other two.
@@ -271,27 +231,15 @@ Tenth research pass, at `beae469`. Everything below came from the third refutati
 
 ### P3
 
-- [ ] AUD-496 (P3): Four files sit above the size ceiling under a waiver that only stops them growing
+- [ ] AUD-496 (P3): MapViewport.tsx sits above the size ceiling under a waiver that only stops it growing
       Category: maintainability
-      Where: `src/fileSize.test.ts` `ALREADY_OVER`; `src/components/MapViewport.tsx` (3,068 lines), `src/hooks/useSingleSiteRadar.test.tsx` (2,294), `src/hooks/useSingleSiteRadar.ts` (1,717), `src/App.tsx` (1,555).
-      Problem: The ceiling of 1,500 lines was set by `AUD-272` and measured only `src/panels` until the gate was widened, so the three files that motivated it were never held to it. Widening it without splitting them would have failed the suite on day one, so each is recorded at its current length and may not grow. That stops it getting worse and does not make it better. `useSingleSiteRadar` is the sharpest case: the hook and its test are both over, which is usually what a module doing several jobs looks like.
-      Evidence: Measured on 2026-09-10 by the gate itself, which prints the name and the length of anything over. The waiver expires by itself: a second test asserts every waived file is still over the ceiling, so splitting one below 1,500 fails until its entry is removed.
-      Fix: Split each along the seam it already has. `MapViewport.tsx` is a stack of independent lanes (vector, raster, cursor, ramps) that mostly do not read each other. `useSingleSiteRadar.ts` holds the volume fetch, the sweep decode and the frame timeline in one hook.
-      Acceptance: Each file is under 1,500 lines and its entry is gone from `ALREADY_OVER`, with no behaviour change: the existing tests for each pass unmodified, or a commit says which test was wrong and why.
+      Progress 2026-09-23: three of the four files are split and their waivers are gone. `App.tsx` 1,561 to 1,464 (`5f8f279`, useStartupNotices and useNotificationPermission), `useSingleSiteRadar.test.tsx` 2,271 to 1,294 plus a historical suite (`3f2a838`, shared fixtures in `src/test/singleSite.ts`), `useSingleSiteRadar.ts` 1,717 to 1,388 (`fc70ff9`, useHistoricalSweep).
+      Where: `src/fileSize.test.ts` `ALREADY_OVER`; `src/components/MapViewport.tsx` (3,094 lines).
+      Problem: The ceiling of 1,500 lines was set by `AUD-272` and measured only `src/panels` until the gate was widened, so the files that motivated it were never held to it. Widening it without splitting them would have failed the suite on day one, so each was recorded at its current length and may not grow. `MapViewport.tsx` is the last, and the waiver also blocks every feature that would add a lane to it.
+      Evidence: Measured by the gate itself, which prints the name and the length of anything over. The waiver expires by itself: a second test asserts every waived file is still over the ceiling, so splitting one below 1,500 fails until its entry is removed.
+      Fix: Split along the lanes, which mostly do not read each other: `MapViewportLanes.ts` (night, county, route, ring, flash, ProbSevere, classification, cell, track, custom, placefile icons), `MapViewportRaster.ts` (satellite, surge, radar, wind, MRMS, sweep, smoke, snow), `MapViewportOverlays.ts` (overlays and the popup), `MapViewportTools.ts` (renderTools and the map's pointer and keyboard tools), each a plain function over a bag of refs so every ref and every effect stays in the component and their order does not move. Six gates read moved text by path and have to be repointed: `MapViewportInk.test.ts`, `lineOnMap.test.ts`, `placefileIcons.test.ts`, `mapStyles.test.ts` (keep the one `overLightRef.current =` write), `calm.test.ts` (keep the `MapViewport` prefix in every new name) and `numbers.test.ts` (the `.toFixed(` at the radar lane moves). `overlayOrderChosen` is module state shared by both panes and needs an exported setter.
+      Acceptance: `MapViewport.tsx` is under 1,500 lines and its entry is gone from `ALREADY_OVER`, with no behaviour change: the existing tests for it pass unmodified apart from the six repointed paths, and the full browser suite passes.
       Confidence: Certain
-
-
-
-
-### Notes on existing items
-
-- `AUD-355` (drained 2026-09-09): taken at the versions live on the day rather than the ones the note recorded, which had already gone stale: maplibre-gl 6.9.0 not 6.8.0 and lucide-react 1.43.0 not 1.42.0. Raising `rust-version` to 1.90 turns on clippy lints for APIs stabilised since 1.85, which is twenty-three `chunks_exact` calls, one of them the mutable spelling, and six modulo tests across five lines; TypeScript 5.9 narrows `BlobPart` so that anything handed to a `Blob` has to say its buffer is not shared, which is nine sites and one real narrowing bug in the MP4 encoder's parameter-set copy. The one acceptance line that could not be met as written is the 204 tile: it names `src/lib/providers/health.ts`, and nothing in that file fetches anything, it records what other code reports. Our own catalogue fetches already treat a 204 as a success, because it is a 2xx, and then fail on the empty body, which is the right answer for a catalogue with no frames in it. The tile behaviour the line is about is MapLibre's own and arrives with 6.8.0. What is ours to hold is the floor, so `src/lib/dependencyFloors.test.ts` fails if either the range or the lockfile drops below it, for that fix and for the September advisory.
-- `AUD-440` (drained 2026-09-09, and one line of its acceptance that could not be met as written): the item asked for three things at once, and two of them cannot both hold. "A terminal base product stops at the step that resolves its bins" reads as one or two pixels a bin, since 177.6 km over 1,024 pixels is already 173 m against 150 m bins. "A WSR-88D is no worse off than it is today" needs the same rule to allow nine pixels a gate, because that is what a sixteenth of a 460 km disc comes to. One factor cannot be both: a terminal base product needs 1.7297 pixels a gate or fewer to stop at two steps, and anywhere at or below that a WSR-88D falls from sixteen steps to four. The rule shipped honours the WSR-88D line, which is the one the item states as a constraint rather than as a hope, and takes what the other one can have at that factor: a terminal base product loses one of its four halvings rather than three, and the long range product gains one it always had bins for. The remaining two halvings on a terminal base product are still spending a fetch each on interpolation, and closing that means deciding a WSR-88D may be given a wider box than it gets today. That is a decision about what a reader sees, not an arithmetic gap, so it wants its own item and somebody's judgement rather than another pass.
-- `AUD-378`: re-verified live on 2026-09-08. `api.weather.gov/radar/stations` lists 159 ids including KHDC (295 objects on the bucket that day), KBHX, KDOX, KLGX and PAPD; KLIX answers 404 and has zero objects on 2026-09-07 and 09-08 and no folders in the chunk bucket. `danielway/nexrad` PR #148 is open with zero comments and no crate has been published since 2026-04-03. The app's own table remains the route.
-- `AUD-345`: three more sources for the same ask since 2026-09-07, none of them a radar app's tracker: a Substack post on syncing a phone video to MRMS that found acquisitions "up to 10 minutes late" (on Hacker News 2026-09-07), a Hacker News comment on rain cut off at a tile boundary, and HookEcho's six rendering fixes of 2026-09-08 evening, all of which are about a reader being able to tell what the picture is doing.
-- `AUD-273` (blocked): wry 0.57.0 shipped 2026-09-08 (MSRV 1.85, the `windows` crate at 0.62, drops Windows 7) and PR #15996 pulls it into the 2.12 milestone, which is at 15 open and 32 closed with 76 pending change files. The tree stays on wry 0.55.1 until 2.12 ships.
-- The placefile-host decision in `Roadmap_Blocked.md`: MesoPulse has not launched. The PlacefileNation countdown still reads "launching September 1, 2026" a week later, `/mesopulse` is 404 and `mesopulse.com` does not resolve (2026-09-08). The argument the ninth pass built on it is weaker than written; the decision is still the owner's.
-
 ## Research-Driven Additions, 2026-09-08 (late evening)
 
 Eleventh research pass, at `8c19165`, an hour after the tenth. It ran the headless UI inspection the tenth had no machine for (108 captures, both themes, both widths, axe and the overflow check on every one: zero violations, zero overflow, so what follows is what a person sees), read the destructive, import and recovery flows in code, and refreshed the academic, platform and curated-list source classes against 2026. Every finding below was verified against the code and, where there is one, the screenshot; `RESEARCH.md` records what was looked at and judged fine or an artefact so it is not re-filed. Items are numbered on from `AUD-461`.
@@ -303,3 +251,35 @@ Eleventh research pass, at `8c19165`, an hour after the tenth. It ran the headle
 ### Notes on existing items
 
 - `AUD-295`: the 2026-09-07 sweep of `en.ts` adds these to the list: `export.note` says "Both" under four export buttons (`ExportPanel.tsx:121-168`); `toast.bundleMissing` has no plural block, so one missing frame reads "1 of them could not be fetched and are listed"; `packs.error.httpStatus` and `radar.error.httpStatus` end in a bare status ("could not be reached. 404"); `wpc.serviceStatus` drops the word "service" and the full stop every sibling has; `settings.watching` (`WatchSection.tsx:611`, `:802`) prints raw coordinates where the toast beside it names the place; `toast.placesFull` ("That is every place") has no next step while `settings.placesFull` for the same condition does; `search.none` and `journal.noneMatch` are dead ends beside `history.none` and `palette.none`, which coach; `toast.notABackupBody` refers to "the button beside it", a positional reference; `chrome.nextPiece` says "piece" where every neighbour says volume or sweep; terminology runs two ways for colour table and palette, loop and animation, site and station, tilt (camera) and tilt (radar), and six namings of the watched place. The `{0}` family and the WDTD, isotherm and Title Case points already listed stand.
+
+## Research-Driven Additions, 2026-09-15
+
+Twelfth research pass, at `4bd9e96` with the 2026-09-10 working copy still uncommitted. Six adversarial reads of the 2026-09-09/10 commits, a headless capture run with scrollbars painted, and four external streams; the evidence and the arithmetic are in `RESEARCH.md` of the same date. Items are numbered on from `AUD-497`. Every host named below is already in `ALLOWED_HOSTS`. Nothing here outranks an open audit item of the same priority; `AUD-497` and `AUD-498` come before everything.
+
+### P1
+
+
+
+### P2
+
+
+
+
+
+
+
+
+### P3
+
+
+
+
+### Notes on existing items
+
+- `AUD-445`: the uncommitted 2026-09-10 working copy in `dealias.rs` and `draw_tests.rs` is the `PlacedBy` recorder and the `moved_by_wind` count this item asks for; it compiles with `cargo check --tests` on 2026-09-15. Finish it or stash it before the next drain.
+- `AUD-348`: five community posts in one week asked what a non-weather echo was (bird migration, a KPAH artefact, virga, two mosaic rings), so the mask is also an explainer.
+- `AUD-351`: Anvil added a Window Mode settings tab with multi-monitor stubbed on 2026-09-14, the first competitor to move on it.
+- `AUD-273` (blocked): Tauri `dev` merged #14479 on 2026-09-15, which closes the app through the Restart Manager and `WM_ENDSESSION` during install and update instead of killing it; when it reaches 2.x the store flush and window-state save have to survive that path. Tauri 3.0.0-alpha shipped 2026-09-13 and is not a target.
+- The European radar item in `Roadmap_Blocked.md`: a Spanish Omastorm user (#38) read eleven PVOL sites from the anonymous OPERA `openradar-24h` bucket on CloudFerro as ODIM H5 with DBZH and VRADH at five-minute cadence. New evidence, unverified terms, and a third decoder; the verdict stands until someone reads the bucket's policy.
+- `AUD-378`: danielway/nexrad is still silent (no commit since 2026-07-21) and now holds two open PRs, #148 and #149; the app's own table remains the route.
+- `AUD-166`: the GOES-19 yaw flip on 2026-09-22 (GLM out 16:30 to 17:15 UTC) and the GOES-18 flush on 2026-09-25 (false events 03:00 to 03:10 UTC) are two scheduled gaps a soak run could be timed to cover.
