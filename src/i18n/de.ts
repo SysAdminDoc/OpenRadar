@@ -1193,6 +1193,9 @@ export const de: Catalogue = {
   "nearby.warningsFailed":
     "Die Warnungen ließen sich nicht prüfen, deshalb kann hier nicht stehen, was diesen Ort abdeckt.",
   "nearby.warningsLoading": "Die Warnungen werden geprüft.",
+  "nearby.warningsHeld":
+    "Aktuelle Warnungen werden zurückgehalten, während ein vergangenes Unwetter wiedergegeben wird.",
+  "nearby.warningsUnchecked": "Die Warnungen wurden noch nicht abgefragt.",
   "nearby.warning": "{headline}.",
   "nearby.warningTagged": "{headline}, gekennzeichnet als {tag}.",
   "nearby.warningUntil": "Gilt bis {when}.",

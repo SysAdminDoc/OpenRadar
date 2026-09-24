@@ -1169,6 +1169,9 @@ export const es: Catalogue = {
   "nearby.warningsFailed":
     "No se pudieron consultar los avisos, así que esto no puede decir qué cubre este lugar.",
   "nearby.warningsLoading": "Consultando los avisos.",
+  "nearby.warningsHeld":
+    "Los avisos actuales se retienen mientras se repite una tormenta pasada.",
+  "nearby.warningsUnchecked": "Todavía no se han consultado los avisos.",
   "nearby.warning": "{headline}.",
   "nearby.warningTagged": "{headline}, marcado como {tag}.",
   "nearby.warningUntil": "Vigente hasta las {when}.",

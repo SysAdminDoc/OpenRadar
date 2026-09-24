@@ -1180,6 +1180,9 @@ export const fr: Catalogue = {
   "nearby.warningsFailed":
     "Les alertes n'ont pas pu être vérifiées, ceci ne peut donc pas dire ce qui couvre cet endroit.",
   "nearby.warningsLoading": "Vérification des alertes.",
+  "nearby.warningsHeld":
+    "Les alertes en cours sont retenues pendant la relecture d’un orage passé.",
+  "nearby.warningsUnchecked": "Les alertes n’ont pas encore été consultées.",
   "nearby.warning": "{headline}.",
   "nearby.warningTagged": "{headline}, qualifiée de {tag}.",
   "nearby.warningUntil": "En vigueur jusqu'à {when}.",
