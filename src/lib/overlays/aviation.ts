@@ -149,6 +149,13 @@ const HAZARD_KEYS: Record<string, StringKey> = {
   VA: "aviation.hazardAsh",
   MTW: "aviation.hazardMountainWave",
   TC: "aviation.hazardTropicalCyclone",
+  // The rest of the phenomena ICAO Annex 3 lets a SIGMET be issued for
+  // (Appendix 6, Table A6-1A), which the snapshot above never saw: hail with
+  // the thunderstorms, a heavy dust or sand storm, and a radioactive cloud.
+  TSGR: "aviation.hazardThunderstormHail",
+  DS: "aviation.hazardDustStorm",
+  SS: "aviation.hazardSandstorm",
+  "RDOACT CLD": "aviation.hazardRadioactiveCloud",
 };
 
 /** The hazard in the reader's own words, or the service's code. */
