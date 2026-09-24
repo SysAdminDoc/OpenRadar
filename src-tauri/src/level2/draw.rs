@@ -186,6 +186,7 @@ pub fn sweep_from_scan(
         prepare_sweep(station, scan, nyquist_for, asked, None)?,
         station,
         scan,
+        None,
         asked,
     );
     draw_sweep(
@@ -455,13 +456,16 @@ pub(crate) fn for_drawing(
     mut prepared: Prepared,
     station: &str,
     scan: &Scan,
+    // The last finished volume, when `scan` is the one the radar is still
+    // sweeping. See `not_weather`.
+    finished: Option<&Scan>,
     asked: SweepRequest<'_>,
 ) -> Prepared {
     if prepared.derived == Some(Worked::Column(derive::Kind::HailSize)) {
         prepared.spike = derive::spike(scan);
     }
     if asked.echo_mask {
-        prepared.hidden = not_weather(&prepared, station, scan);
+        prepared.hidden = not_weather(&prepared, station, scan, finished);
         prepared.mask = Some(if prepared.hidden.is_some() {
             MaskOutcome::On
         } else {
@@ -476,19 +480,36 @@ pub(crate) fn for_drawing(
 ///
 /// A column is every cut at once and has no one correlation to be judged
 /// against, and a cut from a radar with no dual polarisation has none at all.
-fn not_weather(prepared: &Prepared, station: &str, scan: &Scan) -> Option<SweepField> {
+///
+/// The volume the radar is still sweeping has only the cuts it has reached.
+/// Judged on that alone, for the first minute or two of every volume there
+/// was no higher cut to see a hail core's column, so the core went from the
+/// live picture while the finished one under it kept it, and it came back as
+/// the higher cuts arrived. The melting layer is read out of the higher cuts
+/// too and was usually missing. So the finished volume's higher cuts count as
+/// well, and its melting layer stands in when the live one has none.
+fn not_weather(
+    prepared: &Prepared,
+    station: &str,
+    scan: &Scan,
+    finished: Option<&Scan>,
+) -> Option<SweepField> {
     if matches!(prepared.derived, Some(Worked::Column(_))) {
         return None;
     }
     let elevation = prepared.chosen.elevation_degrees;
     let correlation = sweep_field_at(scan, Product::CorrelationCoefficient, elevation)?;
     let reflectivity = sweep_field_at(scan, Product::Reflectivity, elevation);
-    let cuts: Vec<(f32, SweepField)> = tilts(scan)
-        .into_iter()
-        .filter(|angle| *angle > elevation)
-        .filter_map(|angle| {
-            sweep_field_at(scan, Product::Reflectivity, angle)
-                .map(|chosen| (chosen.elevation_degrees, chosen.field))
+    let cuts: Vec<(f32, SweepField)> = std::iter::once(scan)
+        .chain(finished)
+        .flat_map(|volume| {
+            tilts(volume)
+                .into_iter()
+                .filter(|angle| *angle > elevation)
+                .filter_map(|angle| {
+                    sweep_field_at(volume, Product::Reflectivity, angle)
+                        .map(|chosen| (chosen.elevation_degrees, chosen.field))
+                })
         })
         .collect();
     let above: Vec<echo_mask::Above<'_>> = cuts
@@ -505,6 +526,9 @@ fn not_weather(prepared: &Prepared, station: &str, scan: &Scan) -> Option<SweepF
     });
     let melting_km = crate::melting::from_volume(scan, antenna_km)
         .ok()
+        .or_else(|| {
+            finished.and_then(|volume| crate::melting::from_volume(volume, antenna_km).ok())
+        })
         .map(|layer| (layer.bottom_km - antenna_km, layer.top_km - antenna_km));
     Some(echo_mask::non_weather(
         &correlation.field,
