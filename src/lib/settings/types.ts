@@ -16,6 +16,7 @@ import type { LanguageId } from "../../i18n";
 import type { SurgeCategory } from "../surge";
 import type { SnowfallWindow } from "../snowfall";
 import type { GridRule } from "../gridWatch";
+import type { FloodThresholds } from "../flashFlood";
 import type { SatelliteBandId } from "../satelliteBands";
 import type { GaugeQpePeriod } from "../gaugeQpe";
 import type { ApproachSettings } from "../approach";
@@ -432,6 +433,15 @@ export interface AppSettings {
    * where a 24-hour total splits the same snow in half.
    */
   snowfallWindow: SnowfallWindow;
+  /**
+   * The bars the four-panel flash flood call is read against, in the paper's
+   * own units.
+   *
+   * The attachment's own are calibrated on two offices in the western Great
+   * Lakes, and it says they can be moved to match a regional study. A reader
+   * in the desert Southwest or on the Gulf coast is the one who would.
+   */
+  floodThresholds: FloodThresholds;
   watch: WatchState;
   /**
    * Take the map to a warning as it arrives.

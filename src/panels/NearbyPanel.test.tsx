@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { DEFAULT_FLOOD_THRESHOLDS } from "../lib/flashFlood";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NearbyPanel } from "./NearbyPanel";
 import { cellKey, withName } from "../lib/cellNames";
@@ -38,6 +39,8 @@ function markup(names: ReadonlyMap<string, string>, onName: () => void) {
       alertsError={null}
       placeLightning={[]}
       clock={CLOCK}
+      floodPoint={null}
+      floodThresholds={DEFAULT_FLOOD_THRESHOLDS}
       onClose={() => undefined}
     />
   );
@@ -119,6 +122,8 @@ function approachPanel(
       alertsError={null}
       placeLightning={[]}
       clock={CLOCK}
+      floodPoint={null}
+      floodThresholds={DEFAULT_FLOOD_THRESHOLDS}
       onClose={() => undefined}
     />
   );
@@ -215,6 +220,8 @@ function warningsSection(
       alertsError={alertsNote === "failed" ? "The service is busy." : null}
       placeLightning={[]}
       clock={CLOCK}
+      floodPoint={null}
+      floodThresholds={DEFAULT_FLOOD_THRESHOLDS}
       onClose={() => undefined}
     />,
   );

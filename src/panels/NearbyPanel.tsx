@@ -8,6 +8,9 @@ import { useT } from "../i18n";
 import { MAX_NAME } from "../lib/cellNames";
 import { LightningChip } from "../components/LightningChip";
 import type { PlaceLightning } from "../lib/lightningWatch";
+import { floodWords, type FloodThresholds } from "../lib/flashFlood";
+import type { GeoPoint } from "../lib/geo";
+import { useFloodReading } from "../hooks/useFloodReading";
 
 export interface NearbyPlaceOption {
   id: string;
@@ -58,6 +61,13 @@ interface NearbyPanelProps {
    * things about the same request.
    */
   alertsError: string | null;
+  /**
+   * The place the four flood panels are read at, which is the place chosen
+   * above, or null where there is none.
+   */
+  floodPoint: GeoPoint | null;
+  /** The bars the reader has set for the call, or the paper's. */
+  floodThresholds: FloodThresholds;
   onClose: () => void;
 }
 
@@ -103,9 +113,15 @@ export function NearbyPanel({
   observed,
   alertsFetchedAt,
   alertsError,
+  floodPoint,
+  floodThresholds,
   onClose,
 }: NearbyPanelProps) {
   const t = useT();
+  const flood = useFloodReading(floodPoint);
+  const floodSaid = flood.reading
+    ? floodWords(flood.reading, floodThresholds)
+    : null;
   // Every line in this panel is a measurement or a clock, and both are the
   // reader's own choice. Without the subscription the panel goes on saying
   // miles after the switch to kilometres, until something else redraws it.
@@ -118,7 +134,9 @@ export function NearbyPanel({
       className="surface-panel--right"
       // Either list still waiting on its first answer. A reader in a screen
       // reader is in the panel, not looking at the spinner in one section.
-      busy={alertsNote === "loading" || cellsNote === "loading"}
+      busy={
+        alertsNote === "loading" || cellsNote === "loading" || flood.loading
+      }
     >
       <p className="nearby-intro">{t("nearby.intro")}</p>
 
@@ -193,6 +211,26 @@ export function NearbyPanel({
                         : "nearby.noWarnings",
             )}
           />
+        )}
+      </section>
+
+      {/* The four-panel flash flood call at the place chosen above. The
+          map draws all four grids; what a reader in a flood cannot do is hold
+          sixteen bars against four readings and count. */}
+      <section className="nearby-block" data-flood>
+        <h3>{t("flood.heading")}</h3>
+        {flood.loading ? (
+          <Note waiting text={t("flood.reading")} />
+        ) : floodSaid ? (
+          <>
+            <p data-flood-panels>{floodSaid.panels}</p>
+            <p data-flood-call>
+              <strong>{floodSaid.call}</strong>
+            </p>
+            <small className="nearby-office">{t("flood.guide")}</small>
+          </>
+        ) : (
+          <Note text={t("flood.unavailable")} />
         )}
       </section>
 

@@ -1193,6 +1193,46 @@ export const de: Catalogue = {
   "nearby.warningsFailed":
     "Die Warnungen ließen sich nicht prüfen, deshalb kann hier nicht stehen, was diesen Ort abdeckt.",
   "nearby.warningsLoading": "Die Warnungen werden geprüft.",
+  "flood.heading": "Sturzflut-Felder",
+  "flood.guide":
+    "Ein Anhaltspunkt aus der Vier-Felder-Methode des Wetterdienstes, keine Warnung. Die Warnungen Ihres Amtes haben Vorrang.",
+  "flood.unavailable": "Für diesen Ort gibt es keine Sturzflut-Raster.",
+  "flood.reading": "Die vier Flutraster werden gelesen.",
+  "flood.panelMissing": "{panel}: kein Raster",
+  "flood.qpeValue": "{inches} Zoll Regen in der letzten Stunde",
+  "flood.ariValue":
+    "{years, plural, one {Ein #-jährlicher Regen im ungünstigsten Fall} other {Ein #-jährlicher Regen im ungünstigsten Fall}}",
+  "flood.ratioValue": "{percent} % des Sturzflut-Richtwerts",
+  "flood.streamflowValue": "Abfluss {runoff} ft³/s/mi²",
+  "flood.callAdvisory": "Drei der vier Felder erreichen die Vorwarnstufe.",
+  "flood.callWarning": "Drei der vier Felder erreichen die Warnstufe.",
+  "flood.callConsiderable":
+    "Drei der vier Felder erreichen die erhebliche Stufe.",
+  "flood.callCatastrophic":
+    "Drei der vier Felder erreichen die katastrophale Stufe.",
+  "flood.noCall":
+    "Weniger als drei Felder stimmen überein, also wird keine Stufe genannt.",
+  "flood.inspect": "Sturzflut-Felder: {panels}. {call}",
+  "flood.thresholds": "Sturzflut-Felder",
+  "flood.thresholdsDetail":
+    "Die Schwellen, an denen die Vier-Felder-Methode gemessen wird, in den Einheiten, in denen sie sie schreibt. Die Vorgaben sind die des Wetterdienstes selbst, für die westlichen Großen Seen.",
+  "flood.panel": "Feld",
+  "flood.panelQpe": "Regen in einer Stunde",
+  "flood.unitQpe": "Zoll",
+  "flood.panelAri": "Wiederkehrzeit",
+  "flood.unitAri": "Jahre",
+  "flood.panelRatio": "Regen gegen den Richtwert",
+  "flood.unitRatio": "Prozent",
+  "flood.panelStreamflow": "Abfluss",
+  "flood.unitStreamflow": "ft³/s pro Quadratmeile",
+  "flood.tierAdvisory": "Vorwarnung",
+  "flood.tierWarning": "Warnung",
+  "flood.tierConsiderable": "Erheblich",
+  "flood.tierCatastrophic": "Katastrophal",
+  "flood.barLabel": "{panel}, {tier}",
+  "flood.mustClimb":
+    "Die Schwellen eines Feldes müssen von der Vorwarnung bis katastrophal steigen, darum wurde dieser Wert nicht übernommen.",
+  "flood.reset": "Die Schwellen des Wetterdienstes wiederherstellen",
   "nearby.warningsHeld":
     "Aktuelle Warnungen werden zurückgehalten, während ein vergangenes Unwetter wiedergegeben wird.",
   "nearby.warningsUnchecked": "Die Warnungen wurden noch nicht abgefragt.",

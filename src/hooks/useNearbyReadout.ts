@@ -82,6 +82,8 @@ export function useNearbyReadout({
       warnings,
       cells,
       summary: nearbySummary(warnings, cells, name),
+      // Where the section reading the flood grids reads them.
+      point: nearbyPoint,
     };
     // Every sentence here is a distance, a bearing or a speed, and units.ts
     // says plainly that anything formatting a measurement and staying on

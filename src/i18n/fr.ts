@@ -1180,6 +1180,49 @@ export const fr: Catalogue = {
   "nearby.warningsFailed":
     "Les alertes n'ont pas pu être vérifiées, ceci ne peut donc pas dire ce qui couvre cet endroit.",
   "nearby.warningsLoading": "Vérification des alertes.",
+  "flood.heading": "Panneaux de crue soudaine",
+  "flood.guide":
+    "Un repère tiré de la méthode des quatre panneaux du Service météorologique, pas une alerte. Les alertes de votre bureau passent d’abord.",
+  "flood.unavailable":
+    "Il n’y a pas de grilles de crue soudaine pour cet endroit.",
+  "flood.reading": "Lecture des quatre grilles de crue.",
+  "flood.panelMissing": "{panel} : pas de grille",
+  "flood.qpeValue": "{inches} po de pluie sur la dernière heure",
+  "flood.ariValue":
+    "{years, plural, one {Pluie de retour # an au pire} other {Pluie de retour # ans au pire}}",
+  "flood.ratioValue": "{percent} % du seuil de crue soudaine",
+  "flood.streamflowValue": "Ruissellement {runoff} ft³/s/mi²",
+  "flood.callAdvisory":
+    "Trois des quatre panneaux atteignent le niveau de vigilance.",
+  "flood.callWarning":
+    "Trois des quatre panneaux atteignent le niveau d’alerte.",
+  "flood.callConsiderable":
+    "Trois des quatre panneaux atteignent le niveau important.",
+  "flood.callCatastrophic":
+    "Trois des quatre panneaux atteignent le niveau catastrophique.",
+  "flood.noCall":
+    "Moins de trois panneaux concordent, aucun niveau n’est donc retenu.",
+  "flood.inspect": "Panneaux de crue soudaine : {panels}. {call}",
+  "flood.thresholds": "Panneaux de crue soudaine",
+  "flood.thresholdsDetail":
+    "Les seuils avec lesquels la méthode des quatre panneaux est lue, dans les unités où elle les écrit. Ceux par défaut sont ceux du Service météorologique, pour l’ouest des Grands Lacs.",
+  "flood.panel": "Panneau",
+  "flood.panelQpe": "Pluie en une heure",
+  "flood.unitQpe": "pouces",
+  "flood.panelAri": "Période de retour",
+  "flood.unitAri": "années",
+  "flood.panelRatio": "Pluie face au seuil",
+  "flood.unitRatio": "pour cent",
+  "flood.panelStreamflow": "Ruissellement",
+  "flood.unitStreamflow": "ft³/s par mille carré",
+  "flood.tierAdvisory": "Vigilance",
+  "flood.tierWarning": "Alerte",
+  "flood.tierConsiderable": "Important",
+  "flood.tierCatastrophic": "Catastrophique",
+  "flood.barLabel": "{panel}, {tier}",
+  "flood.mustClimb":
+    "Les seuils d’un panneau doivent monter de la vigilance à catastrophique, celui-ci n’a donc pas été pris.",
+  "flood.reset": "Remettre les seuils du Service météorologique",
   "nearby.warningsHeld":
     "Les alertes en cours sont retenues pendant la relecture d’un orage passé.",
   "nearby.warningsUnchecked": "Les alertes n’ont pas encore été consultées.",

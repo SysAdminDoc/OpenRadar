@@ -29,6 +29,7 @@ import { CuriositySection } from "./CuriositySection";
 import { WATCH_HEALTHY, type WatchHealth } from "../lib/watch";
 import { ToggleSetting } from "../components/ToggleSetting";
 import { WatchSection } from "./WatchSection";
+import { FloodThresholdsSection } from "./FloodThresholdsSection";
 import type { PlaceLightning } from "../lib/lightningWatch";
 interface SettingsPanelProps {
   settings: AppSettings;
@@ -809,6 +810,13 @@ export function SettingsPanel({
         onAddWatchPlace={onAddWatchPlace}
         onChooseSound={onChooseSound}
         placeLightning={placeLightning}
+      />
+
+      <FloodThresholdsSection
+        thresholds={settings.floodThresholds}
+        onThresholds={(floodThresholds) =>
+          onSettings((now) => ({ ...now, floodThresholds }))
+        }
       />
 
       <div className="settings-section settings-section--camera">

@@ -97,7 +97,7 @@ interface MapStageProps {
   /** Named points the keyboard cursor measures itself from. */
   namedPoints: ReadonlyArray<{ name: string; lat: number; lon: number }>;
   onCursorSpeak: (said: string) => void;
-  onToolResult: (render: (() => string) | null) => void;
+  onToolResult: (render: (() => string) | null, at?: GeoPoint) => void;
   /** The two ends of a cross-section, once the tool has both. */
   onSection: (from: GeoPoint, to: GeoPoint) => void;
   /** The one action a popup offered about what it describes. */

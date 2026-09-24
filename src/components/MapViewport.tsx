@@ -323,10 +323,10 @@ interface MapViewportProps {
    */
   onCursorSpeak?: (said: string) => void;
   /**
-   * How to write the readout, not the readout itself: it is held while the
-   * units can still change underneath it, so it has to be written on demand.
+   * How to write the readout, and for the inspect tool the point it is about:
+   * held while the units can change underneath it, so written on demand.
    */
-  onToolResult?: (render: (() => string) | null) => void;
+  onToolResult?: (render: (() => string) | null, at?: GeoPoint) => void;
   /**
    * The two ends of a cross-section, once both are down.
    *
@@ -2747,7 +2747,7 @@ function MapViewportInner(
         // second late is worth waiting for; an empty readout while it does is
         // not.
         const asked = ++inspectRef.current;
-        onToolResult?.(written(null));
+        onToolResult?.(written(null), point);
         if (drawn && drawn.source.kind !== "local") {
           void fetchGate(
             drawn.station,
@@ -2765,7 +2765,7 @@ function MapViewportInner(
             .then((gate) => {
               // A second click while this was in flight owns the readout now.
               if (gate && inspectRef.current === asked) {
-                onToolResult?.(written(gate));
+                onToolResult?.(written(gate), point);
               }
             })
             .catch(() => {

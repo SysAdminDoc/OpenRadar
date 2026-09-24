@@ -115,7 +115,10 @@ const BUDGETS = [
     // over 56 by a kilobyte. Raised to 58 rather than trimmed, and raised by
     // the size of the feature rather than to whatever the build happened to
     // measure, so the room left over is still about a tenth.
-    raw: 58,
+    //
+    // 2026-09-24: the flash flood bars, sixteen boxes and a reset, took it from
+    // 58 to just under 61. Raised by that and nothing more.
+    raw: 61,
     gzip: 15,
     firstLoad: false,
   },
