@@ -608,6 +608,7 @@ mod tests {
                     reflectivity: vec![fixture::Gate::Reading(20.0); gates],
                     velocity,
                     correlation: Vec::new(),
+                    differential_reflectivity: Vec::new(),
                 }
             })
             .collect()
@@ -766,6 +767,7 @@ mod tests {
                     reflectivity: vec![fixture::Gate::Reading(20.0); gates],
                     velocity,
                     correlation: Vec::new(),
+                    differential_reflectivity: Vec::new(),
                 }
             })
             .collect()
