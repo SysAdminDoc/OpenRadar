@@ -10,6 +10,7 @@
 //! so, and the NLDN density grid is the product to reach for instead.
 
 use chrono::{DateTime, Datelike, Duration, NaiveDateTime, Timelike, Utc};
+use futures_util::stream::{self, StreamExt as _};
 use netcdf_reader::{NcFile, NcMetadataMode, NcOpenOptions};
 use serde::Serialize;
 
@@ -36,6 +37,10 @@ pub enum LightningError {
     NoFiles(i64),
     #[error("the flash file could not be read: {0}")]
     Decode(String),
+    #[error("a lightning replay covers at most {0} hours, and a radius of more than nothing")]
+    ReplaySpan(i64),
+    #[error("none of the {0} flash files for that time could be read")]
+    Unreadable(usize),
     #[error(transparent)]
     Http(#[from] http::HttpError),
 }
@@ -97,8 +102,12 @@ pub fn key_time(key: &str) -> Option<i64> {
 }
 
 fn listing_url(at: DateTime<Utc>) -> String {
+    listing_url_in(BUCKET, at)
+}
+
+fn listing_url_in(bucket: &str, at: DateTime<Utc>) -> String {
     format!(
-        "{BUCKET}/?list-type=2&prefix={PRODUCT}/{}/{:03}/{:02}/",
+        "{bucket}/?list-type=2&prefix={PRODUCT}/{}/{:03}/{:02}/",
         at.year(),
         at.ordinal(),
         at.hour()
@@ -326,6 +335,263 @@ pub async fn lightning_flashes() -> Result<FlashWindow, LightningError> {
         trimmed,
         files_read: read,
         files_expected: wanted.len(),
+    })
+}
+
+/// GOES-16's bucket, which holds the lightning mapper's files from the years
+/// it was GOES-East.
+const GOES16_BUCKET: &str = "https://noaa-goes16.s3.amazonaws.com";
+
+/// When GOES-19 took over as GOES-East: the seventh of April 2025. Both
+/// buckets hold that whole day, so its first second is where one ends and the
+/// other begins.
+const GOES19_FROM: i64 = 1_743_984_000;
+
+/// A file covers twenty seconds and is published once they are over, so a
+/// moment can only have read a file that ended before it.
+const FILE_SECONDS: i64 = 20;
+
+/// The longest replay the history panel asks for is six hours. Twice that is
+/// room for a longer one later and a ceiling on what a bad request can cost:
+/// every hour is a hundred and eighty files of half a megabyte each.
+const MAX_REPLAY_HOURS: i64 = 12;
+
+/// How many files are fetched at once. The live window reads fifteen one after
+/// another; a replay reads a thousand, and one at a time is ten minutes.
+const REPLAY_CONCURRENCY: usize = 12;
+
+/// Kept a little wider than the radius asked for, so the page's own distance,
+/// worked out the same way the live watch works it out, decides the edge.
+const REPLAY_MARGIN_MILES: f64 = 1.0;
+
+const KM_PER_MILE: f64 = 1.609_344;
+
+/// A watched place, as the replay is told it.
+#[derive(Debug, Clone, Copy, serde::Deserialize)]
+pub struct ReplayPoint {
+    pub latitude: f64,
+    pub longitude: f64,
+}
+
+/// One file of a replay: when it began, whether it was read, and how many
+/// flashes it held anywhere, which is what the live window's cap is counted
+/// against.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplayFile {
+    pub time: i64,
+    pub read: bool,
+    pub flashes: usize,
+}
+
+/// A flash near a watched place, with where it sat in its file. The live
+/// window trims its oldest flashes when there are too many, and the order is
+/// what lets a replay trim the same ones.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplayFlash {
+    #[serde(flatten)]
+    pub flash: Flash,
+    pub order: usize,
+}
+
+/// Every file over a replayed stretch, and the flashes in them that fell near
+/// a watched place.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlashReplay {
+    pub satellite: String,
+    pub window_minutes: i64,
+    pub file_seconds: i64,
+    pub max_files: usize,
+    pub max_flashes: usize,
+    pub files: Vec<ReplayFile>,
+    pub flashes: Vec<ReplayFlash>,
+}
+
+/// Which bucket held GOES-East's lightning at a moment, and what it is called.
+fn goes_east_at(time: i64) -> (&'static str, &'static str) {
+    if time >= GOES19_FROM {
+        (BUCKET, "GOES-19 East")
+    } else {
+        (GOES16_BUCKET, "GOES-16 East")
+    }
+}
+
+/// The files a replay from `from` to `to` has to read, oldest first.
+///
+/// The watch at any moment reads the five minutes of files before it, and
+/// only files that have finished, so the first moment needs files from five
+/// minutes before the replay starts and the last needs none that end after it.
+pub fn replay_keys(mut keys: Vec<(i64, String)>, from: i64, to: i64) -> Vec<(i64, String)> {
+    keys.sort_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(&right.1)));
+    keys.dedup_by(|left, right| left.1 == right.1);
+    keys.retain(|(time, _)| *time >= from - WINDOW_MINUTES * 60 && *time + FILE_SECONDS <= to);
+    keys
+}
+
+fn distance_km(from: ReplayPoint, latitude: f64, longitude: f64) -> f64 {
+    let lat1 = from.latitude.to_radians();
+    let lat2 = latitude.to_radians();
+    let d_lat = lat2 - lat1;
+    let d_lon = (longitude - from.longitude).to_radians();
+    let a = (d_lat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (d_lon / 2.0).sin().powi(2);
+    6371.0 * 2.0 * a.sqrt().asin()
+}
+
+/// The flashes of one file that fell within a radius of any watched place,
+/// each with its place in the file.
+pub fn flashes_near(
+    flashes: &[Flash],
+    points: &[ReplayPoint],
+    radius_miles: f64,
+) -> Vec<ReplayFlash> {
+    let reach_km = (radius_miles + REPLAY_MARGIN_MILES) * KM_PER_MILE;
+    flashes
+        .iter()
+        .enumerate()
+        .filter(|(_, flash)| {
+            points.iter().any(|point| {
+                distance_km(
+                    *point,
+                    f64::from(flash.latitude),
+                    f64::from(flash.longitude),
+                ) <= reach_km
+            })
+        })
+        .map(|(order, flash)| ReplayFlash {
+            flash: *flash,
+            order,
+        })
+        .collect()
+}
+
+/// Every flash GOES-East saw near the watched places over a stretch of the
+/// past, for replaying the lightning watch.
+///
+/// Only the flashes near a place come back: an hour is a hundred megabytes of
+/// files and the page needs a few hundred points out of them. With them comes
+/// every file's time, whether it was read, and how many flashes it held in
+/// all, which is what the page needs to build the window the live watch would
+/// have read at each moment, cap and gaps included.
+///
+/// The files are fetched without keeping a copy. A replay reads a thousand of
+/// them once, and the shared cache holds two thousand entries: keeping these
+/// would flush the tiles and grids the offline view is made of.
+#[tauri::command]
+pub async fn lightning_replay(
+    from: i64,
+    to: i64,
+    points: Vec<ReplayPoint>,
+    radius_miles: f64,
+) -> Result<FlashReplay, LightningError> {
+    if to < from || to - from > MAX_REPLAY_HOURS * 3600 {
+        return Err(LightningError::ReplaySpan(MAX_REPLAY_HOURS));
+    }
+    if !radius_miles.is_finite() || radius_miles <= 0.0 {
+        return Err(LightningError::ReplaySpan(MAX_REPLAY_HOURS));
+    }
+
+    // One listing per hour folder, from the one holding the first file the
+    // first moment reads to the one holding the last moment.
+    let first = from - WINDOW_MINUTES * 60;
+    let mut listed: Vec<(i64, String)> = Vec::new();
+    let mut satellites: Vec<&'static str> = Vec::new();
+    let mut hour = first - first.rem_euclid(3600);
+    while hour <= to {
+        let at = DateTime::<Utc>::from_timestamp(hour, 0).ok_or(LightningError::BadListing)?;
+        let (bucket, satellite) = goes_east_at(hour);
+        if !satellites.contains(&satellite) {
+            satellites.push(satellite);
+        }
+        let listing = http::get_bytes(&listing_url_in(bucket, at)).await?;
+        let listing = String::from_utf8_lossy(&listing);
+        if !listing.contains("<ListBucketResult") {
+            return Err(LightningError::BadListing);
+        }
+        // The whole address rather than the key, because the handover day
+        // puts two buckets in one replay.
+        for (time, key) in keys_from_listing(&listing) {
+            listed.push((time, format!("{bucket}/{key}")));
+        }
+        hour += 3600;
+    }
+    // An archive with nothing for the stretch is an answer rather than a
+    // failure: GOES-16's files start in 2018, and a storm before that had no
+    // lightning mapper over it at all.
+    let wanted = replay_keys(listed, from, to);
+    let expected = wanted.len();
+
+    // A file that will not come or will not decode is a gap in the replay,
+    // as it is in the live window, and the page builds its windows around it.
+    let fetched: Vec<(ReplayFile, Vec<ReplayFlash>)> =
+        stream::iter(wanted.into_iter().map(|(time, key)| {
+            let points = points.clone();
+            async move {
+                let missing = ReplayFile {
+                    time,
+                    read: false,
+                    flashes: 0,
+                };
+                let bytes = match http::get_bytes_uncached(&key).await {
+                    Ok(bytes) if bytes.len() <= MAX_FILE_BYTES => bytes,
+                    Ok(bytes) => {
+                        log::warn!("GLM file {key} is {} bytes, past the cap", bytes.len());
+                        return (missing, Vec::new());
+                    }
+                    Err(error) => {
+                        log::warn!("GLM file {key} could not be fetched: {error}");
+                        return (missing, Vec::new());
+                    }
+                };
+                let decoded = tauri::async_runtime::spawn_blocking(move || {
+                    decode_flashes(&bytes, time).map(|flashes| {
+                        (flashes.len(), flashes_near(&flashes, &points, radius_miles))
+                    })
+                })
+                .await
+                .map_err(|error| LightningError::Decode(error.to_string()))
+                .and_then(|decoded| decoded);
+                match decoded {
+                    Ok((count, near)) => (
+                        ReplayFile {
+                            time,
+                            read: true,
+                            flashes: count,
+                        },
+                        near,
+                    ),
+                    Err(error) => {
+                        log::warn!("GLM file {key} could not be read: {error}");
+                        (missing, Vec::new())
+                    }
+                }
+            }
+        }))
+        .buffer_unordered(REPLAY_CONCURRENCY)
+        .collect()
+        .await;
+
+    let mut files = Vec::with_capacity(fetched.len());
+    let mut flashes = Vec::new();
+    for (file, near) in fetched {
+        files.push(file);
+        flashes.extend(near);
+    }
+    if expected > 0 && !files.iter().any(|file| file.read) {
+        return Err(LightningError::Unreadable(expected));
+    }
+    files.sort_by_key(|file| file.time);
+    flashes.sort_by_key(|near| (near.flash.time, near.order));
+
+    Ok(FlashReplay {
+        satellite: satellites.join(" and "),
+        window_minutes: WINDOW_MINUTES,
+        file_seconds: FILE_SECONDS,
+        max_files: MAX_FILES,
+        max_flashes: MAX_FLASHES,
+        files,
+        flashes,
     })
 }
 
@@ -652,6 +918,155 @@ mod tests {
         assert!(
             took < std::time::Duration::from_secs(30),
             "the window took {took:?}"
+        );
+    }
+    #[test]
+    fn a_replay_reads_the_five_minutes_before_it_and_nothing_that_ends_after_it() {
+        let from = 1_664_391_600i64;
+        let to = from + 600;
+        // Every file from ten minutes before to ten minutes after, newest
+        // first, with one listed twice, which the handover day does.
+        let mut keys: Vec<(i64, String)> = (-30..=60)
+            .rev()
+            .map(|step| (from + step * 20, format!("file{step:+}")))
+            .collect();
+        keys.push((from, "file+0".to_string()));
+        let wanted = replay_keys(keys, from, to);
+        // The first moment reads back five minutes.
+        assert_eq!(wanted.first().map(|(time, _)| *time), Some(from - 300));
+        // The last reads only a file that had finished by then.
+        assert_eq!(wanted.last().map(|(time, _)| *time), Some(to - 20));
+        assert!(wanted.windows(2).all(|pair| pair[0].0 < pair[1].0));
+        assert_eq!(wanted.len(), 15 + 30);
+    }
+
+    #[test]
+    fn a_replay_asks_the_satellite_that_was_goes_east_then() {
+        assert_eq!(goes_east_at(GOES19_FROM - 1).1, "GOES-16 East");
+        assert_eq!(goes_east_at(GOES19_FROM).1, "GOES-19 East");
+        assert!(goes_east_at(GOES19_FROM - 1).0.contains("noaa-goes16"));
+        assert!(goes_east_at(GOES19_FROM).0.contains("noaa-goes19"));
+        // Both addresses are ones the native side may reach.
+        for time in [GOES19_FROM - 1, GOES19_FROM] {
+            let (bucket, _) = goes_east_at(time);
+            let at = DateTime::<Utc>::from_timestamp(time, 0).unwrap();
+            let url = reqwest::Url::parse(&listing_url_in(bucket, at)).unwrap();
+            assert!(crate::http::is_allowed(&url), "{url} is refused");
+        }
+    }
+
+    #[test]
+    fn a_replay_keeps_the_flashes_near_a_place_and_where_they_sat_in_the_file() {
+        let place = ReplayPoint {
+            latitude: 26.64,
+            longitude: -81.87,
+        };
+        let at = |latitude: f32, longitude: f32| Flash {
+            latitude,
+            longitude,
+            energy_joules: 1.0,
+            area_square_km: 1.0,
+            time: 7,
+        };
+        // A tenth of a degree of latitude is about seven miles, so with ten
+        // asked for the second is in, the third is past the mile of slack at
+        // about twelve, and the fourth is on the other side of the continent.
+        // The last is ten and a half miles out: past the radius and inside
+        // the slack, which is there so the page's own distance decides it.
+        let file = [
+            at(26.64, -81.87),
+            at(26.74, -81.87),
+            at(26.81, -81.87),
+            at(40.0, -100.0),
+            at(26.60, -81.90),
+            at(26.792, -81.87),
+        ];
+        let near = flashes_near(&file, &[place], 10.0);
+        assert_eq!(
+            near.iter().map(|flash| flash.order).collect::<Vec<_>>(),
+            vec![0, 1, 4, 5]
+        );
+        // A second place brings in what is near it, and nothing twice.
+        let far = ReplayPoint {
+            latitude: 40.0,
+            longitude: -100.0,
+        };
+        assert_eq!(flashes_near(&file, &[place, far], 10.0).len(), 5);
+        assert!(flashes_near(&file, &[], 10.0).is_empty());
+    }
+
+    #[test]
+    fn a_replay_refuses_a_stretch_it_would_not_ask_for() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+        let point = ReplayPoint {
+            latitude: 26.64,
+            longitude: -81.87,
+        };
+        for (from, to, radius) in [
+            (1_000, 0, 10.0),
+            (0, MAX_REPLAY_HOURS * 3600 + 1, 10.0),
+            (0, 600, 0.0),
+            (0, 600, f64::NAN),
+        ] {
+            assert!(matches!(
+                runtime.block_on(lightning_replay(from, to, vec![point], radius)),
+                Err(LightningError::ReplaySpan(_))
+            ));
+        }
+    }
+
+    /// Talks to NOAA, so it is ignored with the other live tests.
+    #[test]
+    #[ignore = "fetches past flashes from the GOES-16 archive"]
+    fn replays_the_lightning_at_ians_landfall() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+        // Ian came ashore at Cayo Costa at about 19:05 UTC on the 28th of
+        // September 2022, under GOES-16.
+        let from = chrono::NaiveDate::from_ymd_opt(2022, 9, 28)
+            .unwrap()
+            .and_hms_opt(19, 0, 0)
+            .unwrap()
+            .and_utc()
+            .timestamp();
+        let fort_myers = ReplayPoint {
+            latitude: 26.64,
+            longitude: -81.87,
+        };
+        let started = std::time::Instant::now();
+        let replay = runtime
+            .block_on(lightning_replay(from, from + 600, vec![fort_myers], 25.0))
+            .expect("the archive holds GOES-16's files for that day");
+        let took = started.elapsed();
+
+        assert_eq!(replay.satellite, "GOES-16 East");
+        // Five minutes before and ten after, a file every twenty seconds,
+        // the last of them ending as the stretch does.
+        assert_eq!(replay.files.len(), 45, "{:?}", replay.files.first());
+        assert!(replay.files.iter().all(|file| file.read));
+        assert!(replay.files.iter().all(|file| file.flashes > 0));
+        assert!(
+            !replay.flashes.is_empty(),
+            "no flashes near Fort Myers at landfall"
+        );
+        for near in &replay.flashes {
+            let miles = distance_km(
+                fort_myers,
+                f64::from(near.flash.latitude),
+                f64::from(near.flash.longitude),
+            ) / KM_PER_MILE;
+            assert!(miles <= 26.0, "a flash {miles} miles out came back");
+            assert!(replay.files.iter().any(|file| file.time == near.flash.time));
+        }
+        println!(
+            "{} flashes near Fort Myers from {} files in {took:?}",
+            replay.flashes.len(),
+            replay.files.len()
         );
     }
 }

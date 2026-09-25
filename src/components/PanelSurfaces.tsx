@@ -584,6 +584,9 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onFlyTo={props.onFlyTo}
             watchPlaces={watchedPlaces(settings)}
             alertKinds={settings.alertTypes}
+            lightningRule={settings.lightningWatch}
+            approach={settings.approach}
+            station={props.singleSite?.station ?? null}
             onClose={onClose}
           />
         </LazyPanel>

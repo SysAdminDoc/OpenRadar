@@ -530,6 +530,12 @@ export function testWatchAlert(place: WatchPlace): WatchAlert {
  */
 export const WATCH_POLL_MS = 45_000;
 
+/**
+ * How often the app's clock moves, which is how often the lightning and
+ * storm-approach watches look again.
+ */
+export const CLOCK_TICK_MS = 60_000;
+
 /** How many polls in a row have to fail before the reader is told. */
 export const WATCH_FAILURES_BEFORE_SAYING = 3;
 

@@ -6,8 +6,9 @@ import {
   MORE_CONTRAST,
   reducedMotionRequested,
 } from "../lib/displayPreference";
+import { CLOCK_TICK_MS } from "../lib/watch";
 
-const TICK_MS = 60_000;
+const TICK_MS = CLOCK_TICK_MS;
 
 let now = Date.now();
 let timer: number | null = null;

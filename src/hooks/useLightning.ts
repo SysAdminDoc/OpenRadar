@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { isOnline } from "../lib/online";
 import { pollWhileOnline } from "../lib/poll";
 import { log } from "../lib/log";
+import { LIGHTNING_REFRESH_MS } from "../lib/lightningWatch";
 import { isDesktopRuntime } from "../lib/runtime";
 import { translate } from "../i18n";
 import { failureSentence } from "../lib/serviceAnswer";
 import { useLatestReply } from "./useLatestReply";
 
-/** A file lands every twenty seconds; asking once a minute is plenty. */
-export const REFRESH_MS = 60_000;
+/** How often the feed is asked, which lives beside the rules that read it. */
+export const REFRESH_MS = LIGHTNING_REFRESH_MS;
 
 export interface Flash {
   latitude: number;

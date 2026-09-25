@@ -485,7 +485,7 @@ export const de: Catalogue = {
   "history.saveBundle": "Wiedergabepaket speichern",
   "backtest.heading": "Was Ihre Beobachtung gesagt hätte",
   "backtest.note":
-    "Die eigenen Regeln Ihrer Warnungsbeobachtung, auf diese Wiedergabe angewandt, im Takt ihrer Abfragen und mit Ihren Ruhezeiten. Nichts wird gesendet und nichts landet in Ihrem Verlauf. Hinweise auf Blitze und herannahende Gewitter lassen sich nicht wiedergeben, weil die App von keinem der beiden ein Archiv führt.",
+    "Die eigenen Regeln Ihrer Beobachtung, auf diese Wiedergabe angewandt, im Takt ihrer Abfragen und mit Ihren Ruhezeiten: Warnungen aus dem Archiv, Blitze aus den Dateien des Satelliten selbst und herannahende Gewitter aus der Verfolgung des festgehaltenen Radarstandorts. Nichts wird gesendet und nichts landet in Ihrem Verlauf. Für die Blitze wird jede Satellitendatei der Wiedergabe gelesen, etwa hundert Megabyte pro Stunde, daher nur, solange der Blitzhinweis eingeschaltet ist.",
   "backtest.run": "Beobachtung wiedergeben",
   "backtest.noPlaces":
     "Sie beobachten noch keinen Ort, also gibt es nichts wiederzugeben. Fügen Sie in den Einstellungen einen hinzu.",
@@ -496,6 +496,24 @@ export const de: Catalogue = {
     "Die Ruhezeiten hielten sie ab {from} zurück, und sie war vorbei, bevor diese endeten.",
   "backtest.failed":
     "Das Warnungsarchiv hat nicht geantwortet, also gibt es nichts, womit sich die Beobachtung wiedergeben ließe.",
+  "backtest.lightningOff":
+    "Der Blitzhinweis ist ausgeschaltet, also gibt es keine Blitze wiederzugeben.",
+  "backtest.approachOff":
+    "Der Hinweis auf herannahende Gewitter ist ausgeschaltet, also gibt es keine Gewitter wiederzugeben.",
+  "backtest.desktopOnly":
+    "Blitze und die Gewitterverfolgung gibt die Desktop-App wieder, die ihre Archive liest.",
+  "backtest.lightningFailed":
+    "Das Blitzarchiv des Satelliten hat nicht geantwortet, also fehlen Blitze in dieser Wiedergabe.",
+  "backtest.lightningNoArchive":
+    "Das Satellitenarchiv hat keine Blitze für die Zeit dieses Sturms. Es beginnt 2018.",
+  "backtest.approachNoStation":
+    "Halten Sie einen Radarstandort fest, um wiederzugeben, was seine Gewitterverfolgung gesagt hätte.",
+  "backtest.approachFailed":
+    "Das Archiv der Gewitterverfolgung von {station} hat nicht geantwortet, also fehlen herannahende Gewitter in dieser Wiedergabe.",
+  "backtest.approachNoArchive":
+    "Das Archiv hat keine Gewitterverfolgung von {station} für die Zeit dieses Sturms. Es beginnt 2020.",
+  "backtest.approachFrom":
+    "Herannahende Gewitter werden aus der Verfolgung von {station} wiedergegeben.",
   "history.openBundle": "Ein Wiedergabepaket öffnen",
   "bundle.replayLabel": "Wiedergabepaket",
   "bundle.openTitle": "Ein OpenRadar-Wiedergabepaket öffnen",

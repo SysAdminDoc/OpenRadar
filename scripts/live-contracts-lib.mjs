@@ -106,7 +106,15 @@ export const LIVE_CONTRACTS = [
     label: "GOES lightning",
     host: "noaa-goes19.s3.amazonaws.com",
     kind: "native",
-    filter: "lightning::tests",
+    filter: "lightning::tests::reads_live_flashes_from_the_satellite",
+    required: false,
+  },
+  {
+    id: "lightning-replay",
+    label: "GOES-16 lightning archive",
+    host: "noaa-goes16.s3.amazonaws.com",
+    kind: "native",
+    filter: "lightning::tests::replays_the_lightning_at_ians_landfall",
     required: false,
   },
   {

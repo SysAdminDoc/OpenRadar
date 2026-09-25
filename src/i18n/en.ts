@@ -451,7 +451,7 @@ export const en = {
   "history.saveBundle": "Save replay bundle",
   "backtest.heading": "What your watch would have said",
   "backtest.note":
-    "Your warning watch's own rules, run over this replay at the pace it checks, with your quiet hours applied. Nothing is sent and nothing goes in your record. Lightning and approaching-storm notices can't be replayed, because the app keeps no archive of either.",
+    "Your watch's own rules, run over this replay at the pace it checks, with your quiet hours applied: warnings from the archive, lightning from the satellite's own files, and storms heading your way from the held radar site's tracking. Nothing is sent and nothing goes in your record. Lightning reads every satellite file in the replay, about a hundred megabytes an hour, so it's only read while the lightning notice is on.",
   "backtest.run": "Replay the watch",
   "backtest.noPlaces":
     "You aren't watching anywhere yet, so there's nothing to replay. Add a place in Settings.",
@@ -462,6 +462,24 @@ export const en = {
     "Quiet hours held it back from {from}, and it was over before they ended.",
   "backtest.failed":
     "The warnings archive didn't answer, so there's nothing to replay against.",
+  "backtest.lightningOff":
+    "The lightning notice is off, so there's no lightning to replay.",
+  "backtest.approachOff":
+    "The storm-approach notice is off, so there are no approaching storms to replay.",
+  "backtest.desktopOnly":
+    "Lightning and storm tracking are replayed by the desktop app, which reads their archives.",
+  "backtest.lightningFailed":
+    "The satellite's lightning archive didn't answer, so lightning isn't in this replay.",
+  "backtest.lightningNoArchive":
+    "The satellite archive has no lightning for this storm's time. It starts in 2018.",
+  "backtest.approachNoStation":
+    "Hold a radar site to replay what its storm tracking would have said.",
+  "backtest.approachFailed":
+    "The storm tracking archive for {station} didn't answer, so approaching storms aren't in this replay.",
+  "backtest.approachNoArchive":
+    "The archive has no storm tracking from {station} for this storm's time. It starts in 2020.",
+  "backtest.approachFrom":
+    "Approaching storms are replayed from the tracking at {station}.",
   "history.openBundle": "Open a replay bundle",
   "bundle.replayLabel": "Replay bundle",
   "bundle.openTitle": "Open an OpenRadar replay bundle",

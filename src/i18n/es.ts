@@ -466,7 +466,7 @@ export const es: Catalogue = {
   "history.saveBundle": "Guardar paquete de repetición",
   "backtest.heading": "Lo que habría dicho tu vigilancia",
   "backtest.note":
-    "Las mismas reglas de tu vigilancia de avisos, aplicadas a esta repetición al ritmo al que consulta y con tus horas de silencio. No se envía nada y nada se anota en tu registro. Los avisos de rayos y de tormentas que se acercan no se pueden repetir, porque la aplicación no guarda archivo de ninguno de los dos.",
+    "Las mismas reglas de tu vigilancia, aplicadas a esta repetición al ritmo al que consulta y con tus horas de silencio: los avisos del archivo, los rayos de los propios ficheros del satélite y las tormentas que se acercan del seguimiento del radar que tienes fijado. No se envía nada y nada se anota en tu registro. Los rayos leen cada fichero del satélite de la repetición, unos cien megabytes por hora, así que solo se leen mientras el aviso de rayos está activado.",
   "backtest.run": "Repetir la vigilancia",
   "backtest.noPlaces":
     "Todavía no vigilas ningún lugar, así que no hay nada que repetir. Añade uno en Ajustes.",
@@ -477,6 +477,24 @@ export const es: Catalogue = {
     "Las horas de silencio lo retuvieron desde {from}, y terminó antes que ellas.",
   "backtest.failed":
     "El archivo de avisos no respondió, así que no hay con qué repetirla.",
+  "backtest.lightningOff":
+    "El aviso de rayos está desactivado, así que no hay rayos que repetir.",
+  "backtest.approachOff":
+    "El aviso de tormentas que se acercan está desactivado, así que no hay tormentas que repetir.",
+  "backtest.desktopOnly":
+    "Los rayos y el seguimiento de tormentas los repite la aplicación de escritorio, que lee sus archivos.",
+  "backtest.lightningFailed":
+    "El archivo de rayos del satélite no respondió, así que los rayos no están en esta repetición.",
+  "backtest.lightningNoArchive":
+    "El archivo del satélite no tiene rayos para la hora de esta tormenta. Empieza en 2018.",
+  "backtest.approachNoStation":
+    "Fija un radar para repetir lo que habría dicho su seguimiento de tormentas.",
+  "backtest.approachFailed":
+    "El archivo de seguimiento de tormentas de {station} no respondió, así que las tormentas que se acercan no están en esta repetición.",
+  "backtest.approachNoArchive":
+    "El archivo no tiene seguimiento de tormentas de {station} para la hora de esta tormenta. Empieza en 2020.",
+  "backtest.approachFrom":
+    "Las tormentas que se acercan se repiten con el seguimiento de {station}.",
   "history.openBundle": "Abrir un paquete de repetición",
   "bundle.replayLabel": "Paquete de repetición",
   "bundle.openTitle": "Abrir un paquete de repetición de OpenRadar",
