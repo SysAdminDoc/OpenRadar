@@ -22,11 +22,12 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 - [ ] AUD-166: Long-session memory and the two-day-old cached view
       Note 2026-09-07: Anvil measured this instead of estimating it (commit 0f5972d, 2026-09-04): a retained-geometry sampler walking the frames every 5 s, deduped by ArrayBuffer identity, beside performance.memory. The ceiling was a per-renderer V8 heap cap of about 4,192 MB unrelated to machine RAM, a 26-frame replay retained 2,178 MB, and capping the dual-pol prefetch at 12 frames on that evidence took a 39-frame peak from 3,427 to 2,042 MB. That sampler is the shape this item's soak script wants.
+      Note 2026-09-25: `e2e/soak.spec.ts` and `playwright.soak.config.ts` now provide the soak test. The unfinished work is the eight-hour result, Rust RSS and WebView2 child-process sampling, GPU memory, and the Evergreen WebView2 runtime version so measurements remain comparable across restarts.
       Category: perf
       Where: `src/hooks/useRadarTimeline.ts`, `src-tauri/src/cache.rs`, the map's tile sources
       Problem: The product is meant to be left open on a second monitor for days. Nothing in this pass ran longer than a few minutes; whether the webview's memory stays flat over a day of loops, palette changes and panel opens is unmeasured.
-      Evidence: No soak test exists in `e2e/` or `scripts/`. (2026-09-03: a 17-point Hacker News thread on the Windows 11 Weather app using 1.2 GB of RAM, https://news.ycombinator.com/item?id=49290078, says a native app should fit in 100 MB; the measured number belongs in the README once this runs. Measure the `msedgewebview2` children, not the Rust process alone.)
-      Fix: A soak script that opens the workspace, runs the loop at the slowed ambient cadence for eight hours with a stubbed radar host, and samples `performance.memory` and the Rust process RSS every ten minutes.
+      Evidence: The soak test exists, but no recorded eight-hour result or native/GPU trace is committed. (2026-09-03: a 17-point Hacker News thread on the Windows 11 Weather app using 1.2 GB of RAM, https://news.ycombinator.com/item?id=49290078, says a native app should fit in 100 MB; the measured number belongs in the README once this runs. Measure the `msedgewebview2` children, not the Rust process alone.)
+      Fix: Extend the soak test to sample `performance.memory`, Rust RSS, every `msedgewebview2` child, GPU memory and the WebView2 runtime version every ten minutes, then record an eight-hour run.
       Acceptance: A recorded run with flat memory, or a leak logged here with the sampler's trace.
       Confidence: Needs-repro
       Effort: M
@@ -123,9 +124,10 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
 
 - [ ] AUD-340 (P3): Colour the national grids on the GPU
       Note 2026-09-07 (evening): MapLibre #7029 (colour-relief styling for any raster) was closed as a duplicate of style-spec #1490, a declarative `encoding` expression; nothing shipped in 6.7 or 6.8, so the `raster-dem` custom encoding stays the route. 6.7.0 moved `color-relief` to `texelFetch` for exact stops and added a `resampling` paint property. `maplibre-contour` derives contour tiles from the same value-encoded raster through `addProtocol`, which is the isopleth follow-on once this lands.
+      Note 2026-09-25: The cited monolithic `src-tauri/src/mrms.rs` has been split. The current tile implementation is `src-tauri/src/mrms/tiles.rs`; provider and listing code live beside it under `src-tauri/src/mrms/`.
       Why: Colour is applied in Rust and a palette load, a threshold or a contrast toggle bumps a generation into every tile address and cache key, so each one re-renders and re-fetches the whole screen of tiles. MapLibre has no `raster-color`, and the request for one has been open since 2024-07-31, but 6.7.0 ships a `color-relief` layer over a `raster-dem` source with a custom encoding: the tile carries the value, the style carries the ramp as an expression, and a new ramp is a style change with no fetch. The value under the cursor comes from the same tile.
-      Evidence: https://maplibre.org/maplibre-style-spec/sources/ (raster-dem `custom` encoding, `redFactor`, `greenFactor`, `blueFactor`, `baseShift`, added 3.4.0); https://maplibre.org/maplibre-gl-js/docs/examples/add-a-color-relief-layer/ (6.7.0); https://github.com/maplibre/maplibre-gl-js/issues/4479 ; `CLAUDE.md` (the palette generation in the tile address); `src-tauri/src/mrms.rs` (`tile_from_cache`, `TileLook`).
-      Touches: `src-tauri/src/mrms.rs` (a value-encoded PNG per tile, the missing value below `baseShift`), `src/lib/providers/mrms.ts` and `MapViewport.tsx` (a `raster-dem` source and a `color-relief` layer per product, the ramp built from `src/lib/palette.ts`, the threshold as a transparent stop), the compare pane, the export caption, the between-the-cells smoothing (`b81d5e0`), the readout.
+      Evidence: https://maplibre.org/maplibre-style-spec/sources/ (raster-dem `custom` encoding, `redFactor`, `greenFactor`, `blueFactor`, `baseShift`, added 3.4.0); https://maplibre.org/maplibre-gl-js/docs/examples/add-a-color-relief-layer/ (6.7.0); https://github.com/maplibre/maplibre-gl-js/issues/4479 ; `CLAUDE.md` (the palette generation in the tile address); `src-tauri/src/mrms/tiles.rs` (`tile_from_cache`, `TileLook`).
+      Touches: `src-tauri/src/mrms/tiles.rs` (a value-encoded PNG per tile, the missing value below `baseShift`), `src/lib/providers/mrms.ts` and `MapViewport.tsx` (a `raster-dem` source and a `color-relief` layer per product, the ramp built from `src/lib/palette.ts`, the threshold as a transparent stop), the compare pane, the export caption, the between-the-cells smoothing (`b81d5e0`), the readout.
       Acceptance: Loading a colour table redraws with zero `mrms:` requests in the network log (a Playwright test proves it); the drawn colours match the Rust ramp within one step on the fixture; the readout still reports the value; the fine grids and the sparse products (rotation, hail, lightning) draw as before.
       Complexity: L
 
@@ -235,3 +237,104 @@ Twelfth research pass, at `4bd9e96` with the 2026-09-10 working copy still uncom
 - The European radar item in `Roadmap_Blocked.md`: a Spanish Omastorm user (#38) read eleven PVOL sites from the anonymous OPERA `openradar-24h` bucket on CloudFerro as ODIM H5 with DBZH and VRADH at five-minute cadence. New evidence, unverified terms, and a third decoder; the verdict stands until someone reads the bucket's policy.
 - `AUD-378`: danielway/nexrad is still silent (no commit since 2026-07-21) and now holds two open PRs, #148 and #149; the app's own table remains the route.
 - `AUD-166`: the GOES-19 yaw flip on 2026-09-22 (GLM out 16:30 to 17:15 UTC) and the GOES-18 flush on 2026-09-25 (false events 03:00 to 03:10 UTC) are two scheduled gaps a soak run could be timed to cover.
+
+## Research-Driven Additions
+
+### P0
+
+- [ ] AUD-537 (P0): Patch the Tauri IPC and updater trust chain before the next installer
+      Why: The locked graph predates a cross-webview IPC isolation fix and does not bind the version in updater metadata to the version covered by the artifact signature.
+      Evidence: https://github.com/tauri-apps/tauri/releases/tag/tauri-v2.11.6 ; https://github.com/tauri-apps/tauri/releases/tag/%40tauri-apps%2Fcli-v2.11.5 ; https://github.com/tauri-apps/plugins-workspace/releases/tag/updater-v2.12.0 ; `package-lock.json`; `src-tauri/Cargo.lock`; `src-tauri/tauri.conf.json`; `scripts/release-lib.mjs`.
+      Touches: `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, both Cargo lockfiles, `src-tauri/tauri.conf.json`, `scripts/release-lib.mjs`, `scripts/release-lib.test.mjs`.
+      Acceptance: The locked graph resolves Tauri core at 2.11.6 or newer, CLI at 2.11.5 or newer, and both updater bindings at 2.12.0 or newer; `requireSignedVersion` is true and `allowDowngrades` is false; a fixture signed for 0.13.0 is accepted, while the same artifact and signature paired with manifest version 0.13.1 is rejected; the release gate, tests, audit, and packaged build pass.
+      Complexity: M
+
+### P1
+
+- [ ] AUD-538 (P1): Restrict every custom Tauri command to the windows that need it
+      Why: `glance.json` promises a read-only window, but commands registered only through `invoke_handler` are callable by every local window unless the build declares command permissions.
+      Evidence: https://v2.tauri.app/security/capabilities/ ; https://docs.rs/tauri-build/latest/tauri_build/struct.AppManifest.html ; `src-tauri/build.rs`; `src-tauri/src/lib.rs`; `src-tauri/capabilities/glance.json`.
+      Touches: `src-tauri/build.rs`, generated capability schemas and permissions, `src-tauri/capabilities/default.json`, `src-tauri/capabilities/glance.json`, `src-tauri/src/lib.rs`, native ACL tests.
+      Acceptance: `AppManifest::commands` declares every custom command; `main` receives only its required generated permissions; `glance` receives only `glance_read`; a drift test fails when `invoke_handler` and the manifest differ; a native test proves `glance_read` succeeds while cache clearing, journal mutation, export, incident-pack deletion, wallpaper, and sound-byte commands return an ACL denial.
+      Complexity: M
+
+- [ ] AUD-539 (P1): Isolate GLM NetCDF decoding from the main process
+      Why: The committed deep-nesting reproducer overflows the upstream reader's stack, which terminates the process before `catch_unwind` or `spawn_blocking` can recover.
+      Evidence: `Roadmap_Blocked.md` (NetCDF recursion); `src-tauri/src/lightning.rs`; `src-tauri/fuzz/reproducers/netcdf-flashes-access-violation.bin`; the existing hidden crash-monitor launch path in `src-tauri/src/lib.rs`.
+      Touches: `src-tauri/src/main.rs`, `src-tauri/src/lib.rs`, `src-tauri/src/lightning.rs`, GLM tests, crash logging.
+      Acceptance: A hidden no-console worker decodes one bounded granule over framed pipes; the committed reproducer kills only the worker, leaves the main test process alive, records a typed decode failure, retains the last good five-minute window, and accepts the next healthy granule; timeouts and oversized worker output are rejected; normal fixtures produce byte-for-byte equivalent flash records.
+      Complexity: L
+
+- [ ] AUD-540 (P1): Resolve live warning identity from CAP references before a VTEC transition
+      Why: NWS proposes CAP as the primary alert format, while the app keys updates by VTEC and otherwise falls back to a new CAP identifier for every message.
+      Evidence: https://www.weather.gov/media/notification/pdf_2026/PNS26-62_Updated_CAP_Transition_aaa.pdf ; https://docs.oasis-open.org/emergency/cap/v1.2/CAP-v1.2-os.html ; `src/lib/overlays/alerts.ts` (`parseAlertTags`); `src/lib/watch.ts` (`alertId`); `src/lib/backtest.ts`.
+      Touches: `src/lib/overlays/alerts.ts`, a shared CAP-lineage module, `src/lib/watch.ts`, `src/hooks/useAlertWatch.ts`, `src/hooks/useFollowWarning.ts`, `src/lib/backtest.ts`, their tests.
+      Acceptance: NEW, UPDATE, and CANCEL fixtures without VTEC resolve through `references` to one stable event; a trim or continuation does not replay the new-warning sound; a severity escalation still announces; cancellation removes the event; malformed and cyclic references terminate safely; the bounded lineage cache is shared by live watch and backtesting, with VTEC retained as a fallback.
+      Complexity: M
+
+- [ ] AUD-541 (P1): Add an explicit Level III Bandwidth Saver for held-site base products
+      Why: A 2026-09-25 KTLX sample made the selected Level III product about 97 percent smaller than the matching Level II volume, and weak-cellular operation is a repeated field complaint.
+      Evidence: https://unidata-nexrad-level3.s3.amazonaws.com/?list-type=2&prefix=TLX_N0B_2026_09_25&max-keys=5 ; https://unidata-nexrad-level2.s3.amazonaws.com/?list-type=2&prefix=2026/09/25/KTLX/&max-keys=5 ; https://github.com/meridianstudios/auros ; `src-tauri/src/level3.rs`.
+      Touches: `src-tauri/src/level3.rs`, `src-tauri/src/level2/`, `src/hooks/useSingleSiteRadar.ts`, `src/lib/level2.ts`, `src/lib/settings.ts`, `src/panels/RadarProductPanel.tsx`, provenance and translations.
+      Acceptance: An explicit Bandwidth Saver setting maps every supported base product and elevation to Level III, shows source, code and observed time, and never falls back silently; whole-volume products provide a Load Level II action; a recorded 30-minute KTLX contract transfers at least 90 percent fewer radar bytes for one selected base product; tests cover UTC rollover, missing cuts, stale data, unsupported products, and switching back to Level II.
+      Complexity: L
+
+### P2
+
+- [ ] AUD-542 (P2): Upgrade MapLibre to 6.11.2 and close the imported-attribution test gap
+      Why: Releases after the locked 6.10.0 add worker-error propagation, stricter attribution sanitization, memory fixes, projection performance work, and sharp raster backing stores at fractional device pixel ratios.
+      Evidence: https://github.com/maplibre/maplibre-gl-js/releases/tag/v6.11.0 ; https://github.com/maplibre/maplibre-gl-js/releases/tag/v6.11.1 ; https://github.com/maplibre/maplibre-gl-js/releases/tag/v6.11.2 ; `src/lib/incidentPacks.ts`; `src/lib/mapStyles.ts`.
+      Touches: `package.json`, `package-lock.json`, `src/lib/mapStyles.test.ts`, `src/lib/incidentPacks.test.ts`, `src/components/MapViewport.tsx`, packaged visual fixtures.
+      Acceptance: The lock resolves 6.11.2; attribution strips scripts, event handlers, `javascript:` URLs, SVG, MathML, and nested controls while retaining plain links and basic emphasis; worker-load errors reach the existing log and visible error path; radar, satellite, surge, and imported PMTiles remain sharp in a packaged capture at device scale 1.25.
+      Complexity: S
+
+- [ ] AUD-543 (P2): Freeze NEXRAD Build 25 LTR compatibility before 2027-02-15
+      Why: SCN26-54 adds Level II record type 30 after end-of-volume, and the current decoder path has no real Build 25 file proving the extra record cannot disturb frames, timing, or chunk assembly.
+      Evidence: https://www.weather.gov/media/notification/pdf_2026/scn26-54_WSR-88D_Level2_Add_LTR.pdf ; https://www.roc.noaa.gov/public-documents/icds/2620010K_draft.pdf ; `src-tauri/src/level2/decode.rs`; `src-tauri/src/chunks.rs`; the pinned `nexrad` release in `src-tauri/Cargo.lock`.
+      Touches: `src-tauri/src/level2/decode.rs`, `src-tauri/src/level2/section.rs`, `src-tauri/src/chunks.rs`, Level II fixtures and tests, release live contracts.
+      Acceptance: A frozen KCRI Build 25 sample passes full-file, range, and chunk paths; type 30 is skipped or decoded without error; type 31 radial counts, tilts, timestamps, volume boundaries, and Nyquist tables match an equivalent file without LTR; no phantom frame appears; raw export remains byte-identical; nested compression and decoded-length limits are exercised.
+      Complexity: M
+
+- [ ] AUD-544 (P2): Include the archive instant in shared radar links
+      Why: Historical scans are actively shared for review and teaching, but current links preserve the view without the time and can reopen on live radar.
+      Evidence: https://github.com/FahrenheitResearch/meowdar-98#archive-links ; https://www.reddit.com/r/tornado/comments/1wdirxg/ ; `src/lib/deepLink.ts`; `src/hooks/useHistoricalSweep.ts`.
+      Touches: `src/lib/deepLink.ts`, `src/hooks/useHistoricalSweep.ts`, `src/hooks/useSingleSiteRadar.ts`, share UI and desktop deep-link tests.
+      Acceptance: Sharing a historical view adds `archiveAt=<UTC ISO timestamp>` with the site, product, tilt and camera; opening it selects the nearest valid volume at or before that instant and never falls back to live data; existing links still work; tests cover browser and desktop URLs, UTC midnight, invalid timestamps, and missing objects.
+      Complexity: S
+
+- [ ] AUD-545 (P2): Add a concise interpretation guide for every selectable radar product
+      Why: The app exposes specialist products without consistently saying what they measure, when they help, or what they cannot prove, which is a repeated beginner complaint.
+      Evidence: https://www.weather.gov/jan/dualpolupgrade-products ; https://training.weather.gov/wdtd/courses/dualpol/Outreach/ ; https://www.weather.gov/media/crp/QuickReference-MediaGuide.pdf ; `src/lib/level2.ts`; `src/panels/RadarProductPanel.tsx`.
+      Touches: `src/lib/level2.ts`, a typed guide catalogue, `src/panels/RadarProductPanel.tsx`, derived-product metadata, all four locale files, accessibility and coverage tests.
+      Acceptance: Every selectable base and derived product has localized Measures, Useful for, and Cannot establish text grounded in its actual algorithm; the guide opens by keyboard and touch without hover; a catalogue test fails for missing product IDs or locales; derived entries cite the implementation or source method in the in-app provenance view.
+      Complexity: M
+
+- [ ] AUD-546 (P2): Add NOAA experimental inland inundation extent as an official raster layer
+      Why: NOAA now publishes hourly analysis and five-day NWM and RFC maximum inundation extents, which add areal inland flood context not supplied by gauges, surge, or excessive-rain risk.
+      Evidence: https://www.weather.gov/media/notification/pdf_2026/pns23-55_Updated_Exp_FIM_Services_ExtExp2026_aad.pdf ; https://maps.water.noaa.gov/server/rest/services/nwm/ana_inundation_extent/MapServer ; https://maps.water.noaa.gov/server/rest/services/rfc/rfc_based_5day_max_inundation_extent/MapServer ; `src/lib/overlays/rivers.ts`; `src/lib/surge.ts`.
+      Touches: a FIM adapter, `src/lib/overlays/registry.ts`, the existing raster lane, `src/lib/settings.ts`, `src/panels/LayersPanel.tsx`, `src-tauri/src/http.rs`, `src-tauri/tauri.conf.json`, `docs/asset-ledger.md`, live contracts and all locale files.
+      Acceptance: Analysis, NWM five-day maximum, and RFC five-day maximum use fixed MapServer export endpoints rather than an unpaged feature query; each shows reference time, update time, NOAA attribution, Experimental, Extent not depth, and Not an official warning; outside-coverage and unavailable states never read as clear; metadata and image contracts plus mocked visual tests pass.
+      Complexity: L
+
+- [ ] AUD-547 (P2): Add WPC surface analysis through a fixed allowlisted adapter
+      Why: Fronts, drylines, troughs, and pressure centers add official mesoscale context that radar cannot supply, and WPC publishes a three-hourly transparent analysis series.
+      Evidence: https://www.wpc.ncep.noaa.gov/kml/kmlproducts.php ; https://www.wpc.ncep.noaa.gov/kml/conus_png/conus_analysis_latest_transparent.kml ; https://www.wpc.ncep.noaa.gov/html/fntcodes2.shtml ; `src/lib/kml.ts`.
+      Touches: a WPC surface adapter, `src/lib/overlays/registry.ts`, the existing raster lane, `src/panels/LayersPanel.tsx`, `src-tauri/src/http.rs`, CSP, asset ledger, cache policy, live contracts and translations.
+      Acceptance: The adapter renders the latest analysis and advertised past-24-hour set from fixed WPC URLs, shows issue and valid time with stale state, and hides with an explanation when historical radar predates available analyses; fixture tests cover bounds, URL allowlisting, UTC rollover and malformed KML; arbitrary NetworkLink remains unsupported.
+      Complexity: M
+
+### P3
+
+- [ ] AUD-548 (P3): Show scan metadata that changes how velocity should be read
+      Why: VCP, exact elevation, Nyquist velocity, and unambiguous range explain cadence, available cuts, and velocity folding, but the decoder's values are not visible in the main readout or export provenance.
+      Evidence: https://github.com/kerryhatcher/rustywx ; https://www.grlevelx.com/manuals/gr2analyst/window_info.htm ; `src-tauri/src/level2/`; `src/panels/RadarProductPanel.tsx`.
+      Touches: Level II response types, `src/hooks/useSingleSiteRadar.ts`, `src/panels/RadarProductPanel.tsx`, legend/readout components, `src/lib/provenance.ts`, export sidecars and translations.
+      Acceptance: The held-site view and export provenance show VCP, exact elevation, Nyquist velocity and unambiguous range when present; absent values read Unavailable rather than zero; split-cut and live-chunk tests prove metadata cannot leak from the prior cut or volume.
+      Complexity: S
+
+- [ ] AUD-549 (P3): Derive README build requirements and fuzz inventory from manifests
+      Why: README currently says Rust 1.85 while Cargo requires 1.90 and names seven fuzz targets while the manifest defines eight, so the existing prose-only gate passes contradictory setup instructions.
+      Evidence: `README.md:251`; `README.md:291`; `src-tauri/Cargo.toml` (`rust-version`); `src-tauri/fuzz/Cargo.toml` (`[[bin]]`); `src/lib/docs.test.ts`.
+      Touches: `README.md`, `src/lib/docs.test.ts`.
+      Acceptance: README states the manifest's Rust 1.90 minimum and names all eight fuzz targets including `pmtiles_archive`; the documentation test parses `rust-version` and every fuzz `[[bin]].name` from the manifests and fails when either drifts.
+      Complexity: S
