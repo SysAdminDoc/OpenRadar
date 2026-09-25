@@ -10,6 +10,16 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
+- [ ] AUD-536 (P3): The live lightning window downloads its fifteen files again every minute
+      Category: perf
+      Where: `src-tauri/src/lightning.rs` (`lightning_flashes`), `src-tauri/src/http.rs` (`get_bytes`)
+      Problem: Each poll lists the hour and fetches all fifteen files of the five-minute window through `get_bytes`, which goes to the network first and keeps the cache only as a fallback. Twelve of the fifteen were already fetched a minute earlier, so a reader with lightning on pulls about nine megabytes a minute (half a gigabyte an hour on a hurricane afternoon, when a GOES-16 file measured 590 KB on average) where one and a half would do. Every file also goes into the shared cache, three new ones a minute at up to two megabytes each, which turns the 256 MB cache over in a few hours and flushes the tiles and grids the offline view is made of. `get_bytes_uncached` exists for exactly this case and its comment names it.
+      Evidence: `lightning_flashes` loops `http::get_bytes(&format!("{BUCKET}/{key}"))` over `recent_keys`; `get_bytes_up_to` calls `fetch_bytes` before `cache::get_async`; the listing of `GLM-L2-LCFA/2022/271/19/` on `noaa-goes16` holds 180 files totalling 106,533,372 bytes (2026-09-24).
+      Fix: Keep the decoded flashes of the last window's files in memory keyed by file, fetch only the keys not already held, and fetch those uncached.
+      Acceptance: Two polls a minute apart fetch three files between them, not thirty, in a test that counts fetches; the shared cache gains no GLM entries.
+      Confidence: Confirmed by reading
+      Effort: S
+
 - [ ] AUD-166: Long-session memory and the two-day-old cached view
       Note 2026-09-07: Anvil measured this instead of estimating it (commit 0f5972d, 2026-09-04): a retained-geometry sampler walking the frames every 5 s, deduped by ArrayBuffer identity, beside performance.memory. The ceiling was a per-renderer V8 heap cap of about 4,192 MB unrelated to machine RAM, a 26-frame replay retained 2,178 MB, and capping the dual-pol prefetch at 12 frames on that evidence took a 39-frame peak from 3,427 to 2,042 MB. That sampler is the shape this item's soak script wants.
       Category: perf
