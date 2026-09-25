@@ -7,6 +7,8 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureLanguage, setLanguage } from "../i18n";
+import { DEFAULT_APPROACH } from "../lib/approach";
+import { DEFAULT_LIGHTNING_RULE } from "../lib/lightningWatch";
 import type { OverlayData } from "../lib/overlays";
 import { formatClock } from "../lib/units";
 import { WATCH_POLL_MS, type WatchPlace } from "../lib/watch";
@@ -40,6 +42,13 @@ const home: WatchPlace = {
   minSeverity: "moderate",
   sound: true,
   voice: true,
+};
+
+// The two notices that are not warnings, switched off as they ship.
+const notOn = {
+  lightning: DEFAULT_LIGHTNING_RULE,
+  approach: DEFAULT_APPROACH,
+  station: null,
 };
 
 const from = new Date(2026, 4, 20, 13, 30).getTime();
@@ -94,7 +103,15 @@ afterEach(async () => {
 describe("replaying the watch over a storm", () => {
   it("lists what each place would have been told and when, and tells nobody", async () => {
     fetchArchiveWarnings.mockResolvedValue({ data: archived, short: 0 });
-    render(<WatchBacktest places={[home]} kinds={{}} from={from} to={to} />);
+    render(
+      <WatchBacktest
+        places={[home]}
+        kinds={{}}
+        {...notOn}
+        from={from}
+        to={to}
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: /Replay the watch/ }));
 
     const place = await screen.findByText("Home");
@@ -122,7 +139,15 @@ describe("replaying the watch over a storm", () => {
   it("speaks the reader's language", async () => {
     await ensureLanguage("es");
     act(() => setLanguage("es"));
-    render(<WatchBacktest places={[home]} kinds={{}} from={from} to={to} />);
+    render(
+      <WatchBacktest
+        places={[home]}
+        kinds={{}}
+        {...notOn}
+        from={from}
+        to={to}
+      />,
+    );
     expect(
       screen.getByRole("button", { name: /Repetir la vigilancia/ }),
     ).toBeTruthy();
@@ -133,6 +158,7 @@ describe("replaying the watch over a storm", () => {
       <WatchBacktest
         places={[{ ...home, enabled: false }]}
         kinds={{}}
+        {...notOn}
         from={from}
         to={to}
       />,
@@ -145,7 +171,15 @@ describe("replaying the watch over a storm", () => {
 
   it("says so when the archive does not answer", async () => {
     fetchArchiveWarnings.mockRejectedValue("no answer");
-    render(<WatchBacktest places={[home]} kinds={{}} from={from} to={to} />);
+    render(
+      <WatchBacktest
+        places={[home]}
+        kinds={{}}
+        {...notOn}
+        from={from}
+        to={to}
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: /Replay the watch/ }));
     expect(
       await screen.findByText(/The warnings archive didn't answer/),

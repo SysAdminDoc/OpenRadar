@@ -97,13 +97,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
 
 ### P3
 
-- [ ] AUD-530 (P3): Replay the lightning and storm-approach rules, not only the warning watch
-  Why: `AUD-344` shipped the backtest for the warning watch (`src/lib/backtest.ts`, the History panel's "What your watch would have said"), and the panel says plainly that lightning and approaching-storm notices can't be replayed. The roadmap item had assumed "the replayed lightning window" existed. It does not: `useLightning` asks the native `lightning_flashes` command for the current window only, and the storm cells have no replay path at all.
-  Evidence: `src/hooks/useLightning.ts` (one `invoke("lightning_flashes")`, no time argument); `src/lib/lightningWatch.ts` and `src/lib/approach.ts` are already pure and take a clock, so the rules are ready and the data is what is missing. GLM L2 flash files for past hours are on the public GOES buckets, and the storm tracking product is in the Level III archive the app already reads for other products.
-  Touches: `src-tauri/src/lightning.rs` (a window at a past time), the Level III cell reader (reports at past volume times for the replayed site), `src/lib/backtest.ts` (the two rules over those inputs), `WatchBacktest.tsx`, `src/i18n/*`.
-  Acceptance: A replayed storm lists the lightning and approach notices each watched place would have had, with the same quiet-hour handling the warnings get; a fixture day with flashes inside a place's radius yields the "started" and "quiet" notices at the right times; the panel stops saying they can't be replayed.
-  Complexity: M
-
 - [ ] AUD-351 (P3): Pick the monitor for the full-screen view and the glance window
       Why: The full-screen view takes whichever monitor the window happens to be on, so the second-monitor reader drags the window across first, every time. OBS opens a projector on a named display and reopens it there next launch; Sunshine remembers a monitor by its device id because indices reorder. Nothing in the tree asks Tauri which monitors exist.
       Evidence: no `availableMonitors` or `currentMonitor` in `src` or `src-tauri` (2026-09-07); https://obsproject.com/kb/power-of-projectors ; https://github.com/LizardByte/Sunshine/releases/tag/v2026.906.222525 ; `src-tauri/src/display.rs`, `src-tauri/src/tray.rs`.

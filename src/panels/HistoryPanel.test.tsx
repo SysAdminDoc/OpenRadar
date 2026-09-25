@@ -10,6 +10,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HistoryPanel } from "./HistoryPanel";
 import * as hurdat from "../lib/hurdat";
 import type { WatchPlace } from "../lib/watch";
+import { DEFAULT_APPROACH } from "../lib/approach";
+import { DEFAULT_LIGHTNING_RULE } from "../lib/lightningWatch";
 
 interface Deferred<T> {
   promise: Promise<T>;
@@ -105,6 +107,9 @@ function renderPanel(
       onFlyTo={() => {}}
       watchPlaces={watchPlaces}
       alertKinds={{}}
+      lightningRule={DEFAULT_LIGHTNING_RULE}
+      approach={DEFAULT_APPROACH}
+      station={null}
       onClose={() => {}}
     />,
   );
@@ -172,6 +177,9 @@ describe("HistoryPanel selection", () => {
           onFlyTo={() => {}}
           watchPlaces={[]}
           alertKinds={{}}
+          lightningRule={DEFAULT_LIGHTNING_RULE}
+          approach={DEFAULT_APPROACH}
+          station={null}
           onClose={() => {}}
         />
       );
@@ -212,6 +220,9 @@ describe("HistoryPanel selection", () => {
           onFlyTo={() => {}}
           watchPlaces={[]}
           alertKinds={{}}
+          lightningRule={DEFAULT_LIGHTNING_RULE}
+          approach={DEFAULT_APPROACH}
+          station={null}
           onClose={() => {}}
         />
       );
@@ -263,6 +274,9 @@ describe("HistoryPanel replay bundles", () => {
         bundlesAvailable
         watchPlaces={[]}
         alertKinds={{}}
+        lightningRule={DEFAULT_LIGHTNING_RULE}
+        approach={DEFAULT_APPROACH}
+        station={null}
         onClose={() => {}}
       />,
     );
@@ -375,6 +389,9 @@ describe("HistoryPanel when the selection moves under a fetch", () => {
         onFlyTo={() => {}}
         watchPlaces={[]}
         alertKinds={{}}
+        lightningRule={DEFAULT_LIGHTNING_RULE}
+        approach={DEFAULT_APPROACH}
+        station={null}
         onClose={() => {}}
       />,
     );

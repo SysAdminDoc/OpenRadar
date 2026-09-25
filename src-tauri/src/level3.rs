@@ -26,6 +26,7 @@ use std::collections::BTreeMap;
 use std::io::Read;
 
 use chrono::{DateTime, Duration, TimeZone, Utc};
+use futures_util::stream::{self, StreamExt as _};
 use serde::Serialize;
 
 use crate::http;
@@ -62,6 +63,10 @@ pub enum Level3Error {
     NoProduct(String, String),
     #[error("the product could not be decoded: {0}")]
     Decode(String),
+    #[error("a storm tracking replay covers at most {0} hours")]
+    ReplaySpan(i64),
+    #[error("none of the {0} storm tracking products for that time could be read")]
+    Unreadable(usize),
     #[error(transparent)]
     Http(#[from] http::HttpError),
 }
@@ -1772,6 +1777,127 @@ pub async fn level3_cells(station: String) -> Result<CellReport, Level3Error> {
     Ok(report)
 }
 
+/// The longest stretch of storm tracking a replay may ask for, which is the
+/// same ceiling the lightning replay has, for the same reason.
+const MAX_REPLAY_HOURS: i64 = 12;
+
+/// How many products are fetched at once. They are a few kilobytes each and
+/// there are about seventy in six hours.
+const REPLAY_CONCURRENCY: usize = 6;
+
+/// One storm tracking product in a replay, with when it was published.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplayedCells {
+    /// Seconds since the epoch, from the key: when the product went out,
+    /// which is the earliest a poll could have read it.
+    pub published: i64,
+    pub report: CellReport,
+}
+
+/// Every storm tracking product a site published over a stretch of the past.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CellsReplay {
+    pub reports: Vec<ReplayedCells>,
+    /// How many were listed but could not be fetched or read.
+    pub unread: usize,
+}
+
+/// Which keys a replay from `from` to `to` has to read, oldest first.
+///
+/// Every product published in the stretch, and the newest one published
+/// before it: a poll at the first moment is answered with whatever the site
+/// last published, however old, which is what the live reader does too.
+pub(crate) fn replay_cell_keys(
+    keys: &[String],
+    from: DateTime<Utc>,
+    to: DateTime<Utc>,
+) -> Vec<(DateTime<Utc>, String)> {
+    let mut timed: Vec<(DateTime<Utc>, String)> = keys
+        .iter()
+        .filter_map(|key| key_time(key).map(|when| (when, key.clone())))
+        .filter(|(when, _)| *when <= to)
+        .collect();
+    timed.sort();
+    timed.dedup();
+    let start = timed
+        .iter()
+        .rposition(|(when, _)| *when <= from)
+        .unwrap_or(0);
+    timed.split_off(start)
+}
+
+/// The storm tracking a site published over a stretch of the past, for
+/// replaying the storm-approach watch.
+///
+/// The cells alone. The live reader pairs them with the rotation product for
+/// the map, and nothing the approach watch decides reads a rotation.
+#[tauri::command]
+pub async fn level3_cells_replay(
+    station: String,
+    from: i64,
+    to: i64,
+) -> Result<CellsReplay, Level3Error> {
+    let station = station.to_uppercase();
+    let site = bucket_site(&station).ok_or_else(|| Level3Error::UnknownSite(station.clone()))?;
+    let (Some(start), Some(end)) = (
+        DateTime::<Utc>::from_timestamp(from, 0),
+        DateTime::<Utc>::from_timestamp(to, 0),
+    ) else {
+        return Err(Level3Error::ReplaySpan(MAX_REPLAY_HOURS));
+    };
+    if end < start || end - start > Duration::hours(MAX_REPLAY_HOURS) {
+        return Err(Level3Error::ReplaySpan(MAX_REPLAY_HOURS));
+    }
+
+    // The day before as well, because a quiet site can go hours between
+    // products and the first poll is answered by the newest one before it.
+    let mut keys = Vec::new();
+    let mut day = (start - Duration::days(1)).date_naive();
+    while day <= end.date_naive() {
+        keys.extend(keys_for_day(&site, "NST", &day.format("%Y_%m_%d").to_string()).await?);
+        day += Duration::days(1);
+    }
+    // Nothing listed is an answer rather than a failure: the archive's storm
+    // tracking starts in 2020, and a site can be down for a whole storm.
+    let wanted = replay_cell_keys(&keys, start, end);
+
+    let listed = wanted.len();
+    let mut reports: Vec<ReplayedCells> = stream::iter(wanted.into_iter().map(|(when, key)| {
+        let station = station.clone();
+        async move {
+            let bytes = match http::get_bytes(&format!("https://{BUCKET}/{key}")).await {
+                Ok(bytes) => bytes,
+                Err(error) => {
+                    log::warn!("storm tracking {key} could not be fetched: {error}");
+                    return None;
+                }
+            };
+            match read_storm_cells(&bytes, &station) {
+                Ok(report) => Some(ReplayedCells {
+                    published: when.timestamp(),
+                    report,
+                }),
+                Err(error) => {
+                    log::warn!("storm tracking {key} could not be read: {error}");
+                    None
+                }
+            }
+        }
+    }))
+    .buffer_unordered(REPLAY_CONCURRENCY)
+    .filter_map(|found| async move { found })
+    .collect()
+    .await;
+    if listed > 0 && reports.is_empty() {
+        return Err(Level3Error::Unreadable(listed));
+    }
+    reports.sort_by_key(|replayed| replayed.published);
+    let unread = listed - reports.len();
+    Ok(CellsReplay { reports, unread })
+}
+
 /// The rotations that belong with a set of cells, or none at all.
 ///
 /// The two products are published separately and the newest of each can be a
@@ -3043,5 +3169,103 @@ mod tests {
                 "{key:?} produced an address the allowlist refuses"
             );
         }
+    }
+    #[test]
+    fn a_replay_reads_every_product_in_the_stretch_and_the_one_before_it() {
+        let keys: Vec<String> = [
+            "TBW_NST_2022_09_28_17_40_10",
+            "TBW_NST_2022_09_28_17_55_02",
+            "TBW_NST_2022_09_28_18_00_40",
+            "TBW_NST_2022_09_28_18_05_12",
+            "TBW_NST_2022_09_28_19_00_00",
+            "TBW_NST_2022_09_28_19_00_01",
+            "not a key",
+        ]
+        .iter()
+        .map(|key| key.to_string())
+        .collect();
+        let at = |hour, minute, second| {
+            Utc.with_ymd_and_hms(2022, 9, 28, hour, minute, second)
+                .unwrap()
+        };
+        let wanted = replay_cell_keys(&keys, at(18, 0, 0), at(19, 0, 0));
+        let names: Vec<&str> = wanted.iter().map(|(_, key)| key.as_str()).collect();
+        assert_eq!(
+            names,
+            vec![
+                // The newest before the start is what the first poll reads.
+                "TBW_NST_2022_09_28_17_55_02",
+                "TBW_NST_2022_09_28_18_00_40",
+                "TBW_NST_2022_09_28_18_05_12",
+                // The last moment itself, and nothing after it.
+                "TBW_NST_2022_09_28_19_00_00",
+            ]
+        );
+        // With nothing published before the start, the stretch starts with
+        // the first product in it.
+        let later = replay_cell_keys(&keys[2..], at(18, 0, 0), at(19, 0, 0));
+        assert_eq!(
+            later.first().map(|(_, key)| key.as_str()),
+            Some("TBW_NST_2022_09_28_18_00_40")
+        );
+        assert!(replay_cell_keys(&keys, at(17, 0, 0), at(17, 30, 0)).is_empty());
+    }
+
+    #[test]
+    fn a_cells_replay_refuses_a_stretch_it_would_not_ask_for() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+        for (from, to) in [(1_000, 0), (0, MAX_REPLAY_HOURS * 3600 + 1)] {
+            assert!(matches!(
+                runtime.block_on(level3_cells_replay("KTBW".into(), from, to)),
+                Err(Level3Error::ReplaySpan(_))
+            ));
+        }
+    }
+
+    #[test]
+    #[ignore = "asks the NEXRAD Level III archive for a past day's products"]
+    fn replays_what_tampa_tracked_as_ian_came_ashore() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+        let from = Utc
+            .with_ymd_and_hms(2022, 9, 28, 18, 0, 0)
+            .unwrap()
+            .timestamp();
+        let replay = runtime
+            .block_on(level3_cells_replay("KTBW".into(), from, from + 3600))
+            .expect("the archive holds Tampa's storm tracking for that day");
+        assert!(
+            replay.reports.len() >= 10,
+            "{} products",
+            replay.reports.len()
+        );
+        assert!(replay.reports[0].published <= from);
+        assert!(replay
+            .reports
+            .windows(2)
+            .all(|pair| pair[0].published <= pair[1].published));
+        assert!(replay
+            .reports
+            .iter()
+            .all(|replayed| replayed.published <= from + 3600));
+        let tracked: usize = replay
+            .reports
+            .iter()
+            .map(|replayed| replayed.report.cells.len())
+            .sum();
+        println!(
+            "{} products, {tracked} cells in all, {} unread",
+            replay.reports.len(),
+            replay.unread
+        );
+        assert!(
+            tracked > 0,
+            "a landfalling hurricane with no storms tracked"
+        );
     }
 }

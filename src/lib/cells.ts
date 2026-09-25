@@ -57,6 +57,50 @@ export async function fetchCells(station: string): Promise<CellReport> {
   return invoke<CellReport>("level3_cells", { station });
 }
 
+/** One storm tracking product from the archive, and when it went out. */
+export interface ReplayedCells {
+  /** Seconds since the epoch. */
+  published: number;
+  report: CellReport;
+}
+
+export interface CellsReplay {
+  /** Oldest first, starting with the newest one before the stretch. */
+  reports: ReplayedCells[];
+  /** How many were listed but could not be fetched or read. */
+  unread: number;
+}
+
+/** Every storm tracking product a site published over a stretch of the past. */
+export async function fetchCellsReplay(
+  station: string,
+  from: number,
+  to: number,
+): Promise<CellsReplay> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<CellsReplay>("level3_cells_replay", {
+    station,
+    from: Math.floor(from / 1000),
+    to: Math.ceil(to / 1000),
+  });
+}
+
+/**
+ * What a poll at a moment would have been answered with: the newest product
+ * the site had published by then, or null when it had published none.
+ */
+export function cellsPublishedBy(
+  replay: CellsReplay,
+  at: number,
+): CellReport | null {
+  let newest: CellReport | null = null;
+  for (const replayed of replay.reports) {
+    if (replayed.published * 1000 > at) break;
+    newest = replayed.report;
+  }
+  return newest;
+}
+
 /** How long a volume's cells are worth drawing, in minutes. */
 export const CELLS_STALE_MINUTES = 20;
 

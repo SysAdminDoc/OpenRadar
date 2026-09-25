@@ -50,6 +50,9 @@ export const LIGHTNING_COUNTS = [1, 3, 5, 10] as const;
  */
 export const QUIET_AFTER_MS = 30 * 60_000;
 
+/** A file lands every twenty seconds; asking once a minute is plenty. */
+export const LIGHTNING_REFRESH_MS = 60_000;
+
 /**
  * How recent a flash has to be for a place to be called active.
  *
@@ -246,12 +249,23 @@ const remembered = new Map<string, PlaceLightning>();
 export function rememberLightning(
   near: readonly PlaceLightning[],
 ): PlaceLightning[] {
-  const merged = lightningRemembered(near, remembered);
+  return rememberLightningIn(remembered, near);
+}
+
+/**
+ * The same, into a store of the caller's own, which is how a replay keeps
+ * its memory apart from the running app's.
+ */
+export function rememberLightningIn(
+  store: Map<string, PlaceLightning>,
+  near: readonly PlaceLightning[],
+): PlaceLightning[] {
+  const merged = lightningRemembered(near, store);
   // Rebuilt rather than updated, so a place that has stopped being watched is
   // dropped: switching one back on should not show it an age from an hour ago.
-  remembered.clear();
+  store.clear();
   for (const place of merged) {
-    if (place.newest !== null) remembered.set(place.placeId, place);
+    if (place.newest !== null) store.set(place.placeId, place);
   }
   return merged;
 }

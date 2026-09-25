@@ -129,3 +129,76 @@ export function approachesToAnnounce(
     return true;
   });
 }
+
+/**
+ * What each place has been told about, by storm, and where the place was when
+ * it was told.
+ */
+export type ApproachTold = Map<string, { at: string; cells: Set<string> }>;
+
+/** Every place and storm already told, as `approachKey` spells them. */
+export function toldPairs(told: ApproachTold): Set<string> {
+  const already = new Set<string>();
+  for (const [id, said] of told) {
+    for (const cell of said.cells) already.add(`${id}:${cell}`);
+  }
+  return already;
+}
+
+/**
+ * One tick of the approach watch: what to say now, recorded as said.
+ *
+ * The live watch and the replayed one both run this, so the replay says what
+ * the watch would have said rather than what a copy of its rules would. It is
+ * recorded before anything is delivered, so two ticks cannot both decide to
+ * say the same thing.
+ */
+export function approachRound(
+  told: ApproachTold,
+  report: CellReport | null,
+  places: readonly WatchPlace[],
+  settings: ApproachSettings,
+  clock: number,
+): Approach[] {
+  // A place that is no longer watched, or has moved, is forgotten. Only
+  // that place: clearing the lot meant toggling one place off and back on
+  // re-announced every storm at every other place.
+  const live = new Map(
+    places
+      .filter((place) => place.enabled)
+      .map((place) => [place.id, place.center.join(",")]),
+  );
+  for (const [id, said] of told) {
+    if (live.get(id) !== said.at) told.delete(id);
+  }
+  if (!settings.enabled || !report) return [];
+
+  // And a storm the tracker has stopped following is forgotten too. The
+  // identifiers are reused, so a set that grew all session would suppress a
+  // different storm that later inherited the same letter and number, which
+  // is the one failure here nobody would ever see.
+  const living = new Set(report.cells.map((cell) => cell.id));
+  for (const [id, said] of told) {
+    for (const cell of said.cells) {
+      if (!living.has(cell)) said.cells.delete(cell);
+    }
+    if (!said.cells.size) told.delete(id);
+  }
+
+  const coming = approachesFor(report, places, clock);
+  const worth = approachesToAnnounce(
+    coming,
+    settings,
+    places,
+    toldPairs(told),
+    clock,
+  );
+  for (const approach of worth) {
+    const at = live.get(approach.placeId);
+    if (at === undefined) continue;
+    const said = told.get(approach.placeId) ?? { at, cells: new Set() };
+    said.cells.add(approach.cellId);
+    told.set(approach.placeId, said);
+  }
+  return worth;
+}

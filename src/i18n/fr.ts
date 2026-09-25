@@ -472,7 +472,7 @@ export const fr: Catalogue = {
   "history.saveBundle": "Enregistrer le paquet de reprise",
   "backtest.heading": "Ce que votre surveillance aurait dit",
   "backtest.note":
-    "Les règles de votre surveillance des alertes, appliquées à cette reprise au rythme où elle interroge, avec vos heures de silence. Rien n'est envoyé et rien n'entre dans votre registre. Les avis de foudre et d'orage qui approche ne peuvent pas être rejoués, car l'application ne garde aucune archive ni de l'un ni de l'autre.",
+    "Les règles de votre surveillance, appliquées à cette reprise au rythme où elle interroge, avec vos heures de silence : les alertes de l'archive, la foudre des fichiers mêmes du satellite et les orages qui approchent du suivi du radar que vous avez fixé. Rien n'est envoyé et rien n'entre dans votre registre. La foudre lit chaque fichier du satellite de la reprise, une centaine de mégaoctets par heure, elle n'est donc lue que si l'avis de foudre est activé.",
   "backtest.run": "Rejouer la surveillance",
   "backtest.noPlaces":
     "Vous ne surveillez encore aucun lieu, il n'y a donc rien à rejouer. Ajoutez-en un dans les réglages.",
@@ -484,6 +484,24 @@ export const fr: Catalogue = {
     "Les heures de silence l'ont retenue à partir de {from}, et elle a pris fin avant elles.",
   "backtest.failed":
     "L'archive des alertes n'a pas répondu, il n'y a donc rien contre quoi rejouer.",
+  "backtest.lightningOff":
+    "L'avis de foudre est désactivé, il n'y a donc pas de foudre à rejouer.",
+  "backtest.approachOff":
+    "L'avis d'orage qui approche est désactivé, il n'y a donc pas d'orage à rejouer.",
+  "backtest.desktopOnly":
+    "La foudre et le suivi des orages sont rejoués par l'application de bureau, qui lit leurs archives.",
+  "backtest.lightningFailed":
+    "L'archive de foudre du satellite n'a pas répondu, la foudre n'est donc pas dans cette reprise.",
+  "backtest.lightningNoArchive":
+    "L'archive du satellite n'a pas de foudre pour l'heure de cet orage. Elle commence en 2018.",
+  "backtest.approachNoStation":
+    "Fixez un radar pour rejouer ce qu'aurait dit son suivi des orages.",
+  "backtest.approachFailed":
+    "L'archive du suivi des orages de {station} n'a pas répondu, les orages qui approchent ne sont donc pas dans cette reprise.",
+  "backtest.approachNoArchive":
+    "L'archive n'a pas de suivi des orages de {station} pour l'heure de cet orage. Elle commence en 2020.",
+  "backtest.approachFrom":
+    "Les orages qui approchent sont rejoués d'après le suivi de {station}.",
   "history.openBundle": "Ouvrir un paquet de reprise",
   "bundle.replayLabel": "Paquet de reprise",
   "bundle.openTitle": "Ouvrir un paquet de reprise OpenRadar",

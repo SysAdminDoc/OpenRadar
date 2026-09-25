@@ -64,6 +64,7 @@ const ALLOWED_HOSTS: &[&str] = &[
     "unidata-nexrad-level3.s3.amazonaws.com",
     "noaa-mrms-pds.s3.amazonaws.com",
     "noaa-goes19.s3.amazonaws.com",
+    "noaa-goes16.s3.amazonaws.com",
 ];
 
 const MAX_BODY_BYTES: usize = 16 * 1024 * 1024;

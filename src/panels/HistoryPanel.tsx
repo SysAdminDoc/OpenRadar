@@ -27,6 +27,8 @@ import { formatNumber, locale, translate, useT } from "../i18n";
 import { almanacFor, readNotes, type AlmanacNote } from "../lib/almanac";
 import { useLatestReply } from "../hooks/useLatestReply";
 import type { AlertType } from "../lib/alertTypes";
+import type { ApproachSettings } from "../lib/approach";
+import type { LightningRule } from "../lib/lightningWatch";
 import type { WatchPlace } from "../lib/watch";
 import { WatchBacktest } from "./WatchBacktest";
 
@@ -58,6 +60,11 @@ interface HistoryPanelProps {
   watchPlaces: WatchPlace[];
   /** The kinds of warning the watch has switched on. */
   alertKinds: Partial<Record<AlertType, boolean>>;
+  /** The lightning and storm-approach notices, replayed with the warnings. */
+  lightningRule: LightningRule;
+  approach: ApproachSettings;
+  /** The radar site held on the map, whose storm tracking is replayed. */
+  station: string | null;
   onClose: () => void;
 }
 
@@ -91,6 +98,9 @@ export function HistoryPanel({
   onFlyTo,
   watchPlaces,
   alertKinds,
+  lightningRule,
+  approach,
+  station,
   onClose,
 }: HistoryPanelProps) {
   // Off unless ticked, every time: the workspace knows where home is, and a
@@ -425,6 +435,9 @@ export function HistoryPanel({
         <WatchBacktest
           places={watchPlaces}
           kinds={alertKinds}
+          lightning={lightningRule}
+          approach={approach}
+          station={station}
           from={replayed.from}
           to={replayed.to}
         />
