@@ -171,6 +171,80 @@ function beyondByLatitude(one: number, two: number, reach: number): boolean {
 }
 
 /**
+ * How wide a bucket of the spatial index is, in degrees.
+ *
+ * The latitude prune does nothing for a line of storms lying east to west,
+ * where every cell shares a latitude with every flash, and there the count
+ * was every flash against every cell: a sixty-cell line took a tenth of a
+ * second of every window while the map was drawing. Bucketed, a flash is
+ * held against the cells in the few buckets around it.
+ */
+const BUCKET_DEGREES = 0.2;
+
+/** Points, by the bucket of the index each falls in. */
+type Buckets = Map<string, number[]>;
+
+function bucketKey(latitude: number, longitude: number): string {
+  return `${Math.floor(latitude / BUCKET_DEGREES)}:${Math.floor(longitude / BUCKET_DEGREES)}`;
+}
+
+function bucketed(points: readonly { lat: number; lon: number }[]): Buckets {
+  const found: Buckets = new Map();
+  points.forEach((point, index) => {
+    const key = bucketKey(point.lat, point.lon);
+    const held = found.get(key);
+    if (held) held.push(index);
+    else found.set(key, [index]);
+  });
+  return found;
+}
+
+/**
+ * Every point in the buckets a circle could reach, which is a superset of
+ * the points inside it: the caller still measures each one.
+ *
+ * The buckets are measured with the rounded-down miles in a degree, so the
+ * span asked for is never narrower than the circle. Near a pole, or across the
+ * date line, the buckets stop being a useful shape and every point is handed
+ * back instead, which is slow and never wrong.
+ */
+function inReach(
+  buckets: Buckets,
+  count: number,
+  at: { lat: number; lon: number },
+  miles: number,
+): number[] {
+  const latSpan = miles / MILES_PER_DEGREE_LATITUDE;
+  const widest = Math.max(
+    Math.abs(at.lat - latSpan),
+    Math.abs(at.lat + latSpan),
+  );
+  const shrink = Math.cos((Math.min(widest, 90) * Math.PI) / 180);
+  const lonSpan = shrink > 0.05 ? latSpan / shrink : Infinity;
+  if (at.lon - lonSpan < -180 || at.lon + lonSpan > 180) {
+    return Array.from({ length: count }, (_, index) => index);
+  }
+  const found: number[] = [];
+  const top = Math.floor((at.lat + latSpan) / BUCKET_DEGREES);
+  const right = Math.floor((at.lon + lonSpan) / BUCKET_DEGREES);
+  for (
+    let row = Math.floor((at.lat - latSpan) / BUCKET_DEGREES);
+    row <= top;
+    row += 1
+  ) {
+    for (
+      let column = Math.floor((at.lon - lonSpan) / BUCKET_DEGREES);
+      column <= right;
+      column += 1
+    ) {
+      const held = buckets.get(`${row}:${column}`);
+      if (held) found.push(...held);
+    }
+  }
+  return found;
+}
+
+/**
  * Each cell's share of a window's flashes, with every flash counted once.
  *
  * A flash goes to the nearest cell that could claim it and to no other. The
@@ -198,23 +272,46 @@ export function flashesByCell(
   const positions = cells.map((cell) =>
     advectedPosition(cell, atMs, reportedAtMs),
   );
+  const index = bucketed(positions);
   for (const cell of cells) counts.set(cell.id, 0);
   for (const flash of flashes) {
-    let nearest: { id: string; miles: number } | null = null;
-    for (let at = 0; at < cells.length; at += 1) {
-      const pos = positions[at];
-      if (beyondByLatitude(pos.lat, flash.latitude, radiusMiles)) continue;
-      const miles = haversineMiles(pos, {
-        lat: flash.latitude,
-        lon: flash.longitude,
-      });
-      if (miles > radiusMiles) continue;
-      if (nearest && miles >= nearest.miles) continue;
-      nearest = { id: cells[at].id, miles };
-    }
-    if (nearest) counts.set(nearest.id, (counts.get(nearest.id) ?? 0) + 1);
+    const owner = ownerOf(
+      positions,
+      index,
+      { lat: flash.latitude, lon: flash.longitude },
+      radiusMiles,
+    );
+    if (owner < 0) continue;
+    const id = cells[owner].id;
+    counts.set(id, (counts.get(id) ?? 0) + 1);
   }
   return counts;
+}
+
+/**
+ * Which cell a point is, among cells standing where they stand: the nearest
+ * within the radius, ties to the one the tracker listed first, or -1 for none.
+ *
+ * The one rule a flash is shared out by, for a window on the map and for every
+ * bin of a history alike.
+ */
+function ownerOf(
+  positions: readonly { lat: number; lon: number }[],
+  index: Buckets,
+  at: { lat: number; lon: number },
+  radiusMiles: number,
+): number {
+  let owner = -1;
+  let nearest = Infinity;
+  for (const which of inReach(index, positions.length, at, radiusMiles)) {
+    const miles = haversineMiles(positions[which], at);
+    if (miles > radiusMiles) continue;
+    if (miles < nearest || (miles === nearest && which < owner)) {
+      owner = which;
+      nearest = miles;
+    }
+  }
+  return owner;
 }
 
 /**
@@ -266,25 +363,86 @@ const HELD_MARGIN_MILES = 10;
 
 /** The flashes of a window that some cell could claim, now or in the history. */
 function nearAnyCell(
-  cells: readonly CellForFlash[],
+  positions: readonly { lat: number; lon: number }[],
   flashes: readonly Flash[],
-  atMs: number,
-  reportedAtMs: number,
 ): Flash[] {
   const reach = JUMP_RADIUS_MILES + HELD_MARGIN_MILES;
-  const positions = cells.map((cell) =>
-    advectedPosition(cell, atMs, reportedAtMs),
+  const index = bucketed(positions);
+  return flashes.filter((flash) => {
+    const at = { lat: flash.latitude, lon: flash.longitude };
+    return inReach(index, positions.length, at, reach).some(
+      (which) => haversineMiles(positions[which], at) <= reach,
+    );
+  });
+}
+
+/**
+ * Whether a bin held every flash a cell's circle could have taken.
+ *
+ * A bin keeps the flashes within the margin of where the cells stood when it
+ * was filled, and nothing beyond. A cell now counted at a place more than the
+ * margin from all of those, because the tracker re-centred it a long way or
+ * found it somewhere no cell was, would be counted against a bin that never
+ * looked there: the flashes it would have had are not missing from the sky,
+ * only from the bin, and the next bin would read them as a rise.
+ */
+function heldAround(one: HeldBin, at: { lat: number; lon: number }): boolean {
+  return one.reach.some(
+    (position) =>
+      !beyondByLatitude(position.lat, at.lat, HELD_MARGIN_MILES) &&
+      haversineMiles(position, at) <= HELD_MARGIN_MILES,
   );
-  return flashes.filter((flash) =>
-    positions.some(
-      (position) =>
-        !beyondByLatitude(position.lat, flash.latitude, reach) &&
-        haversineMiles(position, {
-          lat: flash.latitude,
-          lon: flash.longitude,
-        }) <= reach,
-    ),
-  );
+}
+
+/**
+ * How many of a held bin's flashes are one cell's, or null where the bin
+ * never looked at the whole of its circle.
+ *
+ * Counted in the cell's own frame: the bin's flashes are carried forward by
+ * the cell's own motion to now, then shared out among the storms as they
+ * stand now, nearest first and ties to the one the tracker listed first. So
+ * every bin of a cell's history is shared out against the same neighbours in
+ * the same places as the newest one. Moving each cell back to where it was
+ * instead put the neighbours where they were, and a neighbour drifting away on
+ * its own motion stopped taking a storm between the two in the newest bin
+ * alone, which read as a jump from steady weather.
+ *
+ * The cell's own flashes move with it, so a fast storm keeps its history
+ * inside its circle, and a neighbour moving with it keeps its own.
+ */
+function countInFrame(
+  one: HeldBin,
+  which: number,
+  cells: readonly CellForFlash[],
+  current: readonly { lat: number; lon: number }[],
+  currentIndex: Buckets,
+  reportedAtMs: number,
+): number | null {
+  const then = advectedPosition(cells[which], one.observedAt, reportedAtMs);
+  if (!heldAround(one, then)) return null;
+  const home = current[which];
+  const shiftLat = home.lat - then.lat;
+  const shiftLon = home.lon - then.lon;
+  let count = 0;
+  // A little past the radius, because carrying a flash across degrees of
+  // longitude that are not all the same width moves it a hair relative to
+  // the cell; the distance measured after the move is the one that decides.
+  for (const index of inReach(
+    one.index,
+    one.flashes.length,
+    then,
+    JUMP_RADIUS_MILES + 1,
+  )) {
+    const flash = one.flashes[index];
+    const moved = {
+      lat: flash.latitude + shiftLat,
+      lon: flash.longitude + shiftLon,
+    };
+    if (ownerOf(current, currentIndex, moved, JUMP_RADIUS_MILES) === which) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 /**
@@ -396,6 +554,10 @@ interface HeldBin {
   covered: number;
   /** The flashes in it that some cell could claim. */
   flashes: Flash[];
+  /** Those flashes, bucketed, so a cell's count reads only the ones near it. */
+  index: Buckets;
+  /** Where the cells stood when it was filled, which is where it looked. */
+  reach: { lat: number; lon: number }[];
 }
 
 /**
@@ -497,41 +659,53 @@ export function rememberJumps(
     // Too little of the bin has happened to rate it. What was held stays,
     // rather than a count over four seconds taking a minute's place.
     if (covered >= JUMP_MIN_COVERED_MS) {
+      const reach = cells.map((cell) =>
+        advectedPosition(cell, at, reportedAtMs),
+      );
+      const kept = nearAnyCell(reach, inBin);
       bins.set(bin, {
         at: bin,
         observedAt: at,
         covered,
-        flashes: nearAnyCell(cells, inBin, at, reportedAtMs),
+        flashes: kept,
+        index: bucketed(
+          kept.map((flash) => ({ lat: flash.latitude, lon: flash.longitude })),
+        ),
+        reach,
       });
     }
   }
   for (const key of [...bins.keys()]) {
     if (bin - key >= JUMP_BIN_MS * JUMP_HISTORY_BINS) bins.delete(key);
   }
-  // Every held bin counted under the cells there are now, each at the moment
-  // it was observed so a moving cell is where it was then.
+  // Every held bin counted under the cells there are now, where they stand
+  // now, each in the frame of the cell whose history it is.
   const held = [...bins.values()].sort((one, two) => one.at - two.at);
-  const counted = held.map((one) =>
-    flashesByCell(
-      cells,
-      one.flashes,
-      JUMP_RADIUS_MILES,
-      one.observedAt,
-      reportedAtMs,
-    ),
-  );
+  const current = cells.map((cell) => advectedPosition(cell, at, reportedAtMs));
+  const currentIndex = bucketed(current);
   const found = new Map<string, CellJump>();
-  for (const cell of cells) {
+  cells.forEach((cell, which) => {
     const since = firstSeen.get(cell.id) ?? bin;
     let series: JumpSample[] = [];
-    held.forEach((one, index) => {
-      if (one.at < since) return;
+    for (const one of held) {
+      if (one.at < since) continue;
+      const flashes = countInFrame(
+        one,
+        which,
+        cells,
+        current,
+        currentIndex,
+        reportedAtMs,
+      );
+      // A bin that never looked at the whole circle is not a count of none,
+      // so it is left out, and `changes` measures across the gap it leaves.
+      if (flashes === null) continue;
       series = withSample(series, {
         at: one.at,
-        flashes: counted[index].get(cell.id) ?? 0,
+        flashes,
         covered: one.covered,
       });
-    });
+    }
     const jump = jumpIn(series);
     const prior = priorJumps.get(cell.id) ?? null;
     // Hold: a jump that fired on the previous bin stays on the card for one
@@ -549,7 +723,7 @@ export function rememberJumps(
       priorJumps.delete(cell.id);
       found.set(cell.id, jump);
     }
-  }
+  });
   return found;
 }
 

@@ -752,6 +752,291 @@ describe("the series each tracked cell carries between windows", () => {
   });
 });
 
+describe("each cell's history, counted against the storms as they stand now", () => {
+  // Miles as the app's own distance measures them: a degree of latitude is
+  // 69.09 of them on the sphere `haversineMiles` uses.
+  const mile = 1 / 69.0933;
+
+  /** Where a cell has got to after moving at a speed and heading for a time. */
+  function moved(
+    latitude: number,
+    longitude: number,
+    speedMs: number,
+    directionDegrees: number,
+    seconds: number,
+  ) {
+    const km = (speedMs * seconds) / 1000;
+    const rad = (directionDegrees * Math.PI) / 180;
+    return {
+      latitude: latitude + (km * Math.cos(rad)) / 111.32,
+      longitude:
+        longitude +
+        (km * Math.sin(rad)) / (111.32 * Math.cos((latitude * Math.PI) / 180)),
+    };
+  }
+
+  function many(
+    count: number,
+    latitude: number,
+    longitude: number,
+    at: number,
+  ) {
+    return new Array(count)
+      .fill(null)
+      .map(() => flash(latitude, longitude, at));
+  }
+
+  it("does not call a neighbour moving away on its own reported motion a jump", () => {
+    // A1 stands still over a storm, with a second storm 7.9 miles north of
+    // it. A2 starts twelve miles north and moves off northward at eight
+    // metres a second with that motion in every report, so on the last bin it
+    // is past 15.8 miles and the storm between them is nearer A1. Moving
+    // every cell back to where it was put A2 back where it could still take
+    // that storm in the old bins alone, and the newest bin read as a jump.
+    const still = cell("A1", 41.6, -93.6);
+    const counts = [20, 22, 20, 22, 20, 22, 20, 20];
+    let found = new Map<string, ReturnType<typeof jumpIn>>();
+    counts.forEach((count, at) => {
+      const when = closing(at);
+      const reportedAt = when - 30_000;
+      const where = moved(
+        41.6 + 12 * mile,
+        -93.6,
+        8,
+        0,
+        (reportedAt - closing(0)) / 1000,
+      );
+      const leaving = cell("A2", where.latitude, where.longitude, 8, 0);
+      found = rememberJumps(
+        [still, leaving],
+        [
+          ...many(count, 41.6, -93.6, when),
+          ...many(count, 41.6 + 7.9 * mile, -93.6, when),
+        ],
+        when,
+        false,
+        reportedAt,
+      );
+    });
+    // The storm between them did reach A1, which is what makes this a test.
+    expect(found.get("A1")?.rate).toBeCloseTo(20, 6);
+    expect(found.get("A1")?.at).toBeNull();
+  });
+
+  it("does not call it a jump when the whole line moves and one storm moves faster", () => {
+    // Both cells moving north-east at fifteen metres a second, A2 with eight
+    // more to the north on top, and A1's two storms moving with A1.
+    const counts = [20, 22, 20, 22, 20, 22, 20, 20];
+    const east = 15 * Math.sin(Math.PI / 4);
+    const north = 15 * Math.cos(Math.PI / 4);
+    const fasterSpeed = Math.hypot(east, north + 8);
+    const fasterHeading = (Math.atan2(east, north + 8) * 180) / Math.PI;
+    let found = new Map<string, ReturnType<typeof jumpIn>>();
+    counts.forEach((count, at) => {
+      const when = closing(at);
+      const reportedAt = when - 30_000;
+      const since = (reportedAt - closing(0)) / 1000;
+      const a = moved(41.6, -93.6, 15, 45, since);
+      const b = moved(
+        41.6 + 12 * mile,
+        -93.6,
+        fasterSpeed,
+        fasterHeading,
+        since,
+      );
+      const here = moved(41.6, -93.6, 15, 45, (when - closing(0)) / 1000);
+      found = rememberJumps(
+        [
+          cell("A1", a.latitude, a.longitude, 15, 45),
+          cell("A2", b.latitude, b.longitude, fasterSpeed, fasterHeading),
+        ],
+        [
+          ...many(count, here.latitude, here.longitude, when),
+          ...many(count, here.latitude + 7.9 * mile, here.longitude, when),
+        ],
+        when,
+        false,
+        reportedAt,
+      );
+    });
+    expect(found.get("A1")?.rate).toBeCloseTo(20, 6);
+    expect(found.get("A1")?.at).toBeNull();
+  });
+
+  it("reports a fast storm's real rise while it moves east", () => {
+    // The same as the storm moving north above, across degrees of longitude
+    // instead, which are the ones that narrow with latitude: a history carried
+    // north alone would leave every old bin behind a circle that has moved on.
+    const counts = [24, 26, 24, 26, 24, 26, 24, 26, 52];
+    let found = new Map<string, ReturnType<typeof jumpIn>>();
+    counts.forEach((count, at) => {
+      const when = closing(at);
+      const reportedAt = when - 30_000;
+      const reported = moved(41.6, -93.6, 30, 90, (reportedAt - AT) / 1000);
+      const here = moved(41.6, -93.6, 30, 90, (when - AT) / 1000);
+      found = rememberJumps(
+        [cell("A1", reported.latitude, reported.longitude, 30, 90)],
+        many(count, here.latitude, here.longitude, when),
+        when,
+        false,
+        reportedAt,
+      );
+    });
+    expect(found.get("A1")?.rate).toBeCloseTo(26, 6);
+    expect(found.get("A1")?.at).not.toBeNull();
+  });
+
+  it("does not call a centroid moved further than the bins looked a jump", () => {
+    // The tracker re-centres A1 twelve miles north, between a storm sixteen
+    // miles north of where it was and another at twenty-one. The bins held
+    // flashes out to twenty miles of the cells of their moment, so they have
+    // the first storm and never had the second: counted as they stand, the
+    // history lacks a storm that was there all along and the move reads as
+    // the rate doubling. The bins that never looked at the whole of the new
+    // circle are not counted at all.
+    const counts = [20, 22, 20, 22, 20, 22, 20, 20];
+    const storms = (at: number) => [
+      ...many(counts[at], 41.6 + 16 * mile, -93.6, closing(at)),
+      ...many(counts[at], 41.6 + 21 * mile, -93.6, closing(at)),
+    ];
+    for (let at = 0; at < 7; at += 1) {
+      rememberJumps([cell("A1", 41.6, -93.6)], storms(at), closing(at));
+    }
+    const after = rememberJumps(
+      [cell("A1", 41.6 + 12 * mile, -93.6)],
+      storms(7),
+      closing(7),
+    );
+    expect(after.get("A1")?.rate).toBeCloseTo(20, 6);
+    expect(after.get("A1")?.sigma).toBeNull();
+    expect(after.get("A1")?.at).toBeNull();
+  });
+
+  it("keeps a history through a centroid that wanders a few miles each scan", () => {
+    // The tracker's centroid for one storm moves four miles east and west of
+    // it on alternate scans. That is ordinary wander, well inside what a bin
+    // holds, and a real rise at the end has to be reported through it.
+    const counts = [20, 22, 20, 22, 20, 22, 20, 100];
+    let found = new Map<string, ReturnType<typeof jumpIn>>();
+    const lonMile = mile / Math.cos((41.6 * Math.PI) / 180);
+    counts.forEach((count, at) => {
+      const wander = at % 2 === 0 ? 4 : -4;
+      found = rememberJumps(
+        [cell("A1", 41.6, -93.6 + wander * lonMile)],
+        many(count, 41.6, -93.6, closing(at)),
+        closing(at),
+      );
+    });
+    expect(found.get("A1")?.rate).toBeCloseTo(50, 6);
+    expect(found.get("A1")?.at).not.toBeNull();
+  });
+
+  it("starts a reused identifier's history again", () => {
+    // A1 is dropped for one scan while A2 stays beside it, then an A1 comes
+    // back over the same storm. Identifiers are reused, so the A1 that comes
+    // back is judged as new: its series starts where it reappeared.
+    const counts = [20, 26, 18, 24, 20, 26, 18, 24, 20];
+    const a2 = cell("A2", 41.6, -93.6 + 9 * mile);
+    counts.forEach((count, at) => {
+      rememberJumps(
+        at === 7 ? [a2] : [cell("A1", 41.6, -93.6), a2],
+        many(count, 41.6, -93.6, closing(at)),
+        closing(at),
+      );
+    });
+    const back = rememberJumps(
+      [cell("A1", 41.6, -93.6), a2],
+      many(counts[8], 41.6, -93.6, closing(8)),
+      closing(8),
+    );
+    expect(back.get("A1")?.rate).toBeCloseTo(10, 6);
+    expect(back.get("A1")?.sigma).toBeNull();
+  });
+
+  it("counts a flash to the radius and not past it, in the series as well", () => {
+    const found = rememberJumps(
+      [CELL],
+      [
+        ...many(20, 41.6 + 9.8 * mile, -93.6, closing(0)),
+        ...many(20, 41.6 + 10.2 * mile, -93.6, closing(0)),
+      ],
+      closing(0),
+    );
+    expect(found.get("A1")?.rate).toBeCloseTo(10, 6);
+  });
+
+  it("gives a flash halfway between two cells to the one listed first", () => {
+    // Quarter degrees, which binary holds exactly, so the two distances are
+    // the same number and not two that differ in the last digit.
+    const west = cell("A1", 41.5, -93.625);
+    const east = cell("A2", 41.5, -93.375);
+    const found = rememberJumps(
+      [west, east],
+      many(20, 41.5, -93.5, closing(0)),
+      closing(0),
+    );
+    expect(found.get("A1")?.rate).toBeCloseTo(10, 6);
+    expect(found.get("A2")?.rate).toBe(0);
+    // And the other way round when the tracker lists them the other way.
+    forgetJumps();
+    const turned = rememberJumps(
+      [east, west],
+      many(20, 41.5, -93.5, closing(0)),
+      closing(0),
+    );
+    expect(turned.get("A2")?.rate).toBeCloseTo(10, 6);
+    expect(turned.get("A1")?.rate).toBe(0);
+  });
+
+  it("claims a flash just inside the radius due north and due east", () => {
+    // Due north is where the latitude shortcut does all the deciding, and a
+    // degree of longitude is narrower than one of latitude, so due east is
+    // where the search has to reach furthest in degrees. The search runs from
+    // the flash out to the cells, so each cell sits just inside the far edge
+    // of a bucket of the index, which is where a reach cut short would stop
+    // one bucket too soon.
+    const north = cell("N1", 41.799, -93.6);
+    const upward = flash(41.799 + 9.95 * mile, -93.6);
+    expect(Math.floor(north.latitude / 0.2)).toBe(208);
+    expect(Math.floor((upward.latitude - 10 / 69.09) / 0.2)).toBe(208);
+    expect(flashesByCell([north], [upward]).get("N1")).toBe(1);
+
+    const east = cell("E1", 41.6, -93.401);
+    const across = flash(
+      41.6,
+      -93.401 + (9.95 * mile) / Math.cos((41.6 * Math.PI) / 180),
+    );
+    expect(Math.floor(east.longitude / 0.2)).toBe(-468);
+    expect(flashesByCell([east], [across]).get("E1")).toBe(1);
+  });
+
+  it("reads a sixty-cell line lying east to west without scanning every pair", () => {
+    // Every cell shares a latitude with every flash, which is the one layout
+    // the latitude shortcut cannot help with. Twelve miles apart, with four
+    // hundred flashes a bin round each, for seven bins.
+    const lonMile = mile / Math.cos((35 * Math.PI) / 180);
+    const line = Array.from({ length: 60 }, (_, index) =>
+      cell(`L${index}`, 35, -100 + index * 12 * lonMile),
+    );
+    const started = performance.now();
+    for (let at = 0; at < 7; at += 1) {
+      const flashes = line.flatMap((one, index) =>
+        many(
+          400 + (index % 3),
+          one.latitude + 2 * mile,
+          one.longitude,
+          closing(at),
+        ),
+      );
+      rememberJumps(line, flashes, closing(at));
+    }
+    const took = performance.now() - started;
+    // Generous, because a test machine is busy: the scan over every pair this
+    // replaced took several times this on its own.
+    expect(took).toBeLessThan(1500);
+  });
+});
+
 describe("Poisson false positive rate", () => {
   it("fires on under 2.5% of bins for a steady 30-a-minute storm", () => {
     // The acceptance criterion: a thousand steady storms must not trigger
